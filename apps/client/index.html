@@ -1,0 +1,624 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
+    />
+    <title>CraftYap — Daily Tower & Robo Builder</title>
+    <meta
+      name="description"
+      content="CraftYap is a playful blocky web game: climb a fresh multiplayer obby every day, or kick back and watch your crew build world landmarks brick by brick."
+    />
+    <meta name="theme-color" content="#ffd21c" />
+    <link rel="canonical" href="https://craftyap.com/" />
+    <link rel="icon" type="image/png" href="/craftyap-logo.png" />
+    <link rel="apple-touch-icon" href="/craftyap-logo.png" />
+
+    <!-- Open Graph / Twitter: rich link previews when craftyap.com is shared -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="CraftYap" />
+    <meta property="og:title" content="CraftYap — Daily Tower & Robo Builder" />
+    <meta
+      property="og:description"
+      content="Climb a fresh daily obby or watch your crew build world landmarks. A playful blocky web game."
+    />
+    <meta property="og:url" content="https://craftyap.com/" />
+    <meta property="og:image" content="https://craftyap.com/craftyap-banner.png" />
+    <meta property="og:image:width" content="1672" />
+    <meta property="og:image:height" content="941" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="CraftYap — Daily Tower & Robo Builder" />
+    <meta
+      name="twitter:description"
+      content="Climb a fresh daily obby or watch your crew build world landmarks."
+    />
+    <meta name="twitter:image" content="https://craftyap.com/craftyap-banner.png" />
+
+    <!-- playful rounded face; degrades to system-ui offline -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Jua&display=swap" rel="stylesheet" />
+    <style>
+      /* ---------------------------------------------------------------
+         CraftYap doodle design language
+         - white "sticker" cards with thick ink outlines
+         - wobbly hand-drawn corners (asymmetric border-radius)
+         - hard offset shadows, crayon palette, slight sticker tilts
+         --------------------------------------------------------------- */
+      :root {
+        --ink: #1f1f1f;
+        --paper: #ffffff;
+        --paper-dim: #f6f1e6;
+        --cy-yellow: #ffd21c;
+        --cy-blue: #2f7de1;
+        --cy-green: #52b84d;
+        --cy-red: #ef3a5d;
+        --cy-purple: #8a4fd7;
+        --cy-orange: #f5802b;
+        --wobble-lg: 24px 20px 26px 18px / 20px 26px 18px 24px;
+        --wobble-md: 14px 18px 12px 16px / 16px 12px 18px 14px;
+        --wobble-sm: 10px 13px 9px 12px / 12px 9px 13px 10px;
+        --shadow-hard: 4px 5px 0 rgba(31, 31, 31, 0.85);
+        --shadow-soft: 3px 3px 0 rgba(31, 31, 31, 0.8);
+      }
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        height: 100%;
+        overflow: hidden;
+        background: #7ec8f0;
+        font-family: "Jua", system-ui, -apple-system, sans-serif;
+      }
+      #app {
+        position: fixed;
+        inset: 0;
+      }
+      #app canvas {
+        display: block;
+        touch-action: none;
+      }
+      #boot-overlay {
+        position: fixed;
+        inset: 0;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 18px;
+        background: var(--paper) url("/craftyap-banner.png") center bottom / cover no-repeat;
+        color: var(--ink);
+        z-index: 100;
+        transition: opacity 0.3s;
+        font-size: 18px;
+        text-shadow:
+          0 0 6px #fff,
+          0 0 12px #fff;
+      }
+      #boot-overlay.hidden {
+        opacity: 0;
+        pointer-events: none;
+      }
+      #boot-overlay .spinner {
+        width: 52px;
+        height: 52px;
+        border: 6px solid var(--ink);
+        border-top-color: var(--cy-yellow);
+        border-radius: 47% 53% 51% 49% / 52% 48% 52% 48%;
+        animation: spin 0.9s linear infinite;
+        background: var(--paper);
+      }
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+      #boot-overlay button {
+        display: none;
+        padding: 10px 30px;
+        font-size: 17px;
+        font-family: inherit;
+        color: var(--paper);
+        background: var(--cy-green);
+        border: 3px solid var(--ink);
+        border-radius: var(--wobble-md);
+        box-shadow: var(--shadow-soft);
+        cursor: pointer;
+      }
+      #boot-overlay.error .spinner {
+        display: none;
+      }
+      #boot-overlay.error button {
+        display: block;
+      }
+
+      /* ---------- HUD (tower) ---------- */
+      .hud {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        pointer-events: none;
+        z-index: 20;
+      }
+      .hud-top {
+        display: flex;
+        gap: 10px;
+        padding: 12px 12px;
+        justify-content: center;
+        flex-wrap: wrap;
+      }
+      .hud-chip {
+        background: var(--paper);
+        color: var(--ink);
+        border: 3px solid var(--ink);
+        font-size: 15px;
+        padding: 4px 14px;
+        border-radius: var(--wobble-sm);
+        min-width: 48px;
+        text-align: center;
+        box-shadow: var(--shadow-soft);
+      }
+      .hud-chip:nth-child(odd) {
+        transform: rotate(-1.2deg);
+      }
+      .hud-chip:nth-child(even) {
+        transform: rotate(1deg);
+      }
+      .hud-banner {
+        margin: 6px auto 0;
+        width: fit-content;
+        max-width: 90vw;
+        background: var(--cy-orange);
+        color: var(--paper);
+        font-size: 14px;
+        padding: 6px 16px;
+        border: 3px solid var(--ink);
+        border-radius: var(--wobble-sm);
+        box-shadow: var(--shadow-soft);
+      }
+      .hidden {
+        display: none !important;
+      }
+
+      /* ---------- screens ---------- */
+      .screen {
+        position: fixed;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 30;
+        background: rgba(20, 30, 50, 0.35);
+      }
+      /* the very first screen sits on the doodle banner, not on the 3D world */
+      .mode-screen {
+        background: var(--paper) url("/craftyap-banner.png") center / cover no-repeat;
+      }
+      .screen-card {
+        background: var(--paper) url("/textures/doodle-paper.png");
+        background-size: 280px;
+        border: 4px solid var(--ink);
+        border-radius: var(--wobble-lg);
+        padding: 26px 32px;
+        text-align: center;
+        box-shadow: 6px 7px 0 rgba(31, 31, 31, 0.8);
+        max-width: min(430px, 90vw);
+        transform: rotate(-0.6deg);
+      }
+      .brand-logo {
+        display: block;
+        width: min(240px, 60vw);
+        margin: -6px auto 2px;
+      }
+      .brand-logo.small {
+        width: min(170px, 45vw);
+      }
+      .screen-card h1 {
+        margin: 0 0 6px;
+        font-size: 32px;
+        font-weight: 400;
+        color: var(--ink);
+      }
+      .screen-card .subtitle {
+        margin: 0 0 16px;
+        color: #5a5a5a;
+        font-size: 15px;
+      }
+      .mode-btn {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        width: 100%;
+        box-sizing: border-box;
+        margin: 0 0 12px;
+        padding: 13px 16px;
+        border: 3px solid var(--ink);
+        border-radius: var(--wobble-md);
+        background: var(--paper);
+        box-shadow: var(--shadow-soft);
+        cursor: pointer;
+        text-align: left;
+        font-family: inherit;
+        transition:
+          transform 0.08s,
+          box-shadow 0.08s;
+      }
+      .mode-btn[data-mode="tower"] {
+        background: #eaf3ff;
+        transform: rotate(0.5deg);
+      }
+      .mode-btn[data-mode="builder"] {
+        background: #edf9ec;
+        transform: rotate(-0.7deg);
+      }
+      .mode-btn:hover {
+        transform: translate(-2px, -2px);
+        box-shadow: 5px 6px 0 rgba(31, 31, 31, 0.85);
+      }
+      .mode-btn:active {
+        transform: translate(2px, 2px);
+        box-shadow: 1px 1px 0 rgba(31, 31, 31, 0.85);
+      }
+      .mode-emoji {
+        font-size: 34px;
+      }
+      .mode-text b {
+        display: block;
+        font-size: 19px;
+        font-weight: 400;
+        color: var(--cy-blue);
+      }
+      .mode-btn[data-mode="builder"] .mode-text b {
+        color: var(--cy-green);
+      }
+      .mode-text small {
+        color: #6a6a6a;
+        font-size: 12px;
+        font-family: system-ui, sans-serif;
+      }
+      .screen-card .daily-label {
+        margin: 0 0 10px;
+        font-size: 14px;
+        color: var(--cy-blue);
+      }
+      .board-empty {
+        justify-content: center;
+        color: #8a8a8a !important;
+      }
+      .title-screen .board {
+        margin-top: 14px;
+      }
+      .screen-card input {
+        display: block;
+        width: 100%;
+        box-sizing: border-box;
+        margin: 0 0 12px;
+        padding: 10px 12px;
+        font-size: 17px;
+        font-family: inherit;
+        color: var(--ink);
+        border: 3px solid var(--ink);
+        border-radius: var(--wobble-md);
+        text-align: center;
+        background: var(--paper);
+      }
+      .screen-card input:focus {
+        outline: none;
+        border-color: var(--cy-blue);
+      }
+      .screen-card button.primary {
+        width: 100%;
+        padding: 12px 0;
+        font-size: 19px;
+        font-family: inherit;
+        color: var(--paper);
+        background: var(--cy-green);
+        border: 3px solid var(--ink);
+        border-radius: var(--wobble-md);
+        box-shadow: var(--shadow-hard);
+        cursor: pointer;
+        transition:
+          transform 0.08s,
+          box-shadow 0.08s;
+      }
+      .screen-card button.primary:hover {
+        transform: translate(-1px, -1px);
+        box-shadow: 5px 6px 0 rgba(31, 31, 31, 0.85);
+      }
+      .screen-card button.primary:active {
+        transform: translate(2px, 2px);
+        box-shadow: 1px 1px 0 rgba(31, 31, 31, 0.85);
+      }
+      .screen-card .help {
+        margin: 14px 0 0;
+        font-size: 12px;
+        font-family: system-ui, sans-serif;
+        color: #8a8a8a;
+      }
+      .board {
+        margin: 0 0 14px;
+        max-height: 180px;
+        overflow-y: auto;
+        border: 3px solid var(--ink);
+        border-radius: var(--wobble-md);
+        background: var(--paper-dim);
+        padding: 4px;
+      }
+      .board-row {
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        font-size: 14px;
+        padding: 4px 10px;
+        border-radius: 8px;
+        color: var(--ink);
+      }
+      .board-row:nth-child(odd) {
+        background: var(--paper);
+      }
+      .board-row:first-child span:first-child {
+        color: var(--cy-red);
+      }
+
+      /* ---------- generated game-UI art ---------- */
+      .ui-icon {
+        width: 36px;
+        height: 36px;
+        object-fit: contain;
+        display: inline-block;
+        vertical-align: middle;
+      }
+      .mode-icon {
+        width: 46px;
+        height: 46px;
+        object-fit: contain;
+        flex: none;
+      }
+
+      /* ---------- builder mode ---------- */
+      .builder-hud {
+        position: fixed;
+        inset: 0;
+        pointer-events: none;
+        z-index: 20;
+      }
+      .b-top {
+        position: absolute;
+        top: 14px;
+        left: 16px;
+        background: var(--cy-yellow);
+        color: var(--ink);
+        border: 3px solid var(--ink);
+        border-radius: var(--wobble-md);
+        box-shadow: var(--shadow-hard);
+        padding: 8px 16px;
+        transform: rotate(-1.4deg);
+        transition: transform 0.12s;
+      }
+      .b-top.pulse {
+        transform: rotate(-1.4deg) scale(1.08);
+      }
+      .b-gold {
+        font-size: 23px;
+        color: var(--ink);
+      }
+      .b-gold .ui-icon {
+        width: 26px;
+        height: 26px;
+        margin: -4px 5px 0 0;
+      }
+      .b-goal-head .ui-icon {
+        width: 22px;
+        height: 22px;
+        margin: -3px 4px 0 0;
+      }
+      .b-sub {
+        font-size: 12px;
+        font-family: system-ui, sans-serif;
+        font-weight: 600;
+        color: #4a4a4a;
+      }
+      .b-goal {
+        position: absolute;
+        top: 14px;
+        left: 50%;
+        transform: translateX(-50%) rotate(0.6deg);
+        width: min(360px, 86vw);
+        background: var(--paper) url("/textures/doodle-paper.png");
+        background-size: 280px;
+        border: 3px solid var(--ink);
+        border-radius: var(--wobble-md);
+        padding: 10px 14px;
+        box-shadow: var(--shadow-hard);
+      }
+      .b-goal-head {
+        display: flex;
+        justify-content: space-between;
+        font-size: 15px;
+        color: var(--ink);
+      }
+      .b-goal-reward {
+        color: var(--cy-orange);
+      }
+      .b-goal-bar {
+        margin-top: 6px;
+        height: 12px;
+        background: var(--paper-dim);
+        border: 2px solid var(--ink);
+        border-radius: 999px;
+        overflow: hidden;
+      }
+      .b-goal-fill {
+        height: 100%;
+        width: 0;
+        background: repeating-linear-gradient(
+          -45deg,
+          var(--cy-green),
+          var(--cy-green) 8px,
+          #6fd94a 8px,
+          #6fd94a 16px
+        );
+        border-radius: 999px;
+        transition: width 0.25s;
+      }
+      .b-goal-count {
+        margin-top: 4px;
+        font-size: 11px;
+        font-family: system-ui, sans-serif;
+        color: #8a8a8a;
+        text-align: right;
+      }
+      .b-shop {
+        position: absolute;
+        bottom: 16px;
+        left: 50%;
+        transform: translateX(-50%);
+        display: flex;
+        gap: 12px;
+        pointer-events: auto;
+        flex-wrap: wrap;
+        justify-content: center;
+        max-width: 96vw;
+      }
+      /* shop buttons ride on generated crayon button plates (2:1 art) */
+      .b-shop-btn {
+        min-width: 132px;
+        padding: 12px 18px 16px;
+        border: none;
+        background: transparent url("/ui/btn-green.png") center / 100% 100% no-repeat;
+        color: var(--paper);
+        cursor: pointer;
+        font-family: inherit;
+        text-align: center;
+        text-shadow: 0 1px 0 rgba(0, 0, 0, 0.35);
+        filter: drop-shadow(3px 4px 0 rgba(31, 31, 31, 0.5));
+        transition:
+          transform 0.08s,
+          filter 0.08s;
+      }
+      .b-shop-btn:nth-child(1) {
+        transform: rotate(-1deg);
+      }
+      .b-shop-btn:nth-child(2) {
+        background-image: url("/ui/btn-blue.png");
+        transform: rotate(0.8deg);
+      }
+      .b-shop-btn:nth-child(3) {
+        background-image: url("/ui/btn-orange.png");
+        transform: rotate(-0.6deg);
+      }
+      .b-shop-btn:nth-child(4) {
+        background-image: url("/ui/btn-purple.png");
+        transform: rotate(1deg);
+      }
+      .b-shop-btn:hover:not(:disabled) {
+        transform: translate(-1px, -2px);
+        filter: drop-shadow(5px 6px 0 rgba(31, 31, 31, 0.5)) brightness(1.06);
+      }
+      .b-shop-btn:active:not(:disabled) {
+        transform: translate(1px, 2px);
+        filter: drop-shadow(1px 1px 0 rgba(31, 31, 31, 0.5));
+      }
+      .b-shop-btn .ui-icon {
+        width: 30px;
+        height: 30px;
+        margin-bottom: 1px;
+      }
+      .b-shop-btn b {
+        display: block;
+        font-size: 14px;
+        font-weight: 400;
+      }
+      .b-shop-btn small {
+        font-size: 11px;
+        font-family: system-ui, sans-serif;
+        opacity: 0.95;
+      }
+      .b-shop-btn:disabled {
+        cursor: default;
+        filter: grayscale(1) opacity(0.72) drop-shadow(2px 3px 0 rgba(31, 31, 31, 0.4));
+      }
+      .b-toast {
+        position: fixed;
+        top: 78px;
+        left: 50%;
+        transform: translateX(-50%) rotate(-1deg);
+        background: var(--cy-yellow);
+        color: var(--ink);
+        padding: 10px 22px;
+        border: 3px solid var(--ink);
+        border-radius: var(--wobble-md);
+        z-index: 40;
+        box-shadow: var(--shadow-hard);
+      }
+      .b-offline-stats {
+        display: flex;
+        justify-content: center;
+        gap: 18px;
+        margin: 0 0 16px;
+        font-size: 15px;
+        color: var(--ink);
+      }
+
+      /* ---------- touch controls ---------- */
+      .touch-joy-zone,
+      .touch-jump-btn {
+        display: none;
+      }
+      body.touch .touch-joy-zone {
+        display: block;
+        position: fixed;
+        left: 0;
+        bottom: 0;
+        width: 38vw;
+        height: 45vh;
+        z-index: 25;
+        touch-action: none;
+      }
+      body.touch .touch-joy-knob {
+        position: absolute;
+        left: 70px;
+        bottom: 90px;
+        width: 64px;
+        height: 64px;
+        border-radius: 47% 53% 51% 49% / 52% 48% 52% 48%;
+        background: rgba(255, 255, 255, 0.55);
+        border: 3px solid var(--ink);
+      }
+      body.touch .touch-jump-btn {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        position: fixed;
+        right: 26px;
+        bottom: 70px;
+        width: 84px;
+        height: 84px;
+        border-radius: 47% 53% 51% 49% / 52% 48% 52% 48%;
+        background: var(--cy-green);
+        border: 3px solid var(--ink);
+        box-shadow: var(--shadow-hard);
+        color: var(--paper);
+        font-family: "Jua", system-ui, sans-serif;
+        font-size: 18px;
+        z-index: 25;
+        touch-action: none;
+        user-select: none;
+        -webkit-user-select: none;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="app"></div>
+    <div id="boot-overlay">
+      <img class="brand-logo" src="/craftyap-logo.png" alt="CraftYap" />
+      <div class="spinner"></div>
+      <div id="boot-message">Loading…</div>
+      <button id="boot-retry">Retry</button>
+    </div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

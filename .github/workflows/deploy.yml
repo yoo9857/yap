@@ -1,0 +1,72 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-craftyap
+  cancel-in-progress: false
+
+jobs:
+  # Nothing reaches the server without green gates.
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4 # reads packageManager from package.json
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm typecheck
+      - run: pnpm test
+
+  deploy:
+    needs: test
+    runs-on: ubuntu-latest
+    # Requires two repository secrets (Settings → Secrets and variables →
+    # Actions).  Same server/key family as poke:
+    #   DEPLOY_SSH_KEY     — private key authorized for root@172.236.235.9
+    #   DEPLOY_KNOWN_HOSTS — output of: ssh-keyscan -t ed25519,rsa 172.236.235.9
+    steps:
+      - name: Set up SSH
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          printf '%s\n' "${{ secrets.DEPLOY_KNOWN_HOSTS }}" > ~/.ssh/known_hosts
+
+      - name: Deploy on the server (build image, reload nginx, health-check)
+        run: |
+          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=yes root@172.236.235.9 '
+            set -euo pipefail
+            cd /srv/craftyap/app
+
+            # pull the pushed commit
+            git fetch origin
+            git reset --hard origin/main
+
+            # rebuild + restart the single-port container (static + WS + SQLite).
+            # The separate SQLite DB is bind-mounted from /srv/craftyap/data and
+            # is never touched by a rebuild.
+            docker compose up -d --build
+
+            # keep the nginx vhost in sync with the repo (validated before reload).
+            # NOTE: the TLS cert must already exist from the one-time bootstrap
+            # (see DEPLOY_KO.md §4) or nginx -t will fail here.
+            cp ops/nginx/craftyap.com.conf /etc/nginx/sites-available/craftyap.com.conf
+            nginx -t
+            systemctl reload nginx
+
+            # the app needs a few seconds after recreate — retry the health check
+            ok=""
+            for i in $(seq 1 20); do
+              if curl -fsS -o /dev/null http://127.0.0.1:8082/healthz; then ok=1; break; fi
+              sleep 3
+            done
+            [ -n "$ok" ] || { echo "health check failed"; docker compose logs --tail=40 app; exit 1; }
+            echo "deploy complete: $(git rev-parse --short HEAD)"
+          '

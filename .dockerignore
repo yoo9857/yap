@@ -1,0 +1,22 @@
+node_modules
+**/node_modules
+**/dist
+apps/server/data
+.git
+.github
+.claude
+.agents
+tools
+legacy
+.tmp-landmark-gallery
+.tmp-ui-assets
+*.md
+.env
+.env.*
+# large source art that isn't needed in the image (served copies live in
+# apps/client/public, which IS included)
+craft_yap.png
+craftyap_banner.png
+banner.png
+builder.png
+Sunlit Village*.mp3

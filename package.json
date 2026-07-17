@@ -1,0 +1,30 @@
+{
+  "name": "robo",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@10.13.1",
+  "engines": {
+    "node": ">=22"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "esbuild",
+      "better-sqlite3"
+    ]
+  },
+  "scripts": {
+    "dev": "concurrently -k -n server,client -c blue,green \"pnpm --filter @robo/server dev\" \"pnpm --filter @robo/client dev\"",
+    "build": "pnpm -r build",
+    "typecheck": "pnpm -r typecheck",
+    "lint": "eslint .",
+    "test": "pnpm -r test"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.27.0",
+    "concurrently": "^9.1.2",
+    "eslint": "^9.27.0",
+    "puppeteer-core": "^25.3.0",
+    "typescript": "~5.8.3",
+    "typescript-eslint": "^8.32.0"
+  }
+}

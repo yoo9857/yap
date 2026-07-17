@@ -1,0 +1,28 @@
+# CraftYap — runs alongside the existing poke stack on the same host.
+# Isolation from poke: own project name, own host port, own bind-mounted DB.
+#   deploy:  docker compose up -d --build
+name: craftyap
+
+services:
+  app:
+    build: .
+    restart: unless-stopped
+    env_file:
+      - .env
+    # host-only bind (nginx on the host reverse-proxies craftyap.com → here).
+    # 8082 keeps clear of poke's 3000. Change HOST_PORT in .env to remap.
+    ports:
+      - "127.0.0.1:${HOST_PORT:-8082}:8081"
+    # SEPARATE database, managed on the host filesystem — never shared with
+    # poke. Back up / wipe this directory independently. The daily-tower
+    # leaderboard SQLite (records.db + WAL) lives here.
+    volumes:
+      - ${DB_DIR:-/srv/craftyap/data}:/app/apps/server/data
+    mem_limit: 400m
+    cpus: "0.50"
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8081/healthz"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
