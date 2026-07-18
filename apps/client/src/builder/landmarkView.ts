@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { loadTexture } from "../render/textures.js";
 import type { BlueprintBlock, Landmark } from "./landmarks.js";
 
 /** Semi-transparent overdraw is expensive, so the ghost samples the blueprint. */
@@ -7,8 +8,6 @@ import type { BlueprintBlock, Landmark } from "./landmarks.js";
 const GHOST_CAP = 80_000;
 type Surface = BlueprintBlock["surface"];
 
-/** Loaded-once surface grains, shared across landmark rebuilds. */
-const SURFACE_MAPS = new Map<string, THREE.Texture>();
 
 /**
  * Monument renderer. Blocks stay in bottom-up build order, but are batched by
@@ -169,17 +168,11 @@ export class LandmarkView {
 
   /** Crayon-doodle grain per finish (lightened variants so the per-instance
    *  palette colors, which MULTIPLY the map, stay on tone). Attached async
-   *  via a shared cache; the flat material stands in until the file arrives. */
+   *  via the shared texture registry; the flat material stands in until the
+   *  file arrives. */
   private attachSurfaceMap(material: THREE.MeshStandardMaterial, name: string): void {
-    const cached = SURFACE_MAPS.get(name);
-    if (cached) {
-      material.map = cached;
-      material.needsUpdate = true;
-      return;
-    }
-    new THREE.TextureLoader().load(`/textures/surface/${name}.png`, (tex) => {
-      tex.colorSpace = THREE.SRGBColorSpace;
-      SURFACE_MAPS.set(name, tex);
+    void loadTexture(`/textures/surface/${name}.png`).then((tex) => {
+      if (!tex) return;
       material.map = tex;
       material.needsUpdate = true;
     });

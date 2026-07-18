@@ -24,10 +24,13 @@ import { Scenery } from "../world/scenery.js";
 import { Atmosphere } from "../world/atmosphere.js";
 import { FoliagePatch, pickFoliageType, type FoliagePlacement } from "../world/foliage.js";
 import { LocalPlayer } from "../player/localPlayer.js";
+import { preloadCharacter } from "../player/rig.js";
+import { texturesReady, warmupGpu } from "../render/textures.js";
 import { NetworkClient, type DailyInfo } from "../net/client.js";
 import { Sfx } from "../audio/sfx.js";
 import { Bgm } from "../audio/bgm.js";
 import { Hud } from "../ui/hud.js";
+import { PerfMonitor } from "../ui/perf.js";
 import { Screens } from "../ui/screens.js";
 
 type GameState = "title" | "play" | "clear";
@@ -81,6 +84,8 @@ export class Game {
   private readonly followCamera: FollowCamera;
   private readonly effects: Effects;
   private readonly atmosphere: Atmosphere;
+  private readonly titleTarget = new THREE.Vector3(); // no per-frame alloc
+  private readonly perf = new PerfMonitor(document.body);
   private readonly sfx = new Sfx();
   private readonly bgm = new Bgm("/audio/bgm-tower.mp3");
   private readonly hud: Hud;
@@ -178,6 +183,20 @@ export class Game {
     });
 
     if (import.meta.env.DEV) this.installDebugHooks();
+  }
+
+  /**
+   * Boot-screen warmup: wait for every asset the tower can show, then push
+   * texture uploads + shader compiles into the loading overlay — the mid-jump
+   * hitches were exactly these costs paid lazily on first sight.
+   */
+  async prepare(setMessage?: (text: string) => void): Promise<void> {
+    setMessage?.("Loading character…");
+    await preloadCharacter();
+    setMessage?.("Loading textures…");
+    await texturesReady();
+    setMessage?.("Warming up GPU…");
+    warmupGpu(this.renderer.renderer, this.renderer.scene, this.renderer.camera);
   }
 
   start(): void {
@@ -408,7 +427,7 @@ export class Game {
       const angle = timeSec * 0.12;
       this.renderer.camera.position.set(Math.cos(angle) * 34, midY + 12, Math.sin(angle) * 34);
       this.renderer.camera.lookAt(0, midY, 0);
-      this.renderer.trackTarget(new THREE.Vector3(0, midY, 0));
+      this.renderer.trackTarget(this.titleTarget.set(0, midY, 0));
       viewY = midY;
     } else {
       player.headPosition(alpha, this.headPos);
@@ -436,6 +455,7 @@ export class Game {
     }
 
     this.renderer.render();
+    this.perf.update(this.renderer.renderer, frameDt);
   }
 
   // ---------------------------------------------------------------- debug
@@ -443,6 +463,7 @@ export class Game {
   private installDebugHooks(): void {
     (window as unknown as Record<string, unknown>).__robo = {
       game: this,
+      perf: () => this.perf.sample(),
       snapshot: () => ({
         feet: this.world.player.controller.feetPosition(),
         vel: this.world.player.controller.velocity.toArray(),

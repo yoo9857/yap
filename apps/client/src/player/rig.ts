@@ -37,6 +37,12 @@ interface LoadedModel {
   clips: THREE.AnimationClip[];
 }
 
+/** Kick the character download early (boot screen) so the first rig — the
+ *  local player at run start — never waits on the network. */
+export function preloadCharacter(): Promise<void> {
+  return loadModel().then(() => undefined);
+}
+
 let loadPromise: Promise<LoadedModel | null> | null = null;
 function loadModel(): Promise<LoadedModel | null> {
   if (!loadPromise) {

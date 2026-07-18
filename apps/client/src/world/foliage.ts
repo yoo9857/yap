@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { loadTexture } from "../render/textures.js";
 
 /**
  * Minecraft-style crossed-plane plant sprites (CraftYap doodle set under
@@ -40,18 +41,9 @@ export interface FoliagePlacement {
   type: number;
 }
 
-const textureCache = new Map<string, THREE.Texture>();
-
 function loadSprite(name: string, onReady: (tex: THREE.Texture) => void): void {
-  const cached = textureCache.get(name);
-  if (cached) {
-    onReady(cached);
-    return;
-  }
-  new THREE.TextureLoader().load(`/textures/foliage/${name}.png`, (tex) => {
-    tex.colorSpace = THREE.SRGBColorSpace;
-    textureCache.set(name, tex);
-    onReady(tex);
+  void loadTexture(`/textures/foliage/${name}.png`).then((tex) => {
+    if (tex) onReady(tex);
   });
 }
 

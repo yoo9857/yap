@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import { BRICK_COLORS } from "@robo/shared";
+import { loadTexture } from "../render/textures.js";
 
 /** Shared material cache — one material per color, reused across meshes. */
 const cache = new Map<string, THREE.MeshStandardMaterial>();
@@ -36,9 +37,8 @@ export function brickMaterial(hex: string): THREE.MeshStandardMaterial {
     });
     const tile = DOODLE_TILES[hex.toLowerCase()];
     if (tile && typeof document !== "undefined") {
-      new THREE.TextureLoader().load(`/textures/blocks/${tile}.png`, (tex) => {
-        tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
-        tex.colorSpace = THREE.SRGBColorSpace;
+      void loadTexture(`/textures/blocks/${tile}.png`, { repeat: true }).then((tex) => {
+        if (!tex) return;
         material.map = tex;
         material.color.set(0xffffff); // the tile carries the hue
         material.needsUpdate = true;
@@ -78,16 +78,14 @@ export const LAVA_MATERIAL = new THREE.MeshStandardMaterial({
 // async texture attach for the shared specials
 // (guarded: this module is also imported in DOM-free unit-test runs)
 if (typeof document !== "undefined") {
-  new THREE.TextureLoader().load("/textures/blocks/cracked-stone-bricks.png", (tex) => {
-    tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
-    tex.colorSpace = THREE.SRGBColorSpace;
+  void loadTexture("/textures/blocks/cracked-stone-bricks.png", { repeat: true }).then((tex) => {
+    if (!tex) return;
     CRACKED_MATERIAL.map = tex;
     CRACKED_MATERIAL.color.set(0xffffff);
     CRACKED_MATERIAL.needsUpdate = true;
   });
-  new THREE.TextureLoader().load("/textures/blocks/lava.png", (tex) => {
-    tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
-    tex.colorSpace = THREE.SRGBColorSpace;
+  void loadTexture("/textures/blocks/lava.png", { repeat: true }).then((tex) => {
+    if (!tex) return;
     LAVA_MATERIAL.map = tex;
     LAVA_MATERIAL.emissiveMap = tex;
     LAVA_MATERIAL.color.set(0xffffff);

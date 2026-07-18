@@ -4,6 +4,7 @@ import { GameLoop } from "../app/loop.js";
 import { GameRenderer } from "../render/renderer.js";
 import { Effects } from "../render/effects.js";
 import { brickMaterial } from "../world/materials.js";
+import { loadTexture, texturesReady, warmupGpu } from "../render/textures.js";
 import { Sfx } from "../audio/sfx.js";
 import { Bgm } from "../audio/bgm.js";
 import {
@@ -22,6 +23,7 @@ import { LandmarkView } from "./landmarkView.js";
 import { WorkersView } from "./workersView.js";
 import { BlockFlights } from "./blockFlights.js";
 import { BuilderHud } from "./hud.js";
+import { PerfMonitor } from "../ui/perf.js";
 import { BuilderEnvironment } from "./environment.js";
 import { CameraDirector, type ShotName } from "./cameraDirector.js";
 
@@ -51,6 +53,7 @@ export class BuilderGame {
   private readonly loop: GameLoop;
   private readonly state: BuilderState;
   private readonly director = new CameraDirector();
+  private readonly perf = new PerfMonitor(document.body);
   private readonly pile = new THREE.Group();
   private ground: THREE.Mesh | null = null;
   private lastSaveAt = 0;
@@ -100,6 +103,12 @@ export class BuilderGame {
 
   start(): void {
     this.loop.start();
+    // builder starts instantly by design — warm the GPU right after instead:
+    // upload every texture and compile every shader so the first camera cut
+    // that reveals a material doesn't hitch
+    void texturesReady().then(() => {
+      warmupGpu(this.renderer.renderer, this.renderer.scene, this.renderer.camera);
+    });
   }
 
   /** Golden-hour grading: low warm sun, deep shadows, muted sky — 장엄함. */
@@ -152,10 +161,9 @@ export class BuilderGame {
     url: string,
     repeat: number,
   ): void {
-    new THREE.TextureLoader().load(url, (tex) => {
-      tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+    void loadTexture(url, { repeat: true }).then((tex) => {
+      if (!tex) return;
       tex.repeat.set(repeat, repeat);
-      tex.colorSpace = THREE.SRGBColorSpace;
       tex.anisotropy = this.renderer.renderer.capabilities.getMaxAnisotropy();
       material.map = tex;
       material.needsUpdate = true;
@@ -365,6 +373,7 @@ export class BuilderGame {
     this.renderer.sun.target.position.copy(target);
 
     this.renderer.render();
+    this.perf.update(this.renderer.renderer, frameDt);
   }
 
   private installDebugHooks(): void {
@@ -408,6 +417,7 @@ export class BuilderGame {
       pinShot: (shot: ShotName | null) => this.director.pin(shot),
       currentShot: () => this.director.currentShot,
       saveNow: () => save(this.state, localStorage, Date.now()),
+      perf: () => this.perf.sample(),
       /** Wipe all progress (gold/workers/speed/…) back to a fresh game. */
       reset: () => {
         Object.assign(this.state, createInitialState());

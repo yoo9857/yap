@@ -50,7 +50,13 @@ async function bootTower(mount: HTMLElement): Promise<void> {
 
   setBootMessage("Building the world…");
   const { Game } = await import("./app/game.js");
-  new Game(rapier, mount).start();
+  const game = new Game(rapier, mount);
+  // asset preload + GPU warmup happen behind the overlay so gameplay never
+  // pays a first-sight shader-compile or texture-upload hitch mid-jump
+  await withTimeout(game.prepare(setBootMessage), 20_000, "asset warmup").catch(() => {
+    /* warmup is best-effort — a stuck asset must not block play */
+  });
+  game.start();
   hideOverlay();
 }
 
