@@ -1,4 +1,4 @@
-export type GameMode = "tower" | "builder";
+export type GameMode = "tower" | "builder" | "craft" | "battle";
 
 /**
  * First screen: pick a game. `?mode=tower|builder` deep-links straight in
@@ -6,7 +6,7 @@ export type GameMode = "tower" | "builder";
  */
 export function selectMode(parent: HTMLElement): Promise<GameMode> {
   const param = new URLSearchParams(location.search).get("mode");
-  if (param === "tower" || param === "builder") {
+  if (param === "tower" || param === "builder" || param === "craft" || param === "battle") {
     return Promise.resolve(param);
   }
 
@@ -24,6 +24,14 @@ export function selectMode(parent: HTMLElement): Promise<GameMode> {
         <button class="mode-btn" data-mode="builder">
           <img class="mode-icon" src="/ui/icon-builder.png" alt="" />
           <span class="mode-text"><b>Robo Builder</b><small>Idle construction — watch your crew raise landmarks</small></span>
+        </button>
+        <button class="mode-btn" data-mode="craft">
+          <img class="mode-icon" src="/textures/blocks/workbench-top.png" alt="" />
+          <span class="mode-text"><b>Craft Island</b><small>Mine, craft and build on your own voxel island</small></span>
+        </button>
+        <button class="mode-btn" data-mode="battle">
+          <img class="mode-icon" src="/textures/blocks/ruby-ore.png" alt="" />
+          <span class="mode-text"><b>Blast Royale</b><small>Arcade battle royale — last robot standing wins</small></span>
         </button>
       </div>`;
     parent.appendChild(el);

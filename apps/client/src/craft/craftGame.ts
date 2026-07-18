@@ -1,0 +1,374 @@
+import * as THREE from "three";
+import { GameLoop } from "../app/loop.js";
+import { GameRenderer } from "../render/renderer.js";
+import { texturesReady, warmupGpu } from "../render/textures.js";
+import { CharacterRig } from "../player/rig.js";
+import { Sfx } from "../audio/sfx.js";
+import { Bgm } from "../audio/bgm.js";
+import { PerfMonitor } from "../ui/perf.js";
+import { AIR, blockById, blockByKey, dropOf } from "./blocks.js";
+import {
+  CRAFT_RECIPES,
+  HOTBAR,
+  addItem,
+  countOf,
+  craftRecipe,
+  removeItem,
+  type CraftRecipe,
+} from "./inventory.js";
+import { clearCraftSave, loadCraft, saveCraft } from "./craftSave.js";
+import { stepBody, overlapsVoxel, unstick, wishFromInput, type Body } from "./voxelBody.js";
+import { WORLD_X, WORLD_Z, surfaceY } from "./voxelWorld.js";
+import { VoxelView } from "./voxelView.js";
+import { CraftCamera } from "./craftCamera.js";
+import { CraftHud } from "./craftHud.js";
+
+const DEFAULT_SEED = 20260718;
+const SAVE_INTERVAL_MS = 5000;
+const REACH = 6;
+const EYE_HEIGHT = 1.55;
+
+/**
+ * Craft mode — a small voxel island you actually PLAY: mine blocks, craft
+ * them into new ones, build whatever you like. Third-person robot, pointer
+ * lock aim, grid physics (no rapier). Composition root only; every rule
+ * lives in the pure craft/* modules.
+ */
+export class CraftGame {
+  private readonly renderer: GameRenderer;
+  private readonly view: VoxelView;
+  private readonly hud: CraftHud;
+  private readonly sfx = new Sfx();
+  private readonly bgm = new Bgm("/audio/bgm-builder.mp3");
+  private readonly perf = new PerfMonitor(document.body);
+  private readonly rig = new CharacterRig();
+  private readonly loop: GameLoop;
+  private readonly state;
+  private readonly body: Body;
+
+  private yaw = 0;
+  private pitch = -0.25;
+  private readonly keys = new Set<string>();
+  private mining = false;
+  private placing = false;
+  private miningTarget: [number, number, number] | null = null;
+  private miningProgress = 0;
+  private miningFrac: number | null = null;
+  private selected = 0;
+  private locked = false;
+  private readonly camera;
+  private robotMaterials: THREE.Material[] | null = null;
+  private robotOpacity = 1;
+  private prevVy = 0;
+  private lastSaveAt = 0;
+  private aim: { voxel: [number, number, number]; before: [number, number, number] } | null = null;
+
+  constructor(mount: HTMLElement) {
+    this.renderer = new GameRenderer(mount);
+    this.camera = new CraftCamera(this.renderer.camera);
+    this.view = new VoxelView(this.renderer.scene);
+    this.hud = new CraftHud(document.body, (recipe) => this.handleCraft(recipe));
+
+    if (new URLSearchParams(location.search).has("reset")) clearCraftSave(localStorage);
+    this.state = loadCraft(localStorage, DEFAULT_SEED);
+    this.body = { ...this.state.player, vx: 0, vy: 0, vz: 0, grounded: false };
+    unstick(this.state.world, this.body); // never spawn embedded in a block
+    this.renderer.scene.add(this.rig.root);
+    this.view.markDirty();
+
+    this.bindInput(mount);
+    window.addEventListener("visibilitychange", () => {
+      if (document.visibilityState === "hidden") this.persist();
+    });
+
+    this.loop = new GameLoop({
+      fixedUpdate: () => this.fixedUpdate(),
+      render: (_alpha, frameDt) => this.render(frameDt),
+    });
+    if (import.meta.env.DEV) this.installDebugHooks();
+  }
+
+  start(): void {
+    this.loop.start();
+    void texturesReady().then(() => {
+      warmupGpu(this.renderer.renderer, this.renderer.scene, this.renderer.camera);
+    });
+  }
+
+  // ---------------------------------------------------------------- input
+
+  private bindInput(mount: HTMLElement): void {
+    mount.addEventListener("click", () => {
+      if (!this.locked && !this.hud.recipesOpen) {
+        void mount.querySelector("canvas")?.requestPointerLock();
+      }
+    });
+    document.addEventListener("pointerlockchange", () => {
+      this.locked = document.pointerLockElement !== null;
+      this.hud.setPointerLocked(this.locked);
+      if (!this.locked) {
+        this.mining = false;
+        this.placing = false;
+      }
+    });
+    document.addEventListener("mousemove", (e) => {
+      if (!this.locked) return;
+      this.yaw -= e.movementX * 0.0026;
+      this.pitch = Math.min(1.35, Math.max(-1.25, this.pitch - e.movementY * 0.0026));
+    });
+    document.addEventListener("mousedown", (e) => {
+      if (!this.locked) return;
+      if (e.button === 0) this.mining = true;
+      if (e.button === 2) this.placing = true;
+    });
+    document.addEventListener("mouseup", (e) => {
+      if (e.button === 0) this.mining = false;
+      if (e.button === 2) this.placing = false;
+    });
+    document.addEventListener("contextmenu", (e) => e.preventDefault());
+    document.addEventListener("wheel", (e) => {
+      if (!this.locked) return;
+      this.selected = (this.selected + (e.deltaY > 0 ? 1 : HOTBAR.length - 1)) % HOTBAR.length;
+    });
+    document.addEventListener("keydown", (e) => {
+      const key = e.key.toLowerCase();
+      this.keys.add(e.code);
+      if (key >= "1" && key <= "9") this.selected = Number(key) - 1;
+      if (key === "c") {
+        this.hud.toggleRecipes();
+        if (this.hud.recipesOpen) document.exitPointerLock();
+      }
+      if (key === "v") this.camera.toggleView();
+    });
+    document.addEventListener("keyup", (e) => this.keys.delete(e.code));
+    window.addEventListener("blur", () => this.keys.clear());
+  }
+
+  // ---------------------------------------------------------------- sim
+
+  private fixedUpdate(): void {
+    const dt = 1 / 60;
+    let fwd = 0;
+    let strafe = 0;
+    if (this.locked) {
+      if (this.keys.has("KeyW")) fwd += 1;
+      if (this.keys.has("KeyS")) fwd -= 1;
+      if (this.keys.has("KeyA")) strafe -= 1;
+      if (this.keys.has("KeyD")) strafe += 1;
+    }
+    const [wishX, wishZ] = wishFromInput(this.yaw, fwd, strafe);
+    this.prevVy = this.body.vy;
+    stepBody(this.state.world, this.body, dt, wishX, wishZ, this.locked && this.keys.has("Space"));
+    // hard landings thump the camera a little
+    if (this.body.grounded && this.prevVy < -11) {
+      this.camera.addShake(Math.min(0.11, -this.prevVy * 0.006));
+    }
+
+    // fell off the island → respawn on the open grass south of the castle
+    // (never the castle centre), lifted clear of any block
+    if (this.body.y < -12) {
+      this.body.x = WORLD_X / 2 + 0.5;
+      this.body.z = WORLD_Z / 2 + 22.5;
+      this.body.y = surfaceY(this.state.world, Math.floor(this.body.x), Math.floor(this.body.z)) + 1;
+      this.body.vx = this.body.vz = this.body.vy = 0;
+      unstick(this.state.world, this.body);
+      this.sfx.play("oof");
+    }
+
+    this.updateAim();
+    if (this.mining) this.stepMining(dt);
+    else {
+      this.miningTarget = null;
+      this.miningProgress = 0;
+      this.miningFrac = null;
+    }
+    if (this.placing) {
+      this.tryPlace();
+      this.placing = false; // one block per press
+    }
+
+    if (Date.now() - this.lastSaveAt > SAVE_INTERVAL_MS) this.persist();
+  }
+
+  private updateAim(): void {
+    const eyeY = this.body.y + EYE_HEIGHT;
+    const dx = Math.sin(this.yaw) * Math.cos(this.pitch);
+    const dy = Math.sin(this.pitch);
+    const dz = Math.cos(this.yaw) * Math.cos(this.pitch);
+    this.aim = this.state.world.raycast(this.body.x, eyeY, this.body.z, dx, dy, dz, REACH);
+  }
+
+  private stepMining(dt: number): void {
+    if (!this.aim) {
+      this.miningTarget = null;
+      this.miningProgress = 0;
+      this.miningFrac = null;
+      return;
+    }
+    const [x, y, z] = this.aim.voxel;
+    const def = blockById(this.state.world.get(x, y, z));
+    if (!def || def.hardness <= 0) {
+      this.miningFrac = null; // bedrock: unbreakable
+      return;
+    }
+    const t = this.miningTarget;
+    if (!t || t[0] !== x || t[1] !== y || t[2] !== z) {
+      this.miningTarget = [x, y, z];
+      this.miningProgress = 0;
+    }
+    this.miningProgress += dt;
+    this.miningFrac = this.miningProgress / def.hardness;
+    if (this.miningProgress >= def.hardness) {
+      this.state.world.set(x, y, z, AIR);
+      addItem(this.state.inventory, dropOf(def));
+      this.view.markDirty();
+      this.miningTarget = null;
+      this.miningProgress = 0;
+      this.miningFrac = null;
+      this.sfx.play("crumble");
+      this.camera.addShake(0.04);
+    }
+  }
+
+  private tryPlace(): void {
+    if (!this.aim) return;
+    const key = HOTBAR[this.selected]!;
+    if (countOf(this.state.inventory, key) <= 0) return;
+    const [x, y, z] = this.aim.before;
+    if (!this.state.world.inBounds(x, y, z)) return;
+    if (this.state.world.get(x, y, z) !== AIR) return;
+    if (overlapsVoxel(this.body, x, y, z)) return; // never bury yourself
+    if (!removeItem(this.state.inventory, key)) return;
+    this.state.world.set(x, y, z, blockByKey(key)!.id);
+    this.view.markDirty();
+    this.sfx.play("land");
+  }
+
+  private handleCraft(recipe: CraftRecipe): void {
+    if (!craftRecipe(this.state.inventory, recipe)) return;
+    this.sfx.play("checkpoint");
+    this.hud.toast(`🛠️ Crafted ${recipe.name}!`);
+  }
+
+  private persist(): void {
+    this.lastSaveAt = Date.now();
+    this.state.player = { x: this.body.x, y: this.body.y, z: this.body.z };
+    saveCraft(this.state, localStorage, Date.now());
+  }
+
+  /**
+   * Smooth robot fade near the camera. Materials are CLONED once (the GLTF
+   * shares materials across every rig clone — mutating the shared ones would
+   * fade other modes' robots too).
+   */
+  private applyRobotOpacity(target: number, dt: number): void {
+    if (!this.robotMaterials) {
+      const collected: THREE.Material[] = [];
+      this.rig.root.traverse((o) => {
+        if (o instanceof THREE.Mesh) {
+          const cloned = (o.material as THREE.Material).clone();
+          cloned.transparent = true;
+          o.material = cloned;
+          collected.push(cloned);
+        }
+      });
+      if (collected.length === 0) return; // model still loading
+      this.robotMaterials = collected;
+    }
+    this.robotOpacity += (target - this.robotOpacity) * (1 - Math.pow(0.001, dt));
+    const opacity = Math.min(1, Math.max(0, this.robotOpacity));
+    this.rig.root.visible = opacity > 0.03;
+    for (const material of this.robotMaterials) material.opacity = opacity;
+  }
+
+  /**
+   * Ease the camera's eye height toward the body's so landings and terrain
+   * steps read smoothly instead of snapping. Big gaps (long falls, respawns,
+   * teleports) snap instantly so the view never trails the body.
+   */
+  private smoothEyeY = Number.NaN;
+  private smoothedEyeY(dt: number): number {
+    const target = this.body.y + EYE_HEIGHT;
+    if (!Number.isFinite(this.smoothEyeY) || Math.abs(target - this.smoothEyeY) > 1.6) {
+      this.smoothEyeY = target;
+    } else {
+      this.smoothEyeY += (target - this.smoothEyeY) * (1 - Math.pow(1e-9, dt));
+    }
+    return this.smoothEyeY;
+  }
+
+  // ---------------------------------------------------------------- render
+
+  private render(frameDt: number): void {
+    this.view.update(this.state.world);
+    this.view.setHighlight(this.aim ? this.aim.voxel : null);
+
+    this.rig.root.position.set(this.body.x, this.body.y, this.body.z);
+    this.rig.root.rotation.y = this.yaw;
+    const planar = Math.hypot(this.body.vx, this.body.vz);
+    const anim = !this.body.grounded ? "jump" : planar > 0.5 ? "run" : "idle";
+    this.rig.update(anim, planar, frameDt);
+
+    const eye = this.tmpEye.set(this.body.x, this.smoothedEyeY(frameDt), this.body.z);
+    const robotOpacity = this.camera.update(
+      this.state.world,
+      eye,
+      this.yaw,
+      this.pitch,
+      planar > 0.5,
+      frameDt,
+    );
+    this.applyRobotOpacity(robotOpacity, frameDt);
+    this.renderer.trackTarget(eye);
+
+    this.hud.update(this.state.inventory, this.selected);
+    this.hud.setMineProgress(this.miningFrac);
+    this.renderer.render();
+    this.perf.update(this.renderer.renderer, frameDt);
+  }
+
+  private readonly tmpEye = new THREE.Vector3();
+
+  // ---------------------------------------------------------------- debug
+
+  private installDebugHooks(): void {
+    (window as unknown as Record<string, unknown>).__roboCraft = {
+      snapshot: () => ({
+        pos: [this.body.x, this.body.y, this.body.z],
+        grounded: this.body.grounded,
+        seed: this.state.seed,
+        selected: this.selected,
+        inventory: { ...this.state.inventory },
+      }),
+      give: (key: string, n = 1) => addItem(this.state.inventory, key, n),
+      teleport: (x: number, y: number, z: number) => {
+        this.body.x = x;
+        this.body.y = y;
+        this.body.z = z;
+        this.body.vy = 0;
+      },
+      blockAt: (x: number, y: number, z: number) => this.state.world.get(x, y, z),
+      mineAt: (x: number, y: number, z: number) => {
+        const def = blockById(this.state.world.get(x, y, z));
+        if (!def || def.hardness <= 0) return false;
+        this.state.world.set(x, y, z, AIR);
+        addItem(this.state.inventory, dropOf(def));
+        this.view.markDirty();
+        return true;
+      },
+      placeAt: (x: number, y: number, z: number, key: string) => {
+        const def = blockByKey(key);
+        if (!def || this.state.world.get(x, y, z) !== AIR) return false;
+        this.state.world.set(x, y, z, def.id);
+        this.view.markDirty();
+        return true;
+      },
+      craft: (id: string) => {
+        const recipe = CRAFT_RECIPES.find((r) => r.id === id);
+        return recipe ? craftRecipe(this.state.inventory, recipe) : false;
+      },
+      saveNow: () => this.persist(),
+      perf: () => this.perf.sample(),
+    };
+  }
+}

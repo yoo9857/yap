@@ -23,7 +23,7 @@ page.on("pageerror", (e) => console.log("PAGEERROR:", e.message));
 // ---- 1. mode selector appears on a bare URL; builder boots instantly
 await page.goto("http://localhost:5173/", { waitUntil: "networkidle2", timeout: 30000 });
 const modeButtons = await page.$$(".mode-btn");
-check("mode selector offers the two games", modeButtons.length === 2);
+check("mode selector offers the four games", modeButtons.length === 4);
 const bootStart = Date.now();
 await page.click('.mode-btn[data-mode="builder"]');
 await page.waitForFunction(() => !!globalThis.__roboBuilder, { timeout: 10000 });

@@ -4,10 +4,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-CraftYap — a Roblox-style blocky 3D web game collection (English UI, crayon-doodle brand), one page with two modes chosen at startup:
+CraftYap — a Roblox-style blocky 3D web game collection (English UI, crayon-doodle brand), one page with three modes chosen at startup:
 
-- **오늘의 타워 (tower)**: multiplayer obby. A new deterministic tower every day (KST midnight), client-authoritative movement with server sanity validation, persisted daily leaderboard.
-- **로보 빌더 (builder)**: idle game. Blocky workers construct real-scale voxel world landmarks (Eiffel 330 m, pyramid 230 m base…); no physics, no server dependency, localStorage save with offline settlement.
+- **Daily Tower (tower)**: multiplayer obby. A new deterministic tower every day (KST midnight), client-authoritative movement with server sanity validation, persisted daily leaderboard.
+- **Robo Builder (builder)**: idle game. Blocky workers construct real-scale voxel world landmarks (Eiffel 330 m, pyramid 230 m base…); no physics, no server dependency, localStorage save with offline settlement.
+- **Craft Island (craft)**: single-player voxel sandbox (mine / craft / place). NO rapier — the voxel grid itself is the collider (`craft/voxelBody.ts` AABB sweeps, `voxelWorld.ts` DDA raycast). World regenerates from its seed; the save stores only the edit diff + inventory (zod-validated, hostile-safe). Desktop-only (pointer lock).
+- **Blast Royale (battle)**: arcade solo battle royale — you vs 7 bots (who also fight each other) on a random voxel island, hitscan blasters, 3-phase shrinking storm, last robot standing. Client-only (no server); reuses craft's world/physics/camera. Pure logic in `battle/{zone,combat,bots}.ts`; a 4 s weapons-free grace after the drop keeps spawns fair.
 
 ## Commands
 
@@ -32,6 +34,8 @@ node tools/e2e-mechanics.mjs      # tower: platform riding/crumble/checkpoints/g
 node tools/e2e-multiplayer.mjs    # tower: two tabs, shared platform timeline, persisted daily board
 node tools/e2e-robustness.mjs     # tower: cheat snapback/kick, server-restart reconnect, record persistence
 node tools/e2e-builder.mjs        # builder: economy, goals, offline settlement exact-match
+node tools/e2e-craft.mjs          # craft: island boot, mine/craft/place, physics, save round-trip
+node tools/e2e-battle.mjs         # battle: bots live/roam, storm shrink, win & lose paths
 node tools/e2e-production.mjs     # built dist on a single port (no dev server needed)
 node tools/builder-gallery.mjs <outdir> [i]   # screenshot each landmark for visual review
 node tools/builder-shots.mjs <outdir> [i]     # screenshot each camera shot type

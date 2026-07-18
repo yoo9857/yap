@@ -66,6 +66,18 @@ async function bootBuilder(mount: HTMLElement): Promise<void> {
   hideOverlay();
 }
 
+async function bootCraft(mount: HTMLElement): Promise<void> {
+  const { CraftGame } = await import("./craft/craftGame.js");
+  new CraftGame(mount).start();
+  hideOverlay();
+}
+
+async function bootBattle(mount: HTMLElement): Promise<void> {
+  const { BattleGame } = await import("./battle/battleGame.js");
+  new BattleGame(mount).start();
+  hideOverlay();
+}
+
 async function boot(): Promise<void> {
   const mount = document.getElementById("app");
   if (!mount) throw new Error("missing #app mount point");
@@ -74,6 +86,10 @@ async function boot(): Promise<void> {
   const mode = await selectMode(document.body);
   if (mode === "tower") {
     await bootTower(mount);
+  } else if (mode === "craft") {
+    await bootCraft(mount);
+  } else if (mode === "battle") {
+    await bootBattle(mount);
   } else {
     await bootBuilder(mount);
   }
