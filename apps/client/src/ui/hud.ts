@@ -1,5 +1,9 @@
 export interface HudData {
   heightPercent: number;
+  /** Feet height in meters — shown with the altitude-zone chip. */
+  altitudeM: number;
+  /** Current atmosphere band (Ground / Sky / Ozone Layer / Space). */
+  zoneLabel: string;
   runTimeMs: number;
   stage: number;
   totalStages: number;
@@ -19,6 +23,7 @@ export function formatTime(ms: number): string {
 /** DOM HUD — cheap text updates, no canvas involvement. */
 export class Hud {
   private readonly root: HTMLElement;
+  private readonly zoneEl: HTMLElement;
   private readonly heightEl: HTMLElement;
   private readonly timeEl: HTMLElement;
   private readonly stageEl: HTMLElement;
@@ -32,6 +37,7 @@ export class Hud {
     this.root.className = "hud";
     this.root.innerHTML = `
       <div class="hud-top">
+        <span class="hud-chip" data-id="zone">🌱 Ground 0m</span>
         <span class="hud-chip" data-id="height">0%</span>
         <span class="hud-chip" data-id="time">0:00.00</span>
         <span class="hud-chip" data-id="stage">1/4</span>
@@ -46,6 +52,7 @@ export class Hud {
       if (!el) throw new Error(`hud element ${id} missing`);
       return el;
     };
+    this.zoneEl = q("zone");
     this.heightEl = q("height");
     this.timeEl = q("time");
     this.stageEl = q("stage");
@@ -60,10 +67,12 @@ export class Hud {
 
   update(d: HudData): void {
     // skip DOM writes when nothing changed
-    const text = `${Math.round(d.heightPercent)}|${Math.floor(d.runTimeMs / 10)}|${d.stage}|${d.falls}|${d.playerCount}|${d.connection}`;
+    const altitude = Math.max(0, Math.round(d.altitudeM));
+    const text = `${Math.round(d.heightPercent)}|${altitude}|${d.zoneLabel}|${Math.floor(d.runTimeMs / 10)}|${d.stage}|${d.falls}|${d.playerCount}|${d.connection}`;
     if (text === this.lastText) return;
     this.lastText = text;
 
+    this.zoneEl.textContent = `${d.zoneLabel} ${altitude}m`;
     this.heightEl.textContent = `${Math.max(0, Math.min(100, Math.round(d.heightPercent)))}%`;
     this.timeEl.textContent = formatTime(d.runTimeMs);
     this.stageEl.textContent = `${d.stage}/${d.totalStages}`;

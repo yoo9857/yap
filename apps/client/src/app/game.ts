@@ -21,6 +21,7 @@ import { KeyboardInput } from "../input/keyboard.js";
 import { TouchInput } from "../input/touch.js";
 import { LevelRuntime } from "../world/levelRuntime.js";
 import { Scenery } from "../world/scenery.js";
+import { Atmosphere } from "../world/atmosphere.js";
 import { FoliagePatch, pickFoliageType, type FoliagePlacement } from "../world/foliage.js";
 import { LocalPlayer } from "../player/localPlayer.js";
 import { NetworkClient, type DailyInfo } from "../net/client.js";
@@ -79,6 +80,7 @@ export class Game {
   private readonly input = new InputState();
   private readonly followCamera: FollowCamera;
   private readonly effects: Effects;
+  private readonly atmosphere: Atmosphere;
   private readonly sfx = new Sfx();
   private readonly bgm = new Bgm("/audio/bgm-tower.mp3");
   private readonly hud: Hud;
@@ -116,6 +118,7 @@ export class Game {
     }
 
     this.effects = new Effects(this.renderer.scene);
+    this.atmosphere = new Atmosphere(this.renderer.scene, this.renderer.sun, this.renderer.hemi);
     this.hud = new Hud(document.body);
     this.hud.setVisible(false);
     this.screens = new Screens(document.body, {
@@ -185,6 +188,7 @@ export class Game {
 
   private buildWorld(seed: number): WorldBundle {
     const level = generateLevel(seed);
+    this.atmosphere.setSummit(level.summitHeight);
     const runtime = new LevelRuntime(level, this.renderer.scene, this.physics, this.interpStore);
     const scenery = new Scenery(this.renderer.scene, level.summitHeight);
     const foliage = new FoliagePatch(this.renderer.scene, this.foliagePlacements(level));
@@ -397,6 +401,7 @@ export class Game {
       this.screens.updateCountdown(this.daily.nextDayStartMs - serverNow);
     }
 
+    let viewY: number;
     if (this.state === "title") {
       // slow cinematic orbit around the tower
       const midY = this.world.level.summitHeight * 0.45;
@@ -404,16 +409,23 @@ export class Game {
       this.renderer.camera.position.set(Math.cos(angle) * 34, midY + 12, Math.sin(angle) * 34);
       this.renderer.camera.lookAt(0, midY, 0);
       this.renderer.trackTarget(new THREE.Vector3(0, midY, 0));
+      viewY = midY;
     } else {
       player.headPosition(alpha, this.headPos);
       this.followCamera.update(this.headPos, this.physics, player.controller.collider);
       this.renderer.trackTarget(this.headPos);
+      viewY = this.headPos.y;
     }
+    // altitude bands: sky/fog/sun/stars follow the view up the tower
+    this.atmosphere.update(viewY, frameDt);
 
     if (this.state !== "title") {
       const level = this.world.level;
+      const altitudeM = player.controller.feetPosition()[1];
       this.hud.update({
-        heightPercent: (player.controller.feetPosition()[1] / level.summitHeight) * 100,
+        heightPercent: (altitudeM / level.summitHeight) * 100,
+        altitudeM,
+        zoneLabel: this.atmosphere.zoneLabel(altitudeM),
         runTimeMs: this.state === "clear" ? this.finalTimeMs : this.runTimeMs,
         stage: Math.min(player.checkpoint + 2, level.totalStages),
         totalStages: level.totalStages,

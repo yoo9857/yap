@@ -31,7 +31,9 @@ export class Scenery {
         puff.position.set(j * s * 1.05 - puffs, R(-0.3, 0.3), R(-0.5, 0.5));
         cloud.add(puff);
       }
-      cloud.position.set(R(-70, 70), R(2, summitHeight + 12), R(-70, 70));
+      // clouds live in the troposphere only — the ozone/space bands above
+      // (see world/atmosphere.ts) should read as thin air, not cloud soup
+      cloud.position.set(R(-70, 70), R(2, summitHeight * 0.55), R(-70, 70));
       scene.add(cloud);
       this.roots.push(cloud);
       this.clouds.push({ mesh: cloud, speed: R(0.15, 0.55) });
@@ -48,7 +50,7 @@ export class Scenery {
       const dist = R(28, 60);
       island.position.set(
         Math.cos(angle) * dist,
-        R(4, summitHeight + 6),
+        R(4, summitHeight * 0.6),
         Math.sin(angle) * dist,
       );
       scene.add(island);
