@@ -1,159 +1,148 @@
 import * as THREE from "three";
-import { lerp, type AnimState } from "@robo/shared";
+import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
+import { clone as cloneSkeleton } from "three/examples/jsm/utils/SkeletonUtils.js";
+import type { AnimState } from "@robo/shared";
 
 /**
- * Classic R6 blocky character: 6 boxes + canvas-texture face, with procedural
- * idle/run/jump/fall/dead poses. Limbs pivot at shoulder/hip via groups whose
- * geometry hangs downward. `root` origin is at the FEET.
+ * Character = the CC0 "RobotExpressive" glTF (Tomás Laulhé / Don McCurdy,
+ * public domain), served from /models/robot.glb. The model + its animation
+ * clips load ONCE; every rig instance is a lightweight skeleton clone with
+ * its own AnimationMixer (geometry/materials stay shared).
+ *
+ * Drop-in for the former procedural R6 rig: same public shape — `root` (a
+ * Group with feet at the origin), `update(anim, planarSpeed, dt)`, and the
+ * free `disposeRig(root)` — so tower players, remote ghosts and builder
+ * workers need no changes.
  */
+
+const MODEL_URL = "/models/robot.glb";
+/** Meters, standing height (feet at y=0) — matches the old rig's ~1.8 m. */
+const TARGET_HEIGHT = 1.9;
+
+type Anim = AnimState | "carry" | "place";
+
+/** Our states → RobotExpressive clip names (fuzzy-matched at bind time). */
+const CLIP_FOR: Record<Anim, string> = {
+  idle: "Idle",
+  run: "Running",
+  jump: "Jump",
+  fall: "Jump",
+  dead: "Death",
+  carry: "Walking",
+  place: "Idle",
+};
+
+interface LoadedModel {
+  scene: THREE.Object3D;
+  clips: THREE.AnimationClip[];
+}
+
+let loadPromise: Promise<LoadedModel | null> | null = null;
+function loadModel(): Promise<LoadedModel | null> {
+  if (!loadPromise) {
+    loadPromise = new Promise((resolve) => {
+      new GLTFLoader().load(
+        MODEL_URL,
+        (gltf) => resolve({ scene: gltf.scene, clips: gltf.animations }),
+        undefined,
+        () => resolve(null), // fetch/parse failed → rig stays empty, never throws
+      );
+    });
+  }
+  return loadPromise;
+}
+
 export class CharacterRig {
   readonly root = new THREE.Group();
-  private readonly leftArm: THREE.Group;
-  private readonly rightArm: THREE.Group;
-  private readonly leftLeg: THREE.Group;
-  private readonly rightLeg: THREE.Group;
-  private animTime = 0;
+  private mixer: THREE.AnimationMixer | null = null;
+  private readonly actions = new Map<string, THREE.AnimationAction>();
+  private current: THREE.AnimationAction | null = null;
+  private wantClip = "Idle";
+  private ready = false;
 
-  constructor(torsoColor = 0x0f6cbd, limbColor = 0xf9d71c, legColor = 0x4bb54a) {
-    const mat = (c: number | THREE.Color) =>
-      new THREE.MeshStandardMaterial({ color: c, roughness: 0.7 });
+  // color args kept for signature compatibility; the glTF carries its own look
+  constructor(_torsoColor?: number, _limbColor?: number, _legColor?: number) {
+    void loadModel().then((loaded) => {
+      if (!loaded) return;
+      const model = cloneSkeleton(loaded.scene);
 
-    const torso = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.6, 0.28), mat(torsoColor));
-    torso.position.y = 0.9;
-    torso.castShadow = true;
-    this.root.add(torso);
+      // scale to TARGET_HEIGHT, then drop so the feet rest on y=0.
+      // updateMatrixWorld first: the clone has no parent yet, so its world
+      // matrices are stale and Box3.setFromObject would measure wrong.
+      model.updateMatrixWorld(true);
+      const size = new THREE.Vector3();
+      new THREE.Box3().setFromObject(model).getSize(size);
+      const scale = size.y > 0 ? TARGET_HEIGHT / size.y : 1;
+      model.scale.setScalar(scale);
+      model.updateMatrixWorld(true);
+      const grounded = new THREE.Box3().setFromObject(model);
+      model.position.y -= grounded.min.y;
 
-    const head = new THREE.Mesh(new THREE.BoxGeometry(0.38, 0.38, 0.38), mat(0xf9d71c));
-    head.position.y = 1.42;
-    head.castShadow = true;
-    this.root.add(head);
+      model.traverse((o) => {
+        if (o instanceof THREE.Mesh) {
+          o.castShadow = true;
+          o.receiveShadow = true;
+          // skinned meshes keep the source's rest-pose bounding volume, which
+          // after scaling/animation no longer matches — the camera then culls
+          // the body while its shadow (a separate light frustum) still shows.
+          o.frustumCulled = false;
+        }
+      });
+      this.root.add(model);
 
-    // face decal on the +z side of the head
-    const face = new THREE.Mesh(
-      new THREE.PlaneGeometry(0.34, 0.34),
-      new THREE.MeshBasicMaterial({ map: makeFaceTexture(), transparent: true }),
-    );
-    face.position.set(0, 1.42, 0.195);
-    this.root.add(face);
-
-    const limb = (color: number, x: number, pivotY: number, w = 0.22, h = 0.6) => {
-      const group = new THREE.Group();
-      group.position.set(x, pivotY, 0);
-      const box = new THREE.Mesh(new THREE.BoxGeometry(w, h, 0.22), mat(color));
-      box.position.y = -h / 2;
-      box.castShadow = true;
-      group.add(box);
-      this.root.add(group);
-      return group;
-    };
-
-    this.leftArm = limb(limbColor, -0.37, 1.18);
-    this.rightArm = limb(limbColor, 0.37, 1.18);
-    this.leftLeg = limb(legColor, -0.13, 0.6);
-    this.rightLeg = limb(legColor, 0.13, 0.6);
+      this.mixer = new THREE.AnimationMixer(model);
+      for (const clip of loaded.clips) this.actions.set(clip.name, this.mixer.clipAction(clip));
+      this.ready = true;
+      this.play(this.wantClip);
+    });
   }
 
-  /** Drive the procedural pose. `planarSpeed` in m/s, `dt` real frame time.
-   *  `carry` = builder mode: legs walk, both arms stretched forward holding
-   *  a load between the hands. `place` = builder mode: standing bow with the
-   *  arms lowering the load (also reads as picking one up). */
-  update(anim: AnimState | "carry" | "place", planarSpeed: number, dt: number): void {
-    this.animTime += dt * Math.max(planarSpeed * 1.6, 3);
-    const t = this.animTime;
-    const ease = 1 - Math.pow(0.0001, dt); // frame-rate independent smoothing
-
-    let armSwing = 0;
-    let legSwing = 0;
-    let armLift = 0;
-    let bodyTilt = 0;
-
-    switch (anim) {
-      case "run": {
-        const cycle = Math.sin(t);
-        armSwing = cycle * 0.9;
-        legSwing = cycle * 0.9;
-        bodyTilt = 0.08;
-        break;
-      }
-      case "jump":
-        armLift = Math.PI * 0.9;
-        legSwing = 0.35;
-        break;
-      case "fall":
-        armLift = Math.PI * 0.55;
-        legSwing = -0.25;
-        break;
-      case "dead":
-        bodyTilt = Math.PI / 2;
-        break;
-      case "idle": {
-        armSwing = Math.sin(t * 0.35) * 0.05;
-        break;
-      }
-      case "carry": {
-        // arms locked forward around the load; legs keep the walk cycle
-        armLift = Math.PI * 0.5;
-        legSwing = Math.sin(t) * 0.9;
-        bodyTilt = 0.06;
-        break;
-      }
-      case "place": {
-        // bow forward, arms lowering — the smoothing lerp turns the
-        // carry→place transition into a visible "setting it down" motion
-        armLift = Math.PI * 0.2;
-        bodyTilt = 0.38;
-        break;
-      }
+  private resolveAction(name: string): THREE.AnimationAction | null {
+    const exact = this.actions.get(name);
+    if (exact) return exact;
+    // fuzzy: case-insensitive contains (robust to clip-name drift)
+    const lower = name.toLowerCase();
+    for (const [clipName, action] of this.actions) {
+      if (clipName.toLowerCase().includes(lower)) return action;
     }
+    return this.actions.values().next().value ?? null;
+  }
 
-    const approach = (obj: THREE.Object3D, target: number, axis: "x" | "z" = "x") => {
-      obj.rotation[axis] = lerp(obj.rotation[axis], target, ease);
-    };
+  private play(name: string): void {
+    const next = this.resolveAction(name);
+    if (!next || next === this.current) return;
+    next.reset().fadeIn(0.18).play();
+    this.current?.fadeOut(0.18);
+    this.current = next;
+  }
 
-    approach(this.leftArm, armSwing - armLift);
-    approach(this.rightArm, -armSwing - armLift);
-    approach(this.leftLeg, -legSwing);
-    approach(this.rightLeg, legSwing);
-    this.root.rotation.x = lerp(this.root.rotation.x, bodyTilt === 0 ? 0 : bodyTilt, ease);
+  /** `planarSpeed` in m/s scales the walk/run cadence; `dt` real frame time. */
+  update(anim: Anim, planarSpeed: number, dt: number): void {
+    const clip = CLIP_FOR[anim] ?? "Idle";
+    if (clip !== this.wantClip) {
+      this.wantClip = clip;
+      if (this.ready) this.play(clip);
+    }
+    if (this.current && (anim === "run" || anim === "carry")) {
+      // faster movement → faster legs (RobotExpressive Running is tuned ~5 m/s)
+      this.current.timeScale = Math.max(0.6, Math.min(2.2, planarSpeed / 4));
+    } else if (this.current) {
+      this.current.timeScale = 1;
+    }
+    this.mixer?.update(dt);
   }
 }
 
-/** Frees every geometry/material/texture a rig (or its sprites) allocated. */
+/**
+ * Frees per-instance extras (e.g. name-label sprites) added onto a rig root.
+ * The robot's geometry/materials/textures are SHARED across all clones — never
+ * disposed here, or every other character would break.
+ */
 export function disposeRig(root: THREE.Object3D): void {
-  root.traverse((o: THREE.Object3D) => {
-    if (!(o instanceof THREE.Mesh) && !(o instanceof THREE.Sprite)) return;
-    if (o instanceof THREE.Mesh) (o.geometry as THREE.BufferGeometry).dispose();
-    const material = (o as THREE.Mesh).material;
-    const mats: THREE.Material[] = Array.isArray(material) ? material : [material];
-    for (const m of mats) {
-      const tex = (m as THREE.Material & { map?: THREE.Texture | null }).map;
-      if (tex) tex.dispose();
-      m.dispose();
+  root.traverse((o) => {
+    if (o instanceof THREE.Sprite) {
+      o.material.map?.dispose();
+      o.material.dispose();
     }
   });
-}
-
-function makeFaceTexture(): THREE.CanvasTexture {
-  const canvas = document.createElement("canvas");
-  canvas.width = 128;
-  canvas.height = 128;
-  const ctx = canvas.getContext("2d");
-  if (ctx) {
-    ctx.fillStyle = "#1a1a1a";
-    // eyes
-    ctx.beginPath();
-    ctx.ellipse(40, 48, 9, 13, 0, 0, Math.PI * 2);
-    ctx.ellipse(88, 48, 9, 13, 0, 0, Math.PI * 2);
-    ctx.fill();
-    // smile
-    ctx.lineWidth = 8;
-    ctx.strokeStyle = "#1a1a1a";
-    ctx.lineCap = "round";
-    ctx.beginPath();
-    ctx.arc(64, 62, 34, Math.PI * 0.2, Math.PI * 0.8);
-    ctx.stroke();
-  }
-  const tex = new THREE.CanvasTexture(canvas);
-  tex.colorSpace = THREE.SRGBColorSpace;
-  return tex;
 }
