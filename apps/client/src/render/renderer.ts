@@ -14,7 +14,10 @@ export class GameRenderer {
 
   constructor(mount: HTMLElement) {
     this.renderer = new THREE.WebGLRenderer({ antialias: true });
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    // cap at 1.5: on 2×/retina panels a full 2.0 quadruples fragment work for
+    // little visible gain on this blocky art, and that headroom is what stops
+    // the intermittent GPU-bound hitches on high-DPI laptops
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
     this.renderer.setSize(window.innerWidth, window.innerHeight);
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;

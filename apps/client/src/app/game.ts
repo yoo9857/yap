@@ -29,7 +29,7 @@ import { texturesReady, warmupGpu } from "../render/textures.js";
 import { NetworkClient, type DailyInfo } from "../net/client.js";
 import { Sfx } from "../audio/sfx.js";
 import { Bgm } from "../audio/bgm.js";
-import { Hud } from "../ui/hud.js";
+import { Hud, type HudData } from "../ui/hud.js";
 import { PerfMonitor } from "../ui/perf.js";
 import { Screens } from "../ui/screens.js";
 
@@ -86,6 +86,11 @@ export class Game {
   private readonly atmosphere: Atmosphere;
   private readonly titleTarget = new THREE.Vector3(); // no per-frame alloc
   private readonly perf = new PerfMonitor(document.body);
+  /** Reused each frame so the HUD update allocates nothing. */
+  private readonly hudData: HudData = {
+    heightPercent: 0, altitudeM: 0, zoneLabel: "", runTimeMs: 0,
+    stage: 1, totalStages: 1, falls: 0, playerCount: 1, connection: "offline",
+  };
   private readonly sfx = new Sfx();
   private readonly bgm = new Bgm("/audio/bgm-tower.mp3");
   private readonly hud: Hud;
@@ -441,17 +446,18 @@ export class Game {
     if (this.state !== "title") {
       const level = this.world.level;
       const altitudeM = player.controller.feetPosition()[1];
-      this.hud.update({
-        heightPercent: (altitudeM / level.summitHeight) * 100,
-        altitudeM,
-        zoneLabel: this.atmosphere.zoneLabel(altitudeM),
-        runTimeMs: this.state === "clear" ? this.finalTimeMs : this.runTimeMs,
-        stage: Math.min(player.checkpoint + 2, level.totalStages),
-        totalStages: level.totalStages,
-        falls: player.falls,
-        playerCount: this.net.playerCount,
-        connection: this.net.state === "online" ? "online" : this.net.state,
-      });
+      // reuse one HudData object — no per-frame allocation in the hot loop
+      const d = this.hudData;
+      d.heightPercent = (altitudeM / level.summitHeight) * 100;
+      d.altitudeM = altitudeM;
+      d.zoneLabel = this.atmosphere.zoneLabel(altitudeM);
+      d.runTimeMs = this.state === "clear" ? this.finalTimeMs : this.runTimeMs;
+      d.stage = Math.min(player.checkpoint + 2, level.totalStages);
+      d.totalStages = level.totalStages;
+      d.falls = player.falls;
+      d.playerCount = this.net.playerCount;
+      d.connection = this.net.state === "online" ? "online" : this.net.state;
+      this.hud.update(d);
     }
 
     this.renderer.render();
