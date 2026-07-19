@@ -1,6 +1,6 @@
 import * as THREE from "three";
-import { BLOCKS, blockById, type BlockDef } from "./blocks.js";
-import { crayonGrain } from "../render/crayonGrain.js";
+import { BLOCKS, blockById, textureUrl, type BlockDef } from "./blocks.js";
+import { loadTexture } from "../render/textures.js";
 import { WORLD_X, WORLD_Y, WORLD_Z, type VoxelWorld } from "./voxelWorld.js";
 import { ROUND, isSlope, slopeYaw, slopeTilt } from "./shapes.js";
 import {
@@ -55,10 +55,10 @@ export class VoxelView {
   }
 
   /**
-   * Solid crayon LEGO brick, matched to the tower's `brickMaterial`:
-   * MeshStandard with the SAME roughness/metalness so craft/battle bricks catch
-   * light exactly like the jump-map platforms, one flat colour per block + a
-   * faint shared grain (also on the characters). No per-block photo tile.
+   * Matched to the tower's `brickMaterial`: MeshStandard (same roughness/
+   * metalness → same lighting) carrying the SAME crayon-doodle tile as the jump
+   * map (grass-top, stone, …). The tile carries the hue; the solid crayon colour
+   * is only the fallback until it loads / for a block with no tile.
    */
   private makeMaterial(def: BlockDef): THREE.Material {
     const isGlass = def.key === "glass";
@@ -66,14 +66,20 @@ export class VoxelView {
       color: new THREE.Color(def.color),
       roughness: 0.75,
       metalness: 0.05,
-      map: crayonGrain() ?? undefined,
       transparent: isGlass,
       opacity: isGlass ? 0.55 : 1,
     });
     if (def.emissive) {
       material.emissive = new THREE.Color(def.color);
-      material.emissiveIntensity = 0.7;
+      material.emissiveIntensity = 0.55;
     }
+    void loadTexture(textureUrl(def)).then((tex) => {
+      if (!tex) return; // keep the solid crayon colour
+      material.map = tex;
+      material.color.set(0xffffff); // the tile carries the hue, exactly like the tower
+      if (def.emissive) material.emissiveMap = tex;
+      material.needsUpdate = true;
+    });
     return material;
   }
 
