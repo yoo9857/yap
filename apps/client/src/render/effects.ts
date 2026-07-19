@@ -10,7 +10,62 @@ interface Particle {
   active: boolean;
 }
 
+/** A flat, ground-hugging crayon ring that scribbles outward and fades. */
+interface Ring {
+  mesh: THREE.Mesh;
+  material: THREE.MeshBasicMaterial;
+  life: number;
+  maxLife: number;
+  from: number;
+  to: number;
+  active: boolean;
+}
+
 const POOL_SIZE = 160;
+const RING_POOL_SIZE = 16;
+
+// crayon speck palette — chalky, warm, hand-drawn (not pure white)
+const JUMP_SPECKS = [0xfff6e0, 0xffe9b8, 0xffffff] as const;
+const LAND_SPECKS = [0xf3ede0, 0xe9dcc4, 0xd9c7a3] as const;
+
+/**
+ * A rough, hand-drawn ring on a transparent tile — a few wobbly chalk passes
+ * so the poof reads as a doodle, not a clean vector circle. Built once.
+ */
+function makeDoodleRingTexture(): THREE.Texture | null {
+  if (typeof document === "undefined") return null;
+  const S = 128;
+  const canvas = document.createElement("canvas");
+  canvas.width = canvas.height = S;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return null;
+  const cx = S / 2;
+  const cy = S / 2;
+  const base = S * 0.36;
+  ctx.strokeStyle = "#ffffff";
+  ctx.lineCap = "round";
+  // three overlapping passes, each a slightly wobbled circle → crayon texture
+  for (let pass = 0; pass < 3; pass++) {
+    ctx.lineWidth = 5 - pass;
+    ctx.globalAlpha = 0.9 - pass * 0.22;
+    ctx.beginPath();
+    const steps = 48;
+    for (let i = 0; i <= steps; i++) {
+      const a = (i / steps) * Math.PI * 2;
+      // deterministic wobble (sin blend) — no per-frame RNG, stable texture
+      const wob = 1 + 0.06 * Math.sin(a * 5 + pass * 2) + 0.04 * Math.sin(a * 9 - pass);
+      const r = base * wob + pass * 1.5;
+      const x = cx + Math.cos(a) * r;
+      const y = cy + Math.sin(a) * r;
+      if (i === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+  }
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  return tex;
+}
 
 /**
  * Fixed-size pooled particle system — box debris & poofs, zero allocation
@@ -18,6 +73,7 @@ const POOL_SIZE = 160;
  */
 export class Effects {
   private readonly pool: Particle[] = [];
+  private readonly rings: Ring[] = [];
   private readonly materials = new Map<number, THREE.MeshLambertMaterial>();
 
   constructor(private readonly scene: THREE.Scene) {
@@ -36,6 +92,40 @@ export class Effects {
         active: false,
       });
     }
+
+    const ringTex = makeDoodleRingTexture();
+    const ringGeo = new THREE.PlaneGeometry(1, 1);
+    for (let i = 0; i < RING_POOL_SIZE; i++) {
+      const material = new THREE.MeshBasicMaterial({
+        map: ringTex ?? undefined,
+        color: 0xffffff,
+        transparent: true,
+        opacity: 0,
+        depthWrite: false,
+        side: THREE.DoubleSide,
+      });
+      const mesh = new THREE.Mesh(ringGeo, material);
+      mesh.rotation.x = -Math.PI / 2; // lie flat on the ground
+      mesh.visible = false;
+      mesh.renderOrder = 2;
+      scene.add(mesh);
+      this.rings.push({ mesh, material, life: 0, maxLife: 1, from: 1, to: 2, active: false });
+    }
+  }
+
+  /** Spawn one expanding ground ring (feet position). */
+  private spawnRing(pos: THREE.Vector3, color: number, from: number, to: number, life: number): void {
+    const ring = this.rings.find((r) => !r.active);
+    if (!ring) return;
+    ring.active = true;
+    ring.mesh.visible = true;
+    ring.material.color.setHex(color);
+    ring.mesh.position.set(pos.x, pos.y + 0.04, pos.z);
+    ring.life = 0;
+    ring.maxLife = life;
+    ring.from = from;
+    ring.to = to;
+    ring.mesh.scale.setScalar(from);
   }
 
   private material(color: number): THREE.MeshLambertMaterial {
@@ -77,11 +167,17 @@ export class Effects {
   }
 
   jumpDust(pos: THREE.Vector3): void {
-    this.spawn(pos, 0xffffff, 6, 2, 1.5, 0.12, 0.4, 6);
+    this.spawnRing(pos, 0xfff3d8, 0.5, 2.2, 0.34);
+    for (const c of JUMP_SPECKS) this.spawn(pos, c, 2, 2, 1.6, 0.11, 0.4, 6);
   }
 
-  landPoof(pos: THREE.Vector3): void {
-    this.spawn(pos, 0xffffff, 8, 2.5, 1, 0.14, 0.45, 5);
+  /** `impact` (~0..1.5) scales the splat with fall speed. */
+  landPoof(pos: THREE.Vector3, impact = 1): void {
+    const k = Math.max(0.6, Math.min(1.6, impact));
+    this.spawnRing(pos, 0xf1e6cf, 0.45, 1.9 + k * 0.9, 0.3 + k * 0.06);
+    for (const c of LAND_SPECKS) {
+      this.spawn(pos, c, Math.round(3 * k), 2.4 * k, 1.1, 0.12, 0.42, 5);
+    }
   }
 
   crumbleDebris(pos: THREE.Vector3, color: number): void {
@@ -117,6 +213,22 @@ export class Effects {
       p.mesh.rotation.x += p.spin * dt;
       p.mesh.rotation.z += p.spin * dt;
       (p.mesh.material as THREE.MeshLambertMaterial).opacity = 1 - p.life / p.maxLife;
+    }
+
+    for (const r of this.rings) {
+      if (!r.active) continue;
+      r.life += dt;
+      const t = r.life / r.maxLife;
+      if (t >= 1) {
+        r.active = false;
+        r.mesh.visible = false;
+        r.material.opacity = 0;
+        continue;
+      }
+      // ease-out expansion; fade in fast then out
+      const scale = r.from + (r.to - r.from) * (1 - (1 - t) * (1 - t));
+      r.mesh.scale.setScalar(scale);
+      r.material.opacity = (t < 0.15 ? t / 0.15 : 1 - (t - 0.15) / 0.85) * 0.85;
     }
   }
 }

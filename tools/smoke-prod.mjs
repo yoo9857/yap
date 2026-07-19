@@ -32,7 +32,7 @@ try {
   check("index.html served", r.status === 200 && r.type.includes("text/html"));
   check("index.html is no-cache", r.cache.includes("no-cache"), r.cache);
   check("English brand title present", html.includes("<title>CraftYap"), "");
-  check("OG image points at craftyap.com", html.includes("craftyap.com/craftyap-banner.png"));
+  check("OG image points at craftyap.com", html.includes("craftyap.com/craftyap-banner.jpg"));
 } catch (e) {
   check("index.html served", false, String(e));
 }

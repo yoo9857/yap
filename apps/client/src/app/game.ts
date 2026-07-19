@@ -28,7 +28,7 @@ import { preloadCharacter } from "../player/rig.js";
 import { texturesReady, warmupGpu } from "../render/textures.js";
 import { NetworkClient, type DailyInfo } from "../net/client.js";
 import { Sfx } from "../audio/sfx.js";
-import { Bgm } from "../audio/bgm.js";
+import { Bgm, BGM_PLAYLIST } from "../audio/bgm.js";
 import { Hud, type HudData } from "../ui/hud.js";
 import { PerfMonitor } from "../ui/perf.js";
 import { Screens } from "../ui/screens.js";
@@ -92,7 +92,7 @@ export class Game {
     stage: 1, totalStages: 1, falls: 0, playerCount: 1, connection: "offline",
   };
   private readonly sfx = new Sfx();
-  private readonly bgm = new Bgm("/audio/bgm-tower.mp3");
+  private readonly bgm = new Bgm(BGM_PLAYLIST);
   private readonly hud: Hud;
   private readonly screens: Screens;
   private readonly net: NetworkClient;
@@ -224,11 +224,16 @@ export class Game {
       {
         onJump: () => {
           this.sfx.play("jump");
-          this.effects.jumpDust(this.world.player.rig.root.position);
+          const p = this.world.player;
+          p.rig.pop(7); // stretch up off the ground
+          this.effects.jumpDust(p.rig.root.position);
         },
         onLand: () => {
           this.sfx.play("land");
-          this.effects.landPoof(this.world.player.rig.root.position);
+          const p = this.world.player;
+          const impact = Math.max(0.5, Math.min(1.6, p.controller.lastLandSpeed / 16));
+          p.rig.pop(-8 * impact); // squash down, harder for bigger falls
+          this.effects.landPoof(p.rig.root.position, impact);
         },
         onDeath: () => {
           this.sfx.play("oof");

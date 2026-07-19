@@ -1,0 +1,13 @@
+import puppeteer from "puppeteer-core";
+const EDGE = "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe";
+const b = await puppeteer.launch({ executablePath: EDGE, headless: "new", args: ["--enable-unsafe-swiftshader", "--no-sandbox", "--window-size=1280,800"] });
+const p = await b.newPage();
+await p.setViewport({ width: 1280, height: 800 });
+await p.goto("http://localhost:5173/?mode=tower&perf=1", { waitUntil: "networkidle2", timeout: 30000 });
+await p.waitForFunction(() => document.getElementById("boot-overlay")?.classList.contains("hidden"), { timeout: 20000 });
+await p.click("#app");
+await p.evaluate(() => globalThis.__robo.startRun("perf"));
+await new Promise((r) => setTimeout(r, 3500));
+const s = await p.evaluate(() => globalThis.__robo.perf());
+console.log(JSON.stringify(s));
+await b.close();

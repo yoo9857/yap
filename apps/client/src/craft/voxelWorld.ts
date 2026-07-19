@@ -43,6 +43,10 @@ export interface RayHit {
 
 export class VoxelWorld {
   readonly cells = new Uint8Array(WORLD_X * WORLD_Y * WORLD_Z);
+  /** Per-cell brick SHAPE (0 = cube, 1 = round, 2–5 = slope facings). Parallel
+   *  to `cells`; physics ignores it (every solid cell is a full AABB), only the
+   *  renderer reads it. Cleared to 0 whenever a plain cube/air is written. */
+  readonly shapes = new Uint8Array(WORLD_X * WORLD_Y * WORLD_Z);
 
   static index(x: number, y: number, z: number): number {
     return (y * WORLD_Z + z) * WORLD_X + x;
@@ -57,7 +61,24 @@ export class VoxelWorld {
   }
 
   set(x: number, y: number, z: number, id: number): void {
-    if (this.inBounds(x, y, z)) this.cells[VoxelWorld.index(x, y, z)] = id;
+    if (this.inBounds(x, y, z)) {
+      const i = VoxelWorld.index(x, y, z);
+      this.cells[i] = id;
+      this.shapes[i] = 0; // a plain cube / air — never keep a stale shape
+    }
+  }
+
+  /** Place a block with an explicit brick shape (round/slope). */
+  setShaped(x: number, y: number, z: number, id: number, shape: number): void {
+    if (this.inBounds(x, y, z)) {
+      const i = VoxelWorld.index(x, y, z);
+      this.cells[i] = id;
+      this.shapes[i] = shape;
+    }
+  }
+
+  getShape(x: number, y: number, z: number): number {
+    return this.inBounds(x, y, z) ? this.shapes[VoxelWorld.index(x, y, z)]! : 0;
   }
 
   isSolid(x: number, y: number, z: number): boolean {

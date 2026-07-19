@@ -1,8 +1,11 @@
 import * as THREE from "three";
+import { RoundedBoxGeometry } from "three/examples/jsm/geometries/RoundedBoxGeometry.js";
+import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import {
   CRUMBLE_GONE_S,
   CRUMBLE_SHAKE_S,
   SIM_DT,
+  createRng,
   movingPlatformCenter,
   movingPlatformVelocity,
   type CrumblingPlatformDef,
@@ -65,10 +68,157 @@ function scaleBoxUVs(geo: THREE.BoxGeometry, sx: number, sy: number, sz: number)
   uv.needsUpdate = true;
 }
 
+// ---- LEGO toy-brick platforms ------------------------------------------------
+// Same identity as the voxel modes, taken further: every obby platform is
+// TESSELLATED from an assorted set of real LEGO piece shapes — 1×N and 2×N
+// bricks, ㄴ/ㄱ corner (L) pieces, and round "O" pieces — packed deterministically
+// so it reads as a genuine brick BUILD, not a uniform grid. Studs sit on a 1 m
+// grid; same-piece cells fuse while piece boundaries keep a groove, so the
+// individual pieces are legible. Colliders stay plain cuboids; this is the look.
+const TARGET_BRICK = 0.7; // small cells → platforms are 3–4 studs across, so long 1×4 / 2×4 pieces fit
+const AREA_FLAT = 40; // a huge slab (29 m baseplate) stays flat — tessellating it is overkill
+const GAP2 = 0.05; // per-side inset → a groove between pieces
+const OVER = 0.06; // per-side extend → same-piece cells fuse across the groove
+
+type Cell = [number, number];
+interface Piece {
+  cells: Cell[]; // occupancy + one stud per cell; (0,0) is always the top-left anchor
+  weight: number;
+  round?: boolean; // 1×1 "O" → a round cylinder brick
+}
+
+/** All piece shapes + rotations that can be anchored at a row-major first-empty
+ *  cell (top-left cell filled, nothing reaching up/left of the anchor). */
+const PIECES: Piece[] = buildPieceSet();
+function buildPieceSet(): Piece[] {
+  // weights favour LONG and ROUND pieces and de-emphasise the plain square so
+  // platforms don't read as a grid of 2×2s (user: "don't make everything square")
+  const bases: Piece[] = [
+    { cells: [[0, 0]], weight: 1 }, // 1×1
+    { cells: [[0, 0]], weight: 5, round: true }, // O round 1×1
+    { cells: [[0, 0], [1, 0]], weight: 6 }, // 1×2
+    { cells: [[0, 0], [1, 0], [2, 0]], weight: 6 }, // 1×3
+    { cells: [[0, 0], [1, 0], [2, 0], [3, 0]], weight: 7 }, // 1×4 (long)
+    { cells: [[0, 0], [1, 0], [0, 1], [1, 1]], weight: 2 }, // 2×2 (square — rarer)
+    { cells: [[0, 0], [1, 0], [2, 0], [0, 1], [1, 1], [2, 1]], weight: 3 }, // 2×3
+    { cells: [[0, 0], [1, 0], [2, 0], [3, 0], [0, 1], [1, 1], [2, 1], [3, 1]], weight: 5 }, // 2×4 (long)
+    { cells: [[0, 0], [1, 0], [0, 1]], weight: 5 }, // ㄴ / ㄱ corner (L)
+  ];
+  const out: Piece[] = [];
+  const seen = new Set<string>();
+  for (const base of bases) {
+    let cells = base.cells;
+    for (let rot = 0; rot < (base.round ? 1 : 4); rot++) {
+      // normalise to the bounding-box top-left
+      const minX = Math.min(...cells.map((c) => c[0]));
+      const minZ = Math.min(...cells.map((c) => c[1]));
+      const norm = cells.map(([x, z]) => [x - minX, z - minZ] as Cell);
+      const anchored = norm.some(([x, z]) => x === 0 && z === 0);
+      const key = norm.map(([x, z]) => `${x},${z}`).sort().join("|");
+      if (anchored && !seen.has(key)) {
+        seen.add(key);
+        out.push({ cells: norm, weight: base.weight, round: base.round });
+      }
+      cells = cells.map(([x, z]) => [z, -x] as Cell); // rotate 90°
+    }
+  }
+  return out;
+}
+
+/** Deterministically pack an nx×nz cell grid with pieces; returns cell→pieceId
+ *  and a round flag per piece. Same seed → same build (stable across rebuilds). */
+function tessellate(nx: number, nz: number, seed: number): { cellPiece: Int32Array; round: boolean[] } {
+  const rng = createRng((seed * 2654435761) >>> 0);
+  const occ = new Uint8Array(nx * nz);
+  const cellPiece = new Int32Array(nx * nz).fill(-1);
+  const round: boolean[] = [];
+  let pid = 0;
+  for (let z = 0; z < nz; z++) {
+    for (let x = 0; x < nx; x++) {
+      if (occ[z * nx + x]) continue;
+      const fits = PIECES.filter((p) =>
+        p.cells.every(([dx, dz]) => {
+          const gx = x + dx, gz = z + dz;
+          return gx >= 0 && gx < nx && gz >= 0 && gz < nz && !occ[gz * nx + gx];
+        }),
+      );
+      const total = fits.reduce((s, p) => s + p.weight, 0);
+      let r = rng.next() * total;
+      let piece = fits[fits.length - 1]!;
+      for (const p of fits) {
+        r -= p.weight;
+        if (r <= 0) {
+          piece = p;
+          break;
+        }
+      }
+      for (const [dx, dz] of piece.cells) {
+        occ[(z + dz) * nx + (x + dx)] = 1;
+        cellPiece[(z + dz) * nx + (x + dx)] = pid;
+      }
+      round[pid] = !!piece.round;
+      pid++;
+    }
+  }
+  return { cellPiece, round };
+}
+
+/** Build the merged brick geometry for one platform footprint. */
+function brickBuildGeometry(w: number, h: number, d: number, seed: number): THREE.BufferGeometry {
+  const nx = Math.max(1, Math.round(w / TARGET_BRICK));
+  const nz = Math.max(1, Math.round(d / TARGET_BRICK));
+  const cw = w / nx;
+  const cd = d / nz;
+  const { cellPiece, round } = tessellate(nx, nz, seed);
+  const studR = Math.min(cw, cd) * 0.17;
+  const parts: THREE.BufferGeometry[] = [];
+  const same = (i: number, j: number, pid: number) =>
+    i >= 0 && i < nx && j >= 0 && j < nz && cellPiece[j * nx + i] === pid;
+  for (let j = 0; j < nz; j++) {
+    for (let i = 0; i < nx; i++) {
+      const pid = cellPiece[j * nx + i]!;
+      const cx = -w / 2 + (i + 0.5) * cw;
+      const cz = -d / 2 + (j + 0.5) * cd;
+      if (round[pid]) {
+        const rad = Math.min(cw, cd) / 2 - GAP2;
+        const cyl = new THREE.CylinderGeometry(rad, rad, h, 16).toNonIndexed();
+        cyl.translate(cx, 0, cz);
+        parts.push(cyl);
+      } else {
+        // extend toward same-piece neighbours (fuse), inset toward others (seam)
+        const minX = cx - cw / 2 + (same(i - 1, j, pid) ? -OVER : GAP2);
+        const maxX = cx + cw / 2 - (same(i + 1, j, pid) ? -OVER : GAP2);
+        const minZ = cz - cd / 2 + (same(i, j - 1, pid) ? -OVER : GAP2);
+        const maxZ = cz + cd / 2 - (same(i, j + 1, pid) ? -OVER : GAP2);
+        const bw = maxX - minX, bd = maxZ - minZ;
+        const brick = new RoundedBoxGeometry(bw, h, bd, 2, Math.min(bw, h, bd) * 0.12);
+        brick.translate((minX + maxX) / 2, 0, (minZ + maxZ) / 2);
+        parts.push(brick);
+      }
+      const s = new THREE.CylinderGeometry(studR, studR * 1.06, 0.12, 12).toNonIndexed();
+      s.translate(cx, h / 2 + 0.04, cz);
+      parts.push(s);
+    }
+  }
+  const merged = mergeGeometries(parts, false);
+  for (const p of parts) p.dispose();
+  return merged ?? new THREE.BoxGeometry(w, h, d);
+}
+
+function buildBoxGeometry(w: number, h: number, d: number, seed: number): THREE.BufferGeometry {
+  if (w * d > AREA_FLAT) {
+    const geo = new THREE.BoxGeometry(w, h, d);
+    scaleBoxUVs(geo, w, h, d);
+    return geo;
+  }
+  return brickBuildGeometry(w, h, d, seed);
+}
+
 function buildBoxMesh(def: PlatformDef, material: THREE.Material): THREE.Mesh {
-  const geo = new THREE.BoxGeometry(def.size[0], def.size[1], def.size[2]);
-  scaleBoxUVs(geo, def.size[0], def.size[1], def.size[2]);
-  const mesh = new THREE.Mesh(geo, material);
+  const mesh = new THREE.Mesh(
+    buildBoxGeometry(def.size[0], def.size[1], def.size[2], def.id),
+    material,
+  );
   mesh.castShadow = true;
   mesh.receiveShadow = true;
   mesh.position.set(def.center[0], def.center[1], def.center[2]);
@@ -108,9 +258,10 @@ export class SolidPlatform implements PlatformEntity {
     // lava brick: visual only — death is an analytic trigger, not a collision
     if (def.hazard) {
       const h = def.hazard;
-      const lavaGeo = new THREE.BoxGeometry(h.size[0], h.size[1], h.size[2]);
-      scaleBoxUVs(lavaGeo, h.size[0], h.size[1], h.size[2]);
-      this.lavaMesh = new THREE.Mesh(lavaGeo, LAVA_MATERIAL);
+      this.lavaMesh = new THREE.Mesh(
+        buildBoxGeometry(h.size[0], h.size[1], h.size[2], def.id ^ 0x5a5a),
+        LAVA_MATERIAL,
+      );
       this.lavaMesh.position.set(h.center[0], h.center[1], h.center[2]);
       this.lavaMesh.castShadow = true;
       scene.add(this.lavaMesh);

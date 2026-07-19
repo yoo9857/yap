@@ -4,7 +4,7 @@ import { GameRenderer } from "../render/renderer.js";
 import { texturesReady, warmupGpu } from "../render/textures.js";
 import { CharacterRig } from "../player/rig.js";
 import { Sfx } from "../audio/sfx.js";
-import { Bgm } from "../audio/bgm.js";
+import { Bgm, BGM_PLAYLIST } from "../audio/bgm.js";
 import { PerfMonitor } from "../ui/perf.js";
 import { AIR, blockById, blockByKey, dropOf } from "./blocks.js";
 import {
@@ -19,6 +19,14 @@ import {
 import { clearCraftSave, loadCraft, saveCraft } from "./craftSave.js";
 import { stepBody, overlapsVoxel, unstick, wishFromInput, type Body } from "./voxelBody.js";
 import { WORLD_X, WORLD_Z, surfaceY } from "./voxelWorld.js";
+import { PIECES, pieceCells } from "./pieces.js";
+import { CUBE, ROUND, slopeShape } from "./shapes.js";
+import {
+  brickOrientation,
+  cubeBrickGeometry,
+  roundBrickGeometry,
+  slopeBrickGeometry,
+} from "./brickGeometry.js";
 import { VoxelView } from "./voxelView.js";
 import { CraftCamera } from "./craftCamera.js";
 import { CraftHud } from "./craftHud.js";
@@ -39,7 +47,7 @@ export class CraftGame {
   private readonly view: VoxelView;
   private readonly hud: CraftHud;
   private readonly sfx = new Sfx();
-  private readonly bgm = new Bgm("/audio/bgm-builder.mp3");
+  private readonly bgm = new Bgm(BGM_PLAYLIST);
   private readonly perf = new PerfMonitor(document.body);
   private readonly rig = new CharacterRig();
   private readonly loop: GameLoop;
@@ -55,6 +63,17 @@ export class CraftGame {
   private miningProgress = 0;
   private miningFrac: number | null = null;
   private selected = 0;
+  private pieceIndex = 0;
+  private pieceRot = 0;
+  private pieceTilt = 0;
+  private readonly ghost = new THREE.Group();
+  private readonly ghostMeshes: THREE.Mesh[] = [];
+  private ghostOk!: THREE.MeshBasicMaterial;
+  private ghostBad!: THREE.MeshBasicMaterial;
+  private ghostCubeGeo!: THREE.BufferGeometry;
+  private ghostRoundGeo!: THREE.BufferGeometry;
+  private ghostSlopeGeo!: THREE.BufferGeometry;
+  private readonly ghostQuat = new THREE.Quaternion();
   private locked = false;
   private readonly camera;
   private robotMaterials: THREE.Material[] | null = null;
@@ -75,6 +94,7 @@ export class CraftGame {
     unstick(this.state.world, this.body); // never spawn embedded in a block
     this.renderer.scene.add(this.rig.root);
     this.view.markDirty();
+    this.buildGhost();
 
     this.bindInput(mount);
     window.addEventListener("visibilitychange", () => {
@@ -139,6 +159,13 @@ export class CraftGame {
         if (this.hud.recipesOpen) document.exitPointerLock();
       }
       if (key === "v") this.camera.toggleView();
+      if (key === "r") this.pieceRot = (this.pieceRot + 1) % 4; // spin (yaw)
+      if (key === "t") this.pieceTilt = (this.pieceTilt + 1) % 4; // tip sideways (tilt)
+      if (key === "f") {
+        this.pieceIndex = (this.pieceIndex + 1) % PIECES.length;
+        this.pieceRot = 0;
+        this.pieceTilt = 0;
+      }
     });
     document.addEventListener("keyup", (e) => this.keys.delete(e.code));
     window.addEventListener("blur", () => this.keys.clear());
@@ -230,18 +257,102 @@ export class CraftGame {
     }
   }
 
+  /**
+   * Stamp the selected LEGO piece at the aim cell: every footprint cell must be
+   * free, in-bounds and clear of the player, and you need one block per cell —
+   * it's all-or-nothing so a piece never lands half-placed.
+   */
   private tryPlace(): void {
     if (!this.aim) return;
-    const key = HOTBAR[this.selected]!;
-    if (countOf(this.state.inventory, key) <= 0) return;
-    const [x, y, z] = this.aim.before;
-    if (!this.state.world.inBounds(x, y, z)) return;
-    if (this.state.world.get(x, y, z) !== AIR) return;
-    if (overlapsVoxel(this.body, x, y, z)) return; // never bury yourself
-    if (!removeItem(this.state.inventory, key)) return;
-    this.state.world.set(x, y, z, blockByKey(key)!.id);
+    if (this.stampPiece(this.aim.before, HOTBAR[this.selected]!)) this.sfx.play("land");
+  }
+
+  /** Try to place the active piece with anchor at `before`; true if it landed. */
+  private stampPiece(before: [number, number, number], key: string): boolean {
+    const [ax, ay, az] = before;
+    const piece = PIECES[this.pieceIndex]!;
+    const cells = pieceCells(piece, this.pieceRot, this.pieceTilt);
+    const shape =
+      piece.shape === "round"
+        ? ROUND
+        : piece.shape === "slope"
+          ? slopeShape(this.pieceRot, this.pieceTilt)
+          : CUBE;
+    const targets: [number, number, number][] = [];
+    for (const [dx, dy, dz] of cells) {
+      const x = ax + dx;
+      const y = ay + dy;
+      const z = az + dz;
+      if (!this.state.world.inBounds(x, y, z)) return false;
+      if (this.state.world.get(x, y, z) !== AIR) return false;
+      if (overlapsVoxel(this.body, x, y, z)) return false; // never bury yourself
+      targets.push([x, y, z]);
+    }
+    if (countOf(this.state.inventory, key) < targets.length) return false;
+    const id = blockByKey(key)!.id;
+    for (const [x, y, z] of targets) {
+      removeItem(this.state.inventory, key);
+      this.state.world.setShaped(x, y, z, id, shape);
+    }
     this.view.markDirty();
-    this.sfx.play("land");
+    return true;
+  }
+
+  // ---------------------------------------------------------------- ghost
+
+  /**
+   * A pooled translucent preview that mirrors the ACTUAL piece — real cube/
+   * round/slope geometry, oriented by yaw+tilt — so what you see is what lands
+   * (green = fits, red = blocked).
+   */
+  private buildGhost(): void {
+    this.ghostCubeGeo = cubeBrickGeometry();
+    this.ghostRoundGeo = roundBrickGeometry();
+    this.ghostSlopeGeo = slopeBrickGeometry();
+    this.ghostOk = new THREE.MeshBasicMaterial({ color: 0x8ce87a, transparent: true, opacity: 0.34, depthWrite: false });
+    this.ghostBad = new THREE.MeshBasicMaterial({ color: 0xe8695b, transparent: true, opacity: 0.34, depthWrite: false });
+    for (let i = 0; i < 4; i++) {
+      const m = new THREE.Mesh(this.ghostCubeGeo, this.ghostOk);
+      m.visible = false;
+      this.ghost.add(m);
+      this.ghostMeshes.push(m);
+    }
+    this.renderer.scene.add(this.ghost);
+  }
+
+  private updateGhost(): void {
+    if (!this.locked || !this.aim || this.mining) {
+      for (const m of this.ghostMeshes) m.visible = false;
+      return;
+    }
+    const piece = PIECES[this.pieceIndex]!;
+    const geo =
+      piece.shape === "round"
+        ? this.ghostRoundGeo
+        : piece.shape === "slope"
+          ? this.ghostSlopeGeo
+          : this.ghostCubeGeo;
+    if (piece.shape === "slope") brickOrientation(this.pieceRot, this.pieceTilt, this.ghostQuat);
+    else this.ghostQuat.identity();
+    const cells = pieceCells(piece, this.pieceRot, this.pieceTilt);
+    const [ax, ay, az] = this.aim.before;
+    for (let i = 0; i < this.ghostMeshes.length; i++) {
+      const m = this.ghostMeshes[i]!;
+      const c = cells[i];
+      if (!c) {
+        m.visible = false;
+        continue;
+      }
+      const x = ax + c[0];
+      const y = ay + c[1];
+      const z = az + c[2];
+      const ok = this.state.world.inBounds(x, y, z) && this.state.world.get(x, y, z) === AIR;
+      m.visible = true;
+      m.geometry = geo;
+      m.material = ok ? this.ghostOk : this.ghostBad;
+      m.quaternion.copy(this.ghostQuat);
+      m.position.set(x + 0.5, y + 0.5, z + 0.5);
+    }
   }
 
   private handleCraft(recipe: CraftRecipe): void {
@@ -321,8 +432,10 @@ export class CraftGame {
     this.applyRobotOpacity(robotOpacity, frameDt);
     this.renderer.trackTarget(eye);
 
+    this.updateGhost();
     this.hud.update(this.state.inventory, this.selected);
     this.hud.setMineProgress(this.miningFrac);
+    this.hud.setPiece(PIECES[this.pieceIndex]!.name, this.pieceRot, this.pieceTilt);
     this.renderer.render();
     this.perf.update(this.renderer.renderer, frameDt);
   }
@@ -366,6 +479,17 @@ export class CraftGame {
       craft: (id: string) => {
         const recipe = CRAFT_RECIPES.find((r) => r.id === id);
         return recipe ? craftRecipe(this.state.inventory, recipe) : false;
+      },
+      setPieceShape: (i: number, rot = 0, tilt = 0) => {
+        this.pieceIndex = ((i % PIECES.length) + PIECES.length) % PIECES.length;
+        this.pieceRot = ((rot % 4) + 4) % 4;
+        this.pieceTilt = ((tilt % 4) + 4) % 4;
+      },
+      placePiece: (x: number, y: number, z: number, key: string) => this.stampPiece([x, y, z], key),
+      pieces: () => PIECES.map((p) => p.key),
+      look: (yaw: number, pitch?: number) => {
+        this.yaw = yaw;
+        if (pitch !== undefined) this.pitch = pitch;
       },
       saveNow: () => this.persist(),
       perf: () => this.perf.sample(),

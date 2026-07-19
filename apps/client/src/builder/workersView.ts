@@ -1,6 +1,6 @@
 import * as THREE from "three";
 import { BRICK_COLORS, lerp } from "@robo/shared";
-import { CharacterRig, disposeRig } from "../player/rig.js";
+import { CharacterRig, VARIANT_CYCLE, disposeRig } from "../player/rig.js";
 import {
   MAX_VISUAL_WORKERS,
   WALK_DISTANCE_M,
@@ -35,7 +35,7 @@ export class WorkersView {
   private ensureCount(n: number): void {
     while (this.workers.length < n) {
       const i = this.workers.length;
-      const rig = new CharacterRig(0xf5802b, 0xf9d71c, 0x3a3f47); // builder crew colors
+      const rig = new CharacterRig(VARIANT_CYCLE[i % VARIANT_CYCLE.length]); // varied crew
       this.scene.add(rig.root);
       const brick = new THREE.Mesh(
         this.brickGeo,

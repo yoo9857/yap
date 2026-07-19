@@ -113,23 +113,35 @@ export class CharacterController {
       vel.y = JUMP_RELEASE_CLAMP;
     }
 
-    // Collide-and-slide over the player's OWN motion only; the platform carry
-    // is applied verbatim on top. Platforms are teleported (zero internal
-    // velocity), so the KCC never adds its own partial carry — the explicit
-    // delta is the single source of ride movement and velocity reconstruction
-    // below stays feedback-free.
-    this.desired.set(vel.x * SIM_DT, vel.y * SIM_DT, vel.z * SIM_DT);
+    // Resolve our walk AND the platform carry together in one collide-and-slide:
+    // the platform already teleported this tick, so feeding walk+carry as the
+    // desired motion lets the KCC catch us up to the moved platform and walk in
+    // the same pass. Splitting them (walk alone, carry added after) makes the
+    // KCC resolve the walk from a position misaligned with the moved platform
+    // and intermittently BLOCK it (corrected≈0) → the "barely moves on a moving
+    // block" bug. Platforms are teleported (zero internal velocity) so the KCC
+    // adds no carry of its own — our explicit delta is the only carry.
+    const pd = cmd.platformDelta;
+    this.desired.set(
+      vel.x * SIM_DT + pd.x,
+      vel.y * SIM_DT + pd.y,
+      vel.z * SIM_DT + pd.z,
+    );
 
     this.cc.computeColliderMovement(this.collider, this.desired);
     const corrected = this.cc.computedMovement();
     const pos = this.body.translation();
     this.body.setNextKinematicTranslation({
-      x: pos.x + corrected.x + cmd.platformDelta.x,
-      y: pos.y + corrected.y + cmd.platformDelta.y,
-      z: pos.z + corrected.z + cmd.platformDelta.z,
+      x: pos.x + corrected.x,
+      y: pos.y + corrected.y,
+      z: pos.z + corrected.z,
     });
 
     const wasGrounded = this.grounded;
+    // downward speed the instant before contact resolution — drives the
+    // landing squash/poof intensity (bigger fall = bigger splat). Captured
+    // here because the grounded fixup below overwrites vel.y.
+    const impactSpeed = -vel.y;
     this.grounded = this.cc.computedGrounded();
 
     if (import.meta.env.DEV) {
@@ -140,27 +152,38 @@ export class CharacterController {
         cy: corrected.y,
         pdx: cmd.platformDelta.x,
         g: this.grounded,
+        dz: this.desired.z,
+        cz: corrected.z,
+        pdz: cmd.platformDelta.z,
       });
       if (this.trace.length > 300) this.trace.shift();
     }
 
-    // velocity fixups from the collide-and-slide result (own motion only)
-    vel.x = corrected.x / SIM_DT;
-    vel.z = corrected.z / SIM_DT;
+    // velocity fixups: recover OWN motion by removing the carry we injected
+    vel.x = (corrected.x - pd.x) / SIM_DT;
+    vel.z = (corrected.z - pd.z) / SIM_DT;
     if (this.grounded && vel.y < 0) {
       vel.y = -1; // keep light ground contact so snap/grounded stays stable
     } else if (!this.grounded && vel.y > 0 && corrected.y < this.desired.y - 1e-4) {
       vel.y = 0; // bonked a ceiling
     }
-    if (!wasGrounded && this.grounded) this.justLanded = true;
+    if (!wasGrounded && this.grounded) {
+      this.justLanded = true;
+      this.lastLandSpeed = Math.max(0, impactSpeed);
+    }
   }
 
   /** Set by preStep on the tick the capsule regains ground contact. */
   justLanded = false;
 
+  /** Downward speed (m/s) at the most recent landing — visual intensity only. */
+  lastLandSpeed = 0;
+
   /** DEV-only per-tick trace ring buffer for movement debugging. */
-  readonly trace: { dx: number; cx: number; dy: number; cy: number; pdx: number; g: boolean }[] =
-    [];
+  readonly trace: {
+    dx: number; cx: number; dy: number; cy: number; pdx: number; g: boolean;
+    dz: number; cz: number; pdz: number;
+  }[] = [];
 
   consumeLanded(): boolean {
     const v = this.justLanded;

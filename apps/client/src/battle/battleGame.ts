@@ -2,9 +2,9 @@ import * as THREE from "three";
 import { GameLoop } from "../app/loop.js";
 import { GameRenderer } from "../render/renderer.js";
 import { texturesReady, warmupGpu } from "../render/textures.js";
-import { CharacterRig } from "../player/rig.js";
+import { CharacterRig, VARIANT_CYCLE } from "../player/rig.js";
 import { Sfx } from "../audio/sfx.js";
-import { Bgm } from "../audio/bgm.js";
+import { Bgm, BGM_PLAYLIST } from "../audio/bgm.js";
 import { PerfMonitor } from "../ui/perf.js";
 import { Effects } from "../render/effects.js";
 import { generateIsland, surfaceY, WORLD_X, WORLD_Z } from "../craft/voxelWorld.js";
@@ -38,7 +38,7 @@ export class BattleGame {
   private readonly view: VoxelView;
   private readonly hud: BattleHud;
   private readonly sfx = new Sfx();
-  private readonly bgm = new Bgm("/audio/bgm-tower.mp3", 0.3);
+  private readonly bgm = new Bgm(BGM_PLAYLIST, 0.3);
   private readonly perf = new PerfMonitor(document.body);
   private readonly effects: Effects;
   private readonly camera: CraftCamera;
@@ -102,7 +102,7 @@ export class BattleGame {
       const bot = makeBot(i + 1, bx, surfaceY(this.world, Math.floor(bx), Math.floor(bz)) + 1.2, bz);
       unstick(this.world, bot.body);
       this.bots.push(bot);
-      const rig = new CharacterRig();
+      const rig = new CharacterRig(VARIANT_CYCLE[(i + 1) % VARIANT_CYCLE.length]);
       this.botRigs.push(rig);
       this.renderer.scene.add(rig.root);
     }

@@ -1,36 +1,37 @@
 import * as THREE from "three";
-import { RoundedBoxGeometry } from "three/examples/jsm/geometries/RoundedBoxGeometry.js";
-import { BLOCKS, blockById, textureUrl, type BlockDef } from "./blocks.js";
-import { loadTexture } from "../render/textures.js";
+import { BLOCKS, blockById, type BlockDef } from "./blocks.js";
+import { crayonGrain } from "../render/crayonGrain.js";
 import { WORLD_X, WORLD_Y, WORLD_Z, type VoxelWorld } from "./voxelWorld.js";
+import { ROUND, isSlope, slopeYaw, slopeTilt } from "./shapes.js";
+import {
+  brickOrientation,
+  cubeBrickGeometry,
+  roundBrickGeometry,
+  slopeBrickGeometry,
+  studGeometry,
+} from "./brickGeometry.js";
 
 /**
- * Renders the island as one InstancedMesh per block kind, EXPOSED cells only
- * (interior voxels never reach the GPU). A full rebuild scans the 64k grid in
- * well under a millisecond, so any edit just marks the view dirty.
- *
- * Identity: LEGO/Roblox toy-brick look — softly ROUNDED cubes plus a single
- * stud on every top-exposed brick, tinted per block. Crayon-doodle textures
- * on rounded studded bricks = CraftYap, not raw Minecraft.
+ * Renders the island as InstancedMeshes, EXPOSED cells only (interior voxels
+ * never reach the GPU). Batching key is (block id × brick shape): a cube uses a
+ * softly rounded box, a round brick a cylinder, a slope a wedge — each tinted by
+ * the block's solid crayon colour and (cube/round) capped with a stud. That mix
+ * of real LEGO silhouettes on a studded grid is what reads as toy bricks, not a
+ * Minecraft tile. A full rebuild scans the 256k grid in well under a ms.
  */
 export class VoxelView {
-  // slightly oversized so neighbours overlap and the rounded edges don't leave
-  // grooves between bricks — only exposed corners keep the soft LEGO bevel
-  private readonly geometry = new RoundedBoxGeometry(1.1, 1.1, 1.1, 1, 0.07);
-  private readonly studGeometry: THREE.CylinderGeometry;
+  private readonly cubeGeo = cubeBrickGeometry();
+  private readonly roundGeo = roundBrickGeometry();
+  private readonly slopeGeo = slopeBrickGeometry();
+  private readonly studGeometry = studGeometry();
   private readonly studMeshes = new Map<number, THREE.InstancedMesh>();
-  private readonly meshes = new Map<number, THREE.InstancedMesh>();
+  private readonly meshes = new Map<string, THREE.InstancedMesh>(); // key: `${id}:${shape}`
   private readonly materials = new Map<number, THREE.Material>();
   private readonly highlight: THREE.LineSegments;
   private dirty = true;
 
   constructor(private readonly scene: THREE.Scene) {
     for (const def of BLOCKS) this.materials.set(def.id, this.makeMaterial(def));
-    // a centered stud that carries the SAME crayon texture as its brick, so it
-    // reads as moulded from the block rather than a flat cap floating on top.
-    // Top cap UV samples the tile too (openEnded:false), sides wrap it.
-    this.studGeometry = new THREE.CylinderGeometry(0.18, 0.2, 0.14, 10);
-    this.studGeometry.translate(0, 0.05, 0); // base overlaps the brick top a hair
     const edges = new THREE.EdgesGeometry(new THREE.BoxGeometry(1.002, 1.002, 1.002));
     this.highlight = new THREE.LineSegments(
       edges,
@@ -40,22 +41,27 @@ export class VoxelView {
     scene.add(this.highlight);
   }
 
+  private geometryFor(shape: number): THREE.BufferGeometry {
+    return shape === ROUND ? this.roundGeo : isSlope(shape) ? this.slopeGeo : this.cubeGeo;
+  }
+
+  /**
+   * Solid crayon LEGO brick — one flat colour per block kind + a faint shared
+   * grain (the SAME grain the characters use), so bricks and mascots read as
+   * one toy world. No per-block photo tile → not a Minecraft cube.
+   */
   private makeMaterial(def: BlockDef): THREE.Material {
+    const isGlass = def.key === "glass";
     const material = new THREE.MeshLambertMaterial({
-      color: 0xffffff,
-      transparent: def.key === "glass" || def.key === "oak-leaves",
-      opacity: def.key === "glass" ? 0.75 : 1,
+      color: new THREE.Color(def.color),
+      map: crayonGrain() ?? undefined,
+      transparent: isGlass,
+      opacity: isGlass ? 0.55 : 1,
     });
     if (def.emissive) {
-      material.emissive = new THREE.Color(0xffdf8a);
-      material.emissiveIntensity = 0.55;
+      material.emissive = new THREE.Color(def.color);
+      material.emissiveIntensity = 0.7;
     }
-    void loadTexture(textureUrl(def)).then((tex) => {
-      if (!tex) return;
-      material.map = tex;
-      if (def.emissive) material.emissiveMap = tex;
-      material.needsUpdate = true;
-    });
     return material;
   }
 
@@ -77,18 +83,21 @@ export class VoxelView {
     if (!this.dirty) return;
     this.dirty = false;
 
-    const positions = new Map<number, number[]>();
-    const studPositions = new Map<number, number[]>(); // per block id: top-exposed
+    const positions = new Map<string, number[]>(); // `${id}:${shape}` → xyz…
+    const studPositions = new Map<number, number[]>(); // per id: top-exposed cube/round
     for (let y = 0; y < WORLD_Y; y++) {
       for (let z = 0; z < WORLD_Z; z++) {
         for (let x = 0; x < WORLD_X; x++) {
           const id = world.get(x, y, z);
           if (id === 0 || !world.isExposed(x, y, z)) continue;
-          let list = positions.get(id);
-          if (!list) positions.set(id, (list = []));
+          const shape = world.getShape(x, y, z);
+          const key = `${id}:${shape}`;
+          let list = positions.get(key);
+          if (!list) positions.set(key, (list = []));
           list.push(x, y, z);
           const def = blockById(id);
-          if (def && !def.noStud && !world.isSolid(x, y + 1, z)) {
+          // studs only cap flat-topped bricks (cube/round), never a slope
+          if (def && !def.noStud && (shape === 0 || shape === ROUND) && !world.isSolid(x, y + 1, z)) {
             let studs = studPositions.get(id);
             if (!studs) studPositions.set(id, (studs = []));
             studs.push(x, y, z);
@@ -97,35 +106,49 @@ export class VoxelView {
       }
     }
 
+    const q = new THREE.Quaternion();
+    const scl = new THREE.Vector3(1, 1, 1);
+    const pos = new THREE.Vector3();
     const matrix = new THREE.Matrix4();
-    for (const def of BLOCKS) {
-      const list = positions.get(def.id) ?? [];
+    // every (id,shape) mesh that exists now OR existed last frame is revisited,
+    // so a shape that vanished this edit gets its instance count zeroed
+    const keys = new Set([...this.meshes.keys(), ...positions.keys()]);
+    for (const key of keys) {
+      const list = positions.get(key) ?? [];
       const count = list.length / 3;
-      let mesh = this.meshes.get(def.id);
+      let mesh = this.meshes.get(key);
+      if (count === 0) {
+        if (mesh) mesh.count = 0;
+        continue;
+      }
+      const sep = key.indexOf(":");
+      const id = Number(key.slice(0, sep));
+      const shape = Number(key.slice(sep + 1));
       if (!mesh || mesh.instanceMatrix.count < count) {
-        // grow with headroom so steady building doesn't reallocate every edit
         if (mesh) {
           this.scene.remove(mesh);
           mesh.dispose();
         }
-        const material = this.materials.get(def.id);
+        const material = this.materials.get(id);
         if (!material) continue;
-        mesh = new THREE.InstancedMesh(this.geometry, material, count + 256);
+        mesh = new THREE.InstancedMesh(this.geometryFor(shape), material, count + 256);
         mesh.castShadow = true;
         mesh.receiveShadow = true;
-        if (def.key === "glass") mesh.renderOrder = 2;
+        if (blockById(id)?.key === "glass") mesh.renderOrder = 2;
         this.scene.add(mesh);
-        this.meshes.set(def.id, mesh);
+        this.meshes.set(key, mesh);
       }
+      if (isSlope(shape)) brickOrientation(slopeYaw(shape), slopeTilt(shape), q);
+      else q.identity();
       for (let i = 0; i < count; i++) {
-        matrix.makeTranslation(list[i * 3]! + 0.5, list[i * 3 + 1]! + 0.5, list[i * 3 + 2]! + 0.5);
+        pos.set(list[i * 3]! + 0.5, list[i * 3 + 1]! + 0.5, list[i * 3 + 2]! + 0.5);
+        matrix.compose(pos, q, scl);
         mesh.setMatrixAt(i, matrix);
       }
       mesh.count = count;
       mesh.instanceMatrix.needsUpdate = true;
-      // instance bounds are NOT tracked automatically — without this the
-      // stale sphere gets frustum-culled once the camera drops into a dig
-      // hole and the whole block type vanishes mid-frame
+      // instance bounds are NOT tracked automatically — without this the stale
+      // sphere gets frustum-culled once the camera drops into a dig hole
       mesh.computeBoundingSphere();
     }
 
@@ -140,8 +163,6 @@ export class VoxelView {
         }
         const material = this.materials.get(def.id);
         if (!material) continue;
-        // studs share the brick's textured material → the crayon pattern
-        // continues onto them (no flat floating caps)
         mesh = new THREE.InstancedMesh(this.studGeometry, material, count + 512);
         mesh.castShadow = true;
         mesh.receiveShadow = true;
@@ -172,6 +193,8 @@ export class VoxelView {
     this.scene.remove(this.highlight);
     this.highlight.geometry.dispose();
     (this.highlight.material as THREE.Material).dispose();
-    this.geometry.dispose();
+    this.cubeGeo.dispose();
+    this.roundGeo.dispose();
+    this.slopeGeo.dispose();
   }
 }

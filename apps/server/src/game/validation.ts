@@ -51,8 +51,8 @@ export type MoveVerdict =
     };
 
 const TOLERANCE = 1.6;
-/** |x|,|z| bound: world column 12 + platform swing 2.6 + slack. */
-const WORLD_XZ_BOUND = 16;
+/** |x|,|z| bound: wider tower column (±14) + platform swing + slack. */
+const WORLD_XZ_BOUND = 18;
 
 export function validateMove(
   state: ValidationState,

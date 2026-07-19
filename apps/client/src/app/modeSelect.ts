@@ -1,4 +1,4 @@
-export type GameMode = "tower" | "builder" | "craft" | "battle";
+export type GameMode = "tower" | "builder" | "craft" | "battle" | "cinematic";
 
 /**
  * First screen: pick a game. `?mode=tower|builder` deep-links straight in
@@ -6,7 +6,13 @@ export type GameMode = "tower" | "builder" | "craft" | "battle";
  */
 export function selectMode(parent: HTMLElement): Promise<GameMode> {
   const param = new URLSearchParams(location.search).get("mode");
-  if (param === "tower" || param === "builder" || param === "craft" || param === "battle") {
+  if (
+    param === "tower" ||
+    param === "builder" ||
+    param === "craft" ||
+    param === "battle" ||
+    param === "cinematic"
+  ) {
     return Promise.resolve(param);
   }
 

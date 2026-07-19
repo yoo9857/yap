@@ -19,7 +19,9 @@ export class CraftHud {
   private readonly recipePanel: HTMLElement;
   private readonly recipeButtons = new Map<string, HTMLButtonElement>();
   private readonly hint: HTMLElement;
+  private readonly pieceChip: HTMLElement;
   private lastKey = "";
+  private lastPiece = "";
 
   constructor(
     parent: HTMLElement,
@@ -39,9 +41,16 @@ export class CraftHud {
       <div class="craft-crosshair">+</div>
       <div class="craft-mine-bar hidden"><div class="craft-mine-fill" data-id="mine-fill"></div></div>
       <div class="craft-hotbar" data-id="hotbar">${slots}</div>
-      <div class="craft-help">Move WASD · Jump Space · Mine hold LMB · Place RMB · Slots 1-9 / wheel · Recipes C · View V · Music M</div>
+      <div class="craft-help">Move WASD · Jump Space · Mine hold LMB · Place RMB · Slots 1-9 / wheel · Shape F · Rotate R · Tilt T · Recipes C · View V · Music M</div>
     `;
     parent.appendChild(this.root);
+
+    // current LEGO piece indicator (top-center)
+    this.pieceChip = document.createElement("div");
+    this.pieceChip.className = "craft-piece";
+    this.pieceChip.style.cssText =
+      "position:fixed;top:14px;left:50%;transform:translateX(-50%);background:rgba(20,22,28,.72);color:#fff;font:600 14px/1.2 system-ui,sans-serif;padding:6px 12px;border-radius:10px;z-index:30;pointer-events:none";
+    parent.appendChild(this.pieceChip);
     this.root
       .querySelectorAll<HTMLElement>(".craft-slot")
       .forEach((el) => this.slots.push(el));
@@ -110,6 +119,16 @@ export class CraftHud {
 
   setPointerLocked(locked: boolean): void {
     this.hint.classList.toggle("hidden", locked);
+  }
+
+  /** Show the active building piece + its yaw / tilt rotation. */
+  setPiece(name: string, yaw: number, tilt: number): void {
+    const spin = yaw ? ` · ↻${yaw * 90}°` : "";
+    const tip = tilt ? ` · ⤢${tilt * 90}°` : "";
+    const label = `🧱 ${name}${spin}${tip}`;
+    if (label === this.lastPiece) return;
+    this.lastPiece = label;
+    this.pieceChip.textContent = label;
   }
 
   /** Mining progress under the crosshair (null hides the gauge). */

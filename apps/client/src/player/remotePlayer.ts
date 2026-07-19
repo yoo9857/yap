@@ -1,6 +1,6 @@
 import * as THREE from "three";
 import { lerpAngle, vec3Lerp, type AnimState, type SnapshotPlayer, type Vec3 } from "@robo/shared";
-import { CharacterRig, disposeRig } from "./rig.js";
+import { CharacterRig, VARIANT_CYCLE, disposeRig } from "./rig.js";
 
 interface Sample {
   tMs: number;
@@ -14,7 +14,6 @@ const MAX_EXTRAPOLATE_MS = 250;
 /** ~2.5 snapshot intervals at 15 Hz + jitter margin. */
 export const INTERP_DELAY_MS = 170;
 
-const REMOTE_TORSO_COLORS = [0xd0342c, 0x2a7d46, 0x7b4fd0, 0xb8551b, 0x00747c, 0xa8326e];
 
 /**
  * A ghost of another player: consumes server snapshots into a ring buffer and
@@ -35,9 +34,7 @@ export class RemotePlayer {
     private readonly scene: THREE.Scene,
   ) {
     const colorSeed = [...id].reduce((a, c) => a + c.charCodeAt(0), 0);
-    this.rig = new CharacterRig(
-      REMOTE_TORSO_COLORS[colorSeed % REMOTE_TORSO_COLORS.length],
-    );
+    this.rig = new CharacterRig(VARIANT_CYCLE[colorSeed % VARIANT_CYCLE.length]);
     this.rig.root.visible = false;
     scene.add(this.rig.root);
 

@@ -5,7 +5,7 @@ import {
   PLATFORM_DEPTH,
   PLATFORM_THICKNESS,
 } from "../constants.js";
-import { clamp, vec3DistXZ, type Vec3 } from "../math/index.js";
+import { clamp, type Vec3 } from "../math/index.js";
 import { createRng } from "./rng.js";
 import type {
   CheckpointDef,
@@ -17,14 +17,49 @@ import type {
 } from "./types.js";
 
 /**
- * Deterministic tower generation — a faithful 3D port of the prototype's
- * buildLevel() at SCALE = 40 px/m, extended with a bounded z-axis wander.
- * Pure function of the seed: client and server produce identical output.
+ * Deterministic multi-route tower generation. Pure function of the seed:
+ * client and server produce identical output.
  *
- * Coordinate mapping from the prototype:
- *   x_m = x_px / 40 - 12   (world column x,z ∈ [-12, 12])
- *   height_m = (40 - y_px) / 40   (baseplate top = 0, platform y = its TOP)
+ * Shape: the tower is a stack of SECTIONS separated by shared checkpoint pads
+ * (the single sequential spine the server anti-cheat validates). Inside each
+ * section 3–4 parallel LANES fan out from the pad below and re-converge on the
+ * pad above — so the climber picks a route, and every route is independently
+ * reachable. Lanes share one vertical schedule (so the pad above is an equal
+ * hop from every lane top) and each carries its own colour + character
+ * (calm-solid / moving / crumbling), which is what makes the routes read as
+ * genuinely different ways up.
+ *
+ * Reachability is guaranteed by construction: consecutive platforms in a lane
+ * are one shared `dy` apart and their planar step is capped to the jump
+ * envelope `dMax`; lane ends taper back toward the pad so the pad is always
+ * within a hop of every lane.
+ *
+ * World column x,z ∈ [-12, 12]; platform y is its TOP height (baseplate = 0).
  */
+
+// Wider play column (the tower now sprawls to fit more routes side by side). The
+// server anti-cheat allows |x|,|z| up to 18, so lanes at ±14 keep ample slack.
+const LANE_BOUND = 14.0;
+/** Home targets are pre-clamped to this tighter box so the forced min-step is
+ *  computed against an in-bounds goal — otherwise the LANE_BOUND wall could
+ *  shorten a step below MIN_STEP and strand a platform overhead its parent. */
+const HOME_BOUND = 12.5;
+const PAD_BOUND = 5; // pads sit near the middle so radial lanes have room to sprawl
+/** Minimum planar hop between consecutive lane platforms — below this a platform
+ *  sits (nearly) directly above its parent and the climb is physically blocked. */
+const MIN_STEP = 2.85;
+/** Where lanes aim their final approach relative to the shared pad — a clean,
+ *  reachable hop out on the lane's own bearing. */
+const PAD_APPROACH = 3.6;
+/** How far the pad is lifted (toward centre) from lane 0's top: a guaranteed
+ *  jumpable hop, so that lane always tops out and the checkpoint is reachable. */
+const PAD_LIFT = 3.2;
+
+/** Planar jump envelope for a given rise — the prototype's dxMax curve. */
+function jumpReach(dy: number): number {
+  return Math.max(3.0, 6.125 - dy);
+}
+
 export function generateLevel(seed: number): LevelDef {
   const rng = createRng(seed);
   const R = (a: number, b: number) => rng.range(a, b);
@@ -33,7 +68,7 @@ export function generateLevel(seed: number): LevelDef {
   const checkpoints: CheckpointDef[] = [];
   let nextId = 0;
 
-  // green baseplate (prototype: w = WORLD_W + 200 → 29 m), top at height 0
+  // green baseplate, top at height 0
   platforms.push({
     id: nextId++,
     kind: "solid",
@@ -43,134 +78,249 @@ export function generateLevel(seed: number): LevelDef {
     colorIndex: 0,
   });
 
-  let posX = 0;
-  let posZ = 0;
-  let height = 0; // current platform TOP height
-  let brickIdx = 0;
-  let prevCenter: Vec3 = [0, 0, 0];
+  let laneColor = 0; // walks BRICK_COLORS so adjacent lanes never share a hue
+  let base: Vec3 = [0, 0, 0]; // section start pad centre (x, TOP height, z)
+  let goalCenter: Vec3 = [0, 0, 0];
 
-  /** Bounded planar step: prototype x-walk + z wander that never pushes the
-   *  total displacement beyond the jumpable envelope (dMax). */
-  const step = (dy: number, dMax: number, dMin: number, bound: number) => {
-    const dirX = posX < -7.5 ? 1 : posX > 7.5 ? -1 : rng.chance(0.5) ? -1 : 1;
-    const oldX = posX;
-    posX = clamp(posX + dirX * R(dMin, dMax), -bound, bound);
-    const usedX = Math.abs(posX - oldX);
-    const zBudget = Math.sqrt(Math.max(0, dMax * dMax - usedX * usedX));
-    const dirZ = posZ < -7.5 ? 1 : posZ > 7.5 ? -1 : rng.chance(0.5) ? -1 : 1;
-    posZ = clamp(posZ + dirZ * R(0, Math.min(1.5, zBudget)), -bound, bound);
-    height += dy;
-  };
+  // fastest-route accounting for the min-finish-time lower bound
+  let fastestPlanar = 0;
+  let totalHops = 0;
 
-  for (const sec of LEVEL_SECTIONS) {
-    for (let i = 0; i < sec.count; i++) {
-      const dy = R(1.95, 2.55);
-      // prototype: dxMax = max(120, 245 - dy_px) → meters
-      const dMax = Math.max(3.0, 6.125 - dy);
-      step(dy, dMax, 2.75, 9.25);
+  const numSections = LEVEL_SECTIONS.length;
 
-      const kind: PlatformKind = rng.pick(sec.types);
-      const colorIndex = ((brickIdx / 3) | 0) % BRICK_COLORS.length;
-      brickIdx++;
-      const centerY = height - PLATFORM_THICKNESS / 2;
+  LEVEL_SECTIONS.forEach((sec, sIdx) => {
+    // more routes now, trending up as the tower climbs: 4 low → up to 6 high
+    const routeCount = 4 + (sIdx >= 1 && rng.chance(0.5) ? 1 : 0) + (sIdx >= 3 && rng.chance(0.5) ? 1 : 0);
+    const count = sec.count;
+    const isSummit = sIdx === numSections - 1;
 
-      if (kind === "moving") {
-        const width = R(2.375, 3.0);
-        // If the gap from the previous platform is long, oscillate along the
-        // dominant gap axis so the swing periodically closes the distance
-        // (guarantees a reachable moment, like the prototype's x-only swings).
-        const gapX = Math.abs(posX - prevCenter[0]);
-        const gapZ = Math.abs(posZ - prevCenter[2]);
-        let axis: MoveAxis;
-        if (Math.hypot(gapX, gapZ) > 3.0) {
-          axis = gapX >= gapZ ? "x" : "z";
-        } else {
-          axis = rng.chance(0.5) ? "x" : "z";
-        }
-        platforms.push({
-          id: nextId++,
-          kind,
-          center: [posX, centerY, posZ],
-          size: [width, PLATFORM_THICKNESS, PLATFORM_DEPTH],
-          colorIndex,
-          axis,
-          amplitude: R(1.5, 2.625),
-          omega: R(1.1, 1.8),
-          phase: rng.next() * Math.PI * 2,
-        });
-      } else if (kind === "crumbling") {
-        platforms.push({
-          id: nextId++,
-          kind,
-          center: [posX, centerY, posZ],
-          size: [R(2.375, 3.125), PLATFORM_THICKNESS, PLATFORM_DEPTH],
-          colorIndex,
-        });
-      } else {
-        const width = R(2.625, 3.75);
-        const p: SolidPlatformDef = {
-          id: nextId++,
-          kind: "solid",
-          role: "normal",
-          center: [posX, centerY, posZ],
-          size: [width, PLATFORM_THICKNESS, PLATFORM_DEPTH],
-          colorIndex,
-        };
-        // lava brick on one edge of wide solids (prototype: 32×26 px)
-        if (width >= 3.125 && rng.chance(sec.hazard)) {
-          const side = rng.chance(0.5) ? -1 : 1;
-          p.hazard = {
-            center: [posX + side * (width / 2 - 0.4), height + 0.325, posZ],
-            size: [0.8, 0.65, 0.8],
-          };
-        }
-        platforms.push(p);
-      }
-      prevCenter = [posX, height, posZ];
+    // One vertical schedule shared by every lane → the pad above is an equal hop
+    // from all lane tops. Every rung is ≥ 2.45 m apart: since ALL platforms live
+    // on this shared ladder, the smallest vertical gap between any two is ≥ 2.45,
+    // so the clearance under the next platform (gap − thickness ≈ 1.9 m) always
+    // exceeds the 1.8 m character — the head can never catch on an overhang (the
+    // reported bug), no matter how the routes overlap horizontally.
+    const dys: number[] = [];
+    for (let i = 0; i < count; i++) dys.push(R(2.45, 2.65));
+    const heights: number[] = [];
+    let h = base[1];
+    for (let i = 0; i < count; i++) {
+      h += dys[i]!;
+      heights.push(h);
     }
+    const padDy = R(2.45, 2.6);
+    const padHeight = heights[count - 1]! + padDy;
 
-    // checkpoint pad between sections (prototype: y -= R(85,95), w = 190 px)
-    step(R(2.125, 2.375), 4.2, 2.5, 8);
-    const cpIndex = checkpoints.length;
+    // Lanes fan out RADIALLY around the section's spine, each on its own compass
+    // bearing — this uses the square play column far better than a single lateral
+    // line. Bearings are evenly spaced but jittered, and each lane wanders its own
+    // radius/tangent as it climbs, so no two towers look alike and the routes
+    // sprawl instead of forming a tidy fan. The shared pad is placed a clean hop
+    // from LANE 0's actual top (see below) — that lane always tops out, so the
+    // checkpoint is guaranteed reachable no matter how the others wandered.
+    const sectionAngle = rng.next() * Math.PI * 2;
+    const laneKinds = laneArchetypes(sec.types, routeCount);
+
+    // Build one lane toward (targetX,targetZ), returning its top. All the
+    // per-step wander + forced-min-step live here.
+    const buildLane = (k: number, targetX: number, targetZ: number): { tx: number; tz: number; planar: number } => {
+      const bearing = sectionAngle + (k * Math.PI * 2) / routeCount + R(-0.22, 0.22);
+      const ox = Math.cos(bearing);
+      const oz = Math.sin(bearing);
+      const zx = -oz; // tangential axis (perpendicular to the lane's bearing)
+      const zz = ox;
+      const laneSpread = R(5.0, 7.5); // this lane's own reach from the spine (wider column)
+      const laneCol = laneColor++ % BRICK_COLORS.length;
+      const pref = laneKinds[k]!;
+      let wanderRad = 0;
+      let wanderTan = R(-1.2, 1.2);
+      let prevX = base[0];
+      let prevZ = base[2];
+      let prevY = base[1];
+      let lanePlanar = 0;
+
+      for (let i = 0; i < count; i++) {
+        const t = (i + 1) / count;
+        const env = 0.5 + 0.5 * Math.sin(Math.PI * t);
+        wanderRad = clamp(wanderRad + R(-1.0, 1.0), -1.6, 2.0);
+        const zig = i % 2 === 0 ? 0.7 : -0.7;
+        wanderTan = clamp(wanderTan + R(-0.9, 0.9) + zig, -1.9, 1.9);
+        // env-taper the whole offset: lanes bulge out through the middle but
+        // re-gather toward the spine at both ends
+        const off = (laneSpread + wanderRad) * env;
+        let hx = base[0] + (targetX - base[0]) * t + ox * off + zx * wanderTan * env;
+        let hz = base[2] + (targetZ - base[2]) * t + oz * off + zz * wanderTan * env;
+        // over the last stretch, blend toward an approach spot a hop out from the
+        // target on the lane's bearing, so the lane re-gathers from its wander
+        const wTop = clamp((t - 0.6) / 0.4, 0, 1);
+        hx += (targetX + ox * PAD_APPROACH - hx) * wTop;
+        hz += (targetZ + oz * PAD_APPROACH - hz) * wTop;
+        hx = clamp(hx, -HOME_BOUND, HOME_BOUND);
+        hz = clamp(hz, -HOME_BOUND, HOME_BOUND);
+
+        const y = heights[i]!;
+        // step from the ACTUAL previous platform, FORCED into the jump window: a
+        // hard MINIMUM so nothing lands stacked directly overhead (blocks the
+        // climb — the reported bug), and a max so the next hop is reachable
+        const sx = hx - prevX;
+        const sz = hz - prevZ;
+        const len = Math.hypot(sx, sz) || 1;
+        const step = Math.max(MIN_STEP, Math.min(jumpReach(y - prevY) * 0.9, len));
+        let px = prevX + (sx / len) * step;
+        let pz = prevZ + (sz / len) * step;
+        // if the honest step would leave the column, take the SAME-length step
+        // toward the centre instead (prev is always well inside) — a wall-clamped
+        // step could shorten below MIN_STEP and strand a platform overhead
+        if (Math.abs(px) > LANE_BOUND || Math.abs(pz) > LANE_BOUND) {
+          const cl = Math.hypot(prevX, prevZ) || 1;
+          px = prevX - (prevX / cl) * step;
+          pz = prevZ - (prevZ / cl) * step;
+        }
+        const centerY = y - PLATFORM_THICKNESS / 2;
+        const kind = pickKind(pref, sec.types, rng);
+        platforms.push(buildBrick(nextId++, kind, [px, centerY, pz], y, sec.hazard, laneCol, R, rng));
+        lanePlanar += Math.hypot(px - prevX, pz - prevZ);
+        prevX = px;
+        prevZ = pz;
+        prevY = y;
+      }
+      return { tx: prevX, tz: prevZ, planar: lanePlanar };
+    };
+
+    // Build lane 0 toward a rough wander target, then pin the real pad a clean
+    // hop from its top (pulled toward centre so pads stay reasonably central).
+    const rough = nextPad(base, R, rng);
+    const lane0 = buildLane(0, rough[0], rough[1]);
+    const cl0 = Math.hypot(lane0.tx, lane0.tz) || 1;
+    const pad: [number, number] = [
+      clamp(lane0.tx - (lane0.tx / cl0) * PAD_LIFT, -PAD_BOUND - 1, PAD_BOUND + 1),
+      clamp(lane0.tz - (lane0.tz / cl0) * PAD_LIFT, -PAD_BOUND - 1, PAD_BOUND + 1),
+    ];
+    let sectionShortest = lane0.planar + Math.hypot(pad[0] - lane0.tx, pad[1] - lane0.tz);
+    for (let k = 1; k < routeCount; k++) {
+      const ln = buildLane(k, pad[0], pad[1]);
+      sectionShortest = Math.min(sectionShortest, ln.planar + Math.hypot(pad[0] - ln.tx, pad[1] - ln.tz));
+    }
+    fastestPlanar += sectionShortest;
+
+    // shared checkpoint / winner pad above every lane
+    const padCenterY = padHeight - PLATFORM_THICKNESS / 2;
     platforms.push({
       id: nextId++,
       kind: "solid",
-      role: "checkpoint",
-      center: [posX, height - PLATFORM_THICKNESS / 2, posZ],
-      size: [4.75, PLATFORM_THICKNESS, 4.75],
+      role: isSummit ? "winner" : "checkpoint",
+      center: [pad[0], padCenterY, pad[1]],
+      size: isSummit ? [6, PLATFORM_THICKNESS, 6] : [4.75, PLATFORM_THICKNESS, 4.75],
       colorIndex: 0,
     });
-    checkpoints.push({ index: cpIndex, center: [posX, height, posZ], radius: 1.5 });
-    prevCenter = [posX, height, posZ];
-  }
+    const padTop: Vec3 = [pad[0], padHeight, pad[1]];
+    if (isSummit) {
+      goalCenter = padTop;
+    } else {
+      checkpoints.push({ index: checkpoints.length, center: padTop, radius: 1.5 });
+    }
 
-  // summit: last "checkpoint" becomes the golden winner pad (prototype: w = 240 px)
-  const summitCp = checkpoints.pop();
-  const summitPlatform = platforms[platforms.length - 1];
-  if (!summitCp || !summitPlatform || summitPlatform.kind !== "solid") {
-    throw new Error("level generation invariant broken: missing summit");
-  }
-  summitPlatform.role = "winner";
-  summitPlatform.size = [6, PLATFORM_THICKNESS, 6];
-  const goal = { center: summitCp.center, radius: 1.8 };
+    totalHops += count + 1; // count lane hops + the hop onto the pad
+    base = padTop;
+  });
 
-  // physical lower bound on finish time: planar path at full speed, or the
-  // minimum air time of every required jump — whichever dominates, with slack
-  let planar = 0;
-  for (let i = 1; i < platforms.length; i++) {
-    planar += vec3DistXZ(platforms[i - 1]!.center, platforms[i]!.center);
-  }
-  const jumpTime = (platforms.length - 1) * 0.45;
-  const minFinishSeconds = Math.max(planar / MOVE_SPEED, jumpTime) * 0.8;
+  // fastest route (sum of each section's shortest lane) → min-finish bound
+  const jumpTime = totalHops * 0.45;
+  const minFinishSeconds = Math.max(fastestPlanar / MOVE_SPEED, jumpTime) * 0.8;
 
   return {
     seed,
     platforms,
     checkpoints,
-    goal,
+    goal: { center: goalCenter, radius: 1.8 },
     spawn: [0, 0, 0],
-    summitHeight: summitCp.center[1],
+    summitHeight: goalCenter[1],
     totalStages: checkpoints.length + 1,
     minFinishSeconds,
   };
+}
+
+/** Bounded planar wander for the next pad, kept near the column centre. */
+function nextPad(base: Vec3, R: (a: number, b: number) => number, rng: ReturnType<typeof createRng>): [number, number] {
+  const bx = base[0];
+  const bz = base[2];
+  const dirX = bx < -4 ? 1 : bx > 4 ? -1 : rng.chance(0.5) ? -1 : 1;
+  const dirZ = bz < -4 ? 1 : bz > 4 ? -1 : rng.chance(0.5) ? -1 : 1;
+  const nx = clamp(bx + dirX * R(2.0, 4.5), -PAD_BOUND, PAD_BOUND);
+  const nz = clamp(bz + dirZ * R(1.5, 4.0), -PAD_BOUND, PAD_BOUND);
+  return [nx, nz];
+}
+
+/** Give each lane a preferred platform kind drawn from the section's palette. */
+function laneArchetypes(types: readonly PlatformKind[], count: number): PlatformKind[] {
+  const out: PlatformKind[] = [];
+  for (let k = 0; k < count; k++) out.push(types[k % types.length]!);
+  return out;
+}
+
+/** 70% the lane's character, otherwise a section-random kind (keeps it lively). */
+function pickKind(
+  pref: PlatformKind,
+  types: readonly PlatformKind[],
+  rng: ReturnType<typeof createRng>,
+): PlatformKind {
+  return rng.chance(0.7) ? pref : rng.pick(types);
+}
+
+function buildBrick(
+  id: number,
+  kind: PlatformKind,
+  center: Vec3,
+  topHeight: number,
+  hazardChance: number,
+  colorIndex: number,
+  R: (a: number, b: number) => number,
+  rng: ReturnType<typeof createRng>,
+): PlatformDef {
+  const [posX, , posZ] = center;
+  if (kind === "moving") {
+    const width = R(2.0, 2.5);
+    const axis: MoveAxis = rng.chance(0.5) ? "x" : "z";
+    const axisPos = Math.abs(axis === "x" ? posX : posZ);
+    const amplitude = clamp(R(1.2, 2.2), 0.8, Math.max(0.8, 15.5 - axisPos));
+    return {
+      id,
+      kind,
+      center,
+      size: [width, PLATFORM_THICKNESS, PLATFORM_DEPTH],
+      colorIndex,
+      axis,
+      amplitude,
+      omega: R(1.1, 1.8),
+      phase: rng.next() * Math.PI * 2,
+    };
+  }
+  if (kind === "crumbling") {
+    return {
+      id,
+      kind,
+      center,
+      size: [R(1.9, 2.4), PLATFORM_THICKNESS, PLATFORM_DEPTH],
+      colorIndex,
+    };
+  }
+  // compact so parallel lanes stay distinct instead of merging with their
+  // same-height neighbours
+  const width = R(2.1, 2.6);
+  const p: SolidPlatformDef = {
+    id,
+    kind: "solid",
+    role: "normal",
+    center,
+    size: [width, PLATFORM_THICKNESS, PLATFORM_DEPTH],
+    colorIndex,
+  };
+  if (width >= 2.35 && rng.chance(hazardChance)) {
+    const side = rng.chance(0.5) ? -1 : 1;
+    p.hazard = {
+      center: [posX + side * (width / 2 - 0.4), topHeight + 0.325, posZ],
+      size: [0.8, 0.65, 0.8],
+    };
+  }
+  return p;
 }

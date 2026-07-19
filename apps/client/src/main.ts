@@ -78,11 +78,24 @@ async function bootBattle(mount: HTMLElement): Promise<void> {
   hideOverlay();
 }
 
+async function bootCinematic(mount: HTMLElement): Promise<void> {
+  const { CinematicGame } = await import("./cinematic/cinematicGame.js");
+  new CinematicGame(mount).start();
+  hideOverlay();
+}
+
 async function boot(): Promise<void> {
   const mount = document.getElementById("app");
   if (!mount) throw new Error("missing #app mount point");
 
   hideOverlay(); // the mode selector is instant — no spinner needed yet
+
+  if (new URLSearchParams(location.search).get("preview") === "char") {
+    const { bootCharPreview } = await import("./app/charPreview.js");
+    await bootCharPreview(mount);
+    return;
+  }
+
   const mode = await selectMode(document.body);
   if (mode === "tower") {
     await bootTower(mount);
@@ -90,6 +103,8 @@ async function boot(): Promise<void> {
     await bootCraft(mount);
   } else if (mode === "battle") {
     await bootBattle(mount);
+  } else if (mode === "cinematic") {
+    await bootCinematic(mount);
   } else {
     await bootBuilder(mount);
   }

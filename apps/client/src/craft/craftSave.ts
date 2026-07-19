@@ -13,10 +13,16 @@ import { VoxelWorld, WORLD_X, WORLD_Y, WORLD_Z, generateIsland, surfaceY } from 
 const SAVE_KEY = "craftyap-craft-save-v1";
 
 const saveSchema = z.object({
-  v: z.literal(1),
+  // v1 saves have no `shapes` (all cubes); v2 adds the brick-shape diff
+  v: z.union([z.literal(1), z.literal(2)]),
   seed: z.number().int(),
   /** [index, blockId] pairs — cells that differ from the generated island. */
   edits: z.array(z.tuple([z.number().int().nonnegative(), z.number().int().nonnegative()])).max(200_000),
+  /** [index, shapeId] pairs for non-cube bricks (round/slope). */
+  shapes: z
+    .array(z.tuple([z.number().int().nonnegative(), z.number().int().nonnegative()]))
+    .max(200_000)
+    .optional(),
   inventory: z.record(z.string(), z.number()),
   player: z.object({ x: z.number().finite(), y: z.number().finite(), z: z.number().finite() }),
   savedAtMs: z.number().finite().positive(),
@@ -51,15 +57,19 @@ export function freshState(seed: number): CraftGameState {
 export function serializeCraft(state: CraftGameState, nowMs: number): string {
   const pristine = generateIsland(state.seed);
   const edits: [number, number][] = [];
+  const shapes: [number, number][] = [];
   for (let i = 0; i < state.world.cells.length; i++) {
     if (state.world.cells[i] !== pristine.cells[i]) {
       edits.push([i, state.world.cells[i]!]);
     }
+    // pristine terrain is all cubes, so any non-zero shape is a player brick
+    if (state.world.shapes[i] !== 0) shapes.push([i, state.world.shapes[i]!]);
   }
   return JSON.stringify({
-    v: 1,
+    v: 2,
     seed: state.seed,
     edits,
+    shapes,
     inventory: state.inventory,
     player: state.player,
     savedAtMs: nowMs,
@@ -107,6 +117,9 @@ export function loadCraft(storage: KeyValueStorage, defaultSeed: number): CraftG
     if (index < cellCount && (id === AIR || blockById(id))) {
       state.world.cells[index] = id;
     }
+  }
+  for (const [index, shape] of d.shapes ?? []) {
+    if (index < cellCount && shape <= 17) state.world.shapes[index] = shape;
   }
   state.inventory = sanitizeCounts(d.inventory);
   // a save from inside a wall (or out of bounds) respawns on the surface

@@ -6,7 +6,7 @@ import { Effects } from "../render/effects.js";
 import { brickMaterial } from "../world/materials.js";
 import { loadTexture, texturesReady, warmupGpu } from "../render/textures.js";
 import { Sfx } from "../audio/sfx.js";
-import { Bgm } from "../audio/bgm.js";
+import { Bgm, BGM_PLAYLIST } from "../audio/bgm.js";
 import {
   buy,
   createInitialState,
@@ -43,7 +43,7 @@ export class BuilderGame {
   private readonly renderer: GameRenderer;
   private readonly effects: Effects;
   private readonly sfx = new Sfx();
-  private readonly bgm = new Bgm("/audio/bgm-builder.mp3");
+  private readonly bgm = new Bgm(BGM_PLAYLIST);
   private readonly landmarkView: LandmarkView;
   private readonly workersView: WorkersView;
   private readonly flights: BlockFlights;

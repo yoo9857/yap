@@ -31,7 +31,7 @@ export const CHARACTER_HEIGHT = 2 * (CAPSULE_HALF_HEIGHT + CAPSULE_RADIUS);
 export const WORLD_HALF_EXTENT = 12; // tower platforms wander in a 24×24 m column
 export const KILL_PLANE_Y = -10;
 export const PLATFORM_THICKNESS = 0.55;
-export const PLATFORM_DEPTH = 3.0;
+export const PLATFORM_DEPTH = 2.4; // compact footprint so parallel routes don't visually merge
 
 // --- crumbling platform FSM (seconds) ---
 export const CRUMBLE_SHAKE_S = 0.55;
@@ -40,12 +40,16 @@ export const CRUMBLE_GONE_S = 3.0;
 // --- moving platform validation allowance: max |amp·ω| ---
 export const MAX_PLATFORM_SPEED = 4.7;
 
-// --- level generation (identical difficulty curve to the prototype) ---
+// --- level generation ---
+// Five sections now — the tower climbs far higher (through the sky and ozone
+// bands and deep into space). Difficulty ramps the same way: calm solids low,
+// movers + crumbles + hazards up top.
 export const LEVEL_SECTIONS = [
-  { count: 9, types: ["solid"], hazard: 0 },
+  { count: 8, types: ["solid"], hazard: 0 },
   { count: 9, types: ["solid", "moving", "solid"], hazard: 0 },
-  { count: 9, types: ["crumbling", "solid", "crumbling"], hazard: 0.3 },
+  { count: 10, types: ["crumbling", "solid", "crumbling"], hazard: 0.3 },
   { count: 11, types: ["moving", "crumbling", "solid", "moving"], hazard: 0.4 },
+  { count: 12, types: ["moving", "crumbling", "solid", "crumbling"], hazard: 0.4 },
 ] as const;
 
 export const DEFAULT_SEED = 20260717;
