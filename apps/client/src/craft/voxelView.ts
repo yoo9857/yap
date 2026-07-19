@@ -149,7 +149,12 @@ export class VoxelView {
         }
         const material = this.materials.get(id);
         if (!material) continue;
-        mesh = new THREE.InstancedMesh(this.geometryFor(shape), material, count + 256);
+        // Keep a small geometric headroom.  Linear over-allocation makes every
+        // edit allocate a new GPU buffer and the old buffer can linger until a
+        // later renderer flush; geometric growth keeps edits amortized while
+        // avoiding the huge fixed reserve that used to be paid up front.
+        const capacity = Math.max(64, Math.ceil(count * 1.25));
+        mesh = new THREE.InstancedMesh(this.geometryFor(shape), material, capacity);
         mesh.castShadow = true;
         mesh.receiveShadow = true;
         if (blockById(id)?.key === "glass") mesh.renderOrder = 2;
@@ -177,6 +182,12 @@ export class VoxelView {
       const list = studPositions.get(def.id) ?? [];
       const count = (list.length / 3) * cells;
       let mesh = this.studMeshes.get(def.id);
+      // Do not create a 2,048-instance GPU buffer for an unused block type.
+      // This was the main memory multiplier as the palette grew.
+      if (count === 0) {
+        if (mesh) mesh.count = 0;
+        continue;
+      }
       if (!mesh || mesh.instanceMatrix.count < count) {
         if (mesh) {
           this.scene.remove(mesh);
@@ -184,7 +195,8 @@ export class VoxelView {
         }
         const material = this.materials.get(def.id);
         if (!material) continue;
-        mesh = new THREE.InstancedMesh(this.studGeometry, material, count + 2048);
+        const capacity = Math.max(256, Math.ceil(count * 1.25));
+        mesh = new THREE.InstancedMesh(this.studGeometry, material, capacity);
         mesh.castShadow = true;
         mesh.receiveShadow = true;
         this.scene.add(mesh);

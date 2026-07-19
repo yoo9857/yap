@@ -42,10 +42,10 @@ export interface CraftGameState {
 
 export function freshState(seed: number): CraftGameState {
   const world = generateIsland(seed);
-  // spawn on the grass SOUTH of the central castle, not on top of the keep,
-  // so the landmark is right in front of you at the start
+  // Spawn on the outer south lawn, beyond the moat and gate approach, so the
+  // whole academy silhouette is visible immediately instead of starting inside.
   const x = WORLD_X / 2 + 0.5;
-  const z = WORLD_Z / 2 + 22.5;
+  const z = WORLD_Z / 2 + 32.5;
   return {
     seed,
     world,
@@ -127,5 +127,15 @@ export function loadCraft(storage: KeyValueStorage, defaultSeed: number): CraftG
   const pz = Math.min(Math.max(d.player.z, 1), WORLD_Z - 1);
   const py = Math.min(Math.max(d.player.y, 1), WORLD_Y + 4);
   state.player = { x: px, y: py, z: pz };
+
+  // One-time migration for saves made before the academy was moved behind the
+  // outer lawn. Only the exact old default spawn is relocated; a player who
+  // deliberately built near the castle keeps their position untouched.
+  const oldSpawnX = WORLD_X / 2 + 0.5;
+  const oldSpawnZ = WORLD_Z / 2 + 22.5;
+  if (Math.abs(px - oldSpawnX) < 0.01 && Math.abs(pz - oldSpawnZ) < 0.01) {
+    const fresh = freshState(d.seed);
+    state.player = fresh.player;
+  }
   return state;
 }

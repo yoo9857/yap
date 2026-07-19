@@ -2,7 +2,7 @@ import * as THREE from "three";
 import { GameLoop } from "../app/loop.js";
 import { GameRenderer } from "../render/renderer.js";
 import { texturesReady, warmupGpu } from "../render/textures.js";
-import { CharacterRig } from "../player/rig.js";
+import { CharacterRig, disposeRig } from "../player/rig.js";
 import { Sfx } from "../audio/sfx.js";
 import { Bgm, BGM_PLAYLIST } from "../audio/bgm.js";
 import { PerfMonitor } from "../ui/perf.js";
@@ -54,7 +54,8 @@ export class CraftGame {
   private readonly state;
   private readonly body: Body;
 
-  private yaw = 0;
+  // The outer-south spawn looks north toward the academy on first load.
+  private yaw = Math.PI;
   private pitch = -0.25;
   private readonly keys = new Set<string>();
   private mining = false;
@@ -113,6 +114,16 @@ export class CraftGame {
     void texturesReady().then(() => {
       warmupGpu(this.renderer.renderer, this.renderer.scene, this.renderer.camera);
     });
+  }
+
+  /** Release the WebGL/audio-facing resources when the mode is replaced. */
+  dispose(): void {
+    this.loop.stop();
+    this.persist();
+    this.view.dispose();
+    disposeRig(this.rig.root);
+    this.bgm.dispose();
+    this.renderer.dispose();
   }
 
   // ---------------------------------------------------------------- input

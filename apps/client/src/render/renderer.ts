@@ -67,6 +67,13 @@ export class GameRenderer {
     this.renderer.render(this.scene, this.camera);
   }
 
+  /** Stop resize callbacks and release the WebGL context when a mode closes. */
+  dispose(): void {
+    window.removeEventListener("resize", this.onResize);
+    this.renderer.dispose();
+    this.renderer.domElement.remove();
+  }
+
   private readonly onResize = (): void => {
     this.renderer.setSize(window.innerWidth, window.innerHeight);
     this.camera.aspect = window.innerWidth / window.innerHeight;
