@@ -11,6 +11,15 @@ import {
   studGeometry,
 } from "./brickGeometry.js";
 
+/** 2×2 stud layout on a 1 m brick top (0.5 m sub-cells) — dense small studs to
+ *  match the jump-map bricks instead of one oversized stud. */
+const STUD_OFFSETS: readonly [number, number][] = [
+  [-0.25, -0.25],
+  [0.25, -0.25],
+  [-0.25, 0.25],
+  [0.25, 0.25],
+];
+
 /**
  * Renders the island as InstancedMeshes, EXPOSED cells only (interior voxels
  * never reach the GPU). Batching key is (block id × brick shape): a cube uses a
@@ -155,9 +164,12 @@ export class VoxelView {
       mesh.computeBoundingSphere();
     }
 
+    // 2×2 studs per top face (0.5 m sub-cells) so a 1 m voxel reads as small,
+    // densely-studded LEGO like the jump-map's 0.7 m bricks — not one big cube.
+    const cells = STUD_OFFSETS.length;
     for (const def of BLOCKS) {
       const list = studPositions.get(def.id) ?? [];
-      const count = list.length / 3;
+      const count = (list.length / 3) * cells;
       let mesh = this.studMeshes.get(def.id);
       if (!mesh || mesh.instanceMatrix.count < count) {
         if (mesh) {
@@ -166,15 +178,21 @@ export class VoxelView {
         }
         const material = this.materials.get(def.id);
         if (!material) continue;
-        mesh = new THREE.InstancedMesh(this.studGeometry, material, count + 512);
+        mesh = new THREE.InstancedMesh(this.studGeometry, material, count + 2048);
         mesh.castShadow = true;
         mesh.receiveShadow = true;
         this.scene.add(mesh);
         this.studMeshes.set(def.id, mesh);
       }
-      for (let i = 0; i < count; i++) {
-        matrix.makeTranslation(list[i * 3]! + 0.5, list[i * 3 + 1]! + 1, list[i * 3 + 2]! + 0.5);
-        mesh.setMatrixAt(i, matrix);
+      let k = 0;
+      for (let i = 0; i < list.length; i += 3) {
+        const x = list[i]! + 0.5;
+        const y = list[i + 1]! + 1;
+        const z = list[i + 2]! + 0.5;
+        for (const [ox, oz] of STUD_OFFSETS) {
+          matrix.makeTranslation(x + ox, y, z + oz);
+          mesh.setMatrixAt(k++, matrix);
+        }
       }
       mesh.count = count;
       mesh.instanceMatrix.needsUpdate = true;
