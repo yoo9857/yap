@@ -82,8 +82,10 @@ export class BattleGame {
     const spawns: [number, number][] = [];
     for (let i = 0; i < BOT_COUNT + 1; i++) {
       const a = (i / (BOT_COUNT + 1)) * Math.PI * 2;
-      // drop on a wide ring around the castle so fights close in on it
-      const r = WORLD_X * 0.33;
+      // drop on a wide ring around the castle so fights close in on it — must
+      // sit OUTSIDE the castle footprint (outer≈26) or players spawn on its
+      // roof (surfaceY returns the tower height), still inside the island edge.
+      const r = WORLD_X * 0.42;
       spawns.push([ZONE_CX + Math.cos(a) * r, ZONE_CZ + Math.sin(a) * r]);
     }
     const [px, pz] = spawns[0]!;
