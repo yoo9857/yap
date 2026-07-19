@@ -46,14 +46,17 @@ export class VoxelView {
   }
 
   /**
-   * Solid crayon LEGO brick — one flat colour per block kind + a faint shared
-   * grain (the SAME grain the characters use), so bricks and mascots read as
-   * one toy world. No per-block photo tile → not a Minecraft cube.
+   * Solid crayon LEGO brick, matched to the tower's `brickMaterial`:
+   * MeshStandard with the SAME roughness/metalness so craft/battle bricks catch
+   * light exactly like the jump-map platforms, one flat colour per block + a
+   * faint shared grain (also on the characters). No per-block photo tile.
    */
   private makeMaterial(def: BlockDef): THREE.Material {
     const isGlass = def.key === "glass";
-    const material = new THREE.MeshLambertMaterial({
+    const material = new THREE.MeshStandardMaterial({
       color: new THREE.Color(def.color),
+      roughness: 0.75,
+      metalness: 0.05,
       map: crayonGrain() ?? undefined,
       transparent: isGlass,
       opacity: isGlass ? 0.55 : 1,

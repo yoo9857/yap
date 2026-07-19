@@ -19,10 +19,12 @@ export function roundBrickGeometry(): THREE.BufferGeometry {
   return new THREE.CylinderGeometry(0.56, 0.56, 1.1, 16);
 }
 
-/** The stud cap shared by flat-topped bricks. */
+/** The stud cap shared by flat-topped bricks — matched to the tower platform
+ *  studs (radius ≈ 0.17 of a 1 m cell, 0.12 tall) so craft/battle read as the
+ *  same LEGO bricks as the jump map. */
 export function studGeometry(): THREE.CylinderGeometry {
-  const g = new THREE.CylinderGeometry(0.18, 0.2, 0.14, 10);
-  g.translate(0, 0.05, 0); // base overlaps the brick top a hair
+  const g = new THREE.CylinderGeometry(0.17, 0.18, 0.12, 12);
+  g.translate(0, 0.06, 0); // sits on the brick top
   return g;
 }
 
