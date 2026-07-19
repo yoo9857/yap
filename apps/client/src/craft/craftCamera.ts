@@ -16,9 +16,13 @@ import type { VoxelWorld } from "./voxelWorld.js";
 
 const BASE_FOV = 70;
 const MOVE_FOV = 75.5;
-const MAX_DIST = 4.4;
+// pulled back toward the jump-map (tower) camera distance so the character and
+// bricks read at the SAME scale across modes — craft/battle looked zoomed-in
+// (oversized) at the old 4.4 m over-the-shoulder distance. Mining reach is
+// measured from the player, so a farther camera doesn't shorten it.
+const MAX_DIST = 8;
 const MIN_DIST = 0.55;
-const SHOULDER = 0.55;
+const SHOULDER = 0.28;
 const WALL_MARGIN = 0.32;
 /** Corner-probe spread — roughly the near-plane half-extent at MAX_DIST. */
 const PROBE = 0.28;
