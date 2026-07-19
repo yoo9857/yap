@@ -35,8 +35,12 @@ export class FollowCamera {
     });
     domElement.addEventListener("pointermove", (e) => {
       if (!this.dragging) return;
-      this.yaw -= (e.clientX - this.lastX) * 0.005;
-      this.pitch = clamp(this.pitch + (e.clientY - this.lastY) * 0.005, MIN_PITCH, MAX_PITCH);
+      // clamp the per-event drag delta so a stale/jumped pointer can't whip the
+      // camera around in one frame
+      const dx = clamp(e.clientX - this.lastX, -180, 180);
+      const dy = clamp(e.clientY - this.lastY, -180, 180);
+      this.yaw -= dx * 0.005;
+      this.pitch = clamp(this.pitch + dy * 0.005, MIN_PITCH, MAX_PITCH);
       this.lastX = e.clientX;
       this.lastY = e.clientY;
     });

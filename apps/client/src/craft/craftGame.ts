@@ -133,8 +133,12 @@ export class CraftGame {
     });
     document.addEventListener("mousemove", (e) => {
       if (!this.locked) return;
-      this.yaw -= e.movementX * 0.0026;
-      this.pitch = Math.min(1.35, Math.max(-1.25, this.pitch - e.movementY * 0.0026));
+      // clamp the per-event delta: pointer lock occasionally emits a huge
+      // spurious movementX/Y (browser/OS spike) that whips the camera around
+      const dx = Math.max(-180, Math.min(180, e.movementX));
+      const dy = Math.max(-180, Math.min(180, e.movementY));
+      this.yaw -= dx * 0.0026;
+      this.pitch = Math.min(1.35, Math.max(-1.25, this.pitch - dy * 0.0026));
     });
     document.addEventListener("mousedown", (e) => {
       if (!this.locked) return;
