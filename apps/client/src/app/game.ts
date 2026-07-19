@@ -393,12 +393,18 @@ export class Game {
       this.runTimeMs = (tick - this.runStartTick) * SIM_DT * 1000;
     }
 
-    // moving platforms live on the shared server-time axis
+    // moving platforms live on the shared server-time axis. Order is load-
+    // bearing: compute the platform ride deltas → run the player KCC (carry
+    // added on top) → NOW teleport the platforms → one world.step(). Moving the
+    // platforms AFTER the KCC is what lets the player walk freely on them: the
+    // collide-and-slide sees each platform where the player is standing, not
+    // where it's about to jump ahead to this tick.
     const serverNow = this.net.serverNowMs() ?? Date.now();
     const t = this.timeline.sample(timelineSeconds(serverNow, this.daily.dayStartMs));
     this.world.runtime.fixedUpdate(t);
 
     player.fixedUpdate(frame, this.followCamera.yaw, tick);
+    this.world.runtime.commitMoves();
     this.physics.step();
     player.postStep();
 

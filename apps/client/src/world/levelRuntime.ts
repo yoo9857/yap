@@ -114,9 +114,17 @@ export class LevelRuntime {
     }
   }
 
-  /** Platforms move BEFORE the character controller runs — strict tick order. */
+  /** BEFORE the character controller: compute ride deltas + crumble FSM (no
+   *  moving-platform teleport yet — that's commitMoves, after the player). */
   fixedUpdate(tickTime: number): void {
     for (const e of this.entities) e.fixedUpdate(tickTime);
+  }
+
+  /** AFTER the character controller, before world.step(): teleport moving
+   *  platforms to their new spots so the KCC judged the player's walk against
+   *  the platform where the player stood. */
+  commitMoves(): void {
+    for (const e of this.entities) e.commitMove();
   }
 
   frameUpdate(alpha: number, timeSec: number): void {

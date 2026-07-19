@@ -33,7 +33,13 @@ export interface PlatformEntity {
   rideVelocity(out: THREE.Vector3): THREE.Vector3;
   /** Local player is standing on this platform this tick. */
   onStand(): void;
+  /** Per tick BEFORE the player's KCC: compute this tick's ride delta (crumble
+   *  FSM etc.), but a moving platform does NOT teleport yet — see commitMove. */
   fixedUpdate(tickTime: number): void;
+  /** Per tick AFTER the player's KCC, before world.step(): a moving platform
+   *  teleports to its new spot here, so the KCC resolved the player's walk
+   *  against the platform where the player actually stood (no phantom block). */
+  commitMove(): void;
   frameUpdate(alpha: number, timeSec: number): void;
   /** Full teardown — level rebuild (daily rollover) removes everything. */
   dispose(scene: THREE.Scene, physics: PhysicsWorld): void;
@@ -272,6 +278,7 @@ export class SolidPlatform implements PlatformEntity {
   rideVelocity = ZERO_DELTA;
   onStand(): void {}
   fixedUpdate(): void {}
+  commitMove(): void {}
   frameUpdate(): void {}
 
   dispose(scene: THREE.Scene, physics: PhysicsWorld): void {
@@ -291,6 +298,7 @@ export class MovingPlatform implements PlatformEntity {
   private readonly interp: InterpolatedTransform;
   private readonly interpStore: InterpolationStore;
   private readonly delta = new THREE.Vector3();
+  private readonly pendingNext = new THREE.Vector3();
   private tickTime = 0;
 
   constructor(
@@ -304,8 +312,13 @@ export class MovingPlatform implements PlatformEntity {
     scene.add(this.mesh);
 
     const start = movingPlatformCenter(def, 0);
+    // FIXED, not kinematic: a kinematic body moved by setTranslation still gets
+    // a step-computed velocity, and the character controller resolves the rider's
+    // walk against THAT — blocking any walk that opposes the platform's motion.
+    // A fixed body we reposition each tick has zero velocity forever, so the KCC
+    // treats it as plain static ground; the rider carry is our explicit delta.
     this.body = physics.world.createRigidBody(
-      physics.rapier.RigidBodyDesc.kinematicPositionBased().setTranslation(...start),
+      physics.rapier.RigidBodyDesc.fixed().setTranslation(...start),
     );
     this.collider = physics.world.createCollider(
       physics.rapier.ColliderDesc.cuboid(def.size[0] / 2, def.size[1] / 2, def.size[2] / 2),
@@ -318,21 +331,34 @@ export class MovingPlatform implements PlatformEntity {
   }
 
   /**
-   * Runs BEFORE the player's character-controller pass each tick.
-   * Deliberately `setTranslation` (teleport), NOT setNextKinematicTranslation:
-   * the latter gives the body an internal velocity that Rapier's character
-   * controller partially — and unreliably — applies to riders on its own,
-   * which double-carries against our explicit platformDelta and flings the
-   * player off. With teleports the platform looks static to the KCC and the
-   * explicit delta below is the single source of carry.
+   * BEFORE the player's KCC: work out how far the platform surface moves this
+   * tick (the rider carry) but DON'T teleport the body yet. The teleport is
+   * deferred to commitMove (after the player), so the KCC resolves the player's
+   * walk against the platform where the player is actually standing — teleporting
+   * ahead of the player first makes the collide-and-slide intermittently block
+   * the walk (the "can't move on a moving block" bug).
+   *
+   * Delta is measured from the body's CURRENT position (not an analytic prev),
+   * so it's exactly the displacement the body is about to make regardless of the
+   * timeline's per-tick pacing.
    */
   fixedUpdate(tickTime: number): void {
     this.tickTime = tickTime;
-    const prev = movingPlatformCenter(this.def, tickTime - SIM_DT);
     const next = movingPlatformCenter(this.def, tickTime);
-    this.delta.set(next[0] - prev[0], next[1] - prev[1], next[2] - prev[2]);
-    this.body.setTranslation({ x: next[0], y: next[1], z: next[2] }, true);
-    this.interp.commit({ x: next[0], y: next[1], z: next[2] });
+    const cur = this.body.translation();
+    this.delta.set(next[0] - cur.x, next[1] - cur.y, next[2] - cur.z);
+    this.pendingNext.set(next[0], next[1], next[2]);
+  }
+
+  /**
+   * AFTER the player's KCC, before world.step(): teleport to the new spot.
+   * `setTranslation` (not setNextKinematicTranslation) so the body carries no
+   * internal velocity the KCC could double-apply — our explicit delta is the
+   * single source of ride carry.
+   */
+  commitMove(): void {
+    this.body.setTranslation(this.pendingNext, true);
+    this.interp.commit(this.pendingNext);
   }
 
   rideDelta(out: THREE.Vector3): THREE.Vector3 {
@@ -411,6 +437,8 @@ export class CrumblingPlatform implements PlatformEntity {
     physics.unregister(this.collider);
     physics.world.removeRigidBody(this.body);
   }
+
+  commitMove(): void {}
 
   fixedUpdate(): void {
     if (this.state === "idle") return;

@@ -113,28 +113,21 @@ export class CharacterController {
       vel.y = JUMP_RELEASE_CLAMP;
     }
 
-    // Resolve our walk AND the platform carry together in one collide-and-slide:
-    // the platform already teleported this tick, so feeding walk+carry as the
-    // desired motion lets the KCC catch us up to the moved platform and walk in
-    // the same pass. Splitting them (walk alone, carry added after) makes the
-    // KCC resolve the walk from a position misaligned with the moved platform
-    // and intermittently BLOCK it (corrected≈0) → the "barely moves on a moving
-    // block" bug. Platforms are teleported (zero internal velocity) so the KCC
-    // adds no carry of its own — our explicit delta is the only carry.
-    const pd = cmd.platformDelta;
-    this.desired.set(
-      vel.x * SIM_DT + pd.x,
-      vel.y * SIM_DT + pd.y,
-      vel.z * SIM_DT + pd.z,
-    );
+    // Own motion only through the collide-and-slide; the platform carry is
+    // added verbatim on top. This works because platforms now move AFTER this
+    // pass (see the tick order in app/game.ts): the KCC always resolves our
+    // walk against the platform at the position we're actually standing on, so
+    // it never blocks the walk from a platform that already teleported ahead of
+    // us. Platforms carry zero internal velocity → the delta is the only carry.
+    this.desired.set(vel.x * SIM_DT, vel.y * SIM_DT, vel.z * SIM_DT);
 
     this.cc.computeColliderMovement(this.collider, this.desired);
     const corrected = this.cc.computedMovement();
     const pos = this.body.translation();
     this.body.setNextKinematicTranslation({
-      x: pos.x + corrected.x,
-      y: pos.y + corrected.y,
-      z: pos.z + corrected.z,
+      x: pos.x + corrected.x + cmd.platformDelta.x,
+      y: pos.y + corrected.y + cmd.platformDelta.y,
+      z: pos.z + corrected.z + cmd.platformDelta.z,
     });
 
     const wasGrounded = this.grounded;
@@ -159,9 +152,10 @@ export class CharacterController {
       if (this.trace.length > 300) this.trace.shift();
     }
 
-    // velocity fixups: recover OWN motion by removing the carry we injected
-    vel.x = (corrected.x - pd.x) / SIM_DT;
-    vel.z = (corrected.z - pd.z) / SIM_DT;
+    // velocity fixups from the collide-and-slide result (own motion only —
+    // corrected carries no platform delta, so this stays feedback-free)
+    vel.x = corrected.x / SIM_DT;
+    vel.z = corrected.z / SIM_DT;
     if (this.grounded && vel.y < 0) {
       vel.y = -1; // keep light ground contact so snap/grounded stays stable
     } else if (!this.grounded && vel.y > 0 && corrected.y < this.desired.y - 1e-4) {
