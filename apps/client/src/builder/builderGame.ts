@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import { SIM_DT } from "@robo/shared";
+import { SIM_DT, StreamEventSchema, streamBoost, type StreamEvent } from "@robo/shared";
 import { GameLoop } from "../app/loop.js";
 import { GameRenderer } from "../render/renderer.js";
 import { Effects } from "../render/effects.js";
@@ -26,6 +26,8 @@ import { BuilderHud } from "./hud.js";
 import { PerfMonitor } from "../ui/perf.js";
 import { BuilderEnvironment } from "./environment.js";
 import { CameraDirector, type ShotName } from "./cameraDirector.js";
+import { StreamBoosts } from "./streamBoosts.js";
+import { StreamClient } from "./streamClient.js";
 
 const SAVE_INTERVAL_MS = 5000;
 const BLOCK_SFX_MIN_GAP_MS = 120; // don't machine-gun the pop sound
@@ -59,6 +61,11 @@ export class BuilderGame {
   private lastSaveAt = 0;
   private lastBlockSfxAt = 0;
   private paused = false;
+  // live-stream integration (opt-in via ?stream=1) — donations/cheers speed
+  // up the crew and celebrate on screen
+  private readonly boosts = new StreamBoosts();
+  private streamClient: StreamClient | null = null;
+  private streamConnected = false;
 
   constructor(mount: HTMLElement) {
     this.renderer = new GameRenderer(mount);
@@ -103,6 +110,7 @@ export class BuilderGame {
 
   start(): void {
     this.loop.start();
+    this.initStream();
     // builder starts instantly by design — warm the GPU right after instead:
     // upload every texture and compile every shader so the first camera cut
     // that reveals a material doesn't hitch
@@ -212,10 +220,88 @@ export class BuilderGame {
     }
   }
 
+  /**
+   * React to a live-stream donation or chat cheer: add a timed crew boost and
+   * celebrate on screen. Safe to call directly (E2E / debug) or from the WS
+   * stream client. Untrusted viewer text is rendered via textContent in the
+   * HUD, never as markup.
+   */
+  applyStreamEvent(e: StreamEvent): void {
+    const boost = streamBoost(e.amountKrw, e.kind);
+    this.boosts.add(boost.extraMult, boost.durationMs, Date.now());
+    this.hud.donorToast(e.name, e.message, boost.tier, e.display);
+    this.sfx.play(e.kind === "donation" ? "clear" : "checkpoint");
+
+    // celebration scales with the tip: a small donation gets a couple of
+    // bursts, a LEGENDARY one gets confetti climbing the whole monument
+    const idx = this.viewLandmarkIndex >= 0 ? this.viewLandmarkIndex : this.state.landmarkIndex;
+    const landmark = landmarkAt(idx);
+    const top = new THREE.Vector3(0, landmark.heightM + 1, 0);
+    if (e.kind === "donation") {
+      const bursts = Math.min(6, 1 + Math.round(boost.extraMult));
+      for (let i = 0; i < bursts; i++) {
+        this.effects.goalConfetti(top.clone().setY(landmark.heightM * (0.3 + 0.65 * (i / bursts))));
+      }
+    } else {
+      this.effects.checkpointBurst(top.clone().setY(landmark.heightM * 0.3));
+    }
+  }
+
+  /** Wire up the live-stream bridge when opened with ?stream=1. */
+  private initStream(): void {
+    const params = new URLSearchParams(location.search);
+    if (!params.has("stream")) return;
+    // the bridge is a LOCAL process by design, so default to localhost even on
+    // the live https site — browsers treat ws://localhost as a trustworthy
+    // context. Use ?streamUrl=... to point at a bridge on another machine.
+    const url = params.get("streamUrl") ?? `ws://localhost:${params.get("streamPort") ?? "8083"}`;
+    this.streamClient = new StreamClient(
+      url,
+      (e) => this.applyStreamEvent(e),
+      (connected) => {
+        this.streamConnected = connected;
+      },
+    );
+    this.streamClient.start();
+
+    // testing hooks — available on the live site too (not gated to DEV) so the
+    // streamer can rehearse reactions before going live
+    (window as unknown as Record<string, unknown>).__roboBuilderStream = {
+      simulate: (event: Partial<StreamEvent>) =>
+        this.applyStreamEvent(StreamEventSchema.parse({ source: "manual", ...event })),
+      donate: (amountKrw = 5000, name = "Tester", message = "Let's build!") =>
+        this.applyStreamEvent(
+          StreamEventSchema.parse({
+            source: "manual",
+            kind: "donation",
+            amountKrw,
+            name,
+            message,
+            display: `₩${amountKrw.toLocaleString()}`,
+          }),
+        ),
+      chat: (name = "Viewer", message = "hi!") =>
+        this.applyStreamEvent(
+          StreamEventSchema.parse({ source: "manual", kind: "chat", name, message }),
+        ),
+      status: () => ({
+        connected: this.streamConnected,
+        url,
+        boostMult: this.boosts.multiplier(Date.now()),
+        activeBoosts: this.boosts.count,
+      }),
+    };
+    console.info(`[stream] bridge ${url} — try __roboBuilderStream.donate() to test`);
+  }
+
   private fixedUpdate(): void {
     if (this.paused) return;
     const landmark = currentLandmark(this.state);
-    const events = tick(this.state, SIM_DT);
+    // live-stream crew boost: donations/cheers scale the sim's dt, so the
+    // WHOLE crew builds faster (more deliveries, more gold, more confetti)
+    // without touching save state or the offline-settlement contract
+    const boostMult = this.boosts.multiplier(Date.now());
+    const events = tick(this.state, SIM_DT * boostMult);
     const now = performance.now();
 
     // during the completion parade the sim already builds the NEXT blueprint
@@ -358,6 +444,10 @@ export class BuilderGame {
       landmarkIndex: this.viewLandmarkIndex,
       parade: this.viewLandmarkIndex !== this.state.landmarkIndex,
     });
+    if (this.streamClient) {
+      const nowMs = Date.now();
+      this.hud.setBoost(this.boosts.multiplier(nowMs), this.boosts.remainingMs(nowMs));
+    }
 
     // cinematic camera director: documentary shots that CUT between angles,
     // every pose fit-framed so the WHOLE monument is always on screen

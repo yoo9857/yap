@@ -46,6 +46,7 @@ export class BuilderHud {
   private readonly goalCountEl: HTMLElement;
   private readonly goalRewardEl: HTMLElement;
   private readonly floorsEl: HTMLElement;
+  private readonly boostEl: HTMLElement;
   private readonly shopButtons = new Map<ShopItem, HTMLButtonElement>();
   private pulseTimer: ReturnType<typeof setTimeout> | null = null;
   private lastRender = "";
@@ -71,6 +72,7 @@ export class BuilderHud {
         <div class="b-goal-count" data-id="goal-count"></div>
       </div>
       <div class="b-shop" data-id="shop"></div>
+      <div class="b-boost" data-id="boost" hidden></div>
     `;
     parent.appendChild(this.root);
 
@@ -86,6 +88,7 @@ export class BuilderHud {
     this.goalBarEl = q("goal-fill");
     this.goalCountEl = q("goal-count");
     this.goalRewardEl = q("goal-reward");
+    this.boostEl = q("boost");
 
     const shop = q("shop");
     for (const meta of SHOP_META) {
@@ -161,6 +164,37 @@ export class BuilderHud {
     el.textContent = `🎉 Goal complete! ${title} (+${fmt(reward)} gold)`;
     document.body.appendChild(el);
     setTimeout(() => el.remove(), 4200);
+  }
+
+  /** Persistent badge for the live-stream crew boost (hidden at ×1). */
+  setBoost(mult: number, remainingMs: number): void {
+    if (mult <= 1.001 || remainingMs <= 0) {
+      if (!this.boostEl.hidden) this.boostEl.hidden = true;
+      return;
+    }
+    this.boostEl.hidden = false;
+    this.boostEl.textContent = `⚡ Crew ×${mult.toFixed(1)} · ${Math.ceil(remainingMs / 1000)}s`;
+  }
+
+  /** A donation / cheer just arrived — celebrate it on screen. All viewer
+   *  text is set via textContent (untrusted chat must never become markup). */
+  donorToast(name: string, message: string, tier: string, display: string): void {
+    const el = document.createElement("div");
+    el.className = "b-toast b-donor";
+    const head = document.createElement("b");
+    head.textContent = display ? `⚡ ${tier} · ${display}` : `⚡ ${tier}`;
+    const who = document.createElement("div");
+    who.className = "b-donor-who";
+    who.textContent = name || "Someone";
+    el.append(head, who);
+    if (message) {
+      const msg = document.createElement("div");
+      msg.className = "b-donor-msg";
+      msg.textContent = message;
+      el.append(msg);
+    }
+    document.body.appendChild(el);
+    setTimeout(() => el.remove(), 5200);
   }
 
   showOfflineModal(gains: OfflineGains, onClose: () => void): void {

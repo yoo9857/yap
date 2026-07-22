@@ -6,3 +6,4 @@ export * from "./level/types.js";
 export * from "./level/generate.js";
 export * from "./level/analytic.js";
 export * from "./protocol/index.js";
+export * from "./stream.js";

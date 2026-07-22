@@ -7,3 +7,8 @@ apps/server/data/
 # scratch / throwaway
 .tmp-*/
 tmp/
+
+# local secrets (stream bridge etc.) — never commit
+.env
+.env.*
+!.env.example

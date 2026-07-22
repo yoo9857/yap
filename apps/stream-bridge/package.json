@@ -1,0 +1,27 @@
+{
+  "name": "@robo/stream-bridge",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Bridges YouTube live chat / Super Chat and Korean donation platforms (Toonation, Twip) into Robo Builder over a local WebSocket.",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "start": "tsx src/index.ts",
+    "auth": "tsx src/auth.ts",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@robo/shared": "workspace:*",
+    "socket.io-client": "^2.5.0",
+    "ws": "^8.18.2",
+    "zod": "^3.24.4"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.0",
+    "@types/ws": "^8.18.1",
+    "tsx": "^4.19.4",
+    "typescript": "~5.8.3",
+    "vitest": "^3.1.4"
+  }
+}
