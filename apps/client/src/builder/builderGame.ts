@@ -1,7 +1,10 @@
 import * as THREE from "three";
 import { SIM_DT, StreamEventSchema, streamBoost, type StreamEvent } from "@robo/shared";
-import { GameLoop } from "../app/loop.js";
+import { GameLoop, RafScheduler } from "../app/loop.js";
 import { GameRenderer } from "../render/renderer.js";
+// NOTE: ../render/vr.js is imported LAZILY in initVr(). It pulls in three's
+// VRButton from three/examples, and none of that belongs on the boot path of a
+// mode that starts instantly by design.
 import { Effects } from "../render/effects.js";
 import { brickMaterial } from "../world/materials.js";
 import { loadTexture, texturesReady, warmupGpu } from "../render/textures.js";
@@ -13,11 +16,12 @@ import {
   currentLandmark,
   voxelsPerSecond,
   type BuilderState,
+  itemCost,
   type ShopItem,
 } from "./state.js";
 import { tick } from "./sim.js";
-import { tryCompleteGoal } from "./goals.js";
-import { LANDMARKS, landmarkAt } from "./landmarks.js";
+import { goalAt, tryCompleteGoal } from "./goals.js";
+import { LANDMARKS, landmarkAt, type Landmark } from "./landmarks.js";
 import { clearSave, load, save } from "./save.js";
 import { LandmarkView } from "./landmarkView.js";
 import { WorkersView } from "./workersView.js";
@@ -28,6 +32,15 @@ import { BuilderEnvironment } from "./environment.js";
 import { CameraDirector, type ShotName } from "./cameraDirector.js";
 import { StreamBoosts } from "./streamBoosts.js";
 import { StreamClient } from "./streamClient.js";
+import { VrDirector, radiusProfile } from "./vrDirector.js";
+import { VrView } from "./vrView.js";
+import {
+  VR_ACTION_LABELS,
+  VrShopPanel,
+  hitTestPanel,
+  type VrPanelAction,
+} from "./vrPanel.js";
+import { VrControllers } from "../render/vrInput.js";
 
 const SAVE_INTERVAL_MS = 5000;
 const BLOCK_SFX_MIN_GAP_MS = 120; // don't machine-gun the pop sound
@@ -66,6 +79,13 @@ export class BuilderGame {
   private readonly boosts = new StreamBoosts();
   private streamClient: StreamClient | null = null;
   private streamConnected = false;
+  // VR: only live while an immersive session is presenting
+  private readonly rafScheduler = new RafScheduler();
+  private vrDirector: VrDirector | null = null;
+  private vrView: VrView | null = null;
+  private vrUnmount: (() => void) | null = null;
+  private flatFrustum: { near: number; far: number; fov: number } | null = null;
+  private vrBlind = 0;
 
   constructor(mount: HTMLElement) {
     this.renderer = new GameRenderer(mount);
@@ -100,10 +120,13 @@ export class BuilderGame {
       }
     });
 
-    this.loop = new GameLoop({
-      fixedUpdate: () => this.fixedUpdate(),
-      render: (alpha, frameDt) => this.render(frameDt),
-    });
+    this.loop = new GameLoop(
+      {
+        fixedUpdate: () => this.fixedUpdate(),
+        render: (alpha, frameDt) => this.render(frameDt),
+      },
+      this.rafScheduler,
+    );
 
     if (import.meta.env.DEV) this.installDebugHooks();
   }
@@ -116,7 +139,196 @@ export class BuilderGame {
     // that reveals a material doesn't hitch
     void texturesReady().then(() => {
       warmupGpu(this.renderer.renderer, this.renderer.scene, this.renderer.camera);
+      // offer VR only AFTER the warmup: a shader compile inside a live session
+      // drops frames, and dropped frames in a headset are felt, not just seen
+      void this.initVr();
     });
+  }
+
+  // ------------------------------------------------------------------ VR
+
+  /** Mount the Enter VR button if a headset is actually available. */
+  private async initVr(): Promise<void> {
+    const forced = new URLSearchParams(location.search).has("vr");
+    if (!forced && !navigator.xr) return; // cheap check before fetching the module
+    const vr = await import("../render/vr.js");
+    this.vrModule = vr;
+    if (!forced && !(await vr.vrSupported())) return;
+    this.vrUnmount = vr.mountVrButton(this.renderer, {
+      onSessionStart: () => this.enterVr(),
+      onSessionEnd: () => this.exitVr(),
+    });
+  }
+
+  private vrModule: typeof import("../render/vr.js") | null = null;
+
+  /**
+   * Switch the view over to the VR director + rig. Split out from `enterVr` so
+   * the whole VR presentation can also run on a flat screen (`vrPreview`) — that
+   * is how the viewpoints get checked without a headset on the desk.
+   */
+  private startVrView(previewEyeHeight: boolean): void {
+    if (this.vrView) return;
+    // The welcome-back modal is DOM-only and the sim is paused behind it; in a
+    // headset that is an invisible wall around a frozen world. Entering VR is
+    // consent enough to get on with it.
+    this.hud.dismissOfflineModal();
+    // Build the blueprint's radius profile NOW rather than on the first VR
+    // frame: it is an O(blocks) pass (up to ~80k) and a dropped frame inside a
+    // live session is felt, not just seen.
+    this.radiusProfileFor(
+      landmarkAt(this.viewLandmarkIndex >= 0 ? this.viewLandmarkIndex : this.state.landmarkIndex),
+    );
+    const camera = this.renderer.camera;
+    // the flat-screen grade pushes near out to 1.5 m for depth precision on
+    // 300 m monuments; in a headset that clips the plaque and the blinder.
+    // `far` is deliberately left ALONE: the environment's sky dome has a 1900 m
+    // radius, so any far plane under ~2400 slices its back half off and the
+    // gradient sky ends in a hard edge with the clear colour behind it.
+    this.flatFrustum = { near: camera.near, far: camera.far, fov: camera.fov };
+    camera.near = 0.3;
+    // A real session ignores camera.fov (the headset supplies its own
+    // projection), but the flat preview does not — and judging VR framing
+    // through the flat 70° fov is misleading, because content a headset shows
+    // comfortably at 45° below the horizon falls off the bottom of a 70° frame.
+    if (previewEyeHeight) camera.fov = 100;
+    camera.updateProjectionMatrix();
+
+    const rig = this.renderer.attachXrRig();
+    camera.position.set(0, previewEyeHeight ? 1.6 : 0, 0);
+    camera.rotation.set(0, 0, 0);
+    this.vrDirector = new VrDirector();
+    this.vrView = new VrView(rig, camera);
+
+    // the shop panel is what keeps VR a GAME rather than a screensaver
+    this.vrPanel = new VrShopPanel();
+    this.vrControllers = new VrControllers(this.renderer.renderer, rig, (wrist) => {
+      this.vrPanel?.attachToWrist(wrist);
+      // a wrist panel spends most of its time out of view, so the always-on
+      // plaque earns its place again
+      this.vrView?.setPlaqueVisible(true);
+    });
+    // Controllers only report their handedness asynchronously, so start in the
+    // no-left-hand layout: panel on the rig, plaque hidden as a duplicate. The
+    // callback above swaps back the moment a left hand appears.
+    this.vrPanel.attachToRig(rig);
+    this.vrView.setPlaqueVisible(false);
+  }
+
+  /** Run a wrist-panel action. Shared by the controller and the debug hook. */
+  private vrAction(action: VrPanelAction): void {
+    if (action === "next") {
+      this.vrDirector?.skip();
+      this.sfx.play("click");
+      return;
+    }
+    // the DOM toast is invisible in a headset, so say it on the panel instead —
+    // and say the RIGHT thing: a refused purchase has two very different causes
+    const label = VR_ACTION_LABELS[action];
+    if (action === "crane" && this.state.crane) {
+      this.vrToast = { text: `${label} already owned`, untilMs: Date.now() + 1800 };
+      return;
+    }
+    const cost = itemCost(this.state, action);
+    if (this.state.gold < cost) {
+      this.vrToast = {
+        text: `${label} costs ${Math.round(cost).toLocaleString()}G`,
+        untilMs: Date.now() + 1800,
+      };
+      this.sfx.play("click");
+      return;
+    }
+    this.handleBuy(action);
+    this.vrToast = { text: `${label} upgraded!`, untilMs: Date.now() + 2500 };
+  }
+
+  private vrPanel: VrShopPanel | null = null;
+  private vrControllers: VrControllers | null = null;
+  private vrToast: { text: string; untilMs: number } | null = null;
+
+  private stopVrView(): void {
+    this.vrControllers?.dispose();
+    this.vrControllers = null;
+    this.vrPanel?.dispose();
+    this.vrPanel = null;
+    this.vrToast = null;
+    this.vrView?.dispose();
+    this.vrView = null;
+    this.vrDirector = null;
+
+    const rig = this.renderer.attachXrRig();
+    rig.position.set(0, 0, 0);
+    rig.rotation.set(0, 0, 0);
+    if (this.flatFrustum) {
+      const camera = this.renderer.camera;
+      camera.near = this.flatFrustum.near;
+      camera.far = this.flatFrustum.far;
+      camera.fov = this.flatFrustum.fov;
+      camera.updateProjectionMatrix();
+      this.flatFrustum = null;
+    }
+  }
+
+  /**
+   * Aim the pointing hand at the wrist panel, run a press if the trigger fired,
+   * and redraw. A trigger pull that is not on a button is ignored rather than
+   * treated as a press on whatever was last hovered.
+   */
+  private updateVrPanel(landmark: Landmark, viewPlaced: number): void {
+    const panel = this.vrPanel;
+    if (!panel) return;
+    const uv = this.vrControllers?.pick(panel.mesh) ?? null;
+    const hovered = uv ? hitTestPanel(uv.x, uv.y) : null;
+    if (this.vrControllers?.consumeSelect() && hovered) this.vrAction(hovered);
+
+    const nowMs = Date.now();
+    if (this.vrToast && nowMs > this.vrToast.untilMs) this.vrToast = null;
+    panel.draw(
+      {
+        landmarkName: `${landmark.emoji} ${landmark.name}`,
+        country: landmark.country,
+        placedBlocks: viewPlaced,
+        totalBlocks: landmark.blocks.length,
+        gold: this.state.gold,
+        workers: this.state.workers,
+        goalTitle: goalAt(this.state.goalIndex).title,
+        costs: {
+          worker: itemCost(this.state, "worker"),
+          speed: itemCost(this.state, "speed"),
+          value: itemCost(this.state, "value"),
+          crane: itemCost(this.state, "crane"),
+        },
+        craneOwned: this.state.crane,
+        toast: this.vrToast?.text ?? null,
+      },
+      hovered,
+    );
+  }
+
+  /** Height→radius profile of the current blueprint, built once per landmark. */
+  private radiusProfileFor(landmark: Landmark): (y: number) => number {
+    let profile = this.radiusProfiles.get(landmark.id);
+    if (!profile) {
+      profile = radiusProfile(landmark.blocks, landmark.voxelSizeM, landmark.heightM);
+      this.radiusProfiles.set(landmark.id, profile);
+    }
+    return profile;
+  }
+
+  private readonly radiusProfiles = new Map<string, (y: number) => number>();
+
+  private enterVr(): void {
+    // a real headset supplies the eye height itself via the local-floor space
+    this.startVrView(false);
+    // ...and drives frame timing from here on. The module is always loaded by
+    // now: a session can only start from the button initVr() mounted.
+    const vr = this.vrModule;
+    if (vr) this.loop.setScheduler(vr.xrScheduler(this.renderer.renderer));
+  }
+
+  private exitVr(): void {
+    this.loop.setScheduler(this.rafScheduler);
+    this.stopVrView();
   }
 
   /** Golden-hour grading: low warm sun, deep shadows, muted sky — 장엄함. */
@@ -440,10 +652,8 @@ export class BuilderGame {
     this.workersView.update(this.state, this.paused ? 0 : frameDt, landmark.radiusM, workFrontier);
     this.flights.update(this.paused ? 0 : frameDt);
     this.effects.update(frameDt);
-    this.hud.update(this.state, {
-      landmarkIndex: this.viewLandmarkIndex,
-      parade: this.viewLandmarkIndex !== this.state.landmarkIndex,
-    });
+    const parade = this.viewLandmarkIndex !== this.state.landmarkIndex;
+    this.hud.update(this.state, { landmarkIndex: this.viewLandmarkIndex, parade });
     if (this.streamClient) {
       const nowMs = Date.now();
       this.hud.setBoost(this.boosts.multiplier(nowMs), this.boosts.remainingMs(nowMs));
@@ -455,7 +665,37 @@ export class BuilderGame {
     const frontierY =
       (Math.min(this.state.placedBlocks, landmark.blocks.length) / landmark.blocks.length) *
       landmark.heightM;
-    this.director.update(frameDt, this.renderer.camera, landmark, frontierY);
+    if (this.vrDirector && this.vrView) {
+      // VR owns the viewpoint instead: static stations, cuts behind a fade —
+      // the flat-screen director's dollies and spirals would make people sick.
+      //
+      // Everything here must describe the VIEW landmark, not the sim's. During
+      // the completion parade the sim has already moved on and reset
+      // placedBlocks, so using it would drop the frontier deck to ground level
+      // in front of a finished 331 m tower and have the plaque read "0.3%"
+      // under a monument that is visibly complete.
+      const viewPlaced = parade
+        ? landmark.blocks.length
+        : Math.min(this.state.placedBlocks, landmark.blocks.length);
+      const vrFrame = this.vrDirector.update(frameDt, {
+        heightM: landmark.heightM,
+        radiusM: landmark.radiusM,
+        frontierY: (viewPlaced / landmark.blocks.length) * landmark.heightM,
+        radiusAt: this.radiusProfileFor(landmark),
+      });
+      this.vrBlind = vrFrame.blind;
+      this.vrView.update(vrFrame, {
+        landmarkName: `${landmark.emoji} ${landmark.name}`,
+        country: landmark.country,
+        placedBlocks: viewPlaced,
+        totalBlocks: landmark.blocks.length,
+        gold: this.state.gold,
+        workers: this.state.workers,
+      });
+      this.updateVrPanel(landmark, viewPlaced);
+    } else {
+      this.director.update(frameDt, this.renderer.camera, landmark, frontierY);
+    }
     // sun proportional to monument scale so shadows stay long and dramatic
     const target = new THREE.Vector3(0, landmark.heightM * 0.4, 0);
     const s = landmark.radiusM + landmark.heightM;
@@ -487,6 +727,8 @@ export class BuilderGame {
           blocks: l.blocks.length,
           bonus: l.bonus,
           deliverySize: l.deliverySize,
+          heightM: l.heightM,
+          radiusM: l.radiusM,
         })),
       buy: (item: ShopItem) => this.handleBuy(item),
       addGold: (n: number) => {
@@ -506,6 +748,52 @@ export class BuilderGame {
       pourDone: () => this.landmarkView.isFullyPoured(landmarkAt(this.viewLandmarkIndex)),
       pinShot: (shot: ShotName | null) => this.director.pin(shot),
       currentShot: () => this.director.currentShot,
+      vrStatus: () => {
+        const rig = this.vrView ? this.renderer.attachXrRig() : null;
+        const eye = this.renderer.camera.getWorldPosition(new THREE.Vector3());
+        return {
+          buttonMounted: this.vrUnmount !== null,
+          presenting: this.renderer.renderer.xr.isPresenting,
+          station: this.vrDirector?.currentStation ?? null,
+          rig: rig ? [rig.position.x, rig.position.y, rig.position.z] : null,
+          yaw: rig?.rotation.y ?? null,
+          blind: this.vrBlind,
+          eye: [eye.x, eye.y, eye.z],
+        };
+      },
+      /** Cut to the next VR viewpoint immediately. */
+      vrSkip: () => this.vrDirector?.skip(),
+      /** Blueprint extent + radius profile, for tuning the VR stations. */
+      blueprintProbe: (i: number) => {
+        const l = landmarkAt(i);
+        const u = l.voxelSizeM;
+        let topY = 0;
+        for (const b of l.blocks) topY = Math.max(topY, b.y * u + u / 2);
+        const at = this.radiusProfileFor(l);
+        const samples: Record<string, number> = {};
+        for (const f of [0, 0.25, 0.5, 0.75, 0.9, 0.98, 1]) {
+          samples[`r@${Math.round(f * 100)}%`] = Number(at(l.heightM * f).toFixed(1));
+        }
+        return {
+          name: l.name,
+          heightM: l.heightM,
+          radiusM: l.radiusM,
+          voxelSizeM: u,
+          actualTopM: Number(topY.toFixed(1)),
+          blocks: l.blocks.length,
+          ...samples,
+        };
+      },
+      /** Run the VR presentation on the flat screen — viewpoint desk-check. */
+      vrPreview: (on: boolean) => (on ? this.startVrView(true) : this.stopVrView()),
+      /** Press a wrist-panel button (no controller poses exist headlessly). */
+      vrPress: (action: VrPanelAction) => this.vrAction(action),
+      vrPanelState: () => ({
+        mounted: this.vrPanel !== null,
+        hasPointer: this.vrControllers?.hasPointer ?? false,
+        hasWrist: this.vrControllers?.hasWrist ?? false,
+        toast: this.vrToast?.text ?? null,
+      }),
       saveNow: () => save(this.state, localStorage, Date.now()),
       perf: () => this.perf.sample(),
       /** Wipe all progress (gold/workers/speed/…) back to a fresh game. */

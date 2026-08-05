@@ -57,6 +57,36 @@ export class GameRenderer {
     window.addEventListener("resize", this.onResize);
   }
 
+  /**
+   * Turn on WebXR presentation. `local-floor` means y = 0 is the physical floor
+   * and the headset supplies the real eye height — so a viewpoint we place at
+   * y = 40 puts the player's eyes ~41.6 m up, standing, not floating.
+   */
+  enableXr(): void {
+    this.renderer.xr.enabled = true;
+    this.renderer.xr.setReferenceSpaceType("local-floor");
+  }
+
+  /**
+   * Parent the camera under a rig Group and return it.
+   *
+   * In an XR session the headset OWNS the camera's local transform — anything
+   * we write to `camera.position/quaternion` is overwritten each frame. Placing
+   * the viewer therefore means moving this rig instead. The rig stays at
+   * identity until someone moves it, so world-space camera math elsewhere is
+   * unchanged for the flat-screen path.
+   */
+  attachXrRig(): THREE.Group {
+    if (this.xrRig) return this.xrRig;
+    const rig = new THREE.Group();
+    rig.add(this.camera);
+    this.scene.add(rig);
+    this.xrRig = rig;
+    return rig;
+  }
+
+  private xrRig: THREE.Group | null = null;
+
   /** Keep the sun (and its shadow box) centered on the action. */
   trackTarget(target: THREE.Vector3): void {
     this.sun.position.set(target.x + 18, target.y + 35, target.z + 14);
@@ -70,11 +100,15 @@ export class GameRenderer {
   /** Stop resize callbacks and release the WebGL context when a mode closes. */
   dispose(): void {
     window.removeEventListener("resize", this.onResize);
+    this.renderer.setAnimationLoop(null);
     this.renderer.dispose();
     this.renderer.domElement.remove();
   }
 
   private readonly onResize = (): void => {
+    // while presenting, the headset owns the drawing buffer size and three
+    // rejects setSize with a console warning — don't even ask
+    if (this.renderer.xr.isPresenting) return;
     this.renderer.setSize(window.innerWidth, window.innerHeight);
     this.camera.aspect = window.innerWidth / window.innerHeight;
     this.camera.updateProjectionMatrix();

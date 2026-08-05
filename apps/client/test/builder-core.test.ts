@@ -49,7 +49,11 @@ describe("landmarks", () => {
     expect(byId["eiffel"]!.heightM).toBeGreaterThan(300);
     expect(byId["pyramid"]!.radiusM).toBeGreaterThan(140); // 230 m base diagonal
     expect(byId["liberty"]!.heightM).toBeGreaterThan(85);
-  });
+    // Explicit timeout: generating + baking all 7 blueprints (tens of thousands
+    // of voxels each, with AO/noise/weathering passes) genuinely takes ~4.5 s on
+    // a dev laptop, which sat close enough to vitest's 5 s default to fail or
+    // pass by coin toss — and this suite gates the deploy workflow.
+  }, 20_000);
 });
 
 describe("builder economy", () => {

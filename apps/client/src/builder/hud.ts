@@ -215,9 +215,24 @@ export class BuilderHud {
         <button class="primary" data-id="ok">Nice!</button>
       </div>`;
     document.body.appendChild(el);
-    el.querySelector('[data-id="ok"]')?.addEventListener("click", () => {
+    const close = (): void => {
       el.remove();
+      this.offlineModal = null;
       onClose();
-    });
+    };
+    this.offlineModal = close;
+    el.querySelector('[data-id="ok"]')?.addEventListener("click", close);
+  }
+
+  private offlineModal: (() => void) | null = null;
+
+  /**
+   * Dismiss the welcome-back modal from code, running its normal close path.
+   * Needed when entering VR: the modal is DOM-only, so in a headset it is
+   * invisible while the sim stays paused behind it — the player would be sealed
+   * inside a frozen world with nothing to click.
+   */
+  dismissOfflineModal(): void {
+    this.offlineModal?.();
   }
 }

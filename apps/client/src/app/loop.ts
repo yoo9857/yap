@@ -12,6 +12,40 @@ const MAX_FRAME_DT = 0.25; // hidden-tab / breakpoint clamp
 const MAX_STEPS_PER_FRAME = 5; // spiral-of-death guard
 
 /**
+ * Who calls us back once per displayed frame. rAF drives the flat screen; a
+ * WebXR session insists on driving its OWN frames (`renderer.setAnimationLoop`)
+ * because only the headset knows when the next pose is due — so the scheduler
+ * is swappable while the loop keeps its tick count and accumulator.
+ */
+export interface FrameScheduler {
+  /** Begin calling `frame(nowMs)` every displayed frame. */
+  start(frame: (nowMs: number) => void): void;
+  stop(): void;
+}
+
+/** The default flat-screen scheduler. */
+export class RafScheduler implements FrameScheduler {
+  private id = 0;
+  private frame: ((nowMs: number) => void) | null = null;
+
+  start(frame: (nowMs: number) => void): void {
+    this.frame = frame;
+    const step = (nowMs: number): void => {
+      if (!this.frame) return;
+      // re-arm BEFORE the callback so a throw inside it can't kill the loop
+      this.id = requestAnimationFrame(step);
+      this.frame(nowMs);
+    };
+    this.id = requestAnimationFrame(step);
+  }
+
+  stop(): void {
+    this.frame = null;
+    cancelAnimationFrame(this.id);
+  }
+}
+
+/**
  * Fixed-timestep accumulator loop. Physics always steps at SIM_DT; rendering
  * interpolates. Excess sim debt beyond MAX_STEPS_PER_FRAME is dropped rather
  * than burst-simulated.
@@ -20,10 +54,14 @@ export class GameLoop {
   private accumulator = 0;
   private lastTime: number | null = null;
   private tick = 0;
-  private rafId = 0;
   private running = false;
+  private scheduler: FrameScheduler;
 
-  constructor(private readonly callbacks: LoopCallbacks) {
+  constructor(
+    private readonly callbacks: LoopCallbacks,
+    scheduler: FrameScheduler = new RafScheduler(),
+  ) {
+    this.scheduler = scheduler;
     document.addEventListener("visibilitychange", () => {
       if (document.visibilityState === "visible") {
         // never replay time that passed while hidden
@@ -41,17 +79,31 @@ export class GameLoop {
     if (this.running) return;
     this.running = true;
     this.lastTime = null;
-    this.rafId = requestAnimationFrame(this.frame);
+    this.scheduler.start(this.frame);
   }
 
   stop(): void {
     this.running = false;
-    cancelAnimationFrame(this.rafId);
+    this.scheduler.stop();
+  }
+
+  /**
+   * Hand frame timing to a different source (entering/leaving VR). The tick
+   * count survives — sim state must not jump — but the elapsed-time baseline is
+   * dropped exactly like a tab regaining focus, so the switch costs no debt.
+   */
+  setScheduler(scheduler: FrameScheduler): void {
+    if (scheduler === this.scheduler) return;
+    const wasRunning = this.running;
+    if (wasRunning) this.scheduler.stop();
+    this.scheduler = scheduler;
+    this.lastTime = null;
+    this.accumulator = 0;
+    if (wasRunning) this.scheduler.start(this.frame);
   }
 
   private readonly frame = (nowMs: number): void => {
     if (!this.running) return;
-    this.rafId = requestAnimationFrame(this.frame);
 
     const now = nowMs / 1000;
     const frameDt = this.lastTime === null ? SIM_DT : Math.min(now - this.lastTime, MAX_FRAME_DT);

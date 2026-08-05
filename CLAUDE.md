@@ -36,9 +36,11 @@ node tools/e2e-robustness.mjs     # tower: cheat snapback/kick, server-restart r
 node tools/e2e-builder.mjs        # builder: economy, goals, offline settlement exact-match
 node tools/e2e-craft.mjs          # craft: island boot, mine/craft/place, physics, save round-trip
 node tools/e2e-battle.mjs         # battle: bots live/roam, storm shrink, win & lose paths
+node tools/e2e-builder-vr.mjs     # builder VR: rig placement, comfort contract, teardown (needs no headset)
 node tools/e2e-production.mjs     # built dist on a single port (no dev server needed)
 node tools/builder-gallery.mjs <outdir> [i]   # screenshot each landmark for visual review
 node tools/builder-shots.mjs <outdir> [i]     # screenshot each camera shot type
+node tools/vr-shots.mjs <outdir> [i] [fraction]  # screenshot each VR viewpoint station
 ```
 
 ## Architecture
@@ -68,6 +70,35 @@ Pure logic (`state/sim/goals/save`) is DOM-free and unit-tested; the render laye
 - `landmarkView` batches instances by surface finish (masonry/metal/glass/emissive) and reveals them by count only; the "pour" runs at the economy's voxel rate (big catch-ups recap evenly over ~8 s).
 - `cameraDirector.ts` guarantees the whole monument is always in frame (bounding-sphere fit distance recomputed per frame); shots are a shuffled deck, pinnable via `__roboBuilder.pinShot()` for screenshots.
 - On landmark completion the **view** parades (finish pour + dwell on a pinned shot) while the sim already builds the next blueprint; HUD must describe the *view* landmark during the parade (`hud.update(state, view)`).
+
+#### Builder VR (`vrDirector.ts` + `vrView.ts`) — the comfort contract
+
+Builder is the only mode with WebXR (PC VR target). An "Enter VR" button appears automatically when `navigator.xr` reports an immersive-vr device, and only *after* `warmupGpu` (a shader compile inside a live session is a felt frame drop). `?vr=1` force-mounts the button for debugging. There is no controller input by design — it's an idle game, so head-look is the whole interaction.
+
+In a session the **headset owns `camera.position/quaternion`**, so the viewer is placed by moving `GameRenderer.attachXrRig()`'s Group instead. `GameLoop` takes a swappable `FrameScheduler` because only `renderer.setAnimationLoop` frames carry a current head pose. VR lowers the flat grade's `near = 1.5 m` (it would clip the plaque and the blinder) but must **leave `far` alone** — the sky dome has a 1900 m radius, so a nearer far plane slices its back half off and the sky ends in a hard edge.
+
+Four rules in `vrDirector.ts` are load-bearing and unit-tested. The flat-screen `CameraDirector`'s dollies and spirals are exactly what makes people sick, so VR gets its own director:
+
+- The viewpoint **never moves while visible**; every change is a cut.
+- Every cut is hidden behind a full-black blinder sphere parented to the camera (a visible teleport still reads as a lurch).
+- **Yaw only.** Pitch/roll on the rig tilts the horizon against gravity; the viewer looks up with their own neck.
+- A station's pose is **frozen on entry** — following the climbing build frontier would be slow vertical drift.
+
+Because pitch is forbidden, a station's *height* is the only lever for what lands at eye level, and three non-obvious consequences shape the four stations (`plaza`, `yard`, `frontier`, `overlook`):
+
+- **Elevated stations must stand well back.** The deck underfoot occludes everything steeper than ~58° below the horizon, and the build runs bottom-up, so a viewpoint near the build edge has all its placed blocks hidden beneath the deck with only unbuilt ghost left above. `frontier` therefore sits at *half* the build height and far enough out to keep the base above −55°.
+- **There is no "above the summit" station** for the same reason: above the frontier is unbuilt ghost for most of a run.
+- **Clearance comes from the blueprint, not `radiusM`.** `radiusProfile()` buckets the blueprint into height bands, because these landmarks run from a 96 m-wide ring 48 m tall (Colosseum) to a 331 m tower ending in a single 1.1 m voxel (Eiffel) — using the base radius at altitude parks you 130 m from a needle.
+
+Mid-air stations get a railed platform, or height vertigo makes the view unwatchable; the deck is **set back** so the viewer stands at its front edge rather than over its middle, and the plaque sits down-and-left so it never covers the monument.
+
+**The wrist shop panel** (`vrPanel.ts` + `render/vrInput.ts`) is the one part of VR that is input. Without it a headset gets a static-rate diorama — the idle loop *is* earn gold → hire crew → build faster, so a viewer who cannot spend watches the same rate forever. Layout and `hitTestPanel()` are pure and unit-tested, because a headless browser has no controller poses and that is the only way to know the buttons line up with what a ray hits (note `v` is bottom-up from the raycast, flipped into canvas space).
+
+- Hand assignment comes from the runtime's `handedness`, never the controller index — a session that connects the right hand first would otherwise put the panel on the pointing hand.
+- Handedness arrives *asynchronously*, so the panel starts mounted on the rig and moves to the wrist when a left hand appears. The always-on info plaque is hidden while the panel holds the rig slot (it shows the same numbers) and returns with the wrist mount.
+- **Anything mounted on the rig lives or dies by its height.** At 0.42 m out and 0.68 m below eye level a panel sits 58° below the horizon — outside even a 100° fov, i.e. invisible and the shop unreachable. ~30° down, offset left of the monument's centreline, is the workable window.
+
+`__roboBuilder.vrPreview(true)` runs the entire VR presentation on the flat screen (at a headset-like 100° fov) — that is how the viewpoints are checked and how `tools/e2e-builder-vr.mjs` tests them without a device. Also `vrStatus()`, `vrSkip()`, `vrPress(action)`, `vrPanelState()`, `blueprintProbe(i)`.
 
 ### Voxel modes (`craft` + `battle`)
 
