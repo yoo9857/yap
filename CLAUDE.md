@@ -41,6 +41,7 @@ node tools/e2e-production.mjs     # built dist on a single port (no dev server n
 node tools/builder-gallery.mjs <outdir> [i]   # screenshot each landmark for visual review
 node tools/builder-shots.mjs <outdir> [i]     # screenshot each camera shot type
 node tools/vr-shots.mjs <outdir> [i] [fraction]  # screenshot each VR viewpoint station
+node tools/vr-tour.mjs <outdir> [i] [fraction]   # ...plus a self-contained HTML page of them (headset-free "what VR looks like")
 ```
 
 ## Architecture

@@ -788,6 +788,20 @@ export class BuilderGame {
       vrPreview: (on: boolean) => (on ? this.startVrView(true) : this.stopVrView()),
       /** Press a wrist-panel button (no controller poses exist headlessly). */
       vrPress: (action: VrPanelAction) => this.vrAction(action),
+      /**
+       * Aim the preview camera, in degrees, to stand in for head-look. A real
+       * session ignores this (the headset owns the camera pose) — it exists so a
+       * flat capture can show what someone would actually be looking at, which
+       * for the plaza viewpoint means craning upward at a 331 m tower.
+       */
+      vrLook: (pitchDeg: number, yawDeg = 0) => {
+        const camera = this.renderer.camera;
+        camera.rotation.set(
+          THREE.MathUtils.degToRad(pitchDeg),
+          THREE.MathUtils.degToRad(yawDeg),
+          0,
+        );
+      },
       vrPanelState: () => ({
         mounted: this.vrPanel !== null,
         hasPointer: this.vrControllers?.hasPointer ?? false,
