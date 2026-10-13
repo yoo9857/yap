@@ -6,9 +6,11 @@ import { AIR, blockByKey } from "./blocks.js";
  * No three.js in here: the renderer and the physics read through get().
  */
 
-export const WORLD_X = 80;
+export const WORLD_X = 160;
 export const WORLD_Y = 56;
-export const WORLD_Z = 80;
+export const WORLD_Z = 160;
+export const CASTLE_CENTER = 40;
+export const CRAFT_SPAWN = { x: 40.5, z: 72.5 };
 
 /** Deterministic 2D hash → [0,1). */
 function hash2(x: number, z: number, seed: number): number {
@@ -158,8 +160,117 @@ export class VoxelWorld {
 
 const id = (key: string) => blockByKey(key)!.id;
 
+/** Meadows and wooded ridges surround a working-looking industrial town.
+ * Everything is a voxel: workshops can be entered, mined and rebuilt. */
+function expandMainland(world: VoxelWorld, seed: number): void {
+  const grass = id("grass"), stone = id("stone"), dirt = id("dirt");
+  const brick = id("stone-bricks"), iron = id("iron-block");
+  const glass = id("glass"), lamp = id("glowstone"), plank = id("oak-planks");
+  const box = (x0: number, x1: number, z0: number, z1: number, y0: number, y1: number, block: number) => {
+    for (let y = y0; y <= y1; y++) for (let z = z0; z <= z1; z++) {
+      for (let x = x0; x <= x1; x++) world.set(x, y, z, block);
+    }
+  };
+  for (let z = 0; z < WORLD_Z; z++) for (let x = 0; x < WORLD_X; x++) {
+    if (x < 80 && z < 80) continue;
+    const distance = Math.max(x - 79, z - 79);
+    const blend = smooth(Math.min(1, distance / 24));
+    const ridge = Math.max(0, 1 - Math.hypot(x - 125, z - 25) / 38);
+    const rolling = 10 + noise2(x / 3, z / 3, seed) * 5 + ridge * 13;
+    // A low valley joins the old island shoreline to the new mainland.
+    const edge = Math.min(x, z, WORLD_X - 1 - x, WORLD_Z - 1 - z);
+    let top = Math.round((2 + (rolling - 2) * blend) * Math.min(1, (edge + 4) / 12));
+    const townDistance = Math.max(100 - x, x - 148, 66 - z, z - 116, 0);
+    const townBlend = smooth(Math.max(0, 1 - townDistance / 14));
+    top = Math.round(top + (12 - top) * townBlend);
+    for (let y = 0; y <= top; y++) {
+      let block = y === 0 ? id("bedrock") : y === top ? (edge < 4 ? id("sand") : grass) : y > top - 4 ? dirt : stone;
+      if (block === stone) {
+        const ore = hash2(x + y * 131, z - y * 17, seed);
+        if (ore < 0.008 && y < 5) block = id("diamond-ore");
+        else if (ore < 0.02 && y < 7) block = id("gold-ore");
+        else if (ore < 0.05) block = id("iron-ore");
+        else if (ore < 0.09) block = id("coal-ore");
+      }
+      world.set(x, y, z, block);
+    }
+    // Cluster trees on the ridge and far south, leaving the central prairie open.
+    const wooded = z > 127 || (x > 92 && z < 48);
+    if (!wooded || edge < 7 || x % 6 !== 0 || z % 6 !== 0 || hash2(x, z, seed) < 0.3) continue;
+    box(x, x, z, z, top + 1, top + 4, id("oak-log"));
+    for (let dy = 3; dy <= 5; dy++) {
+      const r = dy === 5 ? 1 : 2;
+      for (let dx = -r; dx <= r; dx++) for (let dz = -r; dz <= r; dz++) {
+        if (dx === 0 && dz === 0 && dy < 5) continue;
+        world.set(x + dx, top + dy, z + dz, id("oak-leaves"));
+      }
+    }
+  }
+
+  // Broad raised causeway: one-block steps can be jumped in either direction.
+  const roadColumn = (x: number, z: number, y: number) => {
+    box(x, x, z, z, 1, y - 1, stone);
+    world.set(x, y, z, brick);
+    box(x, x, z, z, y + 1, WORLD_Y - 1, AIR);
+  };
+  const bridgeHeight = surfaceY(world, 40, 79);
+  for (let z = 80; z <= 94; z++) {
+    const y = Math.round(bridgeHeight + (12 - bridgeHeight) * (z - 79) / 15);
+    for (let x = 38; x <= 42; x++) roadColumn(x, z, y);
+  }
+  for (let x = 38; x <= 148; x++) for (let z = 92; z <= 96; z++) roadColumn(x, z, 12);
+  for (let x = 121; x <= 125; x++) for (let z = 64; z <= 118; z++) roadColumn(x, z, 12);
+
+  const workshop = (x: number, z: number, width: number, depth: number, height: number, wall: number) => {
+    box(x, x + width, z, z + depth, 1, 11, stone);
+    box(x, x + width, z, z + depth, 12, 12, brick);
+    box(x, x + width, z, z + depth, 13, 12 + height, wall);
+    box(x + 1, x + width - 1, z + 1, z + depth - 1, 13, 11 + height, AIR);
+    // Windows replace the wall cells; wide loading doors open onto the street.
+    for (let dx = 2; dx < width - 1; dx += 3) {
+      box(x + dx, x + dx + 1, z, z, 15, 17, glass);
+      box(x + dx, x + dx + 1, z + depth, z + depth, 15, 17, glass);
+    }
+    box(x + 3, x + 5, z + depth, z + depth, 13, 16, AIR);
+    box(x - 1, x + width + 1, z - 1, z + depth + 1, 13 + height, 13 + height, iron);
+    world.set(x + 4, 17, z + depth, lamp);
+    for (let dz = 3; dz < depth - 1; dz += 4) {
+      box(x + 2, x + 3, z + dz, z + dz + 1, 13, 14, iron);
+      world.set(x + 2, 15, z + dz, lamp);
+    }
+  };
+  workshop(102, 72, 14, 15, 9, brick);
+  workshop(130, 73, 14, 14, 7, brick);
+  workshop(102, 101, 14, 12, 6, plank);
+  workshop(130, 101, 14, 12, 10, brick);
+  // Banded smokestacks, rooftop ducts, storage silos and a loading crane.
+  for (const [x, z, height] of [[105, 75, 30], [113, 75, 26], [141, 104, 32]]) {
+    box(x!, x! + 2, z!, z! + 2, 13, height!, brick);
+    box(x!, x! + 2, z!, z! + 2, height! - 3, height! - 2, iron);
+    world.set(x! + 1, height!, z! + 1, AIR);
+  }
+  for (const x of [133, 140]) {
+    box(x, x + 3, 68, 71, 13, 22, iron);
+    box(x + 1, x + 2, 69, 70, 23, 23, glass);
+  }
+  box(108, 135, 78, 78, 25, 25, iron);
+  box(135, 135, 78, 78, 21, 25, iron);
+  box(147, 147, 103, 115, 24, 24, id("gold-block"));
+  box(147, 147, 115, 115, 13, 24, id("gold-block"));
+  box(147, 147, 103, 103, 19, 23, iron);
+  box(146, 148, 102, 104, 17, 18, plank);
+  for (let x = 52; x <= 148; x += 12) {
+    box(x, x, 98, 98, 1, 15, iron);
+    world.set(x, 16, 98, lamp);
+  }
+}
+
 /** Generate the island — pure function of the seed. */
 export function generateIsland(seed: number): VoxelWorld {
+  // Keep the original district byte-for-byte at its old coordinates. Older
+  // saves store edits against this terrain, so expansion must not replace it.
+  const WORLD_X = 80;
+  const WORLD_Z = 80;
   const world = new VoxelWorld();
   const grass = id("grass");
   const dirt = id("dirt");
@@ -236,6 +347,7 @@ export function generateIsland(seed: number): VoxelWorld {
   }
 
   stampHogwartsCastle(world);
+  expandMainland(world, seed);
   return world;
 }
 
@@ -356,6 +468,8 @@ function stampCastle(world: VoxelWorld): void {
 /** Large magical-school starting castle: layered walls, courtyards, wings,
  * observatory towers and lit windows, all authored as playable voxels. */
 function stampHogwartsCastle(world: VoxelWorld): void {
+  const WORLD_X = 80;
+  const WORLD_Z = 80;
   const brick = id("stone-bricks");
   const stone = id("stone");
   const plank = id("oak-planks");

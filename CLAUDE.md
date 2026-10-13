@@ -8,7 +8,7 @@ CraftYap — a Roblox-style blocky 3D web game collection (English UI, crayon-do
 
 - **Daily Tower (tower)**: multiplayer obby. A new deterministic tower every day (KST midnight), client-authoritative movement with server sanity validation, persisted daily leaderboard.
 - **Robo Builder (builder)**: idle game. Blocky workers construct real-scale voxel world landmarks (Eiffel 330 m, pyramid 230 m base…); no physics, no server dependency, localStorage save with offline settlement.
-- **Craft Island (craft)**: single-player voxel sandbox (mine / craft / place). NO rapier — the voxel grid itself is the collider (`craft/voxelBody.ts` AABB sweeps, `voxelWorld.ts` DDA raycast). World regenerates from its seed; the save stores only the edit diff + inventory (zod-validated, hostile-safe). Desktop-only (pointer lock).
+- **Craft Island (craft)**: single-player voxel sandbox (mine / craft / place). NO rapier — the voxel grid itself is the collider (`craft/voxelBody.ts` AABB sweeps, `voxelWorld.ts` DDA raycast). World regenerates from its seed; the save stores only the edit diff + inventory (zod-validated, hostile-safe). Desktop-only (pointer lock). Press **B** for the **machine lab** — a Besiege-style build-and-test-drive mode that *does* use rapier (see below).
 - **Blast Royale (battle)**: arcade solo battle royale — you vs 7 bots (who also fight each other) on a random voxel island, hitscan blasters, 3-phase shrinking storm, last robot standing. Client-only (no server); reuses craft's world/physics/camera. Pure logic in `battle/{zone,combat,bots}.ts`; a 4 s weapons-free grace after the drop keeps spawns fair.
 
 ## Commands
@@ -35,6 +35,7 @@ node tools/e2e-multiplayer.mjs    # tower: two tabs, shared platform timeline, p
 node tools/e2e-robustness.mjs     # tower: cheat snapback/kick, server-restart reconnect, record persistence
 node tools/e2e-builder.mjs        # builder: economy, goals, offline settlement exact-match
 node tools/e2e-craft.mjs          # craft: island boot, mine/craft/place, physics, save round-trip
+node tools/e2e-machines.mjs       # machine lab: build shortcuts, library/share, drive, cameras, flight, wings
 node tools/e2e-battle.mjs         # battle: bots live/roam, storm shrink, win & lose paths
 node tools/e2e-builder-vr.mjs     # builder VR: rig placement, comfort contract, teardown (needs no headset)
 node tools/e2e-production.mjs     # built dist on a single port (no dev server needed)
@@ -108,6 +109,19 @@ Mid-air stations get a railed platform, or height vertigo makes the view unwatch
 - `craft/voxelWorld.ts` — a `Uint8Array` grid (block ids, 0 = air), deterministic `generateIsland(seed)`, DDA `raycast`, and `stampCastle` (the central landmark, in both modes). `craft/voxelBody.ts` — AABB-vs-grid physics (axis-separated sweeps, bisected contact, NO auto-step: full-block ledges need a jump). `craft/blocks.ts` — data-driven block catalog (numeric ids persisted in saves — never reorder).
 - `craft/voxelView.ts` — the LEGO/toy-brick look: rounded-box instances **oversized slightly** so neighbours overlap (no rounded-edge grooves) + one textured stud per top-exposed brick (stud shares the brick's material so the crayon texture continues onto it). Renders EXPOSED cells only; rebuilds on a dirty flag.
 - `battle/{zone,combat,bots}.ts` — shrinking storm (pure time fn), hitscan ray-vs-AABB, bot FSM (rng injected for deterministic tests). Bots and the player obey the same `resolveShot`. Void falls kill (bots too, or the match never ends).
+
+#### Machine lab (`craft/machines/`) — build, test drive, missions
+
+Craft's one rapier user: a connected blueprint becomes **one compound rigid body** in its own `World`, with the surrounding voxels baked into merged box colliders (3×3 chunks, refreshed as it moves). Full operating standard — units, approximations, exception table, what is deliberately NOT simulated — in `docs/MACHINE_PHYSICS.md`; keep it true when you change anything here.
+
+- Layering is strict: `physicsRules.ts`/`aero.ts` (constants + pure force math) → `blueprint.ts` (parts, validation, stats) → `machinePhysics.ts` (rapier) → `workshop.ts` (3D + state) → `workshopUi.ts` (all DOM). `missions.ts` and `library.ts` are pure/storage-only and unit-tested without a browser; `library.ts` is the **only** file in the mode that touches localStorage, and everything read back out goes through `validateBlueprint` first.
+- **Everything is a force at a mounting point** — thrusters, wings and balloons all call `addForceAtPoint`, which is why an off-centre nozzle spins the machine and a tail surface damps a spin. Nothing is special-cased per part name.
+- Wings are **flat-plate normal force** (`F = -½ρAC·|v|·(v·n)·n`) evaluated with the *point* velocity `v + ω × r`, not the body velocity. No camber, no stall curve — an edge-on wing produces exactly zero, which is the behaviour the unit test pins.
+- The **gyro only damps**, it never levels. So any residual thrust offset settles at a constant `torque / damping` spin rate; the presets are laid out mass-symmetric about the thrust line for that reason, and a redesign that ignores it will tip over on take-off.
+- The test ground at (79.5, 18.5) is the island's only genuinely flat run (~48 m of level ground straight ahead). It was chosen by scanning the generated world — anywhere near the castle stops a build against a step within seconds, and a sloped spawn tips a wide machine onto a wingtip before the player touches a key.
+- `PART_ORDER` must match the GLB: `machineVisual.ts` requires a mesh for every part kind, so a new part means editing `tools/generate-machine-assets.mjs` and re-running `pnpm assets:machines`.
+- The build UI is keyboard-first (1‒8 parts, `R` rotate, `M` mirror, `X` erase, `F` frame, `Ctrl+Z`/`Ctrl+Y`) and the drive HUD is its own thing (`C` cycles chase/orbit/cockpit, `R` respawns without ending the run). Chase camera follows **yaw only** — same reason as builder VR: following pitch and roll makes a flying build unwatchable, so the attitude ball carries that instead.
+- Leaving the test bounds **respawns** rather than kicking the player back to the editor; only a non-finite state aborts the run.
 
 ### Client rendering & assets
 

@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { AIR, blockById } from "./blocks.js";
 import { sanitizeCounts, type Counts } from "./inventory.js";
-import { VoxelWorld, WORLD_X, WORLD_Y, WORLD_Z, generateIsland, surfaceY } from "./voxelWorld.js";
+import { VoxelWorld, WORLD_X, WORLD_Y, WORLD_Z, CRAFT_SPAWN, generateIsland, surfaceY } from "./voxelWorld.js";
 
 /**
  * Craft-mode persistence. The world regenerates from its seed; only the
@@ -14,7 +14,7 @@ const SAVE_KEY = "craftyap-craft-save-v1";
 
 const saveSchema = z.object({
   // v1 saves have no `shapes` (all cubes); v2 adds the brick-shape diff
-  v: z.union([z.literal(1), z.literal(2)]),
+  v: z.union([z.literal(1), z.literal(2), z.literal(3)]),
   seed: z.number().int(),
   /** [index, blockId] pairs — cells that differ from the generated island. */
   edits: z.array(z.tuple([z.number().int().nonnegative(), z.number().int().nonnegative()])).max(200_000),
@@ -44,8 +44,7 @@ export function freshState(seed: number): CraftGameState {
   const world = generateIsland(seed);
   // Spawn on the outer south lawn, beyond the moat and gate approach, so the
   // whole academy silhouette is visible immediately instead of starting inside.
-  const x = WORLD_X / 2 + 0.5;
-  const z = WORLD_Z / 2 + 32.5;
+  const { x, z } = CRAFT_SPAWN;
   return {
     seed,
     world,
@@ -66,7 +65,7 @@ export function serializeCraft(state: CraftGameState, nowMs: number): string {
     if (state.world.shapes[i] !== 0) shapes.push([i, state.world.shapes[i]!]);
   }
   return JSON.stringify({
-    v: 2,
+    v: 3,
     seed: state.seed,
     edits,
     shapes,
@@ -113,13 +112,22 @@ export function loadCraft(storage: KeyValueStorage, defaultSeed: number): CraftG
   const d = result.data;
   const state = freshState(d.seed);
   const cellCount = WORLD_X * WORLD_Y * WORLD_Z;
+  // v1/v2 packed an 80 x 56 x 80 grid. Decode its coordinates before
+  // applying either block or shape edits to the expanded world.
+  const remap = (index: number): number => {
+    if (d.v === 3) return index;
+    if (index >= 80 * WORLD_Y * 80) return cellCount;
+    return VoxelWorld.index(index % 80, Math.floor(index / 6400), Math.floor(index / 80) % 80);
+  };
   for (const [index, id] of d.edits) {
-    if (index < cellCount && (id === AIR || blockById(id))) {
-      state.world.cells[index] = id;
+    const target = remap(index);
+    if (target < cellCount && (id === AIR || blockById(id))) {
+      state.world.cells[target] = id;
     }
   }
   for (const [index, shape] of d.shapes ?? []) {
-    if (index < cellCount && shape <= 17) state.world.shapes[index] = shape;
+    const target = remap(index);
+    if (target < cellCount && shape <= 17) state.world.shapes[target] = shape;
   }
   state.inventory = sanitizeCounts(d.inventory);
   // a save from inside a wall (or out of bounds) respawns on the surface
@@ -131,8 +139,8 @@ export function loadCraft(storage: KeyValueStorage, defaultSeed: number): CraftG
   // One-time migration for saves made before the academy was moved behind the
   // outer lawn. Only the exact old default spawn is relocated; a player who
   // deliberately built near the castle keeps their position untouched.
-  const oldSpawnX = WORLD_X / 2 + 0.5;
-  const oldSpawnZ = WORLD_Z / 2 + 22.5;
+  const oldSpawnX = CRAFT_SPAWN.x;
+  const oldSpawnZ = CRAFT_SPAWN.z - 10;
   if (Math.abs(px - oldSpawnX) < 0.01 && Math.abs(pz - oldSpawnZ) < 0.01) {
     const fresh = freshState(d.seed);
     state.player = fresh.player;

@@ -1,0 +1,823 @@
+/* ---------------------------------------------------------------------------
+   Machine lab UI — CraftYap doodle language (see index.html :root tokens):
+   white paper stickers, thick ink outlines, wobbly corners, hard offset
+   shadows. Nothing here is a generic form control; every control is a sticker.
+   --------------------------------------------------------------------------- */
+.machine-ui {
+  --mw-ink: var(--ink, #1f1f1f);
+  --mw-paper: var(--paper, #fff);
+  --mw-dim: var(--paper-dim, #f6f1e6);
+  --mw-blue: var(--cy-blue, #2f7de1);
+  --mw-green: var(--cy-green, #52b84d);
+  --mw-red: var(--cy-red, #ef3a5d);
+  --mw-yellow: var(--cy-yellow, #ffd21c);
+  --mw-orange: var(--cy-orange, #f5802b);
+  --mw-purple: var(--cy-purple, #8a4fd7);
+  font-family: "Jua", system-ui, -apple-system, sans-serif;
+  color: var(--mw-ink);
+  box-sizing: border-box;
+}
+.machine-ui *,
+.machine-ui *::before,
+.machine-ui *::after {
+  box-sizing: border-box;
+}
+.machine-ui[hidden] {
+  display: none !important;
+}
+
+/* ---- shared sticker primitives ------------------------------------------ */
+.mw-card {
+  background: var(--mw-paper);
+  border: 3px solid var(--mw-ink);
+  border-radius: var(--wobble-md, 14px 18px 12px 16px / 16px 12px 18px 14px);
+  box-shadow: var(--shadow-hard, 4px 5px 0 rgba(31, 31, 31, 0.85));
+}
+.mw-btn {
+  font: inherit;
+  font-size: 13px;
+  line-height: 1.1;
+  color: var(--mw-ink);
+  background: var(--mw-paper);
+  border: 2.5px solid var(--mw-ink);
+  border-radius: var(--wobble-sm, 10px 13px 9px 12px / 12px 9px 13px 10px);
+  box-shadow: 2px 3px 0 rgba(31, 31, 31, 0.8);
+  padding: 9px 12px;
+  cursor: pointer;
+  transition:
+    transform 0.08s,
+    box-shadow 0.08s,
+    background 0.12s;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+.mw-btn:hover:not(:disabled) {
+  background: var(--mw-yellow);
+  transform: translate(-1px, -1px);
+  box-shadow: 3px 4px 0 rgba(31, 31, 31, 0.85);
+}
+.mw-btn:active:not(:disabled) {
+  transform: translate(2px, 3px);
+  box-shadow: 0 0 0 rgba(31, 31, 31, 0.8);
+}
+.mw-btn:disabled {
+  opacity: 0.38;
+  cursor: default;
+  box-shadow: 1px 2px 0 rgba(31, 31, 31, 0.5);
+}
+.mw-btn:focus-visible {
+  outline: 3px dashed var(--mw-blue);
+  outline-offset: 2px;
+}
+.mw-btn[aria-pressed="true"] {
+  background: var(--mw-ink);
+  color: var(--mw-paper);
+}
+/* Beats .mw-btn:hover:not(:disabled), which is otherwise more specific and
+   would repaint a selected tab or tool as if it were unselected. */
+.mw-btn[aria-pressed="true"]:hover:not(:disabled) {
+  background: #363636;
+  color: var(--mw-paper);
+}
+.mw-btn.mw-go {
+  background: var(--mw-green);
+  color: #fff;
+  font-size: 16px;
+  padding: 13px;
+  width: 100%;
+  letter-spacing: 0.02em;
+}
+.mw-btn.mw-go:hover:not(:disabled) {
+  background: #68d861;
+}
+.mw-btn.mw-stop {
+  background: var(--mw-red);
+  color: #fff;
+}
+.mw-btn.mw-stop:hover:not(:disabled) {
+  background: #ff5b7b;
+}
+.mw-btn.mw-ghost {
+  box-shadow: none;
+  border-style: dashed;
+  border-width: 2px;
+}
+.mw-kbd {
+  font-size: 10px;
+  padding: 1px 5px;
+  border: 2px solid var(--mw-ink);
+  border-radius: 6px;
+  background: var(--mw-dim);
+  line-height: 1.4;
+}
+
+/* ---- launch chip --------------------------------------------------------- */
+.machine-launch {
+  position: fixed;
+  right: 18px;
+  top: 16px;
+  z-index: 42;
+  padding: 11px 18px;
+  font-size: 15px;
+  background: var(--mw-yellow);
+  transform: rotate(-1.4deg);
+}
+.machine-launch:hover:not(:disabled) {
+  background: #ffe063;
+  transform: rotate(-1.4deg) translate(-1px, -1px);
+}
+
+/* ---- build console ------------------------------------------------------- */
+.machine-panel {
+  position: fixed;
+  left: 16px;
+  top: 16px;
+  bottom: 16px;
+  z-index: 45;
+  width: 330px;
+  display: flex;
+  flex-direction: column;
+  padding: 14px;
+  gap: 10px;
+  animation: mw-slide 0.22s ease-out;
+}
+@keyframes mw-slide {
+  from {
+    opacity: 0;
+    margin-left: -22px;
+  }
+}
+.machine-panel .mw-head {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+.machine-panel .mw-mark {
+  width: 34px;
+  height: 34px;
+  flex: none;
+  border: 3px solid var(--mw-ink);
+  border-radius: 47% 53% 51% 49% / 52% 48% 52% 48%;
+  background: var(--mw-orange);
+  display: grid;
+  place-items: center;
+  font-size: 17px;
+}
+.machine-panel .mw-eyebrow {
+  font-size: 10px;
+  letter-spacing: 0.17em;
+  color: #8b8b8b;
+}
+.machine-panel .mw-title {
+  font-size: 19px;
+  line-height: 1.15;
+}
+.machine-panel .mw-name {
+  width: 100%;
+  font: inherit;
+  font-size: 15px;
+  color: var(--mw-ink);
+  background: var(--mw-dim);
+  border: 2.5px dashed var(--mw-ink);
+  border-radius: var(--wobble-sm, 10px);
+  padding: 8px 10px;
+}
+.machine-panel .mw-name:focus {
+  outline: none;
+  background: #fff8d8;
+  border-style: solid;
+}
+
+/* tabs */
+.mw-tabs {
+  display: flex;
+  gap: 5px;
+}
+.mw-tabs .mw-btn {
+  flex: 1;
+  padding: 8px 4px;
+  font-size: 13px;
+}
+.mw-body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+  padding-right: 3px;
+  margin-right: -3px;
+}
+.mw-body::-webkit-scrollbar {
+  width: 8px;
+}
+.mw-body::-webkit-scrollbar-thumb {
+  background: var(--mw-ink);
+  border-radius: 8px;
+}
+.mw-pane[hidden] {
+  display: none;
+}
+.mw-group {
+  font-size: 10.5px;
+  letter-spacing: 0.12em;
+  color: #8b8b8b;
+  margin: 8px 2px 4px;
+}
+.mw-group:first-child {
+  margin-top: 2px;
+}
+
+/* part palette */
+.mw-parts {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+}
+.mw-part {
+  position: relative;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 8px 4px 6px;
+  text-align: center;
+  min-height: 62px;
+}
+.mw-part svg {
+  width: 24px;
+  height: 24px;
+}
+.mw-part b {
+  font-weight: 400;
+  font-size: 12px;
+  white-space: nowrap;
+}
+.mw-part[aria-pressed="true"] {
+  background: var(--mw-ink);
+  color: var(--mw-paper);
+  transform: rotate(-1.2deg);
+}
+.mw-part[aria-pressed="true"] small {
+  color: #c9c9c9;
+}
+.mw-part[aria-pressed="true"]:hover {
+  background: #333;
+  transform: rotate(-1.2deg) translate(-1px, -1px);
+}
+.mw-part .mw-hot {
+  position: absolute;
+  top: 3px;
+  right: 4px;
+  font-size: 9px;
+  width: 15px;
+  height: 15px;
+  display: grid;
+  place-items: center;
+  border: 2px solid currentColor;
+  border-radius: 6px;
+  opacity: 0.55;
+}
+.mw-pinned[hidden] {
+  display: none;
+}
+.mw-detail {
+  font-size: 12px;
+  line-height: 1.55;
+  color: #5d5d5d;
+  background: var(--mw-dim);
+  border-radius: 10px;
+  padding: 9px 11px;
+  margin: 0;
+  min-height: 48px;
+}
+
+/* direction pad */
+.mw-dirpad {
+  margin-top: 8px;
+}
+.mw-dirpad[hidden] {
+  display: none;
+}
+.mw-dirpad .mw-group {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.mw-dirgrid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 5px;
+}
+.mw-dirgrid .mw-btn {
+  padding: 7px 2px;
+  font-size: 12px;
+}
+
+/* stats */
+.mw-stats {
+  display: grid;
+  gap: 7px;
+  padding: 10px 11px;
+  background: var(--mw-dim);
+  border: 2.5px solid var(--mw-ink);
+  border-radius: var(--wobble-sm, 10px);
+}
+.mw-figures {
+  display: flex;
+  justify-content: space-between;
+  gap: 6px;
+  font-variant-numeric: tabular-nums;
+}
+.mw-figure {
+  text-align: center;
+  flex: 1;
+}
+.mw-figure b {
+  display: block;
+  font-size: 16px;
+  font-weight: 400;
+  line-height: 1.1;
+}
+.mw-figure span {
+  font-size: 10px;
+  color: #7c7c7c;
+}
+.mw-meter {
+  display: grid;
+  grid-template-columns: 54px 1fr auto;
+  align-items: center;
+  gap: 7px;
+  font-size: 11px;
+  color: #6a6a6a;
+}
+.mw-track {
+  height: 9px;
+  background: #fff;
+  border: 2px solid var(--mw-ink);
+  border-radius: 6px;
+  overflow: hidden;
+}
+.mw-fill {
+  height: 100%;
+  width: 0;
+  background: var(--mw-green);
+  transition: width 0.2s ease-out;
+}
+.mw-fill.warn {
+  background: var(--mw-orange);
+}
+.mw-fill.bad {
+  background: var(--mw-red);
+}
+.mw-meter b {
+  font-weight: 400;
+  color: var(--mw-ink);
+  font-variant-numeric: tabular-nums;
+  min-width: 34px;
+  text-align: right;
+}
+
+/* tool row */
+.mw-tools {
+  display: flex;
+  gap: 5px;
+}
+.mw-tools .mw-btn {
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+  padding: 7px 2px;
+  font-size: 10.5px;
+}
+.mw-tools svg {
+  width: 18px;
+  height: 18px;
+}
+
+/* message line */
+.mw-message {
+  font-size: 12px;
+  line-height: 1.45;
+  min-height: 34px;
+  margin: 0;
+  padding: 7px 10px;
+  border-radius: 9px;
+  background: #fff6d6;
+  border: 2px dashed var(--mw-ink);
+}
+.mw-message.bad {
+  background: #ffe2e7;
+}
+.mw-message.good {
+  background: #e3f7df;
+}
+
+/* library + missions panes */
+.mw-slots {
+  display: grid;
+  gap: 6px;
+}
+.mw-slot {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  gap: 5px;
+  align-items: center;
+}
+.mw-slot .mw-btn {
+  justify-content: flex-start;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  display: block;
+  text-align: left;
+}
+.mw-slot .mw-btn small {
+  color: #8b8b8b;
+  font-size: 10px;
+}
+.mw-slot .mw-icon {
+  padding: 8px 10px;
+}
+.mw-share {
+  width: 100%;
+  font: inherit;
+  font-size: 11px;
+  resize: vertical;
+  min-height: 56px;
+  padding: 8px;
+  border: 2.5px dashed var(--mw-ink);
+  border-radius: 10px;
+  background: var(--mw-dim);
+  color: var(--mw-ink);
+  word-break: break-all;
+}
+.mw-mission {
+  display: grid;
+  grid-template-columns: 24px 1fr;
+  gap: 8px;
+  align-items: start;
+  padding: 9px 10px;
+  margin-bottom: 6px;
+  border: 2.5px solid var(--mw-ink);
+  border-radius: var(--wobble-sm, 10px);
+  background: var(--mw-paper);
+}
+.mw-mission.done {
+  background: #e8f8e4;
+}
+.mw-mission .mw-check {
+  width: 24px;
+  height: 24px;
+  border: 2.5px solid var(--mw-ink);
+  border-radius: 8px;
+  display: grid;
+  place-items: center;
+  font-size: 13px;
+  background: #fff;
+}
+.mw-mission.done .mw-check {
+  background: var(--mw-green);
+  color: #fff;
+}
+.mw-mission b {
+  font-weight: 400;
+  font-size: 13.5px;
+}
+.mw-mission em {
+  font-style: normal;
+  font-size: 11px;
+  color: var(--mw-blue);
+}
+.mw-mission small {
+  display: block;
+  font-size: 11px;
+  color: #7c7c7c;
+  line-height: 1.45;
+  margin-top: 2px;
+}
+.mw-mission .mw-track {
+  margin-top: 5px;
+  height: 7px;
+}
+.mw-records {
+  display: flex;
+  gap: 6px;
+  margin-top: 10px;
+}
+.mw-records .mw-figure {
+  background: var(--mw-dim);
+  border: 2px solid var(--mw-ink);
+  border-radius: 9px;
+  padding: 7px 4px;
+}
+
+/* keys help */
+.mw-keys {
+  font-size: 11.5px;
+  line-height: 2;
+  color: #5d5d5d;
+}
+.mw-keys div {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  border-bottom: 1px dashed #d8d4c8;
+  padding: 1px 0;
+}
+
+/* footer */
+.mw-foot {
+  display: grid;
+  gap: 7px;
+}
+.mw-runline {
+  display: none;
+  font-size: 12px;
+  color: #5d5d5d;
+  justify-content: space-between;
+  font-variant-numeric: tabular-nums;
+}
+
+/* driving collapse: the console becomes a small stop card */
+.machine-panel.driving {
+  bottom: auto;
+  width: 250px;
+}
+.machine-panel.driving .mw-tabs,
+.machine-panel.driving .mw-pinned,
+.machine-panel.driving .mw-body,
+.machine-panel.driving .mw-tools,
+.machine-panel.driving .mw-name,
+.machine-panel.driving .mw-stats,
+.machine-panel.driving .mw-message {
+  display: none;
+}
+.machine-panel.driving .mw-runline {
+  display: flex;
+}
+
+/* ---- driving HUD --------------------------------------------------------- */
+.machine-hud {
+  position: fixed;
+  inset: auto 0 18px 0;
+  z-index: 44;
+  display: flex;
+  justify-content: center;
+  align-items: flex-end;
+  gap: 12px;
+  pointer-events: none;
+}
+.machine-hud .mw-card {
+  pointer-events: auto;
+}
+.mw-dial {
+  position: relative;
+  width: 168px;
+  height: 108px;
+  padding: 8px 10px 6px;
+  display: grid;
+  place-items: center;
+}
+.mw-dial svg {
+  position: absolute;
+  inset: 6px 8px auto;
+  width: calc(100% - 16px);
+}
+.mw-dial .mw-speed {
+  position: absolute;
+  bottom: 20px;
+  font-size: 32px;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+.mw-dial .mw-unit {
+  position: absolute;
+  bottom: 6px;
+  font-size: 11px;
+  color: #7c7c7c;
+  letter-spacing: 0.1em;
+}
+.mw-gauges {
+  display: grid;
+  grid-template-columns: repeat(3, auto);
+  gap: 4px 14px;
+  padding: 11px 15px;
+  align-items: center;
+}
+.mw-gauge {
+  text-align: center;
+  min-width: 56px;
+}
+.mw-gauge b {
+  display: block;
+  font-size: 18px;
+  font-weight: 400;
+  line-height: 1.15;
+  font-variant-numeric: tabular-nums;
+}
+.mw-gauge span {
+  font-size: 10px;
+  color: #7c7c7c;
+}
+.mw-pips {
+  display: flex;
+  gap: 3px;
+  justify-content: center;
+  margin-top: 3px;
+}
+.mw-pip {
+  width: 9px;
+  height: 9px;
+  border: 2px solid var(--mw-ink);
+  border-radius: 50%;
+  background: #fff;
+}
+.mw-pip.on {
+  background: var(--mw-green);
+}
+.mw-bars {
+  display: grid;
+  gap: 6px;
+  padding: 11px 13px;
+  min-width: 132px;
+}
+.mw-bar {
+  display: grid;
+  grid-template-columns: 34px 1fr;
+  align-items: center;
+  gap: 7px;
+  font-size: 10.5px;
+  color: #6a6a6a;
+}
+.mw-horizon {
+  width: 86px;
+  height: 86px;
+  border-radius: 50%;
+  border: 3px solid var(--mw-ink);
+  overflow: hidden;
+  position: relative;
+  background: #8fd3f4;
+  flex: none;
+}
+.mw-horizon i {
+  position: absolute;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  top: 50%;
+  background: #c6a46b;
+  border-top: 3px solid var(--mw-ink);
+  transform-origin: 50% 0;
+}
+.mw-horizon u {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  text-decoration: none;
+  font-size: 15px;
+  color: var(--mw-red);
+  text-shadow: 0 0 3px #fff;
+}
+
+/* camera / help chips */
+.machine-chips {
+  position: fixed;
+  right: 16px;
+  top: 16px;
+  z-index: 44;
+  display: grid;
+  gap: 7px;
+  justify-items: end;
+  pointer-events: none;
+}
+.mw-chip {
+  pointer-events: auto;
+  padding: 7px 12px;
+  font-size: 12.5px;
+  background: var(--mw-paper);
+  border: 2.5px solid var(--mw-ink);
+  border-radius: 999px;
+  box-shadow: 2px 3px 0 rgba(31, 31, 31, 0.8);
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+.mw-live {
+  width: 232px;
+  padding: 10px 12px;
+  display: grid;
+  gap: 5px;
+  pointer-events: auto;
+}
+.mw-live .mw-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  font-size: 11.5px;
+  gap: 6px;
+  align-items: center;
+}
+.mw-live .mw-row.done {
+  color: var(--mw-green);
+}
+.mw-live .mw-track {
+  grid-column: 1 / -1;
+  height: 6px;
+}
+
+/* toasts */
+.machine-toasts {
+  position: fixed;
+  left: 50%;
+  top: 70px;
+  transform: translateX(-50%);
+  z-index: 48;
+  display: grid;
+  gap: 8px;
+  justify-items: center;
+  pointer-events: none;
+}
+.mw-toast {
+  padding: 11px 20px;
+  font-size: 15px;
+  background: var(--mw-yellow);
+  border: 3px solid var(--mw-ink);
+  border-radius: var(--wobble-md, 14px);
+  box-shadow: var(--shadow-hard, 4px 5px 0 rgba(31, 31, 31, 0.85));
+  animation: mw-pop 0.3s cubic-bezier(0.2, 1.6, 0.4, 1);
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+.mw-toast.fade {
+  opacity: 0;
+  transition: opacity 0.45s;
+}
+.mw-toast.bad {
+  background: #ffd0d8;
+}
+@keyframes mw-pop {
+  from {
+    transform: scale(0.7) rotate(-4deg);
+    opacity: 0;
+  }
+}
+
+/* first-run coach marks */
+.machine-coach {
+  position: fixed;
+  left: 50%;
+  bottom: 24px;
+  transform: translateX(-50%);
+  z-index: 47;
+  max-width: 540px;
+  padding: 14px 18px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.machine-coach p {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.6;
+}
+.machine-coach .mw-btn {
+  white-space: nowrap;
+  flex: none;
+}
+.machine-coach .mw-step {
+  font-size: 11px;
+  color: #8b8b8b;
+}
+
+@media (max-width: 860px) {
+  .machine-panel {
+    width: 272px;
+    left: 10px;
+    top: 10px;
+    bottom: 10px;
+    padding: 11px;
+  }
+  .mw-parts {
+    grid-template-columns: 1fr 1fr;
+  }
+  .machine-hud {
+    bottom: 10px;
+    gap: 7px;
+  }
+  .mw-dial {
+    width: 128px;
+    height: 88px;
+  }
+  .mw-dial .mw-speed {
+    font-size: 24px;
+  }
+  .mw-horizon,
+  .mw-live {
+    display: none;
+  }
+  .machine-chips {
+    right: 10px;
+    top: 10px;
+  }
+}

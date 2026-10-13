@@ -109,6 +109,13 @@ export class CraftHud {
     return !this.recipePanel.classList.contains("hidden");
   }
 
+  setWorkshopOpen(open: boolean): void {
+    this.root.style.display = open ? "none" : "";
+    this.pieceChip.style.display = open ? "none" : "";
+    this.hint.style.display = open ? "none" : "";
+    if (open) this.hideRecipes();
+  }
+
   toggleRecipes(): void {
     this.recipePanel.classList.toggle("hidden");
   }

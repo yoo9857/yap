@@ -4,6 +4,7 @@ import {
   VoxelWorld,
   WORLD_X,
   WORLD_Z,
+  CASTLE_CENTER,
   generateIsland,
   surfaceY,
 } from "../src/craft/voxelWorld.js";
@@ -52,9 +53,30 @@ describe("island generation", () => {
     expect(n("stone")).toBeGreaterThan(1000);
     expect(n("coal-ore")).toBeGreaterThan(5);
     expect(n("oak-log")).toBeGreaterThan(3);
-    const cx = Math.floor(WORLD_X / 2);
-    const cz = Math.floor(WORLD_Z / 2);
-    expect(surfaceY(world, cx, cz)).toBeGreaterThan(3);
+    expect(surfaceY(world, CASTLE_CENTER, CASTLE_CENTER)).toBeGreaterThan(3);
+  });
+
+  it("connects the old castle to open mainland and accessible factory interiors", () => {
+    for (const seed of [1, 42, 20260718]) {
+      const world = generateIsland(seed);
+      let previous = surfaceY(world, 40, 79);
+      for (let z = 80; z <= 94; z++) {
+        const top = surfaceY(world, 40, z);
+        expect(Math.abs(top - previous)).toBeLessThanOrEqual(1);
+        previous = top;
+      }
+      for (let x = 43; x <= 148; x++) expect(surfaceY(world, x, 94)).toBe(12);
+      for (const [x, z] of [[106, 87], [134, 87], [106, 113], [134, 113]]) {
+        expect(world.isSolid(x!, 12, z!)).toBe(true);
+        expect(world.get(x!, 13, z!)).toBe(AIR);
+        expect(world.get(x!, 14, z!)).toBe(AIR);
+      }
+      let meadow = 0;
+      for (let x = 10; x < 95; x++) for (let z = 100; z < 125; z++) {
+        if (world.get(x, surfaceY(world, x, z), z) === blockByKey("grass")!.id) meadow++;
+      }
+      expect(meadow).toBeGreaterThan(1500);
+    }
   });
 });
 
@@ -201,6 +223,25 @@ describe("inventory + recipes", () => {
 });
 
 describe("craft save", () => {
+  it("migrates legacy block and shape indices without moving player buildings", () => {
+    for (const v of [1, 2]) {
+      const storage = memoryStorage();
+      const legacyIndex = (20 * 80 + 32) * 80 + 25;
+      storage.setItem("craftyap-craft-save-v1", JSON.stringify({
+        v, seed: 42, edits: [[legacyIndex, blockByKey("glass")!.id]],
+        shapes: v === 2 ? [[legacyIndex, 1]] : [], inventory: { stone: 4 },
+        player: { x: 25.5, y: 21, z: 32.5 }, savedAtMs: 1,
+      }));
+      const loaded = loadCraft(storage, 1);
+      expect(loaded.world.get(25, 20, 32)).toBe(blockByKey("glass")!.id);
+      expect(loaded.world.getShape(25, 20, 32)).toBe(v === 2 ? 1 : 0);
+      expect(loaded.player).toEqual({ x: 25.5, y: 21, z: 32.5 });
+      storage.setItem("craftyap-craft-save-v1", serializeCraft(loaded, 2));
+      const reloaded = loadCraft(storage, 1);
+      expect(Buffer.from(reloaded.world.cells).equals(Buffer.from(loaded.world.cells))).toBe(true);
+      expect(Buffer.from(reloaded.world.shapes).equals(Buffer.from(loaded.world.shapes))).toBe(true);
+    }
+  });
   it("round-trips edits, inventory and player through storage", () => {
     const storage = memoryStorage();
     const state = freshState(42);

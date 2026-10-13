@@ -21,7 +21,7 @@ await page.setViewport({ width: 1280, height: 800 });
 page.on("pageerror", (e) => console.log("PAGEERROR:", e.message));
 
 // ---- 1. mode selector appears on a bare URL; builder boots instantly
-await page.goto("http://localhost:5173/", { waitUntil: "networkidle2", timeout: 30000 });
+await page.goto("http://localhost:5173/?play=1", { waitUntil: "networkidle2", timeout: 30000 });
 const modeButtons = await page.$$(".mode-btn");
 check("mode selector offers the four games", modeButtons.length === 4);
 const bootStart = Date.now();

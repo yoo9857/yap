@@ -7,7 +7,7 @@ import { Sfx } from "../audio/sfx.js";
 import { Bgm, BGM_PLAYLIST } from "../audio/bgm.js";
 import { PerfMonitor } from "../ui/perf.js";
 import { Effects } from "../render/effects.js";
-import { generateIsland, surfaceY, WORLD_X, WORLD_Z } from "../craft/voxelWorld.js";
+import { generateIsland, surfaceY, CASTLE_CENTER } from "../craft/voxelWorld.js";
 import { stepBody, unstick, wishFromInput, type Body } from "../craft/voxelBody.js";
 import { VoxelView } from "../craft/voxelView.js";
 import { CraftCamera } from "../craft/craftCamera.js";
@@ -17,8 +17,8 @@ import { insideZone, zoneNextEventIn, zoneRadiusAt, zoneTicksBetween } from "./z
 import { BattleHud } from "./battleHud.js";
 import { ViewModel } from "./viewModel.js";
 
-const ZONE_CX = WORLD_X / 2;
-const ZONE_CZ = WORLD_Z / 2;
+const ZONE_CX = CASTLE_CENTER;
+const ZONE_CZ = CASTLE_CENTER;
 /** Weapons-free warm-up right after the drop — spawns sit within hunt range
  *  of each other, so without this half the lobby dies in the first seconds. */
 const GRACE_SECONDS = 4;
@@ -85,7 +85,7 @@ export class BattleGame {
       // drop on a wide ring around the castle so fights close in on it — must
       // sit OUTSIDE the castle footprint (outer≈26) or players spawn on its
       // roof (surfaceY returns the tower height), still inside the island edge.
-      const r = WORLD_X * 0.42;
+      const r = CASTLE_CENTER * 2 * 0.42;
       spawns.push([ZONE_CX + Math.cos(a) * r, ZONE_CZ + Math.sin(a) * r]);
     }
     const [px, pz] = spawns[0]!;

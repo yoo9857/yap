@@ -18,7 +18,7 @@ import {
 } from "./inventory.js";
 import { clearCraftSave, loadCraft, saveCraft } from "./craftSave.js";
 import { stepBody, overlapsVoxel, unstick, wishFromInput, type Body } from "./voxelBody.js";
-import { WORLD_X, WORLD_Z, surfaceY } from "./voxelWorld.js";
+import { CRAFT_SPAWN, surfaceY } from "./voxelWorld.js";
 import { PIECES, pieceCells } from "./pieces.js";
 import { CUBE, ROUND, slopeShape } from "./shapes.js";
 import {
@@ -30,6 +30,7 @@ import {
 import { VoxelView } from "./voxelView.js";
 import { CraftCamera } from "./craftCamera.js";
 import { CraftHud } from "./craftHud.js";
+import { MachineWorkshop } from "./machines/workshop.js";
 
 const DEFAULT_SEED = 20260718;
 const SAVE_INTERVAL_MS = 5000;
@@ -51,6 +52,7 @@ export class CraftGame {
   private readonly perf = new PerfMonitor(document.body);
   private readonly rig = new CharacterRig();
   private readonly loop: GameLoop;
+  private readonly workshop: MachineWorkshop;
   private readonly state;
   private readonly body: Body;
 
@@ -85,6 +87,7 @@ export class CraftGame {
 
   constructor(mount: HTMLElement) {
     this.renderer = new GameRenderer(mount);
+    this.renderer.scene.fog = new THREE.Fog(0x9fd8f5, 95, 245);
     this.camera = new CraftCamera(this.renderer.camera);
     this.view = new VoxelView(this.renderer.scene);
     this.hud = new CraftHud(document.body, (recipe) => this.handleCraft(recipe));
@@ -96,6 +99,14 @@ export class CraftGame {
     this.renderer.scene.add(this.rig.root);
     this.view.markDirty();
     this.buildGhost();
+
+    this.workshop = new MachineWorkshop(this.renderer.scene, this.renderer.camera,
+      this.renderer.renderer.domElement, this.state.world, (active) => {
+        this.keys.clear(); this.mining = this.placing = false;
+        this.miningFrac = null; this.miningProgress = 0; this.miningTarget = null;
+        this.hud.setWorkshopOpen(active);
+        if (!active) this.renderer.camera.clearViewOffset();
+      });
 
     this.bindInput(mount);
     window.addEventListener("visibilitychange", () => {
@@ -120,6 +131,7 @@ export class CraftGame {
   dispose(): void {
     this.loop.stop();
     this.persist();
+    this.workshop.dispose();
     this.view.dispose();
     disposeRig(this.rig.root);
     this.bgm.dispose();
@@ -130,7 +142,7 @@ export class CraftGame {
 
   private bindInput(mount: HTMLElement): void {
     mount.addEventListener("click", () => {
-      if (!this.locked && !this.hud.recipesOpen) {
+      if (!this.locked && !this.hud.recipesOpen && !this.workshop.active) {
         void mount.querySelector("canvas")?.requestPointerLock();
       }
     });
@@ -166,7 +178,10 @@ export class CraftGame {
       this.selected = (this.selected + (e.deltaY > 0 ? 1 : HOTBAR.length - 1)) % HOTBAR.length;
     });
     document.addEventListener("keydown", (e) => {
+      if (e.target instanceof HTMLElement && /INPUT|SELECT|TEXTAREA/.test(e.target.tagName)) return;
       const key = e.key.toLowerCase();
+      if (key === "b" && !e.repeat) { this.workshop.toggle(); return; }
+      if (this.workshop.active) return;
       this.keys.add(e.code);
       if (key >= "1" && key <= "9") this.selected = Number(key) - 1;
       if (key === "c") {
@@ -189,6 +204,7 @@ export class CraftGame {
   // ---------------------------------------------------------------- sim
 
   private fixedUpdate(): void {
+    if (this.workshop.active) { this.workshop.fixedUpdate(); return; }
     const dt = 1 / 60;
     let fwd = 0;
     let strafe = 0;
@@ -209,8 +225,8 @@ export class CraftGame {
     // fell off the island → respawn on the open grass south of the castle
     // (never the castle centre), lifted clear of any block
     if (this.body.y < -12) {
-      this.body.x = WORLD_X / 2 + 0.5;
-      this.body.z = WORLD_Z / 2 + 22.5;
+      this.body.x = CRAFT_SPAWN.x;
+      this.body.z = CRAFT_SPAWN.z;
       this.body.y = surfaceY(this.state.world, Math.floor(this.body.x), Math.floor(this.body.z)) + 1;
       this.body.vx = this.body.vz = this.body.vy = 0;
       unstick(this.state.world, this.body);
@@ -427,6 +443,17 @@ export class CraftGame {
 
   private render(frameDt: number): void {
     this.view.update(this.state.world);
+    if (this.workshop.active) {
+      this.rig.root.visible = false;
+      this.ghost.visible = false;
+      this.view.setHighlight(null);
+      if (this.workshop.scienceActive) { this.workshop.renderScience(frameDt); return; }
+      this.renderer.trackTarget(this.workshop.render(frameDt));
+      this.renderer.render();
+      this.perf.update(this.renderer.renderer, frameDt);
+      return;
+    }
+    this.ghost.visible = true;
     this.view.setHighlight(this.aim ? this.aim.voxel : null);
 
     this.rig.root.position.set(this.body.x, this.body.y, this.body.z);
@@ -508,6 +535,7 @@ export class CraftGame {
       },
       saveNow: () => this.persist(),
       perf: () => this.perf.sample(),
+      machine: () => this.workshop.snapshot(),
     };
   }
 }

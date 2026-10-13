@@ -1,0 +1,42 @@
+name: Machine physics checks
+
+on:
+  pull_request:
+    paths:
+      - "apps/client/**"
+      - "packages/shared/**"
+      - "pnpm-lock.yaml"
+      - "docs/MACHINE_PHYSICS.md"
+      - "tools/generate-machine-assets.mjs"
+      - ".github/workflows/physics.yml"
+  push:
+    branches: [main]
+    paths:
+      - "apps/client/**"
+      - "packages/shared/**"
+      - "pnpm-lock.yaml"
+      - "tools/generate-machine-assets.mjs"
+      - ".github/workflows/physics.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.13.1
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @robo/client typecheck
+      - run: pnpm assets:machines:check
+      - run: pnpm --filter @robo/client test
+      - run: pnpm exec eslint apps/client/src/craft/machines apps/client/test/machine-physics.test.ts
+      - run: pnpm --filter @robo/client build

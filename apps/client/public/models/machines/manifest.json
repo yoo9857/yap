@@ -1,0 +1,185 @@
+{
+  "version": 1,
+  "source": "tools/generate-machine-assets.mjs",
+  "provenance": "Original procedural geometry; no third-party model assets",
+  "units": "metres",
+  "forward": "+Z",
+  "up": "+Y",
+  "wheelAxis": "+X",
+  "files": [
+    {
+      "file": "machine-kit.glb",
+      "bytes": 1271956,
+      "sha256": "2d93afc0adfd6e7dc9af24d9b456fb14a2787261a1b8ba8aa89d42f01e91e9b8",
+      "parts": [
+        {
+          "part": "frame",
+          "triangles": 756,
+          "primitives": 4,
+          "size": [
+            0.94,
+            0.927,
+            0.977
+          ]
+        },
+        {
+          "part": "cockpit",
+          "triangles": 1740,
+          "primitives": 7,
+          "size": [
+            0.94,
+            1.015,
+            0.962
+          ]
+        },
+        {
+          "part": "wheel",
+          "triangles": 3168,
+          "primitives": 4,
+          "size": [
+            0.69,
+            1.143,
+            1.143
+          ]
+        },
+        {
+          "part": "thruster",
+          "triangles": 1692,
+          "primitives": 6,
+          "size": [
+            0.86,
+            0.983,
+            0.86
+          ]
+        },
+        {
+          "part": "ballast",
+          "triangles": 1020,
+          "primitives": 3,
+          "size": [
+            0.96,
+            0.975,
+            0.96
+          ]
+        },
+        {
+          "part": "wing",
+          "triangles": 288,
+          "primitives": 5,
+          "size": [
+            1.26,
+            0.165,
+            1.045
+          ]
+        },
+        {
+          "part": "balloon",
+          "triangles": 2748,
+          "primitives": 4,
+          "size": [
+            0.956,
+            1.12,
+            0.956
+          ]
+        },
+        {
+          "part": "gyro",
+          "triangles": 1508,
+          "primitives": 5,
+          "size": [
+            0.88,
+            0.877,
+            0.9
+          ]
+        }
+      ]
+    },
+    {
+      "file": "machine-kit-lod1.glb",
+      "bytes": 506496,
+      "sha256": "123197583785c8b137373900f83ff41e0e4951131cca885834f945bdc8f7c015",
+      "parts": [
+        {
+          "part": "frame",
+          "triangles": 372,
+          "primitives": 3,
+          "size": [
+            0.94,
+            0.905,
+            0.977
+          ]
+        },
+        {
+          "part": "cockpit",
+          "triangles": 1260,
+          "primitives": 5,
+          "size": [
+            0.94,
+            1.015,
+            0.962
+          ]
+        },
+        {
+          "part": "wheel",
+          "triangles": 816,
+          "primitives": 4,
+          "size": [
+            0.69,
+            1.14,
+            1.14
+          ]
+        },
+        {
+          "part": "thruster",
+          "triangles": 780,
+          "primitives": 6,
+          "size": [
+            0.86,
+            0.983,
+            0.86
+          ]
+        },
+        {
+          "part": "ballast",
+          "triangles": 348,
+          "primitives": 3,
+          "size": [
+            0.96,
+            0.975,
+            0.96
+          ]
+        },
+        {
+          "part": "wing",
+          "triangles": 216,
+          "primitives": 4,
+          "size": [
+            1.26,
+            0.15,
+            1.045
+          ]
+        },
+        {
+          "part": "balloon",
+          "triangles": 612,
+          "primitives": 3,
+          "size": [
+            0.956,
+            1.12,
+            0.956
+          ]
+        },
+        {
+          "part": "gyro",
+          "triangles": 584,
+          "primitives": 5,
+          "size": [
+            0.88,
+            0.877,
+            0.9
+          ]
+        }
+      ]
+    }
+  ]
+}

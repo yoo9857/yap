@@ -17,7 +17,9 @@
     "build": "pnpm -r build",
     "typecheck": "pnpm -r typecheck",
     "lint": "eslint .",
-    "test": "pnpm -r test"
+    "test": "pnpm -r test",
+    "assets:machines": "node tools/generate-machine-assets.mjs",
+    "assets:machines:check": "node tools/generate-machine-assets.mjs --check"
   },
   "devDependencies": {
     "@eslint/js": "^9.27.0",
