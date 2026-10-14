@@ -373,7 +373,10 @@ export class BattleGame {
   }
 
   private render(frameDt: number): void {
-    this.view.update(this.world);
+    this.view.update(
+      this.world,
+      this.tmpEye.set(this.player.x, this.player.y, this.player.z),
+    );
 
     // rigs
     this.playerRig.root.position.set(this.player.x, this.player.y, this.player.z);

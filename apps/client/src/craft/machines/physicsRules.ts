@@ -1,7 +1,9 @@
 /** Machine simulation contract. SI units: metres, kilograms, seconds, newtons,
  * radians. Change the revision when tuning alters saved designs' behaviour. */
 export const PHYSICS_RULES = Object.freeze({
-  revision: 1,
+  // 2: altitude is now measured from the terrain's top face (surfaceY + 1),
+  // which moved every altitude-based reading and mission threshold.
+  revision: 2,
   timestep: 1 / 60,
   gravity: 9.81,
   thrustPerEngine: 360,

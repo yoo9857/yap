@@ -17,13 +17,23 @@ interface Template {
 }
 /** Shared immutable GLB resources; each machine batches repeated parts with instancing. */
 export class MachineAssets {
-  readonly ready: Promise<void>;
   readonly templates = new Map<PartKind, Template[]>();
   loaded = false;
   private disposed = false;
-  constructor() {
+  private promise: Promise<void> | null = null;
+
+  /**
+   * Lazy on purpose. The kit is 1.2 MB of GLB and most Craft Island sessions
+   * never open the machine lab, so the download starts the first time
+   * something actually awaits it rather than during island boot.
+   */
+  get ready(): Promise<void> {
+    return (this.promise ??= this.load());
+  }
+
+  private load(): Promise<void> {
     const low = window.matchMedia("(max-width: 700px)").matches;
-    this.ready = new GLTFLoader()
+    return new GLTFLoader()
       .loadAsync(`/models/machines/machine-kit${low ? "-lod1" : ""}.glb`)
       .then((gltf) => {
         for (const part of gltf.scene.children) {
@@ -47,6 +57,7 @@ export class MachineAssets {
         if (this.disposed) this.release();
       });
   }
+
   private release(): void {
     const geometries = new Set<THREE.BufferGeometry>(),
       materials = new Set<THREE.Material>();

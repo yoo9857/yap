@@ -23,7 +23,9 @@ export function roundBrickGeometry(): THREE.BufferGeometry {
  *  voxel — see voxelView) so the studs are as small + dense as the jump map's
  *  0.7 m tessellated bricks, instead of one big stud that reads oversized. */
 export function studGeometry(): THREE.CylinderGeometry {
-  const g = new THREE.CylinderGeometry(0.09, 0.1, 0.1, 12);
+  // 8 segments, not 12: at 9 cm across the silhouette is identical on
+  // screen and this is the most-instanced geometry in the game.
+  const g = new THREE.CylinderGeometry(0.09, 0.1, 0.1, 8);
   g.translate(0, 0.05, 0); // sits on the brick top
   return g;
 }

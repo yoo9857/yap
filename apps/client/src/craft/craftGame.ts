@@ -442,7 +442,7 @@ export class CraftGame {
   // ---------------------------------------------------------------- render
 
   private render(frameDt: number): void {
-    this.view.update(this.state.world);
+    this.view.update(this.state.world, this.tmpEye.set(this.body.x, this.body.y, this.body.z));
     if (this.workshop.active) {
       this.rig.root.visible = false;
       this.ghost.visible = false;

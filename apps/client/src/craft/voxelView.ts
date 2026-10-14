@@ -20,6 +20,17 @@ const STUD_OFFSETS: readonly [number, number][] = [
   [0.25, 0.25],
 ];
 
+/** Columns per instanced batch. The island is 160x160, so one batch per block
+ *  type covered the whole map and nothing could ever be frustum-culled: the
+ *  GPU drew the far side of the world every frame. Batching per chunk lets
+ *  three cull whole chunks that are behind the camera or off screen. */
+const CHUNK = 32;
+/** Studs are 9 cm caps. Past this they are sub-pixel, but they were 41% of the
+ *  island's triangles, so they are only emitted near the viewer. */
+const STUD_RANGE = 46;
+/** How far the viewer may move before the stud ring is rebuilt. */
+const STUD_STEP = 8;
+
 /**
  * Renders the island as InstancedMeshes, EXPOSED cells only (interior voxels
  * never reach the GPU). Batching key is (block id × brick shape): a cube uses a
@@ -38,6 +49,11 @@ export class VoxelView {
   private readonly materials = new Map<number, THREE.Material>();
   private readonly highlight: THREE.LineSegments;
   private dirty = true;
+  /** Top-exposed cells per block id, kept from the last full scan so the stud
+   *  ring can be re-filtered on movement without re-walking the grid. */
+  private readonly studCells = new Map<number, number[]>();
+  private readonly studEye = new THREE.Vector3(Infinity, Infinity, Infinity);
+  private studsDirty = true;
 
   constructor(private readonly scene: THREE.Scene) {
     for (const def of BLOCKS) this.materials.set(def.id, this.makeMaterial(def));
@@ -96,28 +112,41 @@ export class VoxelView {
     this.highlight.position.set(voxel[0] + 0.5, voxel[1] + 0.5, voxel[2] + 0.5);
   }
 
-  /** Rebuild instance lists if an edit happened since the last frame. */
-  update(world: VoxelWorld): void {
-    if (!this.dirty) return;
+  /**
+   * Rebuild instance lists if an edit happened, and re-ring the studs if the
+   * viewer has moved far enough. `eye` is optional: without it every stud is
+   * emitted, which is the old behaviour and is what a fly-through wants.
+   */
+  update(world: VoxelWorld, eye?: THREE.Vector3): void {
+    if (eye && this.studEye.distanceToSquared(eye) > STUD_STEP * STUD_STEP) {
+      this.studEye.copy(eye);
+      this.studsDirty = true;
+    }
+    if (!this.dirty) {
+      if (this.studsDirty) this.rebuildStuds(eye);
+      return;
+    }
     this.dirty = false;
+    this.studsDirty = true;
+    if (eye) this.studEye.copy(eye);
 
-    const positions = new Map<string, number[]>(); // `${id}:${shape}` → xyz…
-    const studPositions = new Map<number, number[]>(); // per id: top-exposed cube/round
+    const positions = new Map<string, number[]>(); // `${cx},${cz}:${id}:${shape}` → xyz…
+    this.studCells.clear();
     for (let y = 0; y < WORLD_Y; y++) {
       for (let z = 0; z < WORLD_Z; z++) {
         for (let x = 0; x < WORLD_X; x++) {
           const id = world.get(x, y, z);
           if (id === 0 || !world.isExposed(x, y, z)) continue;
           const shape = world.getShape(x, y, z);
-          const key = `${id}:${shape}`;
+          const key = `${(x / CHUNK) | 0},${(z / CHUNK) | 0}:${id}:${shape}`;
           let list = positions.get(key);
           if (!list) positions.set(key, (list = []));
           list.push(x, y, z);
           const def = blockById(id);
           // studs only cap flat-topped bricks (cube/round), never a slope
           if (def && !def.noStud && (shape === 0 || shape === ROUND) && !world.isSolid(x, y + 1, z)) {
-            let studs = studPositions.get(id);
-            if (!studs) studPositions.set(id, (studs = []));
+            let studs = this.studCells.get(id);
+            if (!studs) this.studCells.set(id, (studs = []));
             studs.push(x, y, z);
           }
         }
@@ -136,12 +165,16 @@ export class VoxelView {
       const count = list.length / 3;
       let mesh = this.meshes.get(key);
       if (count === 0) {
-        if (mesh) mesh.count = 0;
+        if (mesh) {
+          this.scene.remove(mesh);
+          mesh.dispose();
+          this.meshes.delete(key);
+        }
         continue;
       }
-      const sep = key.indexOf(":");
-      const id = Number(key.slice(0, sep));
-      const shape = Number(key.slice(sep + 1));
+      const parts = key.split(":");
+      const id = Number(parts[1]);
+      const shape = Number(parts[2]);
       if (!mesh || mesh.instanceMatrix.count < count) {
         if (mesh) {
           this.scene.remove(mesh);
@@ -175,12 +208,29 @@ export class VoxelView {
       mesh.computeBoundingSphere();
     }
 
-    // 2×2 studs per top face (0.5 m sub-cells) so a 1 m voxel reads as small,
-    // densely-studded LEGO like the jump-map's 0.7 m bricks — not one big cube.
+    this.rebuildStuds(eye);
+  }
+
+  /**
+   * 2×2 studs per top face (0.5 m sub-cells) so a 1 m voxel reads as small,
+   * densely-studded LEGO like the jump-map's 0.7 m bricks — not one big cube.
+   * Only cells within STUD_RANGE of the viewer are emitted: on the 160×160
+   * island the full set was 128k instances and 41% of all triangles, for caps
+   * that are a few pixels across beyond ~50 m.
+   */
+  private rebuildStuds(eye?: THREE.Vector3): void {
+    this.studsDirty = false;
     const cells = STUD_OFFSETS.length;
+    const matrix = new THREE.Matrix4();
+    const range = STUD_RANGE * STUD_RANGE;
     for (const def of BLOCKS) {
-      const list = studPositions.get(def.id) ?? [];
-      const count = (list.length / 3) * cells;
+      const list = this.studCells.get(def.id) ?? [];
+      // Count what is actually in range before touching the GPU buffer.
+      let near = 0;
+      for (let i = 0; i < list.length; i += 3) {
+        if (!eye || this.withinRange(list, i, eye, range)) near++;
+      }
+      const count = near * cells;
       let mesh = this.studMeshes.get(def.id);
       // Do not create a 2,048-instance GPU buffer for an unused block type.
       // This was the main memory multiplier as the palette grew.
@@ -204,6 +254,7 @@ export class VoxelView {
       }
       let k = 0;
       for (let i = 0; i < list.length; i += 3) {
+        if (eye && !this.withinRange(list, i, eye, range)) continue;
         const x = list[i]! + 0.5;
         const y = list[i + 1]! + 1;
         const z = list[i + 2]! + 0.5;
@@ -212,10 +263,21 @@ export class VoxelView {
           mesh.setMatrixAt(k++, matrix);
         }
       }
-      mesh.count = count;
+      mesh.count = k;
       mesh.instanceMatrix.needsUpdate = true;
       mesh.computeBoundingSphere();
     }
+  }
+
+  private withinRange(
+    list: number[],
+    i: number,
+    eye: THREE.Vector3,
+    range: number,
+  ): boolean {
+    const dx = list[i]! + 0.5 - eye.x;
+    const dz = list[i + 2]! + 0.5 - eye.z;
+    return dx * dx + dz * dz <= range;
   }
 
   dispose(): void {

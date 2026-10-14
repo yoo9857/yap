@@ -94,6 +94,7 @@ export class MachineWorkshop {
   private run: MissionRun | null = null;
   private disposed = false;
   private assetFailure = "";
+  private assetsRequested = false;
   private science: ScienceLab | null = null;
 
   private readonly launch: HTMLButtonElement;
@@ -326,17 +327,6 @@ export class MachineWorkshop {
     );
 
     this.group.add(this.visual.root);
-    void this.assets.ready
-      .then(() => {
-        if (this.disposed) return;
-        this.rebuild();
-        this.ghost.set(this.selected, this.direction);
-      })
-      .catch(() => {
-        this.assetFailure =
-          "기계 에셋을 불러오지 못했습니다. 새로고침해 주세요.";
-        if (!this.disposed) this.say(this.assetFailure, "bad");
-      });
     this.rebuild();
     this.refresh();
   }
@@ -632,6 +622,7 @@ export class MachineWorkshop {
     this.hud.setVisible(false);
     if (this.active) {
       document.exitPointerLock();
+      this.loadAssets();
       this.baseFov ||= this.camera.fov;
       this.entries = this.store.entries();
       this.record = this.store.record();
@@ -643,6 +634,24 @@ export class MachineWorkshop {
       this.restoreCamera();
     }
     this.onActive(this.active);
+  }
+
+  /** First open pays for the kit; later opens hit the resolved promise. */
+  private loadAssets(): void {
+    if (this.assetsRequested) return;
+    this.assetsRequested = true;
+    void this.assets.ready
+      .then(() => {
+        if (this.disposed) return;
+        this.rebuild();
+        this.ghost.set(this.selected, this.direction);
+        this.refresh();
+      })
+      .catch(() => {
+        this.assetFailure =
+          "기계 에셋을 불러오지 못했습니다. 새로고침해 주세요.";
+        if (!this.disposed) this.say(this.assetFailure, "bad");
+      });
   }
 
   private maybeCoach(): void {
