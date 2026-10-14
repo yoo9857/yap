@@ -22,28 +22,25 @@ export function selectMode(parent: HTMLElement): Promise<GameMode> {
     el.innerHTML = `
       <div class="screen-card">
         <img class="brand-logo" src="/craftyap-logo.png" alt="CraftYap" />
-        <h1 class="creator-title">Build income. Work smarter.</h1>
-        <p class="subtitle">CraftYap breaks down practical online income ideas, side hustles, and AI tools into steps you can actually try.</p>
-        <div class="topic-pills" aria-label="CraftYap topics">
-          <span>Side Hustles 2026</span><span>Make Money Online</span><span>AI Income</span><span>Creator Monetization</span>
-        </div>
-        <p class="play-kicker">Take a quick break with a CraftYap game</p>
+        <h1>Which game shall we play?</h1>
+        <p class="play-kicker">NEW &middot; Craft Island has a machine workshop &mdash; build cars and aircraft that really drive and fly</p>
+        <button class="mode-btn" data-mode="craft">
+          <img class="mode-icon" src="/textures/blocks/workbench-top.png" alt="" />
+          <span class="mode-text"><b>Craft Island <em class="mode-new">NEW</em></b><small>Mine and build &mdash; then bolt parts into machines and test drive them</small></span>
+        </button>
         <button class="mode-btn" data-mode="tower">
           <img class="mode-icon" src="/ui/icon-tower.png" alt="" />
           <span class="mode-text"><b>Daily Tower</b><small>A fresh multiplayer obby to climb every day</small></span>
         </button>
         <button class="mode-btn" data-mode="builder">
           <img class="mode-icon" src="/ui/icon-builder.png" alt="" />
-          <span class="mode-text"><b>Robo Builder</b><small>Idle construction — watch your crew raise landmarks</small></span>
-        </button>
-        <button class="mode-btn" data-mode="craft">
-          <img class="mode-icon" src="/textures/blocks/workbench-top.png" alt="" />
-          <span class="mode-text"><b>Craft Island</b><small>Mine, craft and build on your own voxel island</small></span>
+          <span class="mode-text"><b>Robo Builder</b><small>Idle construction &mdash; watch your crew raise landmarks</small></span>
         </button>
         <button class="mode-btn" data-mode="battle">
           <img class="mode-icon" src="/textures/blocks/ruby-ore.png" alt="" />
-          <span class="mode-text"><b>Blast Royale</b><small>Arcade battle royale — last robot standing wins</small></span>
+          <span class="mode-text"><b>Blast Royale</b><small>Arcade battle royale &mdash; last robot standing wins</small></span>
         </button>
+        <a class="desk-link" href="/?read=1">Read the CraftYap desk &rarr;</a>
       </div>`;
     parent.appendChild(el);
 

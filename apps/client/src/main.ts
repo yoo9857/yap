@@ -95,8 +95,6 @@ async function boot(): Promise<void> {
 
   hideOverlay();
 
-  // The editorial homepage is the default entry. Games stay available from
-  // /?play=1 (or a direct ?mode=... link) so the two experiences are cleanly separated.
   const params = new URLSearchParams(location.search);
   if (params.get("article") === "ai-automation") {
     showArticle(mount);
@@ -106,7 +104,10 @@ async function boot(): Promise<void> {
     showTeam(mount);
     return;
   }
-  if (!params.get("mode") && params.get("play") !== "1") {
+  // The games are the front door. The editorial desk is still published and
+  // still indexed, it just lives one click away at ?read=1 instead of taking
+  // the first screen from the thing people come here to play.
+  if (params.get("read") === "1") {
     showHome(mount);
     return;
   }
