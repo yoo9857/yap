@@ -217,6 +217,51 @@ try {
   });
   await page.click('.machine-panel [data-id="run"]');
 
+  // ---- beginner path: one click to fly, assist does the hard part ---------
+  await page.click('[data-quick="plane"]');
+  await page.waitForFunction(() => !!window.__roboCraft.machine().simulation, {
+    timeout: 60000,
+  });
+  assert.equal((await machine()).assist, true, "assist is on by default");
+  await wait(1200);
+  // Space alone. No pitch, no roll, no understanding of gyros required.
+  await page.keyboard.down("Space");
+  await wait(4000);
+  await page.keyboard.up("Space");
+  const lifted = (await machine()).simulation;
+  assert.ok(
+    lifted.altitude > 8,
+    `Space alone gets a beginner airborne (${lifted.altitude.toFixed(1)} m)`,
+  );
+  await wait(4000);
+  const hands_off = (await machine()).simulation;
+  const drift = Math.abs(hands_off.altitude - lifted.altitude);
+  const tilt = (() => {
+    const q = hands_off.rotation;
+    const uy = 1 - 2 * (q.x * q.x + q.z * q.z);
+    return (Math.acos(Math.max(-1, Math.min(1, uy))) * 180) / Math.PI;
+  })();
+  assert.ok(drift < 5, `hands off holds altitude (drifted ${drift.toFixed(1)} m)`);
+  assert.ok(tilt < 8, `hands off stays level (${tilt.toFixed(1)} degrees)`);
+  await page.keyboard.down("ControlLeft");
+  await wait(3000);
+  await page.keyboard.up("ControlLeft");
+  assert.ok(
+    (await machine()).simulation.altitude < hands_off.altitude - 2,
+    "Ctrl brings it back down",
+  );
+  await page.keyboard.press("KeyG");
+  assert.equal((await machine()).assist, false, "G turns assist off mid-flight");
+  await page.keyboard.press("KeyG");
+  assert.equal((await machine()).assist, true);
+  console.log("PASS  beginner flight", {
+    climb: lifted.altitude.toFixed(1),
+    drift: drift.toFixed(1),
+    tilt: tilt.toFixed(1),
+  });
+  await page.screenshot({ path: "tmp/machine-assist.png" });
+  await page.click('.machine-panel [data-id="run"]');
+
   // ---- exit and persistence ------------------------------------------------
   await page.click('.machine-panel [data-id="close"]');
   state = await machine();

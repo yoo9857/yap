@@ -84,8 +84,8 @@
 .mw-btn.mw-go {
   background: var(--mw-green);
   color: #fff;
-  font-size: 16px;
-  padding: 13px;
+  font-size: 15px;
+  padding: 11px;
   width: 100%;
   letter-spacing: 0.02em;
 }
@@ -139,8 +139,8 @@
   width: 330px;
   display: flex;
   flex-direction: column;
-  padding: 14px;
-  gap: 10px;
+  padding: 12px;
+  gap: 7px;
   animation: mw-slide 0.22s ease-out;
 }
 @keyframes mw-slide {
@@ -170,19 +170,20 @@
   letter-spacing: 0.17em;
   color: #8b8b8b;
 }
-.machine-panel .mw-title {
-  font-size: 19px;
-  line-height: 1.15;
+.machine-panel .mw-headtext {
+  flex: 1;
+  min-width: 0;
 }
 .machine-panel .mw-name {
   width: 100%;
+  margin-top: 2px;
   font: inherit;
   font-size: 15px;
   color: var(--mw-ink);
   background: var(--mw-dim);
   border: 2.5px dashed var(--mw-ink);
   border-radius: var(--wobble-sm, 10px);
-  padding: 8px 10px;
+  padding: 6px 9px;
 }
 .machine-panel .mw-name:focus {
   outline: none;
@@ -238,10 +239,10 @@
   position: relative;
   flex-direction: column;
   align-items: center;
-  gap: 2px;
-  padding: 8px 4px 6px;
+  gap: 1px;
+  padding: 6px 4px 5px;
   text-align: center;
-  min-height: 62px;
+  min-height: 56px;
 }
 .mw-part svg {
   width: 24px;
@@ -286,9 +287,9 @@
   color: #5d5d5d;
   background: var(--mw-dim);
   border-radius: 10px;
-  padding: 9px 11px;
+  padding: 8px 10px;
   margin: 0;
-  min-height: 48px;
+  min-height: 40px;
 }
 
 /* direction pad */
@@ -316,8 +317,8 @@
 /* stats */
 .mw-stats {
   display: grid;
-  gap: 7px;
-  padding: 10px 11px;
+  gap: 6px;
+  padding: 8px 10px;
   background: var(--mw-dim);
   border: 2.5px solid var(--mw-ink);
   border-radius: var(--wobble-sm, 10px);
@@ -385,9 +386,9 @@
 .mw-tools .mw-btn {
   flex: 1;
   flex-direction: column;
-  gap: 2px;
-  padding: 7px 2px;
-  font-size: 10.5px;
+  gap: 1px;
+  padding: 5px 2px;
+  font-size: 10px;
 }
 .mw-tools svg {
   width: 18px;
@@ -398,7 +399,6 @@
 .mw-message {
   font-size: 12px;
   line-height: 1.45;
-  min-height: 34px;
   margin: 0;
   padding: 7px 10px;
   border-radius: 9px;
@@ -819,5 +819,127 @@
   .machine-chips {
     right: 10px;
     top: 10px;
+  }
+}
+
+/* quick play: drive an example without building anything first */
+.mw-quick .mw-group {
+  margin-top: 0;
+}
+.mw-quickrow {
+  display: grid;
+  gap: 5px;
+}
+.mw-quickrow .mw-btn {
+  justify-content: flex-start;
+  gap: 8px;
+  padding: 8px 11px;
+  background: var(--mw-yellow);
+}
+.mw-quickrow .mw-btn span {
+  font-size: 16px;
+  line-height: 1;
+}
+.mw-quickrow .mw-btn b {
+  font-weight: 400;
+  font-size: 13px;
+}
+.mw-quickrow .mw-btn:hover:not(:disabled) {
+  background: #ffe878;
+}
+
+/* assist toggle */
+.mw-btn.mw-assist {
+  width: 100%;
+  justify-content: flex-start;
+  gap: 9px;
+  padding: 8px 12px;
+  background: var(--mw-dim);
+}
+.mw-btn.mw-assist b {
+  font-weight: 400;
+  font-size: 13px;
+}
+.mw-btn.mw-assist small {
+  font-size: 11px;
+  color: #7c7c7c;
+  margin-left: auto;
+}
+.mw-btn.mw-assist .mw-dot {
+  width: 11px;
+  height: 11px;
+  flex: none;
+  border: 2px solid var(--mw-ink);
+  border-radius: 50%;
+  background: #fff;
+}
+.mw-btn.mw-assist[aria-pressed="true"] {
+  background: #e8f8e4;
+  color: var(--mw-ink);
+}
+.mw-btn.mw-assist[aria-pressed="true"] .mw-dot {
+  background: var(--mw-green);
+}
+.mw-btn.mw-assist[aria-pressed="true"]:hover:not(:disabled) {
+  background: #d8f3d2;
+  color: var(--mw-ink);
+}
+.mw-assistchip.off {
+  color: #8b8b8b;
+}
+.machine-panel.driving .mw-quick,
+.machine-panel.driving .mw-assist {
+  display: none;
+}
+
+.mw-message[hidden] {
+  display: none;
+}
+.mw-meterrow {
+  display: grid;
+  gap: 4px;
+}
+
+/* Short laptop screens: the palette is the thing that must stay visible, so
+   the chrome around it gives way first. Nothing is removed that is not said
+   somewhere else - the meters survive, the stats figures move to a tooltip. */
+@media (max-height: 900px) {
+  .machine-panel {
+    gap: 5px;
+    padding: 10px;
+  }
+  .machine-panel .mw-eyebrow {
+    display: none;
+  }
+  .machine-panel .mw-mark {
+    width: 28px;
+    height: 28px;
+    font-size: 14px;
+  }
+  .mw-quickrow {
+    grid-template-columns: 1fr 1fr;
+  }
+  .mw-quickrow .mw-btn {
+    justify-content: center;
+    padding: 7px 4px;
+  }
+  .mw-quickrow .mw-btn b {
+    font-size: 12px;
+  }
+  .mw-figures {
+    display: none;
+  }
+  .mw-detail {
+    min-height: 0;
+  }
+  .mw-group {
+    margin: 5px 2px 3px;
+  }
+  .mw-part {
+    min-height: 50px;
+  }
+  .mw-part svg {
+    width: 21px;
+    height: 21px;
   }
 }

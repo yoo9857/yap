@@ -26,6 +26,7 @@ import {
   pointVelocity,
 } from "./aero.js";
 import {
+  ASSIST,
   controlAxis,
   MachineFault,
   PHYSICS_RULES as RULES,
@@ -39,6 +40,10 @@ export interface MachineInput {
   brake: boolean;
   pitch: number;
   roll: number;
+  /** Climb/descend request while assist flies the throttle: -1, 0 or 1. */
+  vertical: number;
+  /** Beginner autopilot: level the machine and hold altitude. */
+  assist: boolean;
 }
 export const IDLE_INPUT: MachineInput = {
   throttle: 0,
@@ -48,6 +53,8 @@ export const IDLE_INPUT: MachineInput = {
   brake: false,
   pitch: 0,
   roll: 0,
+  vertical: 0,
+  assist: false,
 };
 
 /** One compound rigid body per connected machine. Wheels use suspension rays;
@@ -67,10 +74,17 @@ export class MachinePhysics {
   private readonly scratch = new Vector3();
   private readonly gyro: boolean;
   private readonly surfaces: number[] = [];
+  /** Lift-thruster count and the throttle fraction that cancels gravity. */
+  readonly liftThrusters: number;
+  private readonly hoverBias: number;
+  private readonly up = new Vector3();
+  private readonly level = new Vector3();
   private chunkKey = "";
   /** Last-step telemetry for the HUD; not part of the simulation state. */
   private aeroLift = 0;
   private aeroAngle = 0;
+  private hoverThrottle = 0;
+  private grounded = false;
 
   constructor(
     private readonly rapier: RapierModule,
@@ -122,6 +136,16 @@ export class MachinePhysics {
       this.wheels.setWheelSideFrictionStiffness(i, 1);
     });
     this.gyro = blueprint.parts.some((p) => p.kind === "gyro");
+    this.liftThrusters = blueprint.parts.filter(
+      (p) => p.kind === "thruster" && p.direction === 0,
+    ).length;
+    // Feed-forward term for hover: the throttle fraction that exactly cancels
+    // weight. Above 1 the build simply cannot hold itself up, and assist will
+    // not pretend otherwise.
+    const weight = this.body.mass() * RULES.gravity;
+    this.hoverBias = this.liftThrusters
+      ? weight / (this.liftThrusters * RULES.thrustPerEngine)
+      : 0;
     blueprint.parts.forEach((part, index) => {
       if (part.kind === "wing" || part.kind === "balloon")
         this.surfaces.push(index);
@@ -210,6 +234,7 @@ export class MachinePhysics {
       lift: controlAxis(input.lift, true),
       pitch: controlAxis(input.pitch),
       roll: controlAxis(input.roll),
+      vertical: controlAxis(input.vertical),
     };
     this.updateTerrain();
     this.world.updateSceneQueries();
@@ -243,10 +268,18 @@ export class MachinePhysics {
       undefined,
       (collider) => collider.parent()?.handle !== this.body.handle,
     );
+    this.grounded = this.wheelParts.some((_, i) =>
+      this.wheels.wheelIsInContact(i),
+    );
+    this.hoverThrottle = this.hoverAssist(input, speed.y);
     for (const part of this.blueprint.parts) {
       if (part.kind !== "thruster") continue;
       const activation =
-        part.direction === 0 ? input.lift : input.boost ? 1 : 0;
+        part.direction === 0
+          ? Math.max(input.lift, this.hoverThrottle)
+          : input.boost
+            ? 1
+            : 0;
       if (!activation) continue;
       this.force
         .fromArray(DIRECTIONS[part.direction]!.vector)
@@ -268,6 +301,16 @@ export class MachinePhysics {
       this.force.x -= angular.x * RULES.gyroDamping;
       this.force.y -= angular.y * RULES.gyroDamping;
       this.force.z -= angular.z * RULES.gyroDamping;
+      if (this.levelling(input)) {
+        // Rotating the body's own up-vector back onto world up: the cross
+        // product is the axis and its length is sin(tilt), so the correction
+        // fades out exactly as the machine comes level.
+        this.up.set(0, 1, 0).applyQuaternion(this.rotation);
+        this.level.set(0, 1, 0).cross(this.up).multiplyScalar(-1);
+        this.force.addScaledVector(this.level, ASSIST.levelTorque);
+        this.force.x -= angular.x * ASSIST.levelDamping;
+        this.force.z -= angular.z * ASSIST.levelDamping;
+      }
       this.body.addTorque(this.force, true);
     }
     this.world.step();
@@ -340,6 +383,39 @@ export class MachinePhysics {
     }
   }
 
+  /**
+   * Assist only levels a machine that is off the ground, not being steered by
+   * hand, and not already upside down on purpose - a car on a slope must sit
+   * on the slope, and a deliberate barrel roll must be allowed to finish.
+   */
+  private levelling(input: MachineInput): boolean {
+    if (!input.assist || this.grounded) return false;
+    if (Math.abs(input.pitch) > 0.01 || Math.abs(input.roll) > 0.01)
+      return false;
+    this.up.set(0, 1, 0).applyQuaternion(this.rotation);
+    return Math.acos(Math.max(-1, Math.min(1, this.up.y))) < ASSIST.levelLimit;
+  }
+
+  /**
+   * Auto-throttle for the lift thrusters: feed-forward to cancel weight, plus
+   * a proportional term on the error between the requested climb rate and the
+   * real one. Returns 0 whenever the pilot is on the stick or there is nothing
+   * to throttle, so a build that cannot lift itself still falls.
+   */
+  private hoverAssist(input: MachineInput, verticalSpeed: number): number {
+    if (!input.assist || !this.liftThrusters || input.lift > 0) return 0;
+    if (this.grounded && input.vertical <= 0) return 0;
+    const target =
+      input.vertical > 0
+        ? ASSIST.climbRate
+        : input.vertical < 0
+          ? ASSIST.descendRate
+          : 0;
+    const throttle =
+      this.hoverBias + (target - verticalSpeed) * ASSIST.hoverGain;
+    return Math.max(0, Math.min(1, throttle));
+  }
+
   /** Top face of the terrain column under the machine: cells occupy [y, y+1),
    * so the walkable surface is one above the highest solid cell. */
   private groundHeight(x: number, z: number): number {
@@ -365,6 +441,12 @@ export class MachinePhysics {
       altitude: p.y - this.groundHeight(p.x, p.z),
       aeroLift: this.aeroLift,
       aeroAngle: this.aeroAngle,
+      hoverThrottle: this.hoverThrottle,
+      liftThrusters: this.liftThrusters,
+      /** 1 means the lift thrusters can exactly carry the weight at full throttle. */
+      hoverBias: this.hoverBias,
+      canHover: this.liftThrusters > 0 && this.hoverBias <= 1,
+      canLevel: this.gyro,
       wheels: this.wheelParts.length,
       contacts: this.wheelParts.filter((_, i) =>
         this.wheels.wheelIsInContact(i),

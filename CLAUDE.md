@@ -122,6 +122,8 @@ Craft's one rapier user: a connected blueprint becomes **one compound rigid body
 - `PART_ORDER` must match the GLB: `machineVisual.ts` requires a mesh for every part kind, so a new part means editing `tools/generate-machine-assets.mjs` and re-running `pnpm assets:machines`.
 - The build UI is keyboard-first (1‒8 parts, `R` rotate, `M` mirror, `X` erase, `F` frame, `Ctrl+Z`/`Ctrl+Y`) and the drive HUD is its own thing (`C` cycles chase/orbit/cockpit, `R` respawns without ending the run). Chase camera follows **yaw only** — same reason as builder VR: following pitch and roll makes a flying build unwatchable, so the attitude ball carries that instead.
 - Leaving the test bounds **respawns** rather than kicking the player back to the editor; only a non-finite state aborts the run.
+- **Pilot assist is an autopilot, not physics** (`ASSIST` in `physicsRules.ts`, `G` to toggle, on by default). It drives the machine's *own* gyro torque and lift-thruster throttle and invents no force, so a build that cannot carry its weight still sinks and a build with no gyro cannot level itself. With assist off, `lift` takes the original raw path — the model this doc describes is exactly what you get. Keep that separation: tuning difficulty must never land in `PHYSICS_RULES`.
+- The panel's **quick-play** buttons load an example *and start the test drive*, because the first thing a new player needs is to feel the thing move, not to learn a part palette.
 
 ### Client rendering & assets
 

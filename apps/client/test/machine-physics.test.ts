@@ -1,5 +1,5 @@
 import { beforeAll, describe, expect, it } from "vitest";
-import { Vector3 } from "three";
+import { Quaternion, Vector3 } from "three";
 import * as RAPIER from "@dimforge/rapier3d-compat";
 import { VoxelWorld, WORLD_X, WORLD_Z } from "../src/craft/voxelWorld.js";
 import {
@@ -310,3 +310,101 @@ describe("aerodynamic parts (flat-plate wings, constant-lift balloons)", () => {
     );
   });
 });
+
+describe("pilot assist (uses the machine's own gyro and thrusters, never new forces)", () => {
+  const ASSISTED = { ...IDLE_INPUT, assist: true };
+  /** Tip the machine over, then let it fly for a while. Returns final tilt. */
+  const tiltThenSettle = (input: typeof IDLE_INPUT, steps = 240): number => {
+    let tilt = 0;
+    simulate(
+      preset("plane"),
+      (sim) => {
+        sim.body.setTranslation({ x: 80, y: 60, z: 80 }, true);
+        // ~35 degrees of roll, well inside the limit assist is allowed to fix
+        sim.body.setRotation({ x: 0, y: 0, z: 0.3, w: 0.954 }, true);
+        for (let i = 0; i < steps; i++) sim.step(input);
+        const q = sim.snapshot().rotation;
+        const up = new Vector3(0, 1, 0).applyQuaternion(
+          new Quaternion(q.x, q.y, q.z, q.w),
+        );
+        tilt = Math.acos(Math.max(-1, Math.min(1, up.y)));
+      },
+      new VoxelWorld(),
+    );
+    return tilt;
+  };
+
+  it("levels a tilted craft, and leaves it tilted when switched off", () => {
+    const assisted = tiltThenSettle(ASSISTED);
+    const raw = tiltThenSettle(IDLE_INPUT);
+    expect(assisted).toBeLessThan(0.05); // settled within ~3 degrees of level
+    expect(raw).toBeGreaterThan(assisted * 3);
+  });
+
+  it("hands control straight back the moment the pilot touches the stick", () => {
+    const rolled = (roll: number): number => {
+      let tilt = 0;
+      simulate(
+        preset("plane"),
+        (sim) => {
+          sim.body.setTranslation({ x: 80, y: 60, z: 80 }, true);
+          for (let i = 0; i < 90; i++) sim.step({ ...ASSISTED, roll });
+          const q = sim.snapshot().rotation;
+          const up = new Vector3(0, 1, 0).applyQuaternion(
+            new Quaternion(q.x, q.y, q.z, q.w),
+          );
+          tilt = Math.acos(Math.max(-1, Math.min(1, up.y)));
+        },
+        new VoxelWorld(),
+      );
+      return tilt;
+    };
+    // Assist holds it flat with hands off, and gets out of the way on input.
+    expect(rolled(0)).toBeLessThan(0.02);
+    expect(rolled(1)).toBeGreaterThan(0.08);
+  });
+
+  it("holds altitude on its own thrusters, and still falls when the build cannot lift itself", () => {
+    simulate(
+      preset("plane"),
+      (sim) => {
+        sim.body.setTranslation({ x: 80, y: 60, z: 80 }, true);
+        for (let i = 0; i < 60; i++) sim.step({ ...ASSISTED, vertical: 1 });
+        const climbing = sim.snapshot();
+        expect(climbing.canHover).toBe(true);
+        expect(climbing.position.y).toBeGreaterThan(60);
+        for (let i = 0; i < 240; i++) sim.step(ASSISTED);
+        const held = sim.snapshot();
+        expect(Math.abs(held.position.y - climbing.position.y)).toBeLessThan(4);
+        expect(held.hoverThrottle).toBeGreaterThan(0);
+        for (let i = 0; i < 120; i++) sim.step({ ...ASSISTED, vertical: -1 });
+        expect(sim.snapshot().position.y).toBeLessThan(held.position.y - 2);
+      },
+      new VoxelWorld(),
+    );
+    // Same assist, a machine with no lift thrusters at all: it just falls.
+    simulate(
+      preset("rover"),
+      (sim) => {
+        sim.body.setTranslation({ x: 80, y: 60, z: 80 }, true);
+        const start = sim.snapshot();
+        expect(start.canHover).toBe(false);
+        for (let i = 0; i < 120; i++) sim.step({ ...ASSISTED, vertical: 1 });
+        const s = sim.snapshot();
+        expect(s.position.y).toBeLessThan(start.position.y - 5);
+        expect(s.hoverThrottle).toBe(0);
+      },
+      new VoxelWorld(),
+    );
+  });
+
+  it("stays out of the way of a car that is sitting on the ground", () =>
+    simulate(preset("rover"), (sim) => {
+      for (let i = 0; i < 180; i++) sim.step(ASSISTED);
+      const s = sim.snapshot();
+      expect(s.contacts).toBe(4);
+      expect(s.hoverThrottle).toBe(0);
+      expect(s.speed).toBeLessThan(0.5);
+    }));
+});
+

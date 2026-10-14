@@ -50,6 +50,7 @@ const loadPhysics = () =>
     }));
 
 const COACH_KEY = "craftyap-machine-coach-v1";
+const ASSIST_KEY = "craftyap-machine-assist-v1";
 const CAMERA_ORDER: readonly CameraMode[] = ["chase", "orbit", "cockpit"];
 const HIGHLIGHT = new THREE.Color(0xff6b84);
 /** Test-drive bounds. Leaving them respawns rather than ending the run. */
@@ -64,6 +65,8 @@ export class MachineWorkshop {
   private direction = 0;
   private mirror = true;
   private erase = false;
+  /** Beginner autopilot, on until the player turns it off. */
+  private assist = true;
 
   private readonly group = new THREE.Group();
   private readonly marker = new THREE.Mesh(
@@ -152,6 +155,7 @@ export class MachineWorkshop {
     try {
       this.blueprint =
         parseBlueprint(localStorage.getItem(BLUEPRINT_KEY)) ?? this.blueprint;
+      this.assist = localStorage.getItem(ASSIST_KEY) !== "0";
     } catch {
       /* storage unavailable */
     }
@@ -181,6 +185,8 @@ export class MachineWorkshop {
           this.refresh();
         },
         usePreset: (kind) => this.applyPreset(kind),
+        quickStart: (kind) => void this.quickStart(kind),
+        toggleAssist: () => this.setAssist(!this.assist),
         rename: (name) => {
           this.blueprint.name = name.trim().slice(0, 48) || "나의 기계";
           this.commit(false);
@@ -433,6 +439,28 @@ export class MachineWorkshop {
     this.say("조종석만 남겼습니다. 여기서 다시 시작해 보세요.", "info");
   }
 
+  /** Skip the workbench entirely: load an example and drive it right away. */
+  private async quickStart(kind: PresetKind): Promise<void> {
+    if (this.physics || this.loading) return;
+    this.applyPreset(kind);
+    await this.runOrStop();
+  }
+
+  private setAssist(on: boolean): void {
+    this.assist = on;
+    try {
+      localStorage.setItem(ASSIST_KEY, on ? "1" : "0");
+    } catch {
+      /* storage unavailable */
+    }
+    this.toasts.show(
+      on ? "조작 보조 켜짐 · 저절로 수평을 잡아요" : "조작 보조 꺼짐 · 물리 그대로",
+      "good",
+      on ? "🛟" : "🎛️",
+    );
+    this.refresh();
+  }
+
   private applyPreset(kind: PresetKind): void {
     this.remember();
     this.blueprint = preset(kind);
@@ -521,7 +549,7 @@ export class MachineWorkshop {
     this.keys.add(event.code);
     if (event.repeat) return;
     const driving = !!this.physics;
-    if (event.ctrlKey || event.metaKey) {
+    if ((event.ctrlKey || event.metaKey) && !this.physics) {
       if (event.code === "KeyZ") {
         event.preventDefault();
         if (event.shiftKey) this.redo();
@@ -535,6 +563,10 @@ export class MachineWorkshop {
     if (event.code === "Enter") {
       event.preventDefault();
       void this.runOrStop();
+      return;
+    }
+    if (event.code === "KeyG") {
+      this.setAssist(!this.assist);
       return;
     }
     if (driving) {
@@ -652,6 +684,7 @@ export class MachineWorkshop {
       direction: this.direction,
       mirror: this.mirror,
       erase: this.erase,
+      assist: this.assist,
       canUndo: this.undoStack.length > 0,
       canRedo: this.redoStack.length > 0,
       running: !!this.physics,
@@ -671,10 +704,9 @@ export class MachineWorkshop {
     const error = blueprintError(this.blueprint);
     if (error) return error;
     if (this.saveFailed) return "설계도 저장에 실패했습니다.";
-    return (
-      this.message ||
-      "설계도는 자동 저장됩니다. 시험 운전을 마치면 원래 조립 상태로 돌아와요."
-    );
+    // Nothing to report is its own answer: the hint block collapses rather
+    // than holding 50px of panel open to repeat itself.
+    return this.message;
   }
   private statusTone(): MessageTone {
     if (this.assetFailure || blueprintError(this.blueprint) || this.saveFailed)
@@ -838,11 +870,17 @@ export class MachineWorkshop {
     const axis = (a: string, b: string) =>
       Number(this.keys.has(a)) - Number(this.keys.has(b));
     try {
+      // With assist on, Space/Ctrl are a climb REQUEST that the autopilot
+      // turns into thruster throttle; with it off they are the raw lift input,
+      // so switching assist off leaves the original model exactly as it was.
+      const climb = axis("Space", "ControlLeft") || -Number(this.keys.has("ControlRight"));
       this.physics.step({
         ...IDLE_INPUT,
         throttle: axis("KeyW", "KeyS"),
         steer: axis("KeyA", "KeyD"),
-        lift: Number(this.keys.has("Space")),
+        lift: this.assist ? 0 : Number(this.keys.has("Space")),
+        vertical: this.assist ? climb : 0,
+        assist: this.assist,
         boost: this.keys.has("ShiftLeft") || this.keys.has("ShiftRight"),
         brake: this.keys.has("KeyX"),
         pitch: axis("ArrowUp", "ArrowDown"),
@@ -925,7 +963,10 @@ export class MachineWorkshop {
       );
     });
     this.visual.flushWheels();
-    const lift = Number(this.keys.has("Space"));
+    const lift = Math.max(
+      Number(this.keys.has("Space")),
+      physics.snapshot().hoverThrottle,
+    );
     const boost = this.keys.has("ShiftLeft") || this.keys.has("ShiftRight");
     this.visual.thrust(lift, boost, performance.now() / 1000);
 
@@ -949,6 +990,9 @@ export class MachineWorkshop {
       lift,
       boost,
       camera: this.camera3rd,
+      assist: this.assist,
+      canHover: state.canHover,
+      hasWings: this.blueprint.parts.some((p) => p.kind === "wing"),
     });
     if (this.run) {
       const progress = this.run.progress();
@@ -1076,6 +1120,7 @@ export class MachineWorkshop {
       science: this.science?.snapshot() ?? null,
       mirror: this.mirror,
       erase: this.erase,
+      assist: this.assist,
       selected: this.selected,
       direction: this.direction,
       camera: this.camera3rd,

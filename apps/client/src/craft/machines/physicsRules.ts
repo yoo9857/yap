@@ -22,6 +22,28 @@ export const PHYSICS_RULES = Object.freeze({
   gyroDamping: 35,
 });
 
+/**
+ * Pilot assist. Not physics: a beginner autopilot that drives the machine's
+ * OWN gyro and lift thrusters, never an invented force. It can therefore only
+ * do what the build can already do - a craft whose thrust cannot carry its
+ * weight still sinks with assist on, and a craft with no gyro cannot level
+ * itself. Turning it off leaves the raw model untouched.
+ */
+export const ASSIST = Object.freeze({
+  /** Torque toward level, per unit of sin(tilt). */
+  levelTorque: 900,
+  /** Extra damping on the tilt axes while levelling. */
+  levelDamping: 200,
+  /** Tilt beyond this (rad) is treated as deliberate and left alone. */
+  levelLimit: 1.45,
+  /** Lift-thruster throttle per m/s of unwanted vertical speed. */
+  hoverGain: 0.5,
+  /** Target climb rate while the descend key is held, m/s. */
+  descendRate: -4,
+  /** Target climb rate while the climb key is held, m/s. */
+  climbRate: 6,
+});
+
 export type MachineFaultCode =
   | "INVALID_BLUEPRINT"
   | "INVALID_INPUT"
