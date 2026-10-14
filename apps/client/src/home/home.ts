@@ -1,0 +1,25 @@
+/** CraftYap editorial landing page. Games remain available from /?play=1. */
+export function showHome(parent: HTMLElement): void {
+  const el = document.createElement("main");
+  el.className = "home-page";
+  el.innerHTML = `
+    <header class="blog-header"><div class="blog-header-inner"><a class="home-brand" href="/">CraftYap</a><nav><a href="#latest">Latest</a><a href="#side-hustles">Side Hustles</a><a href="#ai-income">AI & Tech</a><a href="#creator-money">Creator Economy</a></nav><button class="blog-search" aria-label="Search">⌕</button></div></header>
+    <main class="blog-main"><div class="blog-kicker">THE PRACTICAL KNOWLEDGE DESK</div><h1 class="blog-title">Make money online.<br><i>Understand how.</i></h1><p class="blog-intro">Clear explainers, honest experiments, and step-by-step playbooks for building income in 2026.</p>
+      <section class="featured-post"><div class="featured-image">AI<span>$1K</span><small>CASE STUDY</small></div><div><p class="post-type">FIELD NOTE · 10 MIN READ</p><h2>One-person AI Automation Service: The Road to a First $1,000</h2><p>We follow one beginner who packages a simple workflow for local businesses. The numbers are an illustrative model—not a promise—so you can see the offer, outreach, delivery, and break-even math clearly.</p><a class="read-link" href="/?article=ai-automation">Read the case study →</a></div></section>
+      <section class="case-study" id="case-study"><div><p class="post-type">THE CASE, IN NUMBERS</p><h2>From one useful workflow to four clients</h2><p>Offer: automate appointment follow-ups for independent salons. Setup price: $250. Monthly support: $49. The beginner’s target is four setup clients—not “passive income.”</p></div><ol><li><b>Week 1</b><span>Interview 5 owners and document one repetitive task.</span></li><li><b>Week 2</b><span>Build a no-code demo and send 30 specific outreaches.</span></li><li><b>Week 3</b><span>Close the first paid pilot; improve the workflow from feedback.</span></li><li><b>Week 4</b><span>Deliver, collect a testimonial, and repeat the same offer.</span></li></ol></section>
+      <div class="blog-layout"><section id="latest"><div class="section-heading"><h2>Latest explainers</h2><a href="#latest">View all →</a></div><div class="post-list"><article><div class="post-thumb thumb-green">AI</div><div><p class="post-type">AI INCOME</p><h3>How to Make Money with AI: A Beginner's Map</h3><p>Five practical business models, from automation services to digital products.</p><a class="read-link" href="#case-study">Read this guide →</a><small>8 min read · Aug 2026</small></div></article><article><div class="post-thumb thumb-orange">2026</div><div><p class="post-type">SIDE HUSTLES</p><h3>Best Side Hustles in 2026, Ranked by Time and Cost</h3><p>A realistic comparison for your first $100 online.</p><a class="read-link" href="#case-study">Read this guide →</a><small>11 min read · Aug 2026</small></div></article><article><div class="post-thumb thumb-blue">▶</div><div><p class="post-type">CREATOR MONEY</p><h3>Faceless YouTube Channels: The Complete Starter Guide</h3><p>Pick a niche, build a repeatable format, and understand monetization.</p><a class="read-link" href="#case-study">Read this guide →</a><small>9 min read · Jul 2026</small></div></article></div></section>
+      <aside class="blog-aside"><div class="aside-box"><h3>Explore by topic</h3><a id="side-hustles" href="#latest">How to make money online <b>→</b></a><a href="#case-study">Passive income ideas <b>→</b></a><a id="ai-income" href="#case-study">AI automation business <b>→</b></a><a id="creator-money" href="#latest">Affiliate marketing <b>→</b></a><a href="#latest">Digital products & Etsy <b>→</b></a></div><div class="aside-box popular"><h3>Most read this week</h3><p><b>01</b> How to monetize a blog</p><p><b>02</b> Print on demand for beginners</p><p><b>03</b> Substack income explained</p></div></aside></div>
+      <section class="blog-subscribe"><div><p class="post-type">THE WEEKLY BRIEF</p><h2>Useful ideas. Zero hype.</h2><p>One well-researched money playbook in your inbox every Friday.</p></div><form><input type="email" placeholder="you@example.com" aria-label="Email address" required><button type="submit">Subscribe</button></form></section>
+    </main><footer class="home-footer"><span>© 2026 CraftYap</span><span>Independent guides for building online income.</span><a href="/?play=1">Games →</a></footer>`;
+  el.querySelector("form")?.addEventListener("submit", (event) => { event.preventDefault(); const button = el.querySelector("form button"); if (button) button.textContent = "You're on the list ✓"; });
+  el.querySelectorAll<HTMLAnchorElement>('a[href^="#"]').forEach((link) => {
+    link.addEventListener("click", (event) => {
+      const id = link.getAttribute("href")?.slice(1);
+      const target = id ? el.querySelector(`#${CSS.escape(id)}`) : null;
+      if (!target) return;
+      event.preventDefault();
+      target.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  });
+  parent.replaceChildren(el);
+}

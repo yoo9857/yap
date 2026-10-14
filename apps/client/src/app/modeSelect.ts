@@ -22,7 +22,12 @@ export function selectMode(parent: HTMLElement): Promise<GameMode> {
     el.innerHTML = `
       <div class="screen-card">
         <img class="brand-logo" src="/craftyap-logo.png" alt="CraftYap" />
-        <p class="subtitle">Which game shall we play?</p>
+        <h1 class="creator-title">Build income. Work smarter.</h1>
+        <p class="subtitle">CraftYap breaks down practical online income ideas, side hustles, and AI tools into steps you can actually try.</p>
+        <div class="topic-pills" aria-label="CraftYap topics">
+          <span>Side Hustles 2026</span><span>Make Money Online</span><span>AI Income</span><span>Creator Monetization</span>
+        </div>
+        <p class="play-kicker">Take a quick break with a CraftYap game</p>
         <button class="mode-btn" data-mode="tower">
           <img class="mode-icon" src="/ui/icon-tower.png" alt="" />
           <span class="mode-text"><b>Daily Tower</b><small>A fresh multiplayer obby to climb every day</small></span>

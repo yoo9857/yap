@@ -5,6 +5,11 @@
  * on a fatal overlay with a retry button — a game never half-starts.
  */
 import { selectMode } from "./app/modeSelect.js";
+import { showHome } from "./home/home.js";
+import { showArticle } from "./home/article.js";
+import { showTeam } from "./home/team.js";
+import "./styles/tokens.css";
+import "./styles/editorial.css";
 
 const overlay = document.getElementById("boot-overlay");
 const messageEl = document.getElementById("boot-message");
@@ -88,7 +93,23 @@ async function boot(): Promise<void> {
   const mount = document.getElementById("app");
   if (!mount) throw new Error("missing #app mount point");
 
-  hideOverlay(); // the mode selector is instant — no spinner needed yet
+  hideOverlay();
+
+  // The editorial homepage is the default entry. Games stay available from
+  // /?play=1 (or a direct ?mode=... link) so the two experiences are cleanly separated.
+  const params = new URLSearchParams(location.search);
+  if (params.get("article") === "ai-automation") {
+    showArticle(mount);
+    return;
+  }
+  if (params.get("about") === "team") {
+    showTeam(mount);
+    return;
+  }
+  if (!params.get("mode") && params.get("play") !== "1") {
+    showHome(mount);
+    return;
+  }
 
   if (new URLSearchParams(location.search).get("preview") === "char") {
     const { bootCharPreview } = await import("./app/charPreview.js");
