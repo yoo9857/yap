@@ -943,3 +943,7 @@
     height: 21px;
   }
 }
+.mw-bar[hidden],
+.mw-gauge[hidden] {
+  display: none;
+}

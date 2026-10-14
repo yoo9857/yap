@@ -993,6 +993,9 @@ export class MachineWorkshop {
       assist: this.assist,
       canHover: state.canHover,
       hasWings: this.blueprint.parts.some((p) => p.kind === "wing"),
+      hasBoost: this.blueprint.parts.some(
+        (p) => p.kind === "thruster" && p.direction !== 0,
+      ),
     });
     if (this.run) {
       const progress = this.run.progress();

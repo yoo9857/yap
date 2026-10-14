@@ -529,9 +529,10 @@ export interface DriveReadout {
   boost: boolean;
   camera: CameraMode;
   assist: boolean;
-  /** Capability flags, so the HUD only teaches keys this machine responds to. */
+  /** Capability flags, so the HUD only shows gauges this machine can move. */
   canHover: boolean;
   hasWings: boolean;
+  hasBoost: boolean;
 }
 
 /** Bottom dial cluster + attitude ball + live mission list during a drive. */
@@ -552,9 +553,9 @@ export class DriveHud {
     this.element.hidden = true;
     this.element.innerHTML = `
       <div class="mw-card mw-bars">
-        <div class="mw-bar"><span>추진</span><div class="mw-track"><div class="mw-fill" data-id="throttle"></div></div></div>
-        <div class="mw-bar"><span>상승</span><div class="mw-track"><div class="mw-fill" data-id="lift"></div></div></div>
-        <div class="mw-bar"><span>부스터</span><div class="mw-track"><div class="mw-fill" data-id="boost"></div></div></div>
+        <div class="mw-bar" data-row="throttle"><span>추진</span><div class="mw-track"><div class="mw-fill" data-id="throttle"></div></div></div>
+        <div class="mw-bar" data-row="lift"><span>상승</span><div class="mw-track"><div class="mw-fill" data-id="lift"></div></div></div>
+        <div class="mw-bar" data-row="boost"><span>부스터</span><div class="mw-track"><div class="mw-fill" data-id="boost"></div></div></div>
       </div>
       <div class="mw-card mw-dial">
         <svg viewBox="0 0 144 86" aria-hidden="true">
@@ -569,7 +570,7 @@ export class DriveHud {
         <div class="mw-gauge"><b data-id="alt">0</b><span>고도 m</span></div>
         <div class="mw-gauge"><b data-id="pitchtext">0°</b><span>기울기</span></div>
         <div class="mw-gauge"><b data-id="camera">추적</b><span>시점 · C</span></div>
-        <div class="mw-gauge" style="grid-column:1/-1"><div class="mw-pips" data-id="pips"></div><span>바퀴 접지</span></div>
+        <div class="mw-gauge" data-row="grip" style="grid-column:1/-1"><div class="mw-pips" data-id="pips"></div><span>바퀴 접지</span></div>
       </div>
       <div class="mw-horizon"><i data-id="horizon"></i><u>✛</u></div>`;
     this.chips.className = "machine-ui machine-chips";
@@ -624,6 +625,11 @@ export class DriveHud {
       .join("  ·  ");
     if (hint !== this.lastHint) {
       this.lastHint = hint;
+      // A gauge a machine cannot move is noise, not information.
+      this.row("throttle", readout.wheels > 0);
+      this.row("lift", readout.canHover);
+      this.row("boost", readout.hasBoost);
+      this.row("grip", readout.wheels > 0);
       this.chips.querySelector('[data-id="hint"]')!.textContent = hint;
       const chip = this.chips.querySelector('[data-id="assistchip"]')!;
       chip.textContent = readout.assist
@@ -658,6 +664,11 @@ export class DriveHud {
         `[data-live-value="${mission.id}"]`,
       )!.textContent = done ? "완료" : `${Math.round(ratio * 100)}%`;
     }
+  }
+
+  private row(name: string, shown: boolean): void {
+    const node = this.element.querySelector<HTMLElement>(`[data-row="${name}"]`);
+    if (node) node.hidden = !shown;
   }
 
   private bar(id: string, ratio: number): void {
