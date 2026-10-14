@@ -27,17 +27,38 @@ jobs:
   deploy:
     needs: test
     runs-on: ubuntu-latest
-    # Requires two repository secrets (Settings → Secrets and variables →
+    # Requires one repository secret (Settings → Secrets and variables →
     # Actions).  Same server/key family as poke:
-    #   DEPLOY_SSH_KEY     — private key authorized for root@172.236.235.9
-    #   DEPLOY_KNOWN_HOSTS — output of: ssh-keyscan -t ed25519,rsa 172.236.235.9
+    #   DEPLOY_SSH_KEY - private key authorized for root@172.236.235.9
+    #   (the matching server-side entry is labelled github-actions-deploy)
     steps:
       - name: Set up SSH
         run: |
           mkdir -p ~/.ssh
           printf '%s\n' "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
-          printf '%s\n' "${{ secrets.DEPLOY_KNOWN_HOSTS }}" > ~/.ssh/known_hosts
+          # Host keys are PUBLIC - publishing them is exactly what an SSHFP DNS
+          # record does - so they are pinned here instead of held in a secret.
+          # They used to come from DEPLOY_KNOWN_HOSTS, and once that secret went
+          # stale every deploy died in well under a second inside host-key
+          # verification: before authentication, so the runner log showed nothing
+          # but a bare non-zero exit while the server logged only
+          # "Connection closed [preauth]".  Pinning keeps StrictHostKeyChecking=yes
+          # exactly as strict, and turns a server rebuild into a reviewable diff
+          # instead of a silent outage.
+          # Refresh with: ssh-keyscan -t ed25519,rsa 172.236.235.9
+          {
+            echo '172.236.235.9 ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIGFT3sc3gO8dHCXrlAr8CuIXBY9UIJQr3R29YP9/ZDmz'
+            echo '172.236.235.9 ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQCgrYv1+JUjY8tXBMXamowry33G3F1qgAZeQek2hVSfC7u4fe+LXv5CkN2FS/tGMw3YqFc/2ir1Hwvt3Srktf/lxY1dAi50+zIYgTpTtIWTIKxZuHl1OC9GeaF+atBlSO6f9g+IqF52TMJec6WvS1niqTskfwH1yTu+3TkfltPEg2dTeAbVTySPPS6dftvYmDBxDhpWVegaFtWgVbLE3Hq+bbdXTGvteY3MO+a/IebcS+ymUQ8lMcd/49zjC/nT6bqkEJ0io+9Pj9wu13/PC/nyydpDWViPIgG+7EWgFPaoyJhEE2qvMwRNLPJO6AWnu7WO/emTZ9c15A1DVJqHD5AzeMi34TNDSYLCnEmj7OkMPGDvce9NJ/DeawSCyuhEhGRfuC2wq4sbfmBYgKzbY1sHBXWzOxtINUJZOsI7PyCU2buup0+ajt/aw63C+PWjep8J4GKaRg8fE6NdlT2gvwoSUkcs8q72DvK1cbB6lKUtwfAi/wswYXvyoWIQ35pDaWU='
+          } > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
+
+      # Split out of the deploy itself so the log names the wall it hit: an
+      # unreachable host, a rejected key and a failed build are three very
+      # different problems that used to look identical from the runner.
+      - name: Check the server accepts the deploy key
+        run: |
+          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=yes -o ConnectTimeout=15 -o BatchMode=yes root@172.236.235.9 'echo "ssh ok: $(hostname)"'
 
       - name: Deploy on the server (build image, reload nginx, health-check)
         run: |
