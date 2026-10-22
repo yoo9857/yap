@@ -127,7 +127,10 @@ export class InkOutline {
   private width = 1;
   private height = 1;
 
-  constructor(renderer: THREE.WebGLRenderer, thickness = 1.6) {
+  /** Line weight in PIXELS. 1.6 read fine in a close-up and vanished at
+   *  gameplay distance, where the old world-space hull had been worth ~2.6px
+   *  on a character — which is the weight this art style expects. */
+  constructor(renderer: THREE.WebGLRenderer, thickness = 2.6) {
     const size = renderer.getDrawingBufferSize(new THREE.Vector2());
     this.width = Math.max(1, size.x);
     this.height = Math.max(1, size.y);
