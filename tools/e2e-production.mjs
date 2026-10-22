@@ -1,6 +1,7 @@
 // Production E2E: SERVE_STATIC single-port deploy — static client + same-origin
 // WS. No dev debug hooks here: interacts through the real DOM like a player.
 import { spawn } from "node:child_process";
+import { fileURLToPath } from "node:url";
 import puppeteer from "puppeteer-core";
 
 const EDGE = "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe";
@@ -13,7 +14,7 @@ const check = (name, ok, detail = "") => {
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 const server = spawn(process.execPath, ["apps/server/dist/index.js"], {
-  cwd: "C:/robo",
+  cwd: fileURLToPath(new URL("..", import.meta.url)), // repo root, wherever it lives
   env: { ...process.env, PORT: String(PORT), SERVE_STATIC: "1" },
   stdio: ["ignore", "pipe", "pipe"],
 });

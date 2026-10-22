@@ -4,6 +4,7 @@ import { WebSocketServer } from "ws";
 import { PROTOCOL_VERSION } from "@robo/shared";
 import { log } from "../log.js";
 import type { RoomManager } from "../game/roomManager.js";
+import type { ClassManager } from "../classroom/classManager.js";
 import { Session } from "./session.js";
 
 const HEARTBEAT_INTERVAL_MS = 10_000;
@@ -14,7 +15,7 @@ const HELLO_TIMEOUT_MS = 10_000;
  * protocol version), then hands them to the RoomManager. Dead sockets are
  * reaped by ws-level ping/pong.
  */
-export function attachWsServer(httpServer: HttpServer, rooms: RoomManager): () => void {
+export function attachWsServer(httpServer: HttpServer, rooms: RoomManager, classes: ClassManager): () => void {
   const wss = new WebSocketServer({
     server: httpServer,
     path: "/ws",
@@ -23,6 +24,11 @@ export function attachWsServer(httpServer: HttpServer, rooms: RoomManager): () =
   const sessions = new Set<Session>();
 
   wss.on("connection", (ws, req) => {
+    // the education classroom shares the endpoint, selected by query
+    if (new URL(req.url ?? "/", "http://x").searchParams.get("mode") === "class") {
+      classes.accept(ws, req.socket.remoteAddress ?? "?");
+      return;
+    }
     const session = new Session(randomUUID().slice(0, 8), ws, req.socket.remoteAddress ?? "?");
     sessions.add(session);
     log.info({ session: session.id, from: session.remoteAddress }, "connected");

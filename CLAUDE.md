@@ -4,11 +4,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-CraftYap — a Roblox-style blocky 3D web game collection (English UI, crayon-doodle brand), one page with four modes chosen at startup. Live at **https://craftyap.com** (GitHub `yoo9857/yap`).
+CraftYap — a Roblox-style blocky 3D web game collection (English UI, crayon-doodle brand), one page whose start screen first asks **교육 모드 (education) / 게임 모드 (games)**: education goes straight into the endless field, games lists the four modes below. Live at **https://craftyap.com** (GitHub `yoo9857/yap`).
 
 - **Daily Tower (tower)**: multiplayer obby. A new deterministic tower every day (KST midnight), client-authoritative movement with server sanity validation, persisted daily leaderboard.
 - **Robo Builder (builder)**: idle game. Blocky workers construct real-scale voxel world landmarks (Eiffel 330 m, pyramid 230 m base…); no physics, no server dependency, localStorage save with offline settlement.
 - **Craft Island (craft)**: single-player voxel sandbox (mine / craft / place). NO rapier — the voxel grid itself is the collider (`craft/voxelBody.ts` AABB sweeps, `voxelWorld.ts` DDA raycast). World regenerates from its seed; the save stores only the edit diff + inventory (zod-validated, hostile-safe). Desktop-only (pointer lock). Press **B** for the **machine lab** — a Besiege-style build-and-test-drive mode that *does* use rapier (see below).
+- **Education field (field)**: Craft Island's sandbox (and machine lab) on an endless, empty flat field with 999 of every hotbar block. `craft/fieldWorld.ts` scrolls the usual 160×160 grid under the player in 32-cell steps (= 2 render chunks), banking edits by absolute coordinate, and sets `VoxelWorld.outsideColumn` so physics, rays and machines have ground beyond the grid; a big grass plane carries the view to the fog and the sky is fog-coloured so the far-plane cut never shows. Own save key, separate from the island. `O` cycles the render distance (fog is opaque exactly where chunks stop drawing; a gradient `skyDome.ts` makes the horizon the fog colour).
+- **Classroom (education, live)**: the education lobby (`app/classLobby.ts`) offers 선생님 반 만들기 / 학생 반 참여하기 / 혼자 하기. A teacher opens a class under **their own name**; students type that teacher name + their own name and land in the same shared field. See *Classroom* below.
 - **Blast Royale (battle)**: arcade solo battle royale — you vs 7 bots (who also fight each other) on a random voxel island, hitscan blasters, 3-phase shrinking storm, last robot standing. Client-only (no server); reuses craft's world/physics/camera. Pure logic in `battle/{zone,combat,bots}.ts`; a 4 s weapons-free grace after the drop keeps spawns fair.
 
 ## Commands
@@ -35,6 +37,8 @@ node tools/e2e-multiplayer.mjs    # tower: two tabs, shared platform timeline, p
 node tools/e2e-robustness.mjs     # tower: cheat snapback/kick, server-restart reconnect, record persistence
 node tools/e2e-builder.mjs        # builder: economy, goals, offline settlement exact-match
 node tools/e2e-craft.mjs          # craft: island boot, mine/craft/place, physics, save round-trip
+node tools/e2e-field.mjs          # education: category screen, endless field, scrolling window keeps edits, save
+node tools/e2e-classroom.mjs      # classroom: teacher + 2 students in separate browsers — join/errors, shared building, late join, locks, chat, gather, kick, reconnect, end
 node tools/e2e-machines.mjs       # machine lab: build shortcuts, library/share, drive, cameras, flight, wings
 node tools/e2e-battle.mjs         # battle: bots live/roam, storm shrink, win & lose paths
 node tools/e2e-builder-vr.mjs     # builder VR: rig placement, comfort contract, teardown (needs no headset)
@@ -50,7 +54,7 @@ node tools/vr-tour.mjs <outdir> [i] [fraction]   # ...plus a self-contained HTML
 pnpm monorepo. `packages/shared` is consumed **as TypeScript source** (`"exports": "./src/index.ts"`) — no build step; Vite/tsx/vitest resolve it directly, and the production server bundles it via tsup `noExternal`. All packages are `noEmit` with `moduleResolution: bundler`. shared and server exclude the DOM lib so browser APIs there fail typecheck.
 
 - `packages/shared` — zod wire protocol (single discriminated union on `t`, `PROTOCOL_VERSION` gate), deterministic level generator (`generateLevel(seed)` — identical output on client and server), daily-tower math (`daily.ts`: seed = f(date in KST), day boundaries), gameplay constants ported from the legacy prototype at 40 px/m (`constants.ts` — these define game feel, don't tweak casually).
-- `apps/client/src/main.ts` — mode selector first; each mode lazy-loads. Rapier WASM (~2 MB) loads only for tower mode (craft/battle use the rapier-free voxel physics). `?mode=tower|builder|craft|battle` deep-links skip the selector (all E2E relies on this); `&reset=1` wipes a mode's localStorage save.
+- `apps/client/src/main.ts` — mode selector first; each mode lazy-loads. Rapier WASM (~2 MB) loads only for tower mode (craft/battle use the rapier-free voxel physics). `?mode=tower|builder|craft|battle|field` deep-links skip the selector (all E2E relies on this); `&reset=1` wipes a mode's localStorage save.
 - `apps/server` — `ws` + pino. `Room` per ≤8 players on today's seed; `game/validation.ts` is the pure anti-cheat (unit-tested); `game/records.ts` persists daily bests in SQLite (better-sqlite3, falls back to in-memory if the native module is broken).
 
 ### Tower mode invariants (the anti-jitter contract)
@@ -107,7 +111,15 @@ Mid-air stations get a railed platform, or height vertigo makes the view unwatch
 `craft/` is the base voxel world; `battle/` reuses its world/physics/camera/rig and adds combat. All pure and unit-tested:
 
 - `craft/voxelWorld.ts` — a `Uint8Array` grid (block ids, 0 = air), deterministic `generateIsland(seed)`, DDA `raycast`, and `stampCastle` (the central landmark, in both modes). `craft/voxelBody.ts` — AABB-vs-grid physics (axis-separated sweeps, bisected contact, NO auto-step: full-block ledges need a jump). `craft/blocks.ts` — data-driven block catalog (numeric ids persisted in saves — never reorder).
-- `craft/voxelView.ts` — the LEGO/toy-brick look: rounded-box instances **oversized slightly** so neighbours overlap (no rounded-edge grooves) + studs on top-exposed bricks (studs share the brick's material so the crayon texture continues onto it). Renders EXPOSED cells only; rebuilds on a dirty flag. Two things keep a 160×160 island affordable and must not be undone: instances are batched **per 32×32 chunk**, because one batch per block type spans the whole map and can never be frustum-culled (the GPU was drawing the far side of the world every frame); and **studs are only emitted within 46 m of the viewer**, since they were 41% of the island's triangles for caps a few pixels wide. Measured on the generated island: 14.25M → 6.3M triangles, worst frame 18.1 → 6.2 ms.
+- `craft/voxelView.ts` — the LEGO/toy-brick look: rounded-box instances **oversized slightly** so neighbours overlap (no rounded-edge grooves) + studs on top-exposed bricks (studs share the brick's material so the crayon texture continues onto it). Renders EXPOSED cells only, in **16×16 chunks**, Minecraft-style. Load-bearing rules, don't undo them:
+  - **Edits rebuild one chunk** (`markCellDirty`, plus the neighbour on a border) — a full-world `markDirty` rescan was 33–67 ms per placed block.
+  - **LOD by chunk distance (altitude included)**: within ~22 m of the focus a chunk is instanced 108-tri LEGO bricks; beyond it collapses into ONE face-culled merged mesh (2 tris per visible face, round/slope bricks baked in). Both forms are cached so a LOD flip is a visibility swap.
+  - **Rebuilds go through a nearest-first queue with a 4 ms/frame budget** (the very first fill is synchronous so nothing appears half-built).
+  - **Focus = the robot or the driven machine, never the camera**: the orbit camera swings metres when turned, which re-rang studs/LOD every frame.
+  - Studs only within 32 m (3D) and they cast no shadows (they were 41% of the island's triangles and doubled the shadow pass).
+  - Field scrolling calls `shift(dx, dz)`: chunks still in the window are slid, only the new strip is built.
+  - Measured on the island at ground level: 3.7M → 1.6M triangles; field from the air 85k.
+- Saves only serialise when something changed (`VoxelWorld.version` + position/inventory signature) and the island's pristine cells are cached per seed — the 5 s autosave used to regenerate the whole island, a hitch every few seconds.
 - `battle/{zone,combat,bots}.ts` — shrinking storm (pure time fn), hitscan ray-vs-AABB, bot FSM (rng injected for deterministic tests). Bots and the player obey the same `resolveShot`. Void falls kill (bots too, or the match never ends).
 
 #### Machine lab (`craft/machines/`) — build, test drive, missions
@@ -124,6 +136,19 @@ Craft's one rapier user: a connected blueprint becomes **one compound rigid body
 - Leaving the test bounds **respawns** rather than kicking the player back to the editor; only a non-finite state aborts the run.
 - **Pilot assist is an autopilot, not physics** (`ASSIST` in `physicsRules.ts`, `G` to toggle, on by default). It drives the machine's *own* gyro torque and lift-thruster throttle and invents no force, so a build that cannot carry its weight still sinks and a build with no gyro cannot level itself. With assist off, `lift` takes the original raw path — the model this doc describes is exactly what you get. Keep that separation: tuning difficulty must never land in `PHYSICS_RULES`.
 - The panel's **quick-play** buttons load an example *and start the test drive*, because the first thing a new player needs is to feel the thing move, not to learn a part palette.
+
+### Classroom (`packages/shared/src/protocol/classroom.ts`, `apps/server/src/classroom/`, client `net/classClient.ts` + `craft/class{Sync,Hud}.ts`)
+
+Live multiplayer for the education field, deliberately separate from the tower protocol (own `k-`/`s-k-` messages and `CLASS_PROTOCOL_VERSION`); it rides the same `/ws` endpoint, selected by `?mode=class`, so nginx/vite need nothing new.
+
+- **Rooms are keyed by the teacher's name**, matched case/space-insensitively (`classKey`). A second teacher with the same name gets `teacher-taken`; a student name already online gets `name-taken`; nobody may use the teacher's name as a student.
+- **Keys, not accounts.** The welcome hands out a key (teacher: host key, student: seat key) kept in localStorage per class. A refresh/reconnect re-takes the same seat; the teacher seat is only re-taken with its host key, so typing a teacher's name never grants teacher powers.
+- **Everything on the wire is in ABSOLUTE field coordinates.** Each client scrolls its own voxel window, so grid coords differ per machine; `ClassSync` is the only place that converts.
+- The server keeps the shared field as an edit diff vs the flat field (bedrock immutable, 300k-cell cap) and sends it to late joiners in batches; `ClassClient.connect()` resolves only once the whole field has arrived. On reconnect the server's field replaces the local one (edits made while offline never landed).
+- Teacher-only actions (`k-kick`, `k-gather`, `k-settings` build/chat locks, `k-end`) are role-checked server-side; a refused student edit comes back as `s-k-reject` and is rolled back from the client's pending-prev map.
+- `ClassRoom` is socket-free (talks to a `ClassPeer`) so its rules are unit-tested in `apps/server/test/classroom.test.ts`.
+- **Classes are saved** (`classStore.ts`, table `classes` in the SAME `records.db`, so the bind-mount and the daily backup already cover it): field edits, settings, teacher key and every student's name + seat key. Written every 15 s when dirty, on 수업 종료, on idle collection (30 min empty) and on shutdown; classes untouched for 180 days are purged at boot. Re-opening a saved class needs the host key (same browser) **or the class password** (any PC) — a new class can't be opened without a ≥4-char password, stored only as scrypt hash + salt. Students can only join a class the teacher has opened. `k-reset-world` (🧹 들판 비우기) wipes the saved field.
+- Deep links for testing: `?mode=field&host=<teacher>&pass=<password>` and `?mode=field&teacher=<t>&student=<s>`. Debug hooks: `__roboCraft.classroom()`, `classSend(msg)`, `absolute()`. E2E runs each participant in its own browser (background tabs pause rAF, which is the game loop).
 
 ### Client rendering & assets
 

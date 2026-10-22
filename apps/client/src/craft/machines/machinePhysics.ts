@@ -164,7 +164,7 @@ export class MachinePhysics {
     const needed = new Set<string>();
     for (let z = cz - 1; z <= cz + 1; z++)
       for (let x = cx - 1; x <= cx + 1; x++) {
-        if (x < 0 || z < 0 || x * 16 >= WORLD_X || z * 16 >= WORLD_Z) continue;
+        if (!this.voxels.outsideColumn && (x < 0 || z < 0 || x * 16 >= WORLD_X || z * 16 >= WORLD_Z)) continue;
         const key = `${x},${z}`;
         needed.add(key);
         if (this.terrain.has(key)) continue;
@@ -421,7 +421,7 @@ export class MachinePhysics {
   private groundHeight(x: number, z: number): number {
     const ix = Math.floor(x),
       iz = Math.floor(z);
-    if (ix < 0 || iz < 0 || ix >= WORLD_X || iz >= WORLD_Z) return 0;
+    if (!this.voxels.outsideColumn && (ix < 0 || iz < 0 || ix >= WORLD_X || iz >= WORLD_Z)) return 0;
     return surfaceY(this.voxels, ix, iz) + 1;
   }
 

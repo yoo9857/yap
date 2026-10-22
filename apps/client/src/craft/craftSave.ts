@@ -53,17 +53,32 @@ export function freshState(seed: number): CraftGameState {
   };
 }
 
-export function serializeCraft(state: CraftGameState, nowMs: number): string {
-  const pristine = generateIsland(state.seed);
+/** Generating the island (castle, town, ores) is costly; the autosave used to
+ *  redo it every 5 s just to diff against. Keep the pristine cells per seed. */
+const pristineCells = new Map<number, Uint8Array>();
+/** Last diff per world, reused while the world's version hasn't moved. */
+const diffCache = new WeakMap<VoxelWorld, { version: number; edits: [number, number][]; shapes: [number, number][] }>();
+
+function diffWorld(state: CraftGameState): { edits: [number, number][]; shapes: [number, number][] } {
+  const cached = diffCache.get(state.world);
+  if (cached && cached.version === state.world.version) return cached;
+  let pristine = pristineCells.get(state.seed);
+  if (!pristine) pristineCells.set(state.seed, (pristine = generateIsland(state.seed).cells));
   const edits: [number, number][] = [];
   const shapes: [number, number][] = [];
-  for (let i = 0; i < state.world.cells.length; i++) {
-    if (state.world.cells[i] !== pristine.cells[i]) {
-      edits.push([i, state.world.cells[i]!]);
-    }
+  const { cells } = state.world;
+  for (let i = 0; i < cells.length; i++) {
+    if (cells[i] !== pristine[i]) edits.push([i, cells[i]!]);
     // pristine terrain is all cubes, so any non-zero shape is a player brick
     if (state.world.shapes[i] !== 0) shapes.push([i, state.world.shapes[i]!]);
   }
+  const diff = { version: state.world.version, edits, shapes };
+  diffCache.set(state.world, diff);
+  return diff;
+}
+
+export function serializeCraft(state: CraftGameState, nowMs: number): string {
+  const { edits, shapes } = diffWorld(state);
   return JSON.stringify({
     v: 3,
     seed: state.seed,

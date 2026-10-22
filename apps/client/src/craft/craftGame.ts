@@ -6,7 +6,8 @@ import { CharacterRig, disposeRig } from "../player/rig.js";
 import { Sfx } from "../audio/sfx.js";
 import { Bgm, BGM_PLAYLIST } from "../audio/bgm.js";
 import { PerfMonitor } from "../ui/perf.js";
-import { AIR, blockById, blockByKey, dropOf } from "./blocks.js";
+import { AIR, blockById, blockByKey, dropOf, textureUrl } from "./blocks.js";
+import { loadTexture } from "../render/textures.js";
 import {
   CRAFT_RECIPES,
   HOTBAR,
@@ -16,7 +17,11 @@ import {
   removeItem,
   type CraftRecipe,
 } from "./inventory.js";
-import { clearCraftSave, loadCraft, saveCraft } from "./craftSave.js";
+import { clearCraftSave, loadCraft, saveCraft, type CraftGameState } from "./craftSave.js";
+import { FIELD_MAX_VIEW, FIELD_TOP, FieldWindow, clearFieldSave, fieldStarterInventory } from "./fieldWorld.js";
+import { SkyDome } from "./skyDome.js";
+import { ClassSync } from "./classSync.js";
+import type { ClassClient, ClassSession } from "../net/classClient.js";
 import { stepBody, overlapsVoxel, unstick, wishFromInput, type Body } from "./voxelBody.js";
 import { CRAFT_SPAWN, surfaceY } from "./voxelWorld.js";
 import { PIECES, pieceCells } from "./pieces.js";
@@ -36,6 +41,15 @@ const DEFAULT_SEED = 20260718;
 const SAVE_INTERVAL_MS = 5000;
 const REACH = 6;
 const EYE_HEIGHT = 1.55;
+/** Horizon colour: fog and the sky dome's lower band share it. */
+const FOG_COLOR = 0x9fd8f5;
+const SKY_TOP = 0x6fbfee;
+/** Render distance presets (metres), cycled with O. The island is 160 m
+ *  across, so its far preset shows nearly all of it; the field's window can
+ *  only back FIELD_MAX_VIEW. */
+const VIEW_PRESETS = { island: [56, 88, 130], field: [40, 56, FIELD_MAX_VIEW] } as const;
+const VIEW_NAMES = ["Short", "Normal", "Far"];
+const VIEW_KEY = "craftyap-view-distance";
 
 /**
  * Craft mode — a small voxel island you actually PLAY: mine blocks, craft
@@ -53,7 +67,10 @@ export class CraftGame {
   private readonly rig = new CharacterRig();
   private readonly loop: GameLoop;
   private readonly workshop: MachineWorkshop;
-  private readonly state;
+  private readonly state: CraftGameState;
+  /** Education mode's endless flat field; null on the island. */
+  private readonly field: FieldWindow | null;
+  private fieldGround: THREE.Mesh | null = null;
   private readonly body: Body;
 
   // The outer-south spawn looks north toward the academy on first load.
@@ -85,20 +102,70 @@ export class CraftGame {
   private lastSaveAt = 0;
   private aim: { voxel: [number, number, number]; before: [number, number, number] } | null = null;
 
-  constructor(mount: HTMLElement) {
+  constructor(
+    mount: HTMLElement,
+    opts: { field?: boolean; classroom?: { client: ClassClient; session: ClassSession } } = {},
+  ) {
     this.renderer = new GameRenderer(mount);
-    this.renderer.scene.fog = new THREE.Fog(0x9fd8f5, 95, 245);
+    this.renderer.scene.fog = new THREE.Fog(FOG_COLOR, 95, 245);
+    this.sky = new SkyDome(this.renderer.scene, SKY_TOP, FOG_COLOR);
     this.camera = new CraftCamera(this.renderer.camera);
     this.view = new VoxelView(this.renderer.scene);
     this.hud = new CraftHud(document.body, (recipe) => this.handleCraft(recipe));
 
-    if (new URLSearchParams(location.search).has("reset")) clearCraftSave(localStorage);
-    this.state = loadCraft(localStorage, DEFAULT_SEED);
+    const reset = new URLSearchParams(location.search).has("reset");
+    if (opts.classroom) {
+      // a class field belongs to the server: no local save is read or written
+      this.field = new FieldWindow();
+      const spawn = this.field.spawn;
+      this.state = {
+        seed: 0,
+        world: this.field.world,
+        inventory: fieldStarterInventory(),
+        // spread arrivals out so a whole class doesn't land in one cell
+        player: { x: spawn.x + (Math.random() - 0.5) * 8, y: spawn.y, z: spawn.z + (Math.random() - 0.5) * 8 },
+      };
+      this.buildFieldGround();
+    } else if (opts.field) {
+      if (reset) clearFieldSave(localStorage);
+      this.field = new FieldWindow();
+      const saved = this.field.load(localStorage);
+      this.state = {
+        seed: 0,
+        world: this.field.world,
+        inventory: saved?.inventory ?? fieldStarterInventory(),
+        player: saved?.player ?? this.field.spawn,
+      };
+      this.buildFieldGround();
+    } else {
+      if (reset) clearCraftSave(localStorage);
+      this.field = null;
+      this.state = loadCraft(localStorage, DEFAULT_SEED);
+    }
     this.body = { ...this.state.player, vx: 0, vy: 0, vz: 0, grounded: false };
     unstick(this.state.world, this.body); // never spawn embedded in a block
     this.renderer.scene.add(this.rig.root);
     this.view.markDirty();
+    this.applyViewDistance(this.loadViewPreset());
     this.buildGhost();
+    if (opts.classroom && this.field) {
+      this.sync = new ClassSync(opts.classroom.client, opts.classroom.session, this.field, this.view,
+        this.renderer.scene, {
+          teleport: (x, y, z) => {
+            this.body.x = x;
+            this.body.y = y;
+            this.body.z = z;
+            this.body.vx = this.body.vy = this.body.vz = 0;
+            unstick(this.state.world, this.body);
+          },
+          toast: (text) => this.hud.toast(text),
+          clearKeys: () => {
+            this.keys.clear();
+            this.mining = this.placing = false;
+          },
+        });
+      this.view.markDirty(); // the class's field replaced the empty one
+    }
 
     this.workshop = new MachineWorkshop(this.renderer.scene, this.renderer.camera,
       this.renderer.renderer.domElement, this.state.world, (active) => {
@@ -133,6 +200,15 @@ export class CraftGame {
     this.persist();
     this.workshop.dispose();
     this.view.dispose();
+    this.sky.dispose();
+    this.sync?.dispose();
+    if (this.fieldGround) {
+      this.renderer.scene.remove(this.fieldGround);
+      this.fieldGround.geometry.dispose();
+      const material = this.fieldGround.material as THREE.MeshStandardMaterial;
+      material.map?.dispose();
+      material.dispose();
+    }
     disposeRig(this.rig.root);
     this.bgm.dispose();
     this.renderer.dispose();
@@ -189,6 +265,16 @@ export class CraftGame {
         if (this.hud.recipesOpen) document.exitPointerLock();
       }
       if (key === "v") this.camera.toggleView();
+      if (key === "o") {
+        const next = (this.viewPreset + 1) % VIEW_NAMES.length;
+        this.applyViewDistance(next);
+        try {
+          localStorage.setItem(VIEW_KEY, String(next));
+        } catch {
+          /* remembered for this session only */
+        }
+        this.hud.toast(`👁️ View distance: ${VIEW_NAMES[next]} (${this.viewPresets[next]} m)`);
+      }
       if (key === "r") this.pieceRot = (this.pieceRot + 1) % 4; // spin (yaw)
       if (key === "t") this.pieceTilt = (this.pieceTilt + 1) % 4; // tip sideways (tilt)
       if (key === "f") {
@@ -204,6 +290,10 @@ export class CraftGame {
   // ---------------------------------------------------------------- sim
 
   private fixedUpdate(): void {
+    if (this.sync) {
+      const planar = Math.hypot(this.body.vx, this.body.vz);
+      this.sync.tick(1 / 60, this.body, this.yaw, !this.body.grounded ? "jump" : planar > 0.5 ? "run" : "idle");
+    }
     if (this.workshop.active) { this.workshop.fixedUpdate(); return; }
     const dt = 1 / 60;
     let fwd = 0;
@@ -222,11 +312,24 @@ export class CraftGame {
       this.camera.addShake(Math.min(0.11, -this.prevVy * 0.006));
     }
 
+    // walked far across the field → scroll the voxel window under the player
+    if (this.field) {
+      const shift = this.field.recenter(this.body);
+      if (shift) {
+        this.body.x -= shift.dx;
+        this.body.z -= shift.dz;
+        this.miningTarget = null;
+        this.miningProgress = 0;
+        this.view.shift(shift.dx, shift.dz);
+      }
+    }
+
     // fell off the island → respawn on the open grass south of the castle
     // (never the castle centre), lifted clear of any block
     if (this.body.y < -12) {
-      this.body.x = CRAFT_SPAWN.x;
-      this.body.z = CRAFT_SPAWN.z;
+      const spawn = this.field?.spawn ?? CRAFT_SPAWN;
+      this.body.x = spawn.x;
+      this.body.z = spawn.z;
       this.body.y = surfaceY(this.state.world, Math.floor(this.body.x), Math.floor(this.body.z)) + 1;
       this.body.vx = this.body.vz = this.body.vy = 0;
       unstick(this.state.world, this.body);
@@ -265,8 +368,8 @@ export class CraftGame {
     }
     const [x, y, z] = this.aim.voxel;
     const def = blockById(this.state.world.get(x, y, z));
-    if (!def || def.hardness <= 0) {
-      this.miningFrac = null; // bedrock: unbreakable
+    if (!def || def.hardness <= 0 || !this.canBuild()) {
+      this.miningFrac = null; // bedrock: unbreakable (or the teacher locked building)
       return;
     }
     const t = this.miningTarget;
@@ -277,9 +380,8 @@ export class CraftGame {
     this.miningProgress += dt;
     this.miningFrac = this.miningProgress / def.hardness;
     if (this.miningProgress >= def.hardness) {
-      this.state.world.set(x, y, z, AIR);
+      this.writeCell(x, y, z, AIR, 0);
       addItem(this.state.inventory, dropOf(def));
-      this.view.markDirty();
       this.miningTarget = null;
       this.miningProgress = 0;
       this.miningFrac = null;
@@ -295,6 +397,10 @@ export class CraftGame {
    */
   private tryPlace(): void {
     if (!this.aim) return;
+    if (!this.canBuild()) {
+      this.hud.toast("🧱 지금은 건축이 잠겨 있어요");
+      return;
+    }
     if (this.stampPiece(this.aim.before, HOTBAR[this.selected]!)) this.sfx.play("land");
   }
 
@@ -323,10 +429,23 @@ export class CraftGame {
     const id = blockByKey(key)!.id;
     for (const [x, y, z] of targets) {
       removeItem(this.state.inventory, key);
-      this.state.world.setShaped(x, y, z, id, shape);
+      this.writeCell(x, y, z, id, shape);
     }
-    this.view.markDirty();
     return true;
+  }
+
+  /** Every local block write: world, renderer and (in a class) the network. */
+  private writeCell(x: number, y: number, z: number, block: number, shape: number): void {
+    const world = this.state.world;
+    const prevBlock = world.get(x, y, z);
+    const prevShape = world.getShape(x, y, z);
+    world.setShaped(x, y, z, block, shape);
+    this.view.markCellDirty(x, y, z);
+    this.sync?.recordEdit(x, y, z, prevBlock, prevShape, block, shape);
+  }
+
+  private canBuild(): boolean {
+    return this.sync ? this.sync.canBuild() : true;
   }
 
   // ---------------------------------------------------------------- ghost
@@ -392,10 +511,18 @@ export class CraftGame {
     this.hud.toast(`🛠️ Crafted ${recipe.name}!`);
   }
 
+  private lastSaveSignature = "";
   private persist(): void {
     this.lastSaveAt = Date.now();
+    if (this.sync) return; // the class's field lives on the server
+    // standing still with no edits: nothing to write, skip the serialise +
+    // synchronous localStorage write entirely
+    const signature = `${this.state.world.version}|${Math.round(this.body.x * 2)},${Math.round(this.body.y * 2)},${Math.round(this.body.z * 2)}|${JSON.stringify(this.state.inventory)}`;
+    if (signature === this.lastSaveSignature) return;
+    this.lastSaveSignature = signature;
     this.state.player = { x: this.body.x, y: this.body.y, z: this.body.z };
-    saveCraft(this.state, localStorage, Date.now());
+    if (this.field) this.field.save(localStorage, this.state.inventory, this.state.player);
+    else saveCraft(this.state, localStorage, Date.now());
   }
 
   /**
@@ -439,16 +566,52 @@ export class CraftGame {
     return this.smoothEyeY;
   }
 
+  /**
+   * A huge grass plane just under the field's top layer. The voxel window ends
+   * 64+ cells from the player; past that this plane carries the ground out to
+   * the fog so the field reads as endless.
+   */
+  private buildFieldGround(): void {
+    const size = 1024;
+    const material = new THREE.MeshStandardMaterial({ color: 0x5cbe4a, roughness: 0.75, metalness: 0.05 });
+    const geometry = new THREE.PlaneGeometry(size, size);
+    geometry.rotateX(-Math.PI / 2);
+    const ground = new THREE.Mesh(geometry, material);
+    ground.receiveShadow = true;
+    this.renderer.scene.add(ground);
+    this.fieldGround = ground;
+    void loadTexture(textureUrl(blockByKey("grass")!)).then((tex) => {
+      if (!tex) return;
+      const tiled = tex.clone();
+      tiled.wrapS = tiled.wrapT = THREE.RepeatWrapping;
+      tiled.repeat.set(size, size);
+      tiled.needsUpdate = true;
+      material.map = tiled;
+      material.color.set(0xffffff);
+      material.needsUpdate = true;
+    });
+  }
+
   // ---------------------------------------------------------------- render
 
   private render(frameDt: number): void {
-    this.view.update(this.state.world, this.tmpEye.set(this.body.x, this.body.y, this.body.z));
+    this.sky.update(this.renderer.camera);
+    this.sync?.render(frameDt);
+    // integer steps keep the 1 m texture tiles aligned with the voxel grid
+    this.fieldGround?.position.set(Math.round(this.body.x), FIELD_TOP + 1 - 0.03, Math.round(this.body.z));
+    // Detail (rounded bricks, studs) follows what you're looking AT — the
+    // robot, or the machine being driven/flown. Not the orbiting camera:
+    // turning the view would swing it metres around and re-ring every frame.
+    if (!this.workshop.active) this.detailFocus.set(this.body.x, this.body.y + EYE_HEIGHT, this.body.z);
+    this.view.update(this.state.world, this.detailFocus);
     if (this.workshop.active) {
       this.rig.root.visible = false;
       this.ghost.visible = false;
       this.view.setHighlight(null);
       if (this.workshop.scienceActive) { this.workshop.renderScience(frameDt); return; }
-      this.renderer.trackTarget(this.workshop.render(frameDt));
+      const target = this.workshop.render(frameDt);
+      this.detailFocus.copy(target);
+      this.renderer.trackTarget(target);
       this.renderer.render();
       this.perf.update(this.renderer.renderer, frameDt);
       return;
@@ -483,6 +646,40 @@ export class CraftGame {
   }
 
   private readonly tmpEye = new THREE.Vector3();
+  private readonly sky: SkyDome;
+  /** Live classroom link (education mode with a teacher); null when solo. */
+  private readonly sync: ClassSync | null = null;
+  private viewPreset = 1;
+
+  private get viewPresets(): readonly number[] {
+    return this.field ? VIEW_PRESETS.field : VIEW_PRESETS.island;
+  }
+
+  private loadViewPreset(): number {
+    try {
+      const raw = localStorage.getItem(VIEW_KEY);
+      const n = raw === null ? NaN : Number(raw); // Number(null) is 0, not "unset"
+      if (Number.isInteger(n) && n >= 0 && n < VIEW_NAMES.length) return n;
+    } catch {
+      /* default */
+    }
+    return 1;
+  }
+
+  /**
+   * Minecraft-style render distance: fog thickens from ~45% of the distance
+   * and is opaque exactly where chunks stop being drawn, so far terrain fades
+   * into the horizon instead of popping at the cut.
+   */
+  private applyViewDistance(preset: number): void {
+    this.viewPreset = preset;
+    const metres = this.viewPresets[preset]!;
+    const fog = this.renderer.scene.fog as THREE.Fog;
+    fog.near = metres * 0.45;
+    fog.far = metres;
+    this.view.setRenderDistance(metres + 8);
+  }
+  private readonly detailFocus = new THREE.Vector3();
 
   // ---------------------------------------------------------------- debug
 
@@ -506,16 +703,14 @@ export class CraftGame {
       mineAt: (x: number, y: number, z: number) => {
         const def = blockById(this.state.world.get(x, y, z));
         if (!def || def.hardness <= 0) return false;
-        this.state.world.set(x, y, z, AIR);
+        this.writeCell(x, y, z, AIR, 0);
         addItem(this.state.inventory, dropOf(def));
-        this.view.markDirty();
         return true;
       },
       placeAt: (x: number, y: number, z: number, key: string) => {
         const def = blockByKey(key);
         if (!def || this.state.world.get(x, y, z) !== AIR) return false;
-        this.state.world.set(x, y, z, def.id);
-        this.view.markDirty();
+        this.writeCell(x, y, z, def.id, 0);
         return true;
       },
       craft: (id: string) => {
@@ -536,6 +731,9 @@ export class CraftGame {
       saveNow: () => this.persist(),
       perf: () => this.perf.sample(),
       machine: () => this.workshop.snapshot(),
+      classroom: () => this.sync?.debug() ?? null,
+      classSend: (msg: Parameters<ClassClient["send"]>[0]) => this.sync?.client.send(msg),
+      absolute: () => (this.field ? this.field.toAbsolute(this.body.x, this.body.z) : null),
     };
   }
 }

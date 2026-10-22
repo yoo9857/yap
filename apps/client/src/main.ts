@@ -5,6 +5,7 @@
  * on a fatal overlay with a retry button — a game never half-starts.
  */
 import { selectMode } from "./app/modeSelect.js";
+import type { ClassEntry } from "./app/classLobby.js";
 import { showHome } from "./home/home.js";
 import { showArticle } from "./home/article.js";
 import { showTeam } from "./home/team.js";
@@ -71,9 +72,9 @@ async function bootBuilder(mount: HTMLElement): Promise<void> {
   hideOverlay();
 }
 
-async function bootCraft(mount: HTMLElement): Promise<void> {
+async function bootCraft(mount: HTMLElement, field = false, classroom: ClassEntry | null = null): Promise<void> {
   const { CraftGame } = await import("./craft/craftGame.js");
-  new CraftGame(mount).start();
+  new CraftGame(mount, { field, classroom: classroom ?? undefined }).start();
   hideOverlay();
 }
 
@@ -123,6 +124,12 @@ async function boot(): Promise<void> {
     await bootTower(mount);
   } else if (mode === "craft") {
     await bootCraft(mount);
+  } else if (mode === "field") {
+    // a deep link plays solo unless it names a class (?host= / ?teacher=&student=);
+    // from the menu, education mode asks: teacher, student or solo
+    const { chooseClass, classFromUrl } = await import("./app/classLobby.js");
+    const classroom = params.get("mode") === "field" ? await classFromUrl() : await chooseClass(document.body);
+    await bootCraft(mount, true, classroom);
   } else if (mode === "battle") {
     await bootBattle(mount);
   } else if (mode === "cinematic") {

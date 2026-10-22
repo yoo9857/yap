@@ -41,7 +41,7 @@ export class CraftHud {
       <div class="craft-crosshair">+</div>
       <div class="craft-mine-bar hidden"><div class="craft-mine-fill" data-id="mine-fill"></div></div>
       <div class="craft-hotbar" data-id="hotbar">${slots}</div>
-      <div class="craft-help">Move WASD · Jump Space · Mine hold LMB · Place RMB · Slots 1-9 / wheel · Shape F · Rotate R · Tilt T · Recipes C · View V · Music M</div>
+      <div class="craft-help">Move WASD · Jump Space · Mine hold LMB · Place RMB · Slots 1-9 / wheel · Shape F · Rotate R · Tilt T · Recipes C · View V · View distance O · Music M</div>
     `;
     parent.appendChild(this.root);
 
@@ -170,11 +170,22 @@ export class CraftHud {
     }
   }
 
+  private toastEl: HTMLElement | null = null;
+  private toastTimer: ReturnType<typeof setTimeout> | undefined;
+
+  /** One toast at a time: a new message replaces the old one instead of
+   *  stacking on top of it (cycling a setting fires several in a row). */
   toast(text: string): void {
+    clearTimeout(this.toastTimer);
+    this.toastEl?.remove();
     const el = document.createElement("div");
     el.className = "b-toast";
     el.textContent = text;
     document.body.appendChild(el);
-    setTimeout(() => el.remove(), 3200);
+    this.toastEl = el;
+    this.toastTimer = setTimeout(() => {
+      el.remove();
+      if (this.toastEl === el) this.toastEl = null;
+    }, 3200);
   }
 }

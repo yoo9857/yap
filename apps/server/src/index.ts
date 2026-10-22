@@ -7,6 +7,8 @@ import { log } from "./log.js";
 import { createRecordStore } from "./game/records.js";
 import { RoomManager } from "./game/roomManager.js";
 import { attachWsServer } from "./net/wsServer.js";
+import { ClassManager } from "./classroom/classManager.js";
+import { createClassStore } from "./classroom/classStore.js";
 
 const config = loadConfig();
 const entryDir = dirname(fileURLToPath(import.meta.url));
@@ -91,7 +93,10 @@ const httpServer = createServer((req, res) => {
   }
 });
 
-const closeWs = attachWsServer(httpServer, rooms);
+// classes live in the same SQLite file as the records, so the existing
+// bind-mount and daily backup cover them too
+const classes = new ClassManager(createClassStore(resolve(entryDir, config.DB_PATH)));
+const closeWs = attachWsServer(httpServer, rooms, classes);
 
 httpServer.listen(config.PORT, config.HOST, () => {
   log.info(
@@ -109,6 +114,7 @@ function shutdown(reason: string, code: number): void {
   log.info({ reason }, "shutting down");
   closeWs();
   rooms.shutdown();
+  classes.shutdown();
   records.close();
   httpServer.close(() => process.exit(code));
   // hard exit if graceful close hangs

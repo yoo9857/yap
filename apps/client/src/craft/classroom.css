@@ -1,0 +1,188 @@
+/* Classroom overlay — crayon-card look matching the rest of the HUD. */
+.class-panel {
+  position: fixed;
+  top: 12px;
+  left: 12px;
+  z-index: 40;
+  width: 240px;
+  max-height: calc(100vh - 140px);
+  overflow: auto;
+  padding: 10px 12px;
+  border: 3px solid var(--ink, #1f1f1f);
+  border-radius: 14px;
+  background: rgba(255, 253, 246, 0.94);
+  box-shadow: 3px 4px 0 rgba(31, 31, 31, 0.8);
+  font: 600 13px/1.35 system-ui, sans-serif;
+  color: #1f1f1f;
+}
+.class-panel.collapsed .class-members,
+.class-panel.collapsed .class-controls,
+.class-panel.collapsed .class-tip {
+  display: none;
+}
+.class-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  cursor: pointer;
+}
+.class-title {
+  font-size: 14px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.class-status {
+  flex: none;
+  color: #2f9e44;
+  font-size: 11px;
+}
+.class-status.off {
+  color: #e8590c;
+}
+.class-sub {
+  margin: 2px 0 6px;
+  color: #555;
+  font-size: 12px;
+}
+.class-members {
+  margin: 0 0 8px;
+  padding: 0;
+  list-style: none;
+}
+.class-members li {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 0;
+}
+.class-members .dot {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #40c057;
+}
+.class-members .offline {
+  color: #999;
+}
+.class-members .offline .dot {
+  background: #ccc;
+}
+.class-members .name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.class-kick {
+  flex: none;
+  padding: 0 6px;
+  border: 2px solid #1f1f1f;
+  border-radius: 8px;
+  background: #fff;
+  font: 700 11px system-ui, sans-serif;
+  cursor: pointer;
+}
+.class-controls {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+.class-btn {
+  padding: 6px 4px;
+  border: 2px solid #1f1f1f;
+  border-radius: 10px;
+  background: #fff6c9;
+  font: 700 12px system-ui, sans-serif;
+  cursor: pointer;
+}
+.class-btn.on {
+  background: #ffd8a8;
+}
+.class-btn.danger {
+  background: #ffc9c9;
+}
+.class-tip {
+  margin-top: 8px;
+  color: #777;
+  font-size: 11px;
+}
+.class-chat {
+  position: fixed;
+  left: 12px;
+  bottom: 96px;
+  z-index: 40;
+  width: min(420px, calc(100vw - 24px));
+  font: 600 13px/1.4 system-ui, sans-serif;
+  pointer-events: none;
+}
+.class-chat-log .line {
+  width: fit-content;
+  max-width: 100%;
+  margin-top: 3px;
+  padding: 3px 8px;
+  border-radius: 8px;
+  background: rgba(20, 22, 28, 0.62);
+  color: #fff;
+  overflow-wrap: anywhere;
+  transition: opacity 0.6s;
+}
+.class-chat-log .line.teacher {
+  background: rgba(176, 108, 0, 0.82);
+}
+.class-chat-log .line.system {
+  background: rgba(60, 60, 60, 0.5);
+  font-style: italic;
+}
+.class-chat-log .line.old {
+  opacity: 0;
+}
+.class-chat-log.open .line.old {
+  opacity: 1;
+}
+.class-chat-input {
+  box-sizing: border-box;
+  width: 100%;
+  margin-top: 6px;
+  padding: 7px 10px;
+  border: 3px solid #1f1f1f;
+  border-radius: 10px;
+  font: 600 14px system-ui, sans-serif;
+  pointer-events: auto;
+}
+.class-ended {
+  z-index: 100;
+}
+/* lobby forms */
+.class-form {
+  display: grid;
+  gap: 8px;
+  margin: 0 0 12px;
+  text-align: left;
+}
+.class-form label {
+  font: 700 13px system-ui, sans-serif;
+  color: #444;
+}
+.class-form input {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 10px 12px;
+  border: 3px solid #1f1f1f;
+  border-radius: 12px;
+  font: 600 16px system-ui, sans-serif;
+}
+.class-error {
+  min-height: 18px;
+  margin: 0 0 8px;
+  color: #c92a2a;
+  font: 700 13px system-ui, sans-serif;
+}
+.class-note {
+  margin: 0 0 8px;
+  color: #666;
+  font: 600 12px/1.4 system-ui, sans-serif;
+  text-align: left;
+}

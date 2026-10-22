@@ -297,6 +297,24 @@
         text-decoration: none;
         border-bottom: 2px dotted #bdbdbd;
       }
+      .mode-back {
+        padding: 0;
+        border: 0;
+        border-bottom: 2px dotted #bdbdbd;
+        background: none;
+        cursor: pointer;
+      }
+      .mode-btn[data-pick="field"] {
+        background: #f3fbef;
+        transform: rotate(-0.5deg);
+      }
+      .mode-btn[data-pick="games"] {
+        background: #eaf3ff;
+        transform: rotate(0.5deg);
+      }
+      .mode-btn[data-pick="games"] .mode-text b {
+        color: var(--cy-green);
+      }
       .desk-link:hover {
         color: var(--ink);
         border-bottom-color: var(--ink);

@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Back up CraftYap's SEPARATE SQLite leaderboard (independent of poke).
+# Back up CraftYap's SEPARATE SQLite db — daily leaderboard + saved classrooms
+# (independent of poke).
 # Safe hot backup via sqlite3 .backup (handles the WAL). Keeps 14 days.
 # Cron example (daily 04:30):
 #   30 4 * * * /srv/craftyap/app/scripts/backup-db.sh >> /srv/craftyap/logs/backup.log 2>&1

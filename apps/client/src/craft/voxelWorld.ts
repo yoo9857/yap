@@ -49,6 +49,12 @@ export class VoxelWorld {
    *  to `cells`; physics ignores it (every solid cell is a full AABB), only the
    *  renderer reads it. Cleared to 0 whenever a plain cube/air is written. */
   readonly shapes = new Uint8Array(WORLD_X * WORLD_Y * WORLD_Z);
+  /** Block id per height for every column OUTSIDE the grid, or null for the
+   *  island (outside is open air). The infinite education field sets this so
+   *  physics, rays and machines always have ground under them. */
+  outsideColumn: Uint8Array | null = null;
+  /** Bumped on every set()/setShaped(); lets savers skip unchanged worlds. */
+  version = 0;
 
   static index(x: number, y: number, z: number): number {
     return (y * WORLD_Z + z) * WORLD_X + x;
@@ -59,7 +65,8 @@ export class VoxelWorld {
   }
 
   get(x: number, y: number, z: number): number {
-    return this.inBounds(x, y, z) ? this.cells[VoxelWorld.index(x, y, z)]! : AIR;
+    if (this.inBounds(x, y, z)) return this.cells[VoxelWorld.index(x, y, z)]!;
+    return this.outsideColumn && y >= 0 && y < WORLD_Y ? this.outsideColumn[y]! : AIR;
   }
 
   set(x: number, y: number, z: number, id: number): void {
@@ -67,6 +74,7 @@ export class VoxelWorld {
       const i = VoxelWorld.index(x, y, z);
       this.cells[i] = id;
       this.shapes[i] = 0; // a plain cube / air — never keep a stale shape
+      this.version++;
     }
   }
 
@@ -79,6 +87,7 @@ export class VoxelWorld {
       // buffer. Unknown shapes can otherwise produce invalid rotations and
       // undefined geometry in the renderer.
       this.shapes[i] = Number.isInteger(shape) && shape >= 0 && shape <= 17 ? shape : 0;
+      this.version++;
     }
   }
 
