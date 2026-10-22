@@ -1,7 +1,7 @@
 import * as THREE from "three";
-import { RoundedBoxGeometry } from "three/examples/jsm/geometries/RoundedBoxGeometry.js";
 import type { AnimState } from "@robo/shared";
 import { loadTexture } from "../render/textures.js";
+import { box, bodyMat, crayonGrain, outline, part, stud } from "./blockParts.js";
 
 /**
  * CraftYap's own mascots, built EXACTLY like the banner drawings: each
@@ -42,70 +42,7 @@ const VARIANTS: Record<CharacterVariant, VariantSpec> = {
 const faceUrl = (base: string, e: Expr): string =>
   e === "dead" ? "/textures/char/face-dead.png" : `/textures/char/face-${base}${e === "happy" ? "" : `-${e}`}.png`;
 
-// ---- shared geometry (soft rounded boxes, cached by size) ------------------
-const geoCache = new Map<string, RoundedBoxGeometry>();
-function box(w: number, h: number, d: number, soft = 0.24): RoundedBoxGeometry {
-  const key = `${w.toFixed(2)},${h.toFixed(2)},${d.toFixed(2)},${soft}`;
-  let g = geoCache.get(key);
-  if (!g) {
-    g = new RoundedBoxGeometry(w, h, d, 4, Math.min(w, h, d) * soft);
-    geoCache.set(key, g);
-  }
-  return g;
-}
-const STUD_GEO = new THREE.CylinderGeometry(0.1, 0.105, 0.08, 18);
-
-// Constant-width ink outline: an inverted hull pushed out along the normal in
-// the vertex shader, so every part shares the same line weight.
-const OUTLINE_MAT = new THREE.ShaderMaterial({
-  side: THREE.BackSide,
-  uniforms: { t: { value: 0.02 } },
-  vertexShader:
-    "uniform float t; void main(){ vec3 p = position + normalize(normal) * t; gl_Position = projectionMatrix * modelViewMatrix * vec4(p, 1.0); }",
-  fragmentShader: "void main(){ gl_FragColor = vec4(0.09, 0.09, 0.12, 1.0); }",
-});
 const FACE_QUAD = new THREE.PlaneGeometry(1, 1);
-
-// ---- crayon grain (faint hand-drawn strokes, tinted by body colour) --------
-let grainTex: THREE.Texture | null = null;
-function crayonGrain(): THREE.Texture | null {
-  if (grainTex) return grainTex;
-  if (typeof document === "undefined") return null;
-  const S = 128;
-  const c = document.createElement("canvas");
-  c.width = c.height = S;
-  const ctx = c.getContext("2d");
-  if (!ctx) return null;
-  ctx.fillStyle = "#ffffff";
-  ctx.fillRect(0, 0, S, S);
-  ctx.lineWidth = 2;
-  for (let i = 0; i < 55; i++) {
-    ctx.strokeStyle = "rgba(0,0,0,0.045)";
-    ctx.beginPath();
-    const x = Math.random() * S, y = Math.random() * S;
-    ctx.moveTo(x, y);
-    ctx.lineTo(x + (Math.random() - 0.5) * 40, y + (Math.random() - 0.5) * 40);
-    ctx.stroke();
-  }
-  for (let i = 0; i < 300; i++) {
-    ctx.fillStyle = `rgba(0,0,0,${Math.random() * 0.035})`;
-    ctx.fillRect(Math.random() * S, Math.random() * S, 1.5, 1.5);
-  }
-  grainTex = new THREE.CanvasTexture(c);
-  grainTex.wrapS = grainTex.wrapT = THREE.RepeatWrapping;
-  grainTex.colorSpace = THREE.SRGBColorSpace;
-  return grainTex;
-}
-
-const matCache = new Map<number, THREE.MeshStandardMaterial>();
-function bodyMat(color: number): THREE.MeshStandardMaterial {
-  let m = matCache.get(color);
-  if (!m) {
-    m = new THREE.MeshStandardMaterial({ color, roughness: 0.68, metalness: 0.02, map: crayonGrain() });
-    matCache.set(color, m);
-  }
-  return m;
-}
 
 let fallbackFaceTex: THREE.Texture | null = null;
 function fallbackFace(): THREE.Texture | null {
@@ -152,37 +89,6 @@ export function preloadCharacter(): Promise<void> {
   for (const v of Object.values(VARIANTS))
     for (const e of ["happy", "blink", "oh", "dead"] as Expr[]) urls.add(faceUrl(v.faceBase, e));
   return Promise.all([...urls].map((u) => loadTexture(u).catch(() => null))).then(() => undefined);
-}
-
-/** Add a constant-width ink outline shell to a mesh (rides its transform). */
-function outline(mesh: THREE.Mesh): THREE.Mesh {
-  mesh.add(new THREE.Mesh(mesh.geometry, OUTLINE_MAT));
-  return mesh;
-}
-
-/** A soft rounded part (outlined), parented to `p`. */
-function part(
-  p: THREE.Object3D,
-  color: number,
-  w: number, h: number, d: number,
-  x: number, y: number, z: number,
-  soft = 0.24,
-): THREE.Mesh {
-  const mesh = new THREE.Mesh(box(w, h, d, soft), bodyMat(color));
-  mesh.position.set(x, y, z);
-  mesh.castShadow = true;
-  mesh.receiveShadow = true;
-  p.add(mesh);
-  outline(mesh);
-  return mesh;
-}
-
-function stud(p: THREE.Object3D, color: number, x: number, y: number, z: number): void {
-  const s = new THREE.Mesh(STUD_GEO, bodyMat(color));
-  s.position.set(x, y, z);
-  s.castShadow = true;
-  p.add(s);
-  outline(s);
 }
 
 export class CharacterRig {

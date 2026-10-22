@@ -41,7 +41,7 @@ export class CraftHud {
       <div class="craft-crosshair">+</div>
       <div class="craft-mine-bar hidden"><div class="craft-mine-fill" data-id="mine-fill"></div></div>
       <div class="craft-hotbar" data-id="hotbar">${slots}</div>
-      <div class="craft-help">Move WASD · Jump Space · Mine hold LMB · Place RMB · Slots 1-9 / wheel · Shape F · Rotate R · Tilt T · Recipes C · View V · View distance O · Music M</div>
+      <div class="craft-help">Move WASD · Jump Space · Mine hold LMB · Place RMB · Slots 1-9 / wheel · Shape F · Rotate R · Tilt T · Recipes C · View V · View distance O · Pet sit/follow P · Adopt 🐾 · Music M</div>
     `;
     parent.appendChild(this.root);
 

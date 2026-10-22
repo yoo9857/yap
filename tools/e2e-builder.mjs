@@ -22,8 +22,11 @@ page.on("pageerror", (e) => console.log("PAGEERROR:", e.message));
 
 // ---- 1. mode selector appears on a bare URL; builder boots instantly
 await page.goto("http://localhost:5173/?play=1", { waitUntil: "networkidle2", timeout: 30000 });
-const modeButtons = await page.$$(".mode-btn");
-check("mode selector offers the four games", modeButtons.length === 4);
+// The start screen asks 교육 / 게임 first (see app/modeSelect.ts), so the four
+// games live one step in. This suite still asserted the old flat list.
+await page.click('.mode-btn[data-pick="games"]');
+const modeButtons = await page.$$('.mode-step[data-step="games"] .mode-btn[data-mode]');
+check("the games step offers the four games", modeButtons.length === 4);
 const bootStart = Date.now();
 await page.click('.mode-btn[data-mode="builder"]');
 await page.waitForFunction(() => !!globalThis.__roboBuilder, { timeout: 10000 });
@@ -155,9 +158,10 @@ await page.click('[data-id="ok"]');
 await sleep(400);
 check("closing the modal resumes the sim", (await snap()).paused === false);
 
-await page.screenshot({
-  path: (process.argv[2] ?? ".") + "/builder.png",
-});
+// Only when an output directory is asked for. Defaulting to "." wrote
+// builder.png into the REPO ROOT on every run, silently clobbering the
+// checked-in image of the same name.
+if (process.argv[2]) await page.screenshot({ path: `${process.argv[2]}/builder.png` });
 await browser.close();
 const failed = results.filter((r) => !r).length;
 console.log(`\n${results.length - failed}/${results.length} passed`);

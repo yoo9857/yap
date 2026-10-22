@@ -49,6 +49,9 @@ const saveSchema = z.object({
     .max(400_000),
   inventory: z.record(z.string(), z.number()),
   player: z.object({ x: z.number().finite(), y: z.number().finite(), z: z.number().finite() }),
+  /** Adopted companion. Optional: fields saved before the adoption panel
+   *  existed have none, and the caller falls back to the dog. */
+  pet: z.string().optional(),
 });
 
 export class FieldWindow {
@@ -179,13 +182,18 @@ export class FieldWindow {
     this.fill();
   }
 
-  save(storage: KeyValueStorage, inventory: Counts, player: { x: number; y: number; z: number }): void {
+  save(
+    storage: KeyValueStorage,
+    inventory: Counts,
+    player: { x: number; y: number; z: number },
+    pet?: string,
+  ): void {
     this.bank();
     const edits = [...this.edits].map(([key, [block, shape]]) => [...key.split(",").map(Number), block, shape]);
     try {
       storage.setItem(
         SAVE_KEY,
-        JSON.stringify({ v: 1, originX: this.originX, originZ: this.originZ, edits, inventory, player }),
+        JSON.stringify({ v: 1, originX: this.originX, originZ: this.originZ, edits, inventory, player, pet }),
       );
     } catch {
       // storage full/unavailable — keep playing unsaved
@@ -193,7 +201,9 @@ export class FieldWindow {
   }
 
   /** Restore a saved field; returns its inventory/player or null for a fresh one. */
-  load(storage: KeyValueStorage): { inventory: Counts; player: { x: number; y: number; z: number } } | null {
+  load(
+    storage: KeyValueStorage,
+  ): { inventory: Counts; player: { x: number; y: number; z: number }; pet?: string } | null {
     let parsed: unknown;
     try {
       const raw = storage.getItem(SAVE_KEY);
@@ -218,6 +228,7 @@ export class FieldWindow {
     return {
       inventory: sanitizeCounts(d.inventory),
       player: { x: clamp(d.player.x, WORLD_X), y: clamp(d.player.y, WORLD_Y + 4), z: clamp(d.player.z, WORLD_Z) },
+      pet: d.pet,
     };
   }
 }

@@ -1,8 +1,17 @@
 import * as THREE from "three";
+import { HULL_LAYER, InkOutline } from "./inkOutline.js";
 
 /**
  * Owns the WebGL renderer, scene, lighting and sky. The directional light's
  * shadow frustum follows the player up the tower so shadows stay sharp.
+ *
+ * Characters are inked in SCREEN SPACE (`inkOutline.ts`) rather than with a
+ * per-brick hull, so a creature gets one line around its silhouette instead of
+ * one around every piece it is built from. The hulls are still built and still
+ * in the scene — they live on `HULL_LAYER`, which the camera drops while the
+ * ink pass is running and picks back up when it cannot run, because WebXR
+ * cannot render through the render targets the pass needs. `?ink=0` forces the
+ * fallback for comparison.
  */
 export class GameRenderer {
   readonly renderer: THREE.WebGLRenderer;
@@ -11,6 +20,7 @@ export class GameRenderer {
   /** Exposed so game modes can grade their own mood (builder = golden hour). */
   readonly sun: THREE.DirectionalLight;
   readonly hemi: THREE.HemisphereLight;
+  private ink: InkOutline | null = null;
 
   constructor(mount: HTMLElement) {
     this.renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -54,6 +64,15 @@ export class GameRenderer {
     this.scene.add(this.sun);
     this.scene.add(this.sun.target);
 
+    // Hull shells are on their own layer so the ink pass can drop them in one
+    // call; the camera has to opt in for the fallback to be visible at all.
+    this.camera.layers.enable(HULL_LAYER);
+    const wantsInk = new URLSearchParams(location.search).get("ink") !== "0";
+    if (wantsInk && this.renderer.capabilities.isWebGL2) {
+      this.ink = new InkOutline(this.renderer);
+      this.camera.layers.disable(HULL_LAYER);
+    }
+
     window.addEventListener("resize", this.onResize);
   }
 
@@ -94,11 +113,34 @@ export class GameRenderer {
   }
 
   render(): void {
-    this.renderer.render(this.scene, this.camera);
+    // Presenting to a headset means the XR system owns the framebuffer, and a
+    // full-screen composite through a render target does not survive that —
+    // so the per-brick hulls come back for the duration.
+    const presenting = this.renderer.xr.isPresenting;
+    if (!this.ink || presenting) {
+      this.camera.layers.enable(HULL_LAYER);
+      this.renderer.info.autoReset = true;
+      this.renderer.render(this.scene, this.camera);
+      return;
+    }
+    this.camera.layers.disable(HULL_LAYER);
+    // `renderer.info` resets on every render() by default, so with three
+    // passes a frame the overlay would report the full-screen quad's two
+    // triangles as the whole scene. Reset once per FRAME and let the passes
+    // accumulate, which is the honest number.
+    this.renderer.info.autoReset = false;
+    this.renderer.info.reset();
+    const size = this.renderer.getDrawingBufferSize(this.tmpSize);
+    this.ink.setSize(size.x, size.y);
+    this.ink.render(this.renderer, this.scene, this.camera);
   }
+
+  private readonly tmpSize = new THREE.Vector2();
 
   /** Stop resize callbacks and release the WebGL context when a mode closes. */
   dispose(): void {
+    this.ink?.dispose();
+    this.ink = null;
     window.removeEventListener("resize", this.onResize);
     this.renderer.setAnimationLoop(null);
     this.renderer.dispose();

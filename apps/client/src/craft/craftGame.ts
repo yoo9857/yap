@@ -36,6 +36,10 @@ import { VoxelView } from "./voxelView.js";
 import { CraftCamera } from "./craftCamera.js";
 import { CraftHud } from "./craftHud.js";
 import { MachineWorkshop } from "./machines/workshop.js";
+import { PetCompanion } from "./petCompanion.js";
+import { PetShop } from "./petShop.js";
+import { SPECIES, isPetSpecies, type PetSpecies } from "../player/creatureRig.js";
+import { withObjectParticle } from "./korean.js";
 
 const DEFAULT_SEED = 20260718;
 const SAVE_INTERVAL_MS = 5000;
@@ -65,6 +69,8 @@ export class CraftGame {
   private readonly bgm = new Bgm(BGM_PLAYLIST);
   private readonly perf = new PerfMonitor(document.body);
   private readonly rig = new CharacterRig();
+  private readonly pet: PetCompanion;
+  private readonly petShop: PetShop;
   private readonly loop: GameLoop;
   private readonly workshop: MachineWorkshop;
   private readonly state: CraftGameState;
@@ -124,6 +130,7 @@ export class CraftGame {
         inventory: fieldStarterInventory(),
         // spread arrivals out so a whole class doesn't land in one cell
         player: { x: spawn.x + (Math.random() - 0.5) * 8, y: spawn.y, z: spawn.z + (Math.random() - 0.5) * 8 },
+        pet: "dog",
       };
       this.buildFieldGround();
     } else if (opts.field) {
@@ -135,6 +142,7 @@ export class CraftGame {
         world: this.field.world,
         inventory: saved?.inventory ?? fieldStarterInventory(),
         player: saved?.player ?? this.field.spawn,
+        pet: isPetSpecies(saved?.pet) ? saved.pet : "dog",
       };
       this.buildFieldGround();
     } else {
@@ -145,6 +153,13 @@ export class CraftGame {
     this.body = { ...this.state.player, vx: 0, vy: 0, vz: 0, grounded: false };
     unstick(this.state.world, this.body); // never spawn embedded in a block
     this.renderer.scene.add(this.rig.root);
+    this.pet = new PetCompanion(
+      this.renderer.scene,
+      this.state.world,
+      { x: this.body.x + 1.2, y: this.body.y, z: this.body.z + 1.2 },
+      this.state.pet,
+    );
+    this.petShop = new PetShop(document.body, this.state.pet, (species) => this.adoptPet(species));
     this.view.markDirty();
     this.applyViewDistance(this.loadViewPreset());
     this.buildGhost();
@@ -210,6 +225,8 @@ export class CraftGame {
       material.dispose();
     }
     disposeRig(this.rig.root);
+    this.pet.dispose();
+    this.petShop.dispose();
     this.bgm.dispose();
     this.renderer.dispose();
   }
@@ -265,6 +282,9 @@ export class CraftGame {
         if (this.hud.recipesOpen) document.exitPointerLock();
       }
       if (key === "v") this.camera.toggleView();
+      if (key === "p" && !e.repeat) {
+        this.hud.toast(this.pet.toggleMode() === "stay" ? "🐶 Buddy: stay" : "🐶 Buddy: follow");
+      }
       if (key === "o") {
         const next = (this.viewPreset + 1) % VIEW_NAMES.length;
         this.applyViewDistance(next);
@@ -321,6 +341,7 @@ export class CraftGame {
         this.miningTarget = null;
         this.miningProgress = 0;
         this.view.shift(shift.dx, shift.dz);
+        this.pet.shift(shift.dx, shift.dz);
       }
     }
 
@@ -335,6 +356,10 @@ export class CraftGame {
       unstick(this.state.world, this.body);
       this.sfx.play("oof");
     }
+
+    // After the player's own step, so the pet chases where they ARE, not where
+    // they were a tick ago — a frame of lag here reads as the dog lagging.
+    this.pet.fixedUpdate(this.state.world, dt, this.body);
 
     this.updateAim();
     if (this.mining) this.stepMining(dt);
@@ -511,17 +536,32 @@ export class CraftGame {
     this.hud.toast(`🛠️ Crafted ${recipe.name}!`);
   }
 
+  /**
+   * Swap the companion. The pet keeps its position, brain and follow mode —
+   * only the collider and the model change — so an adoption mid-walk looks
+   * like the new animal was the one following you all along.
+   */
+  private adoptPet(species: PetSpecies): void {
+    this.pet.adopt(this.state.world, species);
+    this.state.pet = species;
+    this.petShop.setCurrent(species);
+    const info = SPECIES[species];
+    this.hud.toast(`${info.emoji} ${withObjectParticle(info.name)} 입양했어요`);
+    this.persist();
+  }
+
   private lastSaveSignature = "";
   private persist(): void {
     this.lastSaveAt = Date.now();
     if (this.sync) return; // the class's field lives on the server
     // standing still with no edits: nothing to write, skip the serialise +
     // synchronous localStorage write entirely
-    const signature = `${this.state.world.version}|${Math.round(this.body.x * 2)},${Math.round(this.body.y * 2)},${Math.round(this.body.z * 2)}|${JSON.stringify(this.state.inventory)}`;
+    const signature = `${this.state.world.version}|${Math.round(this.body.x * 2)},${Math.round(this.body.y * 2)},${Math.round(this.body.z * 2)}|${JSON.stringify(this.state.inventory)}|${this.pet.species}`;
     if (signature === this.lastSaveSignature) return;
     this.lastSaveSignature = signature;
     this.state.player = { x: this.body.x, y: this.body.y, z: this.body.z };
-    if (this.field) this.field.save(localStorage, this.state.inventory, this.state.player);
+    this.state.pet = this.pet.species;
+    if (this.field) this.field.save(localStorage, this.state.inventory, this.state.player, this.state.pet);
     else saveCraft(this.state, localStorage, Date.now());
   }
 
@@ -606,6 +646,8 @@ export class CraftGame {
     this.view.update(this.state.world, this.detailFocus);
     if (this.workshop.active) {
       this.rig.root.visible = false;
+      this.pet.setVisible(false);
+      this.petShop.setVisible(false);
       this.ghost.visible = false;
       this.view.setHighlight(null);
       if (this.workshop.scienceActive) { this.workshop.renderScience(frameDt); return; }
@@ -617,6 +659,9 @@ export class CraftGame {
       return;
     }
     this.ghost.visible = true;
+    this.pet.setVisible(true);
+    this.petShop.setVisible(true);
+    this.pet.render(frameDt);
     this.view.setHighlight(this.aim ? this.aim.voxel : null);
 
     this.rig.root.position.set(this.body.x, this.body.y, this.body.z);
@@ -699,6 +744,22 @@ export class CraftGame {
         this.body.z = z;
         this.body.vy = 0;
       },
+      pet: () => ({
+        pos: [this.pet.body.x, this.pet.body.y, this.pet.body.z],
+        mode: this.pet.mode,
+        species: this.pet.species,
+        grounded: this.pet.body.grounded,
+        gap: Math.hypot(this.pet.body.x - this.body.x, this.pet.body.z - this.body.z),
+        ...this.pet.debug,
+      }),
+      petToggle: () => this.pet.toggleMode(),
+      petAdopt: (species: string) => {
+        if (!(species in SPECIES)) return false;
+        this.adoptPet(species as PetSpecies);
+        return true;
+      },
+      petShopOpen: () => this.petShop.open,
+      petShopToggle: () => this.petShop.toggle(),
       blockAt: (x: number, y: number, z: number) => this.state.world.get(x, y, z),
       mineAt: (x: number, y: number, z: number) => {
         const def = blockById(this.state.world.get(x, y, z));

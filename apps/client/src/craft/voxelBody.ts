@@ -22,10 +22,20 @@ export interface Body {
   vy: number;
   vz: number;
   grounded: boolean;
+  /** Footprint/height overrides. Omitted = the player's BODY_WIDTH/HEIGHT, so
+   *  every existing caller keeps its exact shape; the pet (and anything else
+   *  smaller than a robot) fills these in and shares the same sweep. */
+  w?: number;
+  h?: number;
+  /** Hop height override. A pet that launches at the robot's 8.6 m/s reads as
+   *  a flea, so small bodies set their own. */
+  jumpSpeed?: number;
 }
 
-const HALF = BODY_WIDTH / 2;
 const EPS = 1e-4;
+
+const halfOf = (body: Body): number => (body.w ?? BODY_WIDTH) / 2;
+const heightOf = (body: Body): number => body.h ?? BODY_HEIGHT;
 
 /**
  * Camera-relative wish direction from raw input axes (fwd/strafe ∈ [-1,1]),
@@ -40,13 +50,15 @@ export function wishFromInput(yaw: number, fwd: number, strafe: number): [number
   return [(sin * fwd - cos * strafe) / len, (cos * fwd + sin * strafe) / len];
 }
 
-function collides(world: VoxelWorld, x: number, y: number, z: number): boolean {
-  const x0 = Math.floor(x - HALF);
-  const x1 = Math.floor(x + HALF - EPS);
+function collides(world: VoxelWorld, body: Body): boolean {
+  const { x, y, z } = body;
+  const half = halfOf(body);
+  const x0 = Math.floor(x - half);
+  const x1 = Math.floor(x + half - EPS);
   const y0 = Math.floor(y);
-  const y1 = Math.floor(y + BODY_HEIGHT - EPS);
-  const z0 = Math.floor(z - HALF);
-  const z1 = Math.floor(z + HALF - EPS);
+  const y1 = Math.floor(y + heightOf(body) - EPS);
+  const z0 = Math.floor(z - half);
+  const z1 = Math.floor(z + half - EPS);
   for (let ix = x0; ix <= x1; ix++) {
     for (let iy = y0; iy <= y1; iy++) {
       for (let iz = z0; iz <= z1; iz++) {
@@ -63,10 +75,10 @@ function collides(world: VoxelWorld, x: number, y: number, z: number): boolean {
  * never gets wedged. Returns the settled body.
  */
 export function unstick(world: VoxelWorld, body: Body): Body {
-  if (!collides(world, body.x, body.y, body.z)) return body;
+  if (!collides(world, body)) return body;
   for (let i = 0; i < WORLD_UNSTICK_LIMIT; i++) {
     body.y += 0.5;
-    if (!collides(world, body.x, body.y, body.z)) break;
+    if (!collides(world, body)) break;
   }
   body.vy = 0;
   body.grounded = false;
@@ -77,13 +89,14 @@ const WORLD_UNSTICK_LIMIT = 120;
 
 /** Would a block placed at this voxel overlap the body? (deny self-burial) */
 export function overlapsVoxel(body: Body, vx: number, vy: number, vz: number): boolean {
+  const half = halfOf(body);
   return (
-    vx + 1 > body.x - HALF &&
-    vx < body.x + HALF &&
+    vx + 1 > body.x - half &&
+    vx < body.x + half &&
     vy + 1 > body.y &&
-    vy < body.y + BODY_HEIGHT &&
-    vz + 1 > body.z - HALF &&
-    vz < body.z + HALF
+    vy < body.y + heightOf(body) &&
+    vz + 1 > body.z - half &&
+    vz < body.z + half
   );
 }
 
@@ -103,13 +116,13 @@ function moveAxis(world: VoxelWorld, body: Body, axis: "x" | "y" | "z", amount: 
     remaining -= step;
     const prev = body[axis];
     body[axis] = prev + step;
-    if (collides(world, body.x, body.y, body.z)) {
+    if (collides(world, body)) {
       let free = 0;
       let blocked = step;
       for (let i = 0; i < 10; i++) {
         const mid = (free + blocked) / 2;
         body[axis] = prev + mid;
-        if (collides(world, body.x, body.y, body.z)) blocked = mid;
+        if (collides(world, body)) blocked = mid;
         else free = mid;
       }
       body[axis] = prev + free;
@@ -126,7 +139,7 @@ export function stepBody(world: VoxelWorld, body: Body, dt: number, wishX: numbe
   body.vx = wishX * MOVE_SPEED;
   body.vz = wishZ * MOVE_SPEED;
   if (jump && body.grounded) {
-    body.vy = JUMP_SPEED;
+    body.vy = body.jumpSpeed ?? JUMP_SPEED;
     body.grounded = false;
   }
   body.vy -= GRAVITY * dt;

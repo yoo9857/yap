@@ -1,0 +1,138 @@
+/* Adoption panel — the crayon look of the machine lab's chip and console, so
+   the two top-right affordances read as one family. */
+
+.pet-chip {
+  position: fixed;
+  right: 18px;
+  /* Clears the machine-lab chip, which owns top: 16px. */
+  top: 70px;
+  z-index: 42;
+  font: inherit;
+  font-size: 15px;
+  line-height: 1.1;
+  color: #1f1f1f;
+  background: #ffd84d;
+  border: 2.5px solid #1f1f1f;
+  border-radius: 11px 14px 10px 13px / 13px 10px 14px 11px;
+  box-shadow: 2px 3px 0 rgba(31, 31, 31, 0.8);
+  padding: 11px 18px;
+  cursor: pointer;
+  transform: rotate(1.2deg);
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  transition:
+    transform 0.08s,
+    box-shadow 0.08s,
+    background 0.12s;
+}
+.pet-chip:hover {
+  background: #ffe063;
+  transform: rotate(1.2deg) translate(-1px, -1px);
+  box-shadow: 3px 4px 0 rgba(31, 31, 31, 0.85);
+}
+.pet-chip-emoji {
+  font-size: 18px;
+}
+
+.pet-panel {
+  position: fixed;
+  right: 18px;
+  top: 124px;
+  z-index: 46;
+  width: 280px;
+  max-height: calc(100vh - 150px);
+  overflow-y: auto;
+  padding: 14px;
+  background: #fdf7e6;
+  border: 3px solid #1f1f1f;
+  border-radius: 16px 20px 15px 18px / 18px 15px 20px 16px;
+  box-shadow: 4px 5px 0 rgba(31, 31, 31, 0.8);
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  color: #1f1f1f;
+}
+.pet-panel.hidden {
+  display: none;
+}
+.pet-panel-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 2px;
+}
+.pet-panel-title {
+  font-size: 16px;
+  font-weight: 700;
+}
+.pet-panel-sub {
+  font-size: 11px;
+  opacity: 0.65;
+}
+
+.pet-card {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  width: 100%;
+  padding: 9px 11px;
+  font: inherit;
+  text-align: left;
+  color: inherit;
+  background: #fffdf6;
+  border: 2.5px solid #1f1f1f;
+  border-radius: 12px 15px 11px 14px / 14px 11px 15px 12px;
+  box-shadow: 2px 3px 0 rgba(31, 31, 31, 0.75);
+  cursor: pointer;
+  transition:
+    transform 0.08s,
+    box-shadow 0.08s,
+    background 0.12s;
+}
+.pet-card:hover {
+  background: #fff3c9;
+  transform: translate(-1px, -1px);
+  box-shadow: 3px 4px 0 rgba(31, 31, 31, 0.8);
+}
+/* The adopted one is pressed in rather than merely tinted — colour alone is
+   easy to miss on a card that is already warm-toned. */
+.pet-card.adopted {
+  background: #ffd84d;
+  transform: translate(1px, 2px);
+  box-shadow: 0 0 0 rgba(31, 31, 31, 0);
+  cursor: default;
+}
+.pet-card-emoji {
+  font-size: 26px;
+  line-height: 1;
+  flex: 0 0 auto;
+}
+.pet-card-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.pet-card-name {
+  font-size: 14px;
+  font-weight: 700;
+}
+.pet-card-trait {
+  font-size: 11px;
+  opacity: 0.7;
+}
+.pet-card-badge {
+  margin-left: auto;
+  flex: 0 0 auto;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 6px;
+  border: 2px solid #1f1f1f;
+  border-radius: 7px;
+  background: #fffdf6;
+}
+.pet-card:not(.adopted) .pet-card-badge {
+  display: none;
+}
