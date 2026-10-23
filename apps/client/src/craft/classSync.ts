@@ -4,6 +4,7 @@ import type { ClassEdit, ClassMember, ClassSettings } from "@robo/shared";
 import { CharacterRig, disposeRig } from "../player/rig.js";
 import type { ClassClient, ClassSession } from "../net/classClient.js";
 import { ClassHud } from "./classHud.js";
+import { turnToward } from "./smoothing.js";
 import type { FieldWindow } from "./fieldWorld.js";
 import type { VoxelView } from "./voxelView.js";
 
@@ -17,7 +18,10 @@ interface Remote {
   target: THREE.Vector3;
   /** Smoothed render position, absolute. */
   pos: THREE.Vector3;
+  /** Latest reported body heading. */
   yaw: number;
+  /** Drawn heading, turning toward `yaw` (reports arrive at only 20 Hz). */
+  drawnYaw: number;
   anim: "idle" | "run" | "jump";
   speed: number;
   seenAt: number;
@@ -229,7 +233,8 @@ export class ClassSync {
       const [x, z] = this.field.toGrid(r.pos.x, r.pos.z);
       r.rig.root.visible = true;
       r.rig.root.position.set(x, r.pos.y, z);
-      r.rig.root.rotation.y = r.yaw;
+      r.drawnYaw = turnToward(r.drawnYaw, r.yaw, frameDt, 0.06, 20);
+      r.rig.root.rotation.y = r.drawnYaw;
       r.rig.update(r.anim, r.speed, frameDt);
     }
   }
@@ -250,6 +255,7 @@ export class ClassSync {
           target: new THREE.Vector3(...p.pos),
           pos: new THREE.Vector3(...p.pos),
           yaw: p.yaw,
+          drawnYaw: p.yaw,
           anim: p.anim,
           speed: 0,
           seenAt: now,

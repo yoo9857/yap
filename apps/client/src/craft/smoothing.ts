@@ -55,6 +55,19 @@ export const approach = (dt: number, tau: number): number => 1 - Math.exp(-dt / 
  * stop–jump rhythm; a ~25 ms ease spreads each move over the frames. Anything
  * past `snap` radians is taken at once (a teleport's look, a respawn).
  */
+/**
+ * Turn a character's body toward a heading: eased (quick at first, settling
+ * gently) and capped at `maxRate` rad/s, so pressing S swings the robot
+ * round through a visible half-turn instead of flipping in one frame. Never
+ * snaps — unlike the camera, a body that teleports its facing reads as a glitch.
+ */
+export function turnToward(facing: number, target: number, dt: number, tau = 0.08, maxRate = 13): number {
+  const d = angleDelta(facing, target);
+  const step = d * approach(dt, tau);
+  const cap = maxRate * dt;
+  return facing + Math.max(-cap, Math.min(cap, step));
+}
+
 export function easeAngle(drawn: number, target: number, dt: number, tau = 0.025, snap = 1.2): number {
   const d = angleDelta(drawn, target);
   if (Math.abs(d) > snap) return target;

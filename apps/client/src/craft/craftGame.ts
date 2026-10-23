@@ -40,7 +40,7 @@ import { PetCompanion } from "./petCompanion.js";
 import { PetShop } from "./petShop.js";
 import { SPECIES, isPetSpecies, type PetSpecies } from "../player/creatureRig.js";
 import { withObjectParticle } from "./korean.js";
-import { approach, easeAngle, interpolate } from "./smoothing.js";
+import { approach, easeAngle, interpolate, turnToward } from "./smoothing.js";
 import { FurnitureLayout } from "./furniture/layout.js";
 import { FurnitureController, PICKUP_TIME } from "./furniture/controller.js";
 import type { PlacedFurniture } from "./furniture/types.js";
@@ -59,6 +59,8 @@ const SKY_TOP = 0x6fbfee;
  *  only back FIELD_MAX_VIEW. */
 const VIEW_PRESETS = { island: [56, 88, 130], field: [40, 56, FIELD_MAX_VIEW] } as const;
 const VIEW_NAMES = ["Short", "Normal", "Far"];
+/** After placing (or while mining) the body faces the crosshair this long (s). */
+const ACTION_FACE_TIME = 0.6;
 const VIEW_KEY = "craftyap-view-distance";
 
 /**
@@ -257,6 +259,7 @@ export class CraftGame {
     this.warming = false;
     this.furniture.setWarm(false);
     this.warmed = true;
+    this.facing = this.yaw; // start facing the way the camera looks
   }
 
   start(): void {
@@ -398,7 +401,7 @@ export class CraftGame {
     this.prevBody.set(this.body.x, this.body.y, this.body.z);
     if (this.sync) {
       const planar = Math.hypot(this.body.vx, this.body.vz);
-      this.sync.tick(1 / 60, this.body, this.yaw, !this.body.grounded ? "jump" : planar > 0.5 ? "run" : "idle");
+      this.sync.tick(1 / 60, this.body, this.facing, !this.body.grounded ? "jump" : planar > 0.5 ? "run" : "idle");
     }
     if (this.workshop.active) { this.workshop.fixedUpdate(); return; }
     const dt = 1 / 60;
@@ -421,6 +424,9 @@ export class CraftGame {
       if (this.keys.has("KeyD")) strafe += 1;
     }
     const [rawX, rawZ] = wishFromInput(this.yaw, fwd, strafe);
+    // the way the keys point (camera-relative), for the body to turn toward
+    if (fwd || strafe) this.moveYaw = Math.atan2(rawX, rawZ);
+    else this.moveYaw = null;
     // Ease toward the wanted direction instead of switching speed in one tick:
     // full speed in ~0.1 s, stopped in ~0.08 s. Instant start/stop read as
     // stiff and steppy. Only the PLAYER's input is eased — voxelBody's physics
@@ -613,6 +619,7 @@ export class CraftGame {
    * it's all-or-nothing so a piece never lands half-placed.
    */
   private tryPlace(): void {
+    this.actionHold = ACTION_FACE_TIME; // face what you are building on
     // right click ON a door/gate/curtain opens or closes it, whatever you hold
     if (this.aimFurniture && this.furniture.interact(this.aimFurniture)) return;
     // ...and on a chair, sofa or bed you sit down — unless you are placing
@@ -937,8 +944,8 @@ export class CraftGame {
 
     this.rig.root.position.copy(drawn);
     this.updateView(frameDt);
-    // seated, the robot faces the way the seat does, whatever the camera does
-    this.rig.root.rotation.y = this.seated ? this.seated.yaw : this.viewYaw;
+    this.updateFacing(frameDt);
+    this.rig.root.rotation.y = this.facing;
     const planar = Math.hypot(this.body.vx, this.body.vz);
     const anim = this.seated ? "sit" : !this.body.grounded ? "jump" : planar > 0.5 ? "run" : "idle";
     this.rig.update(anim, planar, frameDt);
@@ -983,6 +990,36 @@ export class CraftGame {
    * once the view settles a frame later. A big jump (a teleport's `look`, a
    * respawn) is taken at once.
    */
+  /**
+   * Which way the robot's BODY faces — third-person game style, not glued to
+   * the camera: walking, it turns toward where the keys point (S walks it
+   * toward the camera, face first, so you actually see your character);
+   * mining or placing, it turns to the crosshair so it never digs with its
+   * back to the block; seated, it faces the way the seat does; in first person
+   * it is the view. The camera stays on the mouse throughout.
+   */
+  private updateFacing(frameDt: number): void {
+    this.actionHold = Math.max(0, this.actionHold - frameDt);
+    if (this.mining) this.actionHold = ACTION_FACE_TIME;
+    if (this.seated) {
+      this.facing = this.seated.yaw;
+      return;
+    }
+    if (this.camera.firstPerson) {
+      this.facing = this.viewYaw;
+      return;
+    }
+    const target = this.actionHold > 0 ? this.yaw : this.moveYaw;
+    if (target !== null) this.facing = turnToward(this.facing, target, frameDt);
+  }
+
+  /** The body's drawn heading (see updateFacing). */
+  private facing = 0;
+  /** The keys' heading this tick, or null while no move key is held. */
+  private moveYaw: number | null = null;
+  /** Seconds the body keeps facing the crosshair after an action. */
+  private actionHold = 0;
+
   private updateView(frameDt: number): void {
     this.viewYaw = easeAngle(this.viewYaw, this.yaw, frameDt);
     this.viewPitch = easeAngle(this.viewPitch, this.pitch, frameDt);
@@ -1112,6 +1149,7 @@ export class CraftGame {
       pieces: () => PIECES.map((p) => p.key),
       look: (yaw: number, pitch?: number) => {
         this.yaw = yaw;
+        this.facing = yaw;
         if (pitch !== undefined) this.pitch = pitch;
       },
       saveNow: () => this.persist(),

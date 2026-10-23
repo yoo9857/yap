@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { CUT_DISTANCE, angleDelta, easeAngle, interpolate } from "../src/craft/smoothing.js";
+import { CUT_DISTANCE, angleDelta, easeAngle, interpolate, turnToward } from "../src/craft/smoothing.js";
 
 const SIM_DT = 1 / 60;
 
@@ -109,5 +109,35 @@ describe("easing the view angles", () => {
 
   it("takes a big jump at once instead of swinging the camera round", () => {
     expect(easeAngle(0, 2, 1 / 60)).toBe(2);
+  });
+});
+
+describe("turnToward (the body's heading)", () => {
+  it("swings round through a visible turn, never a one-frame flip", () => {
+    let facing = 0;
+    const target = Math.PI * 0.99; // S: face the camera
+    const frames: number[] = [];
+    for (let i = 0; i < 60; i++) {
+      facing = turnToward(facing, target, 1 / 60);
+      frames.push(facing);
+    }
+    // capped at 13 rad/s: no frame turns more than ~0.22 rad
+    for (let i = 1; i < frames.length; i++) expect(Math.abs(frames[i]! - frames[i - 1]!)).toBeLessThanOrEqual(13 / 60 + 1e-9);
+    // and it gets there within half a second
+    expect(Math.abs(angleDelta(frames[29]!, target))).toBeLessThan(0.05);
+  });
+
+  it("takes the short way round across ±π", () => {
+    const next = turnToward(Math.PI - 0.1, -Math.PI + 0.1, 1 / 60);
+    expect(next).toBeGreaterThan(Math.PI - 0.1); // kept increasing, through π
+  });
+
+  it("is frame-rate independent", () => {
+    const run = (fps: number) => {
+      let f = 0;
+      for (let i = 0; i < fps / 4; i++) f = turnToward(f, 1, 1 / fps);
+      return f;
+    };
+    expect(Math.abs(run(60) - run(144))).toBeLessThan(0.03);
   });
 });

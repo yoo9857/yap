@@ -196,6 +196,7 @@ Live multiplayer for the education field, deliberately separate from the tower p
   - **A material is either instanced or not**: voxelView keeps twin materials (instanced near bricks / merged far chunks); instanced meshes go on `INK_INSTANCED_LAYER`, not `INK_LAYER`, for the mask pass's own override material.
 - **Draw between ticks** (`craft/smoothing.ts`): physics is fixed 60 Hz; the player and the pet are DRAWN `interpolate(prev, curr, alpha)` and the view angles `easeAngle` (~25 ms, absorbs a 125 Hz mouse vs a 144 Hz screen). Aim/mining use the exact angles. Unit-tested with irregular frame schedules — headless SwiftShader frame times are too noisy to judge smoothness by.
 - **Reuse GPU resources, don't copy them**: one material per source when cloning (e.g. the robot fade clones per *material*, not per mesh), one cached geometry per shape, shared attributes for recoloured copies, one grain texture (`blockParts.crayonGrain`). Audit with `__roboCraft.scene()`: group materials/geometries/textures by content and look for copies.
+- **The robot's body is not glued to the camera** (`CraftGame.updateFacing`, `turnToward` in `smoothing.ts`): walking, it turns toward the camera-relative key direction (S walks it face-first toward the camera); mining/placing turn it back to the crosshair for `ACTION_FACE_TIME`; seated = seat yaw; first person = view. The classroom sends this body heading, not the camera yaw.
 - Landing assets are size-capped: banner/paper are WebP, logo is a resized PNG; renderer caps `pixelRatio` at 1.5.
 
 ### Deployment
