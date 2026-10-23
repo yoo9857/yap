@@ -29,7 +29,7 @@ const LIMITS: Record<string, { rate: number; burst: number }> = {
   other: { rate: 5, burst: 10 },
 };
 const familyOf = (t: ClassClientMessage["t"]) =>
-  t === "k-move" ? "move" : t === "k-edit" ? "edit" : t === "k-chat" ? "chat" : "other";
+  t === "k-move" ? "move" : t === "k-edit" || t === "k-furniture" ? "edit" : t === "k-chat" ? "chat" : "other";
 
 /** A WebSocket speaking the classroom protocol. */
 class ClassSocket implements ClassPeer {
@@ -122,7 +122,12 @@ export class ClassManager {
         socket.strike();
         return;
       }
-      if (!socket.allow(msg)) return;
+      if (!socket.allow(msg)) {
+        // A furniture edit is optimistic: reconnect to restore the authoritative
+        // layout rather than silently leaving a placement only this client sees.
+        if (msg.t === "k-furniture") socket.close("furniture rate limit");
+        return;
+      }
       if (room) {
         room.handle(socket, msg);
         if (room.closed) this.retire(room);

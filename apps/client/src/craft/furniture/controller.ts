@@ -1,3 +1,4 @@
+import type { ClassFurniture } from "@robo/shared";
 import type * as THREE from "three";
 import { withObjectParticle } from "../korean.js";
 import { overlapsVoxel, unstick, type Body } from "../voxelBody.js";
@@ -37,6 +38,7 @@ export interface FurnitureHost {
   };
   sfx: { play(name: "place" | "pickup" | "doorOpen" | "doorClose" | "sit" | "undo" | "click"): void };
   canBuild(): boolean;
+  changed?(placed: ClassFurniture[], removed: ClassFurniture[]): void;
   /** Re-capture the mouse; called from a click handler (a user gesture). */
   resumePlay(): void;
   /** Close the neighbouring panel when ours opens. */
@@ -85,8 +87,7 @@ export class FurnitureController {
 
   constructor(
     private readonly host: FurnitureHost,
-    /** False in a live classroom: furniture is not on the class wire yet, and
-     *  a sofa only you can see (and others walk through) is worse than none. */
+    /** Whether this game enables the furniture tools. */
     readonly enabled: boolean,
   ) {
     this.view = new FurnitureView(host.scene);
@@ -126,7 +127,7 @@ export class FurnitureController {
 
   /** Right click places this piece from now on (null = blocks again). */
   select(kind: string | null, variant?: number): void {
-    if (!this.enabled) return; // a classroom: the bar must never appear
+    if (!this.enabled) return;
     if (kind !== null && !isFurnitureKind(kind)) return;
     if (kind && variant !== undefined && variant >= 0 && variant < variantCount(furnitureDef(kind))) {
       this.variants.set(kind, variant);
@@ -330,11 +331,17 @@ export class FurnitureController {
   interact(item: PlacedFurniture): boolean {
     const def = furnitureDef(item.kind);
     if (!def.openParts) return false;
+    if (!this.host.canBuild()) {
+      this.host.hud.toast("🧱 지금은 건축이 잠겨 있어요");
+      return true;
+    }
+    const before = { ...item };
     const result = this.host.layout.toggle(item, this.placementWorld);
     if (result === "body") {
       this.host.hud.toast(`🚪 ${def.name} 자리에 서 있어서 닫을 수 없어요`);
       return true;
     }
+    if (result === "ok") this.changed([item], [before]);
     // closing on the pet lifts it clear rather than shutting it inside
     if (item.state !== 1) unstick(this.host.world, this.host.pet());
     this.host.sfx.play(item.state === 1 ? "doorOpen" : "doorClose");
@@ -391,7 +398,13 @@ export class FurnitureController {
   private readonly undoStack: { placed: PlacedFurniture[]; removed: PlacedFurniture[] }[] = [];
   private readonly redoStack: { placed: PlacedFurniture[]; removed: PlacedFurniture[] }[] = [];
 
+  private changed(placed: readonly PlacedFurniture[], removed: readonly PlacedFurniture[]): void {
+    const tuple = (p: PlacedFurniture): ClassFurniture => [p.kind, p.x, p.y, p.z, p.rot, p.variant, p.state ?? 0];
+    this.host.changed?.(placed.map(tuple), removed.map(tuple));
+  }
+
   private record(step: { placed: PlacedFurniture[]; removed: PlacedFurniture[] }): void {
+    this.changed(step.placed, step.removed);
     this.undoStack.push({ placed: step.placed.map((p) => ({ ...p })), removed: step.removed.map((p) => ({ ...p })) });
     if (this.undoStack.length > 100) this.undoStack.shift();
     this.redoStack.length = 0;
@@ -401,6 +414,7 @@ export class FurnitureController {
    *  since moved on (a block now fills the spot): nothing is half-applied. */
   private apply(step: { placed: PlacedFurniture[]; removed: PlacedFurniture[] }, backwards: boolean): boolean {
     const layout = this.host.layout;
+    const before = layout.toJSON();
     const toRemove = backwards ? step.placed : step.removed;
     const toAdd = backwards ? step.removed : step.placed;
     const find = (p: PlacedFurniture) =>
@@ -410,23 +424,19 @@ export class FurnitureController {
     const live = toRemove.map(find);
     if (live.some((p) => !p)) return false;
     for (const p of live) if (p && layout.all().includes(p)) layout.remove(p);
-    const added: PlacedFurniture[] = [];
     for (const p of ordered) {
       if (!layout.canPlace(p, this.placementWorld) || !layout.add(p)) {
-        // something is in the way now: take back what was added, restore what was removed
-        for (const a of added) {
-          const q = find(a);
-          if (q) layout.remove(q);
-        }
-        for (const p2 of toRemove) layout.add(p2);
+        // Include cascaded pieces belonging to another participant in the rollback.
+        layout.load(before, true);
         return false;
       }
-      added.push(p);
     }
+    this.changed(toAdd, toRemove);
     return true;
   }
 
   undo(): void {
+    if (!this.host.canBuild()) return;
     if (!this.enabled) return;
     const step = this.undoStack.pop();
     if (!step) return this.host.hud.toast("↩️ 되돌릴 가구 작업이 없어요");
@@ -437,6 +447,7 @@ export class FurnitureController {
   }
 
   redo(): void {
+    if (!this.host.canBuild()) return;
     if (!this.enabled) return;
     const step = this.redoStack.pop();
     if (!step) return;
@@ -449,6 +460,7 @@ export class FurnitureController {
   /** Put a piece away (and whatever stood on it). It is free, so nothing is
    *  refunded — the toast is the feedback. */
   pickUp(item: PlacedFurniture): void {
+    if (!this.host.canBuild()) return;
     const removed = this.host.layout.remove(item);
     if (removed.length === 0) return;
     this.record({ placed: [], removed });
@@ -517,7 +529,9 @@ export class FurnitureController {
         if (!isFurnitureKind(kind)) return false;
         const [ax, ay, az] = grid(x, y, z);
         const item = { kind, x: ax, y: ay, z: az, rot, variant };
-        return this.host.layout.canPlace(item, this.placementWorld) && this.host.layout.add(item);
+        if (!this.host.canBuild() || !this.host.layout.canPlace(item, this.placementWorld) || !this.host.layout.add(item)) return false;
+        this.record({ placed: [item], removed: [] });
+        return true;
       },
       furnitureAt: (x: number, y: number, z: number, layer: "solid" | "rug" | "surface" | "wall" = "solid") =>
         this.host.layout.at(layer, ...grid(x, y, z))?.kind ?? null,

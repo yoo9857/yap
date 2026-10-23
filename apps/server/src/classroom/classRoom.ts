@@ -1,9 +1,12 @@
+import { FurnitureLayout, type PlacementWorld } from "@robo/shared/furniture/layout";
+import type { PlacedFurniture } from "@robo/shared/furniture/types";
 import { randomBytes, randomUUID } from "node:crypto";
 import {
   CLASS_MAX_STUDENTS,
   classKey,
   type ClassClientMessage,
   type ClassEdit,
+  type ClassFurniture,
   type ClassMember,
   type ClassRole,
   type ClassServerMessage,
@@ -50,6 +53,7 @@ export class ClassRoom {
   private readonly byPeer = new Map<ClassPeer, Member>();
   /** "x,y,z" → [block, shape]; only cells that differ from the flat field. */
   private readonly edits = new Map<string, [number, number]>();
+  private furniture = new FurnitureLayout();
   private settings: ClassSettings = { chatLocked: false, buildLocked: false };
   /** Wall-clock ms when the room last had nobody connected (null = occupied). */
   emptySince: number | null = null;
@@ -71,6 +75,7 @@ export class ClassRoom {
     this.key = classKey(teacherName);
     if (!saved) return;
     this.settings = saved.settings;
+    this.furniture.load(saved.furniture);
     this.addMember(saved.teacherName, "teacher", saved.teacherKey);
     for (const s of saved.students) this.addMember(s.name, "student", s.key);
     for (const [x, y, z, block, shape] of saved.edits) this.edits.set(`${x},${y},${z}`, [block, shape]);
@@ -93,6 +98,7 @@ export class ClassRoom {
       students: [...this.members.values()].filter((m) => m.role === "student").map((m) => ({ name: m.name, key: m.key })),
       settings: this.settings,
       edits,
+      furniture: this.furniture.toJSON(),
     };
   }
 
@@ -189,6 +195,7 @@ export class ClassRoom {
       members: this.memberList(),
       settings: this.settings,
       editCount: this.edits.size,
+      furniture: this.furniture.toJSON(),
     });
     // the shared field, in batches so no single frame is huge
     let batch: ClassEdit[] = [];
@@ -227,6 +234,9 @@ export class ClassRoom {
         return;
       case "k-edit":
         this.applyEdits(me, peer, msg.edits);
+        return;
+      case "k-furniture":
+        this.applyFurniture(me, peer, msg);
         return;
       case "k-chat":
         if (me.role === "student" && this.settings.chatLocked) return;
@@ -267,6 +277,7 @@ export class ClassRoom {
         return;
       case "k-reset-world":
         this.edits.clear();
+        this.furniture.clear();
         this.dirty = true;
         this.broadcast({ t: "s-k-world-reset" });
         this.system("선생님이 들판을 새로 비웠어요");
@@ -277,28 +288,73 @@ export class ClassRoom {
   private applyEdits(me: Member, peer: ClassPeer, edits: ClassEdit[]): void {
     if (me.role === "student" && this.settings.buildLocked) {
       peer.send({ t: "s-k-reject", edits });
+      peer.send({ t: "s-k-furniture", furniture: this.furniture.toJSON() });
       return;
     }
+    const furnitureVersion = this.furniture.version;
     const accepted: ClassEdit[] = [];
     const refused: ClassEdit[] = [];
     for (const edit of edits) {
       const [x, y, z, block, shape] = edit;
       const cell = `${x},${y},${z}`;
       // bedrock is unbreakable, and a full store takes no NEW cells
-      if (y === 0 || (!this.edits.has(cell) && this.edits.size >= MAX_EDITS)) {
+      if (y === 0 || (block !== 0 && this.furniture.blocksBlock(x, y, z)) || (!this.edits.has(cell) && this.edits.size >= MAX_EDITS)) {
         refused.push(edit);
         continue;
       }
       if (block === pristine(y) && shape === 0) this.edits.delete(cell);
       else this.edits.set(cell, [block, shape]);
       accepted.push(edit);
+      if (block === 0) this.furniture.afterBlockRemoved(x, y, z, this.placementWorld);
     }
     if (refused.length > 0) peer.send({ t: "s-k-reject", edits: refused });
+    if (refused.length > 0 || this.furniture.version !== furnitureVersion)
+      this.broadcast({ t: "s-k-furniture", furniture: this.furniture.toJSON() });
     if (accepted.length === 0) return;
     this.dirty = true;
     for (const [other, member] of this.byPeer) {
       if (member !== me) other.send({ t: "s-k-edit", by: me.id, edits: accepted });
     }
+  }
+
+  private readonly placementWorld: PlacementWorld = {
+    isBlock: (x, y, z) => (this.edits.get(`${x},${y},${z}`)?.[0] ?? pristine(y)) !== 0,
+    hasBody: (x, y, z) => [...this.byPeer.values()].some(({ pos }) => pos !== null &&
+      pos[0] + 0.3 > x && pos[0] - 0.3 < x + 1 &&
+      pos[1] + 1.8 > y && pos[1] < y + 1 && pos[2] + 0.3 > z && pos[2] - 0.3 < z + 1),
+  };
+
+  /** Validate a complete transaction on a copy: conflicting edits never half-apply. */
+  private applyFurniture(me: Member, peer: ClassPeer, msg: Extract<ClassClientMessage, { t: "k-furniture" }>): void {
+    const reject = () => peer.send({ t: "s-k-furniture", furniture: this.furniture.toJSON(), rejected: true });
+    if (me.role === "student" && this.settings.buildLocked) return reject();
+    if (msg.placed.length + msg.removed.length === 0) return;
+    const next = new FurnitureLayout();
+    next.load(this.furniture.toJSON());
+    const same = (p: PlacedFurniture, t: ClassFurniture) => p.kind === t[0] && p.x === t[1] &&
+      p.y === t[2] && p.z === t[3] && p.rot === t[4] && p.variant === t[5] && (p.state ?? 0) === (t[6] ?? 0);
+    // Check every removal against the original before cascades remove table-top pieces.
+    if (msg.removed.some((t) => !this.furniture.all().some((p) => same(p, t)))) return reject();
+    for (const t of msg.removed) {
+      const live = next.all().find((p) => same(p, t));
+      if (live) next.remove(live);
+    }
+    // A door state change keeps its existing support (one surviving leg is enough).
+    for (const t of msg.placed) {
+      const [kind, x, y, z, rot, variant, state] = t;
+      const item: PlacedFurniture = { kind, x, y, z, rot, variant };
+      if (state === 1) item.state = 1;
+      const previous = msg.removed.find((r) => r.slice(0, 6).every((v, i) => v === t[i]));
+      if (previous && (previous[6] ?? 0) !== (state ?? 0)) {
+        const original = this.furniture.all().find((p) => same(p, previous))!;
+        const toggleCheck = new FurnitureLayout();
+        toggleCheck.add(original);
+        if (toggleCheck.toggle(toggleCheck.all()[0]!, this.placementWorld) !== "ok" || !next.add(item)) return reject();
+      } else if (!next.canPlace(item, this.placementWorld) || !next.add(item)) return reject();
+    }
+    this.furniture = next;
+    this.dirty = true;
+    this.broadcast({ t: "s-k-furniture", furniture: next.toJSON() });
   }
 
   /** Positions of everyone connected; sent at the snapshot rate. */

@@ -3,7 +3,9 @@
 Furniture is Craft Island's and the education field's decorating system: about
 fifty pieces in seven categories, free and unlimited, placed with the mouse or
 entirely from the keyboard. This page is the operating standard. Keep it true
-when you change anything under `apps/client/src/craft/furniture/`.
+when you change anything under `apps/client/src/craft/furniture/` or
+`packages/shared/src/furniture/`. The catalog, types, geometry and layout rules
+live in the shared package; the original client paths re-export them for compatibility.
 
 ## Layout of the code
 
@@ -29,7 +31,7 @@ Dependencies only point downward: `types` ← `catalog` ← `footprint`/`layout`
 
 ## Adding a piece
 
-1. Pick the category file in `catalog/`. A category holds **at most nine**
+1. Pick the category file in `packages/shared/src/furniture/catalog/`. A category holds **at most nine**
    pieces (the bar is driven by the 1‒9 keys); a tenth means a new category in
    `catalog/index.ts`, not a bigger one.
 2. Append a `FurnitureDef`. The `key` is **persisted in saves**: kebab-case,
@@ -164,12 +166,25 @@ sofa, a vase stands on a table and a clock hangs over a bed:
   unknown colour falls back to variant 0, five-element tuples (pre-variant
   saves) read as variant 0.
 
-## Not done yet
+## Classrooms
 
-- **Classrooms**: furniture is not on the class wire, so the chip is hidden in a
-  live class. Doing it means `k-`/`s-k-` messages for place/remove in
-  absolute coordinates, server-side validation with the same `layout.ts` (it is
-  DOM-free on purpose), and storing it next to the field diff in `classStore.ts`.
+Teachers and students use the same furniture tools. `k-furniture` sends an atomic
+placement/removal transaction in absolute coordinates, including colour and door
+state. The server validates it with the same shared layout rules, checks every
+participant's body, and broadcasts `s-k-furniture` with the authoritative layout.
+Conflicts and locked student edits restore that layout on the sender. Block edits
+are flushed before furniture operations so a newly built support already exists.
+
+Furniture is saved beside the field diff in the class store. Welcome/reconnect
+snapshots include all furniture; resetting the field clears it. Removing supports
+cascades on the server, and blocks cannot be built through furniture. Student
+building locks also cover placement, pickup, undo/redo and door toggles. Classroom
+protocol version 2 requires a page refresh for clients from before this change.
+Unchanged pieces keep their object identity when snapshots arrive so another
+participant's edit doesn't make a seated player stand up.
+
+## Remaining limitations
+
 - Machines collide with solid furniture as whole cells (the terrain bake uses
   `isBlocked`), not with the model's shape.
-- No undo, no "recently used" row, no cost/inventory — all furniture is free.
+- No "recently used" row, no cost/inventory — all furniture is free.

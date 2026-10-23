@@ -101,14 +101,47 @@ try {
   check("student's brick appears for the teacher", seenByTeacher !== 0);
   check("teacher's brick appears for the student", seenByStudent !== 0);
 
+  // Furniture uses the same shared classroom, including undo and door state.
+  const furniture = (page) => page.evaluate(() => globalThis.__roboCraft.furniture().items);
+  const shortcut = (page, key) => page.evaluate((key) => {
+    document.dispatchEvent(new KeyboardEvent("keydown", { key, ctrlKey: true, bubbles: true }));
+  }, key);
+  check("teacher sees the furniture button", await teacher.$eval('[data-id="furniture-chip"]', (el) => getComputedStyle(el).display !== "none"));
+  check("teacher places shared furniture", await teacher.evaluate(() => globalThis.__roboCraft.furniturePlace("chair", 76, 4, 86, 1, 1)));
+  await sleep(500);
+  check("student receives the chair and its colour", (await furniture(minji)).some((p) => p[0] === "chair" && p[4] === 1 && p[5] === 1));
+  await shortcut(teacher, "z");
+  await sleep(500);
+  check("teacher undo removes the chair for students", (await furniture(minji)).length === 0);
+  await shortcut(teacher, "y");
+  await sleep(500);
+  check("teacher redo restores the chair for students", (await furniture(minji)).length === 1);
+  await minji.evaluate(() => globalThis.__roboCraft.furniturePlace("side-table", 82, 4, 86));
+  await sleep(300);
+  await minji.evaluate(() => globalThis.__roboCraft.furniturePlace("vase", 82, 4, 86));
+  await sleep(500);
+  check("student table and vase reach the teacher", (await furniture(teacher)).length === 3);
+  await teacher.evaluate(() => globalThis.__roboCraft.furniturePlace("door", 85, 4, 86));
+  await sleep(300);
+  await teacher.evaluate(() => globalThis.__roboCraft.furnitureToggle(85, 4, 86));
+  await sleep(500);
+  check("door opening is shared", (await furniture(minji)).some((p) => p[0] === "door" && p[6] === 1));
+  const sharedFurniture = await furniture(teacher);
+
   // 4) a late joiner gets the whole field
   check("second student joins", (await enterViaLobby(jun, "student", TEACHER, "준")) === "");
   const lateView = await jun.evaluate(() => [globalThis.__roboCraft.blockAt(70, 4, 70), globalThis.__roboCraft.blockAt(72, 4, 70)]);
   check("late joiner sees bricks built before they came", lateView.every((b) => b !== 0), JSON.stringify(lateView));
+  check("late joiner gets furniture and open doors", JSON.stringify(await furniture(jun)) === JSON.stringify(sharedFurniture));
 
   // 5) build lock: a student's brick is refused and rolled back
   await send(teacher, { t: "k-settings", chatLocked: false, buildLocked: true });
   await sleep(500);
+  check("locked student cannot place furniture", !(await minji.evaluate(() => globalThis.__roboCraft.furniturePlace("chair", 74, 4, 86))));
+  await minji.evaluate(() => globalThis.__roboCraft.furnitureToggle(85, 4, 86));
+  await shortcut(minji, "z");
+  await sleep(300);
+  check("build lock prevents door changes and furniture undo", JSON.stringify(await furniture(teacher)) === JSON.stringify(sharedFurniture));
   await minji.evaluate(() => globalThis.__roboCraft.placeAt(74, 4, 70, "stone"));
   await sleep(800);
   const locked = await minji.evaluate(() => globalThis.__roboCraft.blockAt(74, 4, 70));
@@ -152,8 +185,8 @@ try {
   // 9) a dropped student gets their seat (and the field) back
   const before = (await cls(minji)).you;
   await minji.goto(`${BASE}/?mode=field&teacher=${encodeURIComponent(TEACHER)}&student=${encodeURIComponent("민지")}`, {
-    waitUntil: "networkidle2",
-    timeout: 30000,
+    waitUntil: "domcontentloaded",
+    timeout: 60000,
   });
   await minji.waitForFunction(() => !!globalThis.__roboCraft?.classroom(), { timeout: 15000 });
   await sleep(800);
@@ -161,6 +194,7 @@ try {
   const kept = await minji.evaluate(() => globalThis.__roboCraft.blockAt(70, 4, 70));
   check("reconnecting student keeps their seat", after.you === before, `${before} → ${after.you}`);
   check("reconnecting student gets the field back", kept !== 0);
+  check("reconnecting student gets furniture back", JSON.stringify(await furniture(minji)) === JSON.stringify(sharedFurniture));
 
   // 10) end of class
   await send(teacher, { t: "k-end" });
@@ -174,11 +208,13 @@ try {
   check("the right password re-opens it", (await enterViaLobby(fake, "teacher", TEACHER, undefined, "1234")) === "");
   const restored = await fake.evaluate(() => [globalThis.__roboCraft.blockAt(70, 4, 70), globalThis.__roboCraft.blockAt(72, 4, 70)]);
   check("last lesson's bricks are still there", restored.every((b) => b !== 0), JSON.stringify(restored));
+  check("last lesson's furniture is still there", JSON.stringify(await furniture(fake)) === JSON.stringify(sharedFurniture));
   const seats = await fake.evaluate(() => globalThis.__roboCraft.classroom().members.map((m) => m.name));
   check("the class roster is kept (minus the kicked student)", seats.includes("민지") && !seats.includes("준"), seats.join(","));
   await send(fake, { t: "k-reset-world" });
   await sleep(500);
   check("teacher can wipe the field", (await fake.evaluate(() => globalThis.__roboCraft.blockAt(70, 4, 70))) === 0);
+  check("reset also clears shared furniture", (await furniture(fake)).length === 0);
   await send(fake, { t: "k-end" });
 
   check("no browser errors", errors.length === 0, errors.join(" | "));

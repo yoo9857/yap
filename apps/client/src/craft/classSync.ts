@@ -1,3 +1,4 @@
+import type { FurnitureLayout } from "./furniture/layout.js";
 import * as THREE from "three";
 import type { ClassEdit, ClassMember, ClassSettings } from "@robo/shared";
 import { CharacterRig, disposeRig } from "../player/rig.js";
@@ -78,10 +79,12 @@ export class ClassSync {
     private readonly view: VoxelView,
     private readonly scene: THREE.Scene,
     private readonly hooks: ClassSyncHooks,
+    furniture: FurnitureLayout,
   ) {
     this.members = session.members;
     this.settings = session.settings;
     field.replaceAll(session.edits);
+    furniture.load(session.furniture);
     this.hud = new ClassHud(session.role, session.you, session.teacher, {
       chat: (text) => client.send({ t: "k-chat", text }),
       kick: (m) => client.send({ t: "k-kick", playerId: m.id }),
@@ -106,6 +109,10 @@ export class ClassSync {
     };
     client.onSnap = (players) => this.applySnap(players);
     client.onEdit = (edits) => this.applyEdits(edits);
+    client.onFurniture = (items, rejected) => {
+      furniture.load(items, true);
+      if (rejected) hooks.toast("🛋️ 다른 변경이나 건축 잠금 때문에 가구 작업을 적용하지 못했어요");
+    };
     client.onReject = (edits) => this.undo(edits);
     client.onChat = (msg) => this.hud.chat(msg.name, msg.role, msg.text, msg.system);
     client.onSettings = (settings) => {
@@ -128,6 +135,7 @@ export class ClassSync {
     };
     client.onWorldReset = () => {
       field.replaceAll([]);
+      furniture.clear();
       this.pending.clear();
       this.outbox.length = 0;
       view.markDirty();
@@ -143,6 +151,7 @@ export class ClassSync {
       if (fresh.edits.length === 0 && field.hasEdits()) hooks.toast("⚠️ 서버가 다시 시작되어 반이 새로 열렸어요");
       // the server's field wins: anything sent while offline never landed
       field.replaceAll(fresh.edits);
+      furniture.load(fresh.furniture, true);
       this.pending.clear();
       this.outbox.length = 0;
       view.markDirty();
@@ -185,9 +194,13 @@ export class ClassSync {
     this.outbox.push([ax, y, az, block, shape]);
   }
 
+  flushEdits(): void {
+    while (this.outbox.length > 0) this.client.send({ t: "k-edit", edits: this.outbox.splice(0, 8) });
+  }
+
   /** Per fixed tick: flush edits, report position, glide remote robots. */
   tick(dt: number, body: { x: number; y: number; z: number }, yaw: number, anim: "idle" | "run" | "jump"): void {
-    while (this.outbox.length > 0) this.client.send({ t: "k-edit", edits: this.outbox.splice(0, 8) });
+    this.flushEdits();
     const now = performance.now();
     for (const [key, p] of this.pending) if (now - p.at > PENDING_MS) this.pending.delete(key);
 

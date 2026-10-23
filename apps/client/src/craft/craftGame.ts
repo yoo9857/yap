@@ -128,7 +128,7 @@ export class CraftGame {
     this.sky = new SkyDome(this.renderer.scene, SKY_TOP, FOG_COLOR);
     this.camera = new CraftCamera(this.renderer.camera);
     this.view = new VoxelView(this.renderer.scene);
-    this.hud = new CraftHud(document.body, (recipe) => this.handleCraft(recipe), { furniture: !opts.classroom });
+    this.hud = new CraftHud(document.body, (recipe) => this.handleCraft(recipe), { furniture: true });
 
     const reset = new URLSearchParams(location.search).has("reset");
     if (opts.classroom) {
@@ -142,8 +142,6 @@ export class CraftGame {
         // spread arrivals out so a whole class doesn't land in one cell
         player: { x: spawn.x + (Math.random() - 0.5) * 8, y: spawn.y, z: spawn.z + (Math.random() - 0.5) * 8 },
         pet: "dog",
-        // Furniture is not on the class wire yet, so a classroom has none: a
-        // sofa only you can see (and others walk through) would be worse.
         furniture: new FurnitureLayout(),
       };
       this.buildFieldGround();
@@ -179,12 +177,17 @@ export class CraftGame {
       hud: this.hud,
       sfx: this.sfx,
       canBuild: () => this.canBuild(),
+      changed: (placed, removed) => {
+        if (!opts.classroom) return;
+        this.sync?.flushEdits();
+        opts.classroom.client.send({ t: "k-furniture", placed, removed });
+      },
       resumePlay: () => this.resumePlay(),
       closeOtherPanels: () => {
         this.petShop.setOpen(false);
         this.hud.hideRecipes();
       },
-    }, !opts.classroom);
+    }, true);
     this.body = { ...this.state.player, vx: 0, vy: 0, vz: 0, grounded: false };
     unstick(this.state.world, this.body); // never spawn embedded in a block
     this.renderer.scene.add(this.rig.root);
@@ -214,7 +217,8 @@ export class CraftGame {
             this.keys.clear();
             this.mining = this.placing = false;
           },
-        });
+        }, this.state.furniture);
+      unstick(this.state.world, this.body);
       this.view.markDirty(); // the class's field replaced the empty one
     }
 

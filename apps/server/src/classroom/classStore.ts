@@ -2,7 +2,7 @@ import { mkdirSync } from "node:fs";
 import { createRequire } from "node:module";
 import { dirname } from "node:path";
 import { randomBytes, scryptSync, timingSafeEqual } from "node:crypto";
-import type { ClassEdit, ClassSettings } from "@robo/shared";
+import type { ClassEdit, ClassSettings, ClassFurniture } from "@robo/shared";
 import { log } from "../log.js";
 
 const nativeRequire = createRequire(import.meta.url);
@@ -17,6 +17,7 @@ export interface SavedClass {
   students: { name: string; key: string }[];
   settings: ClassSettings;
   edits: ClassEdit[];
+  furniture?: ClassFurniture[];
 }
 
 export interface ClassStore {

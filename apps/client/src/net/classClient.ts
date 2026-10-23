@@ -4,6 +4,7 @@ import {
   decodeClassServer,
   type ClassClientMessage,
   type ClassEdit,
+  type ClassFurniture,
   type ClassErrorCode,
   type ClassMember,
   type ClassRole,
@@ -24,6 +25,7 @@ export interface ClassSession {
   settings: ClassSettings;
   /** The shared field as it stands, absolute coordinates. */
   edits: ClassEdit[];
+  furniture: ClassFurniture[];
 }
 
 export const CLASS_ERROR_TEXT: Record<ClassErrorCode | "offline", string> = {
@@ -72,6 +74,7 @@ export class ClassClient {
   onMembers: ((members: ClassMember[]) => void) | null = null;
   onSnap: ((players: Extract<ClassServerMessage, { t: "s-k-snap" }>["players"]) => void) | null = null;
   onEdit: ((edits: ClassEdit[], by: string) => void) | null = null;
+  onFurniture: ((items: ClassFurniture[], rejected: boolean) => void) | null = null;
   onReject: ((edits: ClassEdit[]) => void) | null = null;
   onChat: ((msg: Extract<ClassServerMessage, { t: "s-k-chat" }>) => void) | null = null;
   onGather: ((pos: [number, number, number]) => void) | null = null;
@@ -160,6 +163,7 @@ export class ClassClient {
             members: msg.members,
             settings: msg.settings,
             edits: [],
+            furniture: msg.furniture,
           },
           expected: msg.editCount,
         };
@@ -196,6 +200,9 @@ export class ClassClient {
         return;
       case "s-k-snap":
         this.onSnap?.(msg.players);
+        return;
+      case "s-k-furniture":
+        this.onFurniture?.(msg.furniture, msg.rejected ?? false);
         return;
       case "s-k-edit":
         this.onEdit?.(msg.edits, msg.by);

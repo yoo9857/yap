@@ -26,6 +26,17 @@ function blocks(cells: Iterable<string> = []): PlacementWorld & { set: Set<strin
 
 const piece = (kind: string, x: number, y: number, z: number, rot = 0, variant = 0): PlacedFurniture => ({ kind, x, y, z, rot, variant });
 
+it("keeps unchanged furniture identities when a classroom snapshot arrives", () => {
+  const layout = new FurnitureLayout();
+  layout.add(piece("chair", 0, 1, 0));
+  const seatedOn = layout.all()[0]!;
+  layout.load([...layout.toJSON(), ["side-table", 4, 1, 0, 0, 0]], true);
+  expect(layout.all()[0]).toBe(seatedOn);
+  expect(layout.size).toBe(2);
+  layout.load([["side-table", 4, 1, 0, 0, 0]], true);
+  expect(layout.all()).not.toContain(seatedOn);
+});
+
 function memoryStorage(): KeyValueStorage {
   const data = new Map<string, string>();
   return { getItem: (k) => data.get(k) ?? null, setItem: (k, v) => void data.set(k, v) };

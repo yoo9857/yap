@@ -13,7 +13,7 @@ import { playerNameSchema } from "./messages.js";
  * selected with `?mode=class`.
  */
 
-export const CLASS_PROTOCOL_VERSION = 1;
+export const CLASS_PROTOCOL_VERSION = 2;
 /** Highest block layer of the field grid (WORLD_Y - 1). */
 export const CLASS_MAX_Y = 55;
 /** Field coordinates are bounded so a hostile client can't grow the store
@@ -45,6 +45,18 @@ export const classEditSchema = z.tuple([
 ]);
 export type ClassEdit = z.infer<typeof classEditSchema>;
 
+/** Exact furniture value, including colour and open/closed state. */
+const furnitureBase = z.tuple([
+  z.string().min(1).max(48), coordSchema,
+  z.number().int().min(0).max(CLASS_MAX_Y), coordSchema,
+  z.number().int().min(0).max(3), z.number().int().min(0).max(32),
+]);
+export const classFurnitureSchema = z.union([
+  furnitureBase,
+  z.tuple([...furnitureBase.items, z.number().int().min(0).max(1)]),
+]);
+export type ClassFurniture = z.infer<typeof classFurnitureSchema>;
+
 // ---------------------------------------------------------------- client → server
 
 export const classClientSchema = z.discriminatedUnion("t", [
@@ -69,6 +81,11 @@ export const classClientSchema = z.discriminatedUnion("t", [
   z.object({ t: z.literal("k-move"), pos: vec3Schema, yaw: z.number().finite(), anim: classAnimSchema }),
   /** Up to one placed piece (4 cells) per message. */
   z.object({ t: z.literal("k-edit"), edits: z.array(classEditSchema).min(1).max(8) }),
+  z.object({
+    t: z.literal("k-furniture"),
+    placed: z.array(classFurnitureSchema).max(32),
+    removed: z.array(classFurnitureSchema).max(32),
+  }),
   z.object({ t: z.literal("k-chat"), text: z.string().trim().min(1).max(CLASS_CHAT_MAX) }),
   // teacher only — the server checks the role
   z.object({ t: z.literal("k-kick"), playerId: z.string().max(32) }),
@@ -118,6 +135,11 @@ export const classServerSchema = z.discriminatedUnion("t", [
     settings: classSettingsSchema,
     /** Number of edits that follow in s-k-world batches. */
     editCount: z.number().int().nonnegative(),
+    furniture: z.array(classFurnitureSchema).max(3000),
+  }),
+  z.object({
+    t: z.literal("s-k-furniture"), furniture: z.array(classFurnitureSchema).max(3000),
+    rejected: z.boolean().optional(),
   }),
   z.object({ t: z.literal("s-k-world"), edits: z.array(classEditSchema) }),
   /** The teacher wiped the field: drop every edit. */
@@ -159,7 +181,7 @@ function decodeWith<T>(raw: unknown, schema: z.ZodType<T>, maxLen: number): T | 
 }
 
 export function decodeClassClient(raw: unknown): ClassClientMessage | null {
-  return decodeWith(raw, classClientSchema, 2048);
+  return decodeWith(raw, classClientSchema, 16384);
 }
 
 /** World batches are large; the server is trusted for size, not shape. */

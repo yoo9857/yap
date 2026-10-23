@@ -60,18 +60,19 @@ check(
   `A="${playersA2}" B="${playersB}"`,
 );
 
-// movement sanity in prod build: HUD height % changes after running+jumping
+// Jump on the spawn platform. Walking first can leave its edge before jumping;
+// sample the HUD while the key is held instead of after a fixed wall-clock delay.
 await a.click("#app");
 const heightBefore = await a.evaluate(() => document.querySelector('[data-id="height"]')?.textContent);
-await a.keyboard.down("KeyW");
-await sleep(700);
 await a.keyboard.down("Space");
-await sleep(150);
-await a.keyboard.up("Space");
-await sleep(300);
+const jumped = await a.waitForFunction(
+  (before) => document.querySelector('[data-id="height"]')?.textContent !== before,
+  { timeout: 3000, polling: 25 },
+  heightBefore,
+).then(() => true).catch(() => false);
 const heightDuring = await a.evaluate(() => document.querySelector('[data-id="height"]')?.textContent);
-await a.keyboard.up("KeyW");
-check("prod build gameplay responds (height % changes mid-jump)", heightBefore !== heightDuring, `${heightBefore} → ${heightDuring}`);
+await a.keyboard.up("Space");
+check("prod build gameplay responds (height % changes mid-jump)", jumped, `${heightBefore} → ${heightDuring}`);
 
 // Every other mode boots from the same build: loading overlay gone, a canvas
 // drawing, and not one page error (minification and chunking break things

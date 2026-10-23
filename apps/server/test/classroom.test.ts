@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { ClassServerMessage } from "@robo/shared";
+import { decodeClassClient, decodeClassServer, type ClassFurniture, type ClassServerMessage } from "@robo/shared";
 import { ClassRoom, type ClassPeer } from "../src/classroom/classRoom.js";
 import { MemoryClassStore, hashPassword } from "../src/classroom/classStore.js";
 
@@ -222,5 +222,133 @@ describe("ClassRoom persistence", () => {
     room.handle(teacher, { t: "k-reset-world" });
     expect(room.editCount).toBe(0);
     expect(a.last("s-k-world-reset")).toBeDefined();
+  });
+});
+
+
+describe("classroom furniture", () => {
+  const chair: ClassFurniture = ["chair", -20, 4, 10, 0, 0];
+  const door: ClassFurniture = ["door", 20, 4, 10, 0, 0];
+  const place = (room: ClassRoom, peer: Peer, item: ClassFurniture) =>
+    room.handle(peer, { t: "k-furniture", placed: [item], removed: [] });
+
+  it("shares teacher and student placements, colours and late-join snapshots", () => {
+    const { room, teacher } = classWithTeacher();
+    const student = new Peer();
+    room.joinStudent(student, "Minji");
+    place(room, teacher, chair);
+    expect(student.last("s-k-furniture")!.furniture).toEqual([chair]);
+    const other: ClassFurniture = ["chair", 25, 4, 10, 1, 1];
+    place(room, student, other);
+    expect(teacher.last("s-k-furniture")!.furniture).toEqual([chair, other]);
+    const late = new Peer();
+    room.joinStudent(late, "Jun");
+    expect(late.welcome().furniture).toEqual([chair, other]);
+    expect(decodeClassServer(JSON.stringify(late.welcome()))).not.toBeNull();
+  });
+
+  it("persists open doors across a store round trip and clears them on reset", () => {
+    const { room, teacher } = classWithTeacher();
+    place(room, teacher, door);
+    const opened: ClassFurniture = [...door, 1];
+    room.handle(teacher, { t: "k-furniture", removed: [door], placed: [opened] });
+    expect(teacher.last("s-k-furniture")!.furniture).toEqual([opened]);
+    const store = new MemoryClassStore();
+    store.save(room.key, room.toSaved());
+    const restored = new ClassRoom("Ms Kim", AUTH, store.load(room.key)!);
+    const again = new Peer();
+    restored.hostTeacher(again, { password: "1234" });
+    expect(again.welcome().furniture).toEqual([opened]);
+    restored.handle(again, { t: "k-reset-world" });
+    expect(restored.toSaved().furniture).toEqual([]);
+  });
+
+  it("locks every student mutation while teachers can still build", () => {
+    const { room, teacher } = classWithTeacher();
+    const student = new Peer();
+    room.joinStudent(student, "Minji");
+    place(room, teacher, door);
+    room.handle(teacher, { t: "k-settings", chatLocked: false, buildLocked: true });
+    place(room, student, chair);
+    expect(student.last("s-k-furniture")!.rejected).toBe(true);
+    room.handle(student, { t: "k-furniture", removed: [door], placed: [] });
+    expect(room.toSaved().furniture).toEqual([door]);
+    room.handle(student, { t: "k-furniture", removed: [door], placed: [[...door, 1]] });
+    expect(room.toSaved().furniture).toEqual([door]);
+    place(room, teacher, chair);
+    expect(room.toSaved().furniture).toEqual([door, chair]);
+  });
+
+  it("rejects overlap, floating pieces, invalid catalog data and occupied bodies atomically", () => {
+    const { room, teacher } = classWithTeacher();
+    place(room, teacher, chair);
+    place(room, teacher, chair);
+    expect(teacher.last("s-k-furniture")!.rejected).toBe(true);
+    for (const item of [
+      ["chair", 20, 8, 10, 0, 0], ["no-such-piece", 20, 4, 10, 0, 0],
+      ["chair", 20, 4, 10, 0, 30],
+    ] as ClassFurniture[]) {
+      room.handle(teacher, { t: "k-furniture", removed: [chair], placed: [item] });
+      expect(teacher.last("s-k-furniture")!.rejected).toBe(true);
+      expect(room.toSaved().furniture).toEqual([chair]);
+    }
+    room.handle(teacher, { t: "k-move", pos: [20.5, 4, 10.5], yaw: 0, anim: "idle" });
+    place(room, teacher, door);
+    expect(teacher.last("s-k-furniture")!.rejected).toBe(true);
+  });
+
+  it("doesn't close a door through another participant", () => {
+    const { room, teacher } = classWithTeacher();
+    const student = new Peer();
+    room.joinStudent(student, "Minji");
+    const opened: ClassFurniture = [...door, 1];
+    place(room, teacher, opened);
+    room.handle(student, { t: "k-move", pos: [20.5, 4, 10.5], yaw: 0, anim: "idle" });
+    room.handle(teacher, { t: "k-furniture", removed: [opened], placed: [door] });
+    expect(teacher.last("s-k-furniture")!.rejected).toBe(true);
+    expect(room.toSaved().furniture).toEqual([opened]);
+  });
+
+  it("prevents blocks through furniture and cascades removed supports for everyone", () => {
+    const { room, teacher } = classWithTeacher();
+    const student = new Peer();
+    room.joinStudent(student, "Minji");
+    place(room, teacher, chair);
+    room.handle(student, { t: "k-edit", edits: [[-20, 4, 10, 3, 0]] });
+    expect(student.last("s-k-reject")!.edits).toEqual([[-20, 4, 10, 3, 0]]);
+    room.handle(teacher, { t: "k-edit", edits: [[-20, 3, 10, 0, 0]] });
+    expect(student.last("s-k-furniture")!.furniture).toEqual([]);
+    expect(room.toSaved().furniture).toEqual([]);
+  });
+
+  it("removing a table also removes its vase and accepts an atomic undo", () => {
+    const { room, teacher } = classWithTeacher();
+    const table: ClassFurniture = ["side-table", 20, 4, 10, 0, 0];
+    const vase: ClassFurniture = ["vase", 20, 4, 10, 0, 0];
+    place(room, teacher, table);
+    place(room, teacher, vase);
+    expect(room.toSaved().furniture).toHaveLength(2);
+    room.handle(teacher, { t: "k-furniture", removed: [table, vase], placed: [] });
+    expect(room.toSaved().furniture).toEqual([]);
+    room.handle(teacher, { t: "k-furniture", removed: [], placed: [table, vase] });
+    expect(room.toSaved().furniture).toEqual([table, vase]);
+  });
+
+  it("rejects stale deletion without overwriting a concurrent placement", () => {
+    const { room, teacher } = classWithTeacher();
+    place(room, teacher, chair);
+    room.handle(teacher, { t: "k-furniture", removed: [chair], placed: [] });
+    const replacement: ClassFurniture = ["chair", -20, 4, 10, 1, 0];
+    place(room, teacher, replacement);
+    room.handle(teacher, { t: "k-furniture", removed: [chair], placed: [] });
+    expect(teacher.last("s-k-furniture")!.rejected).toBe(true);
+    expect(room.toSaved().furniture).toEqual([replacement]);
+  });
+
+  it("bounds and validates furniture messages", () => {
+    const msg = { t: "k-furniture", placed: [chair], removed: [] };
+    expect(decodeClassClient(JSON.stringify(msg))).toEqual(msg);
+    expect(decodeClassClient(JSON.stringify({ ...msg, placed: [["chair", 0, 4, 0, 4, 0]] }))).toBeNull();
+    expect(decodeClassClient(JSON.stringify({ ...msg, placed: Array(33).fill(chair) }))).toBeNull();
   });
 });
