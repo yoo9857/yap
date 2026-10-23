@@ -15,12 +15,13 @@ import { playerNameSchema } from "./messages.js";
  */
 
 /** 3: classes are named rooms, no longer keyed by the teacher's name. */
-export const CLASS_PROTOCOL_VERSION = 3;
+export const CLASS_PROTOCOL_VERSION = 4;
 /** Highest block layer of the field grid (WORLD_Y - 1). */
 export const CLASS_MAX_Y = 55;
 /** Field coordinates are bounded so a hostile client can't grow the store
  *  with absurd keys; ±1 000 km of walking is plenty. */
-const COORD = 1_000_000;
+export const CLASS_MAX_COORD = 1_000_000;
+const COORD = CLASS_MAX_COORD;
 export const CLASS_MAX_STUDENTS = 40;
 export const CLASS_CHAT_MAX = 120;
 export const CLASS_PASSWORD_MIN = 4;

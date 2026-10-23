@@ -1,6 +1,8 @@
 import * as THREE from "three";
 import { castsInstancedShadow } from "../render/instancedDepth.js";
-import { BLOCKS, blockById, textureUrl, type BlockDef } from "./blocks.js";
+import { BLOCKS, SOLID_ID, blockById, textureUrl, type BlockDef } from "./blocks.js";
+import { animateWater, buildWaterGeometry, makeWaterMaterial, prepareWaterTransition } from "./waterMesh.js";
+import type { WaterWorkerRequest, WaterWorkerResponse } from "./waterWorkerTypes.js";
 import { loadTexture } from "../render/textures.js";
 import { WORLD_X, WORLD_Y, WORLD_Z, type VoxelWorld } from "./voxelWorld.js";
 import { ROUND, isSlope, slopeYaw, slopeTilt } from "./shapes.js";
@@ -38,6 +40,7 @@ const STUD_STEP = 8;
 /** Per-frame chunk-build budget. Chunks build nearest-first, so the one you
  *  just edited lands this frame and far strips trickle in behind the fog. */
 const BUILD_BUDGET_MS = 4;
+const WATER_BUILD_BUDGET_MS = 2;
 
 const CHUNKS_X = Math.ceil(WORLD_X / CHUNK);
 const CHUNKS_Z = Math.ceil(WORLD_Z / CHUNK);
@@ -61,6 +64,19 @@ interface ChunkState {
   hidden: boolean;
   /** block id -> xyz... of cells whose top face carries studs. */
   studs: Map<number, number[]>;
+  /** The chunk's water, one see-through mesh (any LOD). */
+  water: THREE.Mesh | null;
+  waterMinY: number;
+  waterMaxY: number;
+}
+
+interface WaterBatch {
+  id: number;
+  waiting: boolean;
+  world: Pick<VoxelWorld, "get">;
+  jobs: [number, [number, number]][];
+  cursor: number;
+  results: { id: number; geometry: THREE.BufferGeometry | null; minY: number; maxY: number }[];
 }
 
 /** The six cube faces: normal n, and in-face axes u, v with u × v = n. Side
@@ -164,6 +180,7 @@ export class VoxelView {
 
   constructor(private readonly scene: THREE.Scene) {
     for (const def of BLOCKS) {
+      if (def.fluid) continue; // drawn by the water mesh, never as a brick
       const [material, merged] = this.makeMaterials(def);
       this.materials.set(def.id, material);
       this.materialIndex.set(def.id, this.materialList.length);
@@ -249,10 +266,167 @@ export class VoxelView {
     if (lz === CHUNK - 1) this.invalidate(chunkId(cx, cz + 1));
   }
 
+  /**
+   * Only WATER changed in this cell (a flow step: water ↔ air ↔ water).
+   * Neither is solid, so no brick face can have appeared or vanished: just
+   * the water meshes around it are redrawn — never the chunk's bricks, which
+   * would make every running stream rebuild its chunks four times a second.
+   * Corners are shared with all eight neighbours, so a cell on a chunk's
+   * edge redraws the next chunk's water too.
+   */
+  markWaterDirty(x: number, y: number, z: number): void {
+    const cx = Math.floor(x / CHUNK);
+    const cz = Math.floor(z / CHUNK);
+    const lx = x - cx * CHUNK;
+    const lz = z - cz * CHUNK;
+    for (let dx = lx === 0 ? -1 : 0; dx <= (lx === CHUNK - 1 ? 1 : 0); dx++) {
+      for (let dz = lz === 0 ? -1 : 0; dz <= (lz === CHUNK - 1 ? 1 : 0); dz++) {
+        const ncx = cx + dx;
+        const ncz = cz + dz;
+        if (ncx < 0 || ncz < 0 || ncx >= CHUNKS_X || ncz >= CHUNKS_Z) continue;
+        const id = chunkId(ncx, ncz), range = this.waterQueue.get(id);
+        if (range) { range[0] = Math.min(range[0], y); range[1] = Math.max(range[1], y); }
+        else this.waterQueue.set(id, [y, y]);
+      }
+    }
+  }
+
+  private readonly waterQueue = new Map<number, [number, number]>();
+  private waterBatch: WaterBatch | null = null;
+  private waterSnapshot: Uint8Array | null = null;
+  private waterBuildPeak = 0;
+  private waterCommits = 0;
+  private waterSerial = 0;
+  private waterWorker: Worker | null = null;
+  private waterWorkerFailed = false;
+  private workerMeshMs = 0;
+
+  private ensureWaterWorker(): Worker | null {
+    if (this.waterWorkerFailed || typeof Worker === "undefined") return null;
+    if (this.waterWorker) return this.waterWorker;
+    try {
+      const worker = new Worker(new URL("./waterWorker.ts", import.meta.url), { type: "module" });
+      const fallback = () => {
+        this.waterWorkerFailed = true; worker.terminate(); this.waterWorker = null;
+        if (this.waterBatch) this.waterBatch.waiting = false;
+      };
+      worker.onerror = fallback;
+      worker.onmessage = (event: MessageEvent<WaterWorkerResponse>) => {
+        const data = event.data, batch = this.waterBatch;
+        if (!batch || data.id !== batch.id) return;
+        if (data.t === "failed") { fallback(); return; }
+        this.workerMeshMs = data.ms;
+        for (const result of data.results) {
+          let geometry: THREE.BufferGeometry | null = null;
+          if (result.attributes && result.index && result.sphere) {
+            geometry = new THREE.BufferGeometry();
+            for (const [name, a] of Object.entries(result.attributes)) geometry.setAttribute(name, new THREE.BufferAttribute(a.array, a.itemSize));
+            geometry.setIndex(new THREE.BufferAttribute(result.index, 1));
+            const [x, y, z, r] = result.sphere;
+            geometry.boundingSphere = new THREE.Sphere(new THREE.Vector3(x, y, z), r);
+          }
+          batch.results.push({ id: result.id, geometry, minY: result.minY, maxY: result.maxY });
+        }
+        batch.cursor = batch.jobs.length; batch.waiting = false;
+      };
+      this.waterWorker = worker; return worker;
+    } catch { this.waterWorkerFailed = true; return null; }
+  }
+
+  /** Build an immutable generation within a CPU budget; install ALL its meshes
+   *  together so neighbours never show different flow generations. */
+  private rebuildQueuedWater(world: VoxelWorld): void {
+    const start = performance.now();
+    if (!this.waterBatch) {
+      if (this.waterQueue.size === 0) return;
+      // A terrain edit also changes the water boundary in diagonal chunks.
+      // Wait until its brick scans finish, then mesh all affected water from
+      // one snapshot instead of replacing one chunk early with a new lip.
+      if ([...this.waterQueue.keys()].some((id) => this.queue.has(id) || this.chunks.get(id)?.stale)) return;
+      const jobs = [...this.waterQueue].filter(([id]) => {
+        const c = this.chunks.get(id);
+        return c && !c.stale && !this.queue.has(id);
+      }).sort((a, b) => this.distSqTo(a[0]) - this.distSqTo(b[0]));
+      this.waterQueue.clear();
+      if (jobs.length === 0) return;
+      const snapshot = this.waterSnapshot ??= new Uint8Array(world.cells.length);
+      snapshot.set(world.cells);
+      const outside = world.outsideColumn?.slice();
+      const frozen = { get: (x: number, y: number, z: number) =>
+        x >= 0 && x < WORLD_X && z >= 0 && z < WORLD_Z && y >= 0 && y < WORLD_Y
+          ? snapshot[(y * WORLD_Z + z) * WORLD_X + x]!
+          : y >= 0 && y < WORLD_Y ? outside?.[y] ?? 0 : 0 };
+      this.waterBatch = { id: ++this.waterSerial, waiting: false, world: frozen, jobs, cursor: 0, results: [] };
+      const worker = this.ensureWaterWorker();
+      if (worker) {
+        const request: WaterWorkerRequest = { t: "build", id: this.waterBatch.id, cells: snapshot,
+          outside: outside ?? null, jobs: jobs.map(([id, range]) => {
+            const c = this.chunks.get(id)!;
+            return { id, x: chunkX(id) * CHUNK, z: chunkZ(id) * CHUNK,
+              minY: Math.max(0, Math.min(c.waterMinY, range[0])), maxY: Math.min(WORLD_Y - 1, Math.max(c.waterMaxY, range[1])) };
+          }) };
+        // Keep the immutable snapshot for bounded main-thread fallback if a
+        // worker is unavailable; all result buffers return by transfer.
+        this.waterBatch.waiting = true;
+        worker.postMessage(request);
+      }
+    }
+    const batch = this.waterBatch;
+    if (batch.waiting) { this.waterBuildPeak = Math.max(this.waterBuildPeak, performance.now() - start); return; }
+    while (batch.cursor < batch.jobs.length) {
+      const [id, range] = batch.jobs[batch.cursor++]!;
+      const chunk = this.chunks.get(id);
+      if (!chunk || chunk.stale || this.queue.has(id)) continue;
+      const x0 = chunkX(id) * CHUNK;
+      const z0 = chunkZ(id) * CHUNK;
+      const water: number[] = [];
+      let minY = WORLD_Y, maxY = -1;
+      const lo = Math.max(0, Math.min(chunk.waterMinY, range[0]));
+      const hi = Math.min(WORLD_Y - 1, Math.max(chunk.waterMaxY, range[1]));
+      for (let y = lo; y <= hi; y++) {
+        for (let z = z0; z < Math.min(WORLD_Z, z0 + CHUNK); z++) {
+          for (let x = x0; x < Math.min(WORLD_X, x0 + CHUNK); x++) {
+            const block = batch.world.get(x, y, z);
+            if (block !== 0 && SOLID_ID[block] === 0) {
+              water.push(x, y, z); minY = Math.min(minY, y); maxY = Math.max(maxY, y);
+            }
+          }
+        }
+      }
+      const geometry = water.length ? buildWaterGeometry(batch.world, water) : null;
+      batch.results.push({ id, geometry, minY, maxY });
+      if (performance.now() - start >= WATER_BUILD_BUDGET_MS) break;
+    }
+    this.waterBuildPeak = Math.max(this.waterBuildPeak, performance.now() - start);
+    if (batch.cursor < batch.jobs.length) return;
+    const commitTime = performance.now() / 1000;
+    for (const { id, geometry, minY, maxY } of batch.results) {
+      const chunk = this.chunks.get(id);
+      if (!chunk || chunk.stale || this.queue.has(id)) { geometry?.dispose(); continue; }
+      this.installWater(chunk, geometry, minY, maxY, commitTime);
+    }
+    this.waterBatch = null;
+    this.waterCommits++;
+  }
+
+  private cancelWaterBatch(): void {
+    if (!this.waterBatch) return;
+    this.waterWorker?.postMessage({ t: "cancel", id: ++this.waterSerial } satisfies WaterWorkerRequest);
+    for (const result of this.waterBatch.results) result.geometry?.dispose();
+    for (const [id] of this.waterBatch.jobs) this.waterQueue.set(id, [0, WORLD_Y - 1]);
+    this.waterBatch = null;
+  }
+
+  waterStats() {
+    return { queued: this.waterQueue.size, pending: this.waterBatch ? this.waterBatch.jobs.length - this.waterBatch.cursor : 0,
+      commits: this.waterCommits, peakBuildMs: this.waterBuildPeak, worker: !!this.waterWorker, workerMeshMs: this.workerMeshMs };
+  }
+
   private invalidate(id: number): void {
     const cx = chunkX(id);
     const cz = chunkZ(id);
     if (cx < 0 || cz < 0 || cx >= CHUNKS_X || cz >= CHUNKS_Z) return;
+    this.cancelWaterBatch();
     const chunk = this.chunks.get(id);
     if (chunk) chunk.stale = true;
     this.queue.add(id);
@@ -265,6 +439,9 @@ export class VoxelView {
    * is queued for building.
    */
   shift(dx: number, dz: number): void {
+    this.cancelWaterBatch();
+    const waterQueued = [...this.waterQueue];
+    this.waterQueue.clear();
     if (dx % CHUNK !== 0 || dz % CHUNK !== 0 || this.dirty) {
       this.dirty = true;
       return;
@@ -289,6 +466,10 @@ export class VoxelView {
         chunk.far.position.x -= dx;
         chunk.far.position.z -= dz;
       }
+      if (chunk.water) {
+        chunk.water.position.x -= dx;
+        chunk.water.position.z -= dz;
+      }
       for (const list of chunk.studs.values()) {
         for (let i = 0; i < list.length; i += 3) {
           list[i] = list[i]! - dx;
@@ -298,6 +479,10 @@ export class VoxelView {
       chunks.set(chunkId(cx, cz), chunk);
     }
     this.chunks = chunks;
+    for (const [id, range] of waterQueued) {
+      const cx = chunkX(id) - scx, cz = chunkZ(id) - scz;
+      if (cx >= 0 && cz >= 0 && cx < CHUNKS_X && cz < CHUNKS_Z) this.waterQueue.set(chunkId(cx, cz), range);
+    }
     // pending rebuilds follow their chunk to its new id
     for (const id of queued) this.invalidate(chunkId(chunkX(id) - scx, chunkZ(id) - scz));
     for (let cz = 0; cz < CHUNKS_Z; cz++) {
@@ -334,6 +519,7 @@ export class VoxelView {
       this.applyVisibility();
     }
     if (this.dirty) {
+      this.cancelWaterBatch();
       this.dirty = false;
       for (const chunk of this.chunks.values()) chunk.stale = true;
       for (let cz = 0; cz < CHUNKS_Z; cz++) {
@@ -355,6 +541,7 @@ export class VoxelView {
       }
       this.primed = true;
     }
+    if (this.waterQueue.size > 0 || this.waterBatch) this.rebuildQueuedWater(world);
     if (this.studsDirty) this.rebuildStuds(eye);
   }
 
@@ -367,7 +554,8 @@ export class VoxelView {
     const z0 = chunkZ(id) * CHUNK;
     const dx = Math.max(x0, Math.min(eye.x, x0 + CHUNK)) - eye.x;
     const dz = Math.max(z0, Math.min(eye.z, z0 + CHUNK)) - eye.z;
-    const top = this.chunks.get(id)?.top ?? 0;
+    const chunk = this.chunks.get(id);
+    const top = Math.max(chunk?.top ?? 0, chunk?.waterMaxY ?? -1);
     const dy = Math.max(0, eye.y - (top + 1));
     return dx * dx + dy * dy + dz * dz;
   }
@@ -393,7 +581,7 @@ export class VoxelView {
     const id = chunkId(cx, cz);
     let chunk = this.chunks.get(id);
     if (!chunk) {
-      chunk = { meshes: new Map(), far: null, isFar: false, stale: true, top: 0, hidden: false, studs: new Map() };
+      chunk = { meshes: new Map(), far: null, isFar: false, stale: true, top: 0, hidden: false, studs: new Map(), water: null, waterMinY: WORLD_Y, waterMaxY: -1 };
       this.chunks.set(id, chunk);
     }
     const far = this.wantsFar(id, chunk);
@@ -409,6 +597,7 @@ export class VoxelView {
         return false;
       }
     }
+    const rebuildWater = chunk.stale;
     if (chunk.stale) {
       // both forms describe old contents now
       this.disposeNear(chunk);
@@ -416,7 +605,7 @@ export class VoxelView {
     }
     chunk.isFar = far;
     chunk.stale = false;
-    this.scanChunk(world, chunk, cx, cz, far);
+    this.scanChunk(world, chunk, cx, cz, far, rebuildWater);
     chunk.hidden = this.hasFocus && this.distSqTo(id) > this.renderDistance * this.renderDistance;
     this.showForm(chunk);
     return true;
@@ -425,6 +614,7 @@ export class VoxelView {
   private showForm(chunk: ChunkState): void {
     for (const mesh of chunk.meshes.values()) mesh.visible = !chunk.isFar && !chunk.hidden;
     if (chunk.far) chunk.far.visible = chunk.isFar && !chunk.hidden;
+    if (chunk.water) chunk.water.visible = !chunk.hidden;
   }
 
   /**
@@ -449,7 +639,7 @@ export class VoxelView {
 
   /** Walk the chunk's cells once, emitting studs + either near instances or
    *  far face geometry. */
-  private scanChunk(world: VoxelWorld, chunk: ChunkState, cx: number, cz: number, far: boolean): void {
+  private scanChunk(world: VoxelWorld, chunk: ChunkState, cx: number, cz: number, far: boolean, rebuildWater: boolean): void {
     const { cells, shapes } = world;
     const W = WORLD_X;
     const layer = WORLD_X * WORLD_Z;
@@ -460,6 +650,7 @@ export class VoxelView {
     const positions = new Map<number, number[]>(); // near: (id << 8 | shape) → xyz…
     const farBuffers = new Map<number, FarBuffers>(); // far: block id → faces
     chunk.studs.clear();
+    const water: number[] = [];
     let top = 0;
 
     const occludes = (nx: number, ny: number, nz: number): boolean => {
@@ -473,7 +664,7 @@ export class VoxelView {
         block = world.get(nx, ny, nz);
         shape = 0;
       }
-      return block !== 0 && shape === 0 && !this.seeThrough.has(block);
+      return SOLID_ID[block] === 1 && shape === 0 && !this.seeThrough.has(block);
     };
 
     for (let y = 0; y < WORLD_Y; y++) {
@@ -481,19 +672,22 @@ export class VoxelView {
         let i = (y * WORLD_Z + z) * W + x0;
         for (let x = x0; x < x1; x++, i++) {
           const block = cells[i]!;
-          if (block === 0) continue;
+          if (SOLID_ID[block] === 0) {
+            if (block !== 0) water.push(x, y, z); // water: its own mesh below
+            continue;
+          }
           // direct neighbour reads in the interior; the bounds-aware path
           // (which also sees the field's endless ground) only at the edges
           const interior = x > 0 && x < W - 1 && z > 0 && z < WORLD_Z - 1 && y > 0 && y < WORLD_Y - 1;
           const exposed = interior
-            ? cells[i - 1] === 0 || cells[i + 1] === 0 || cells[i - W] === 0 || cells[i + W] === 0 ||
-              cells[i - layer] === 0 || cells[i + layer] === 0
+            ? SOLID_ID[cells[i - 1]!] === 0 || SOLID_ID[cells[i + 1]!] === 0 || SOLID_ID[cells[i - W]!] === 0 ||
+              SOLID_ID[cells[i + W]!] === 0 || SOLID_ID[cells[i - layer]!] === 0 || SOLID_ID[cells[i + layer]!] === 0
             : world.isExposed(x, y, z);
           if (!exposed) continue;
           top = y;
           const shape = shapes[i]!;
           const def = blockById(block);
-          const airAbove = y < WORLD_Y - 1 ? cells[i + layer] === 0 : !world.isSolid(x, y + 1, z);
+          const airAbove = y < WORLD_Y - 1 ? SOLID_ID[cells[i + layer]!] === 0 : !world.isSolid(x, y + 1, z);
           // studs only cap flat-topped bricks (cube/round), never a slope
           if (def && !def.noStud && (shape === 0 || shape === ROUND) && airAbove) {
             let studs = chunk.studs.get(block);
@@ -535,6 +729,8 @@ export class VoxelView {
     }
     chunk.top = top;
 
+    if (!this.primed) this.buildWater(world, chunk, water);
+    else if (rebuildWater) this.waterQueue.set(chunkId(cx, cz), [0, WORLD_Y - 1]);
     if (far) this.buildFarMesh(chunk, farBuffers);
     else this.buildNearMeshes(chunk, positions);
   }
@@ -631,6 +827,71 @@ export class VoxelView {
     chunk.meshes.clear();
   }
 
+  // ------------------------------------------------------------ water
+
+  private readonly waterMaterial = makeWaterMaterial();
+  /** One quad far below the world, drawn only during the boot warm-up so the
+   *  water shader compiles behind the loading screen, not at the first pour. */
+  private waterWarm: THREE.Mesh | null = null;
+
+  setWarm(on: boolean): void {
+    if (on) this.ensureWaterWorker();
+    if (on && !this.waterWarm) {
+      const quad = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), this.waterMaterial);
+      quad.position.set(0, -1000, 0);
+      quad.receiveShadow = true;
+      quad.frustumCulled = false;
+      this.scene.add(quad);
+      this.waterWarm = quad;
+    } else if (!on && this.waterWarm) {
+      this.scene.remove(this.waterWarm);
+      this.waterWarm.geometry.dispose();
+      this.waterWarm = null;
+    }
+  }
+
+  /** (Re)build the chunk's water mesh from the cells its scan collected. */
+  private buildWater(world: VoxelWorld, chunk: ChunkState, cells: number[]): void {
+    let minY = WORLD_Y, maxY = -1;
+    for (let i = 1; i < cells.length; i += 3) { minY = Math.min(minY, cells[i]!); maxY = Math.max(maxY, cells[i]!); }
+    this.installWater(chunk, cells.length ? buildWaterGeometry(world, cells) : null, minY, maxY);
+  }
+
+  private installWater(chunk: ChunkState, geometry: THREE.BufferGeometry | null, minY: number, maxY: number,
+    time = performance.now() / 1000): void {
+    chunk.waterMinY = minY; chunk.waterMaxY = maxY;
+    if (!geometry) { this.disposeWater(chunk); return; }
+    prepareWaterTransition(geometry, chunk.water?.geometry ?? null,
+      chunk.water?.position.x ?? 0, chunk.water?.position.z ?? 0, time);
+    if (chunk.water) {
+      const old = chunk.water.geometry;
+      chunk.water.geometry = geometry;
+      // Vertices rebuilt in the new field grid must lose the old scroll offset.
+      chunk.water.position.set(0, 0, 0);
+      chunk.water.visible = !chunk.hidden;
+      old.dispose();
+      return;
+    }
+    const mesh = new THREE.Mesh(geometry, this.waterMaterial);
+    mesh.receiveShadow = true;
+    mesh.renderOrder = 3; // after glass, so glass behind water still shows
+    mesh.visible = !chunk.hidden;
+    this.scene.add(mesh);
+    chunk.water = mesh;
+  }
+
+  private disposeWater(chunk: ChunkState): void {
+    if (!chunk.water) return;
+    this.scene.remove(chunk.water);
+    chunk.water.geometry.dispose();
+    chunk.water = null;
+  }
+
+  /** Per frame: the water's clock, and the field origin its ripples are pinned to. */
+  animateWater(time: number, originX = 0, originZ = 0): void {
+    animateWater(time, originX, originZ);
+  }
+
   private disposeFar(chunk: ChunkState): void {
     if (!chunk.far) return;
     this.scene.remove(chunk.far);
@@ -641,6 +902,7 @@ export class VoxelView {
   private dropChunk(chunk: ChunkState): void {
     this.disposeNear(chunk);
     this.disposeFar(chunk);
+    this.disposeWater(chunk);
     chunk.studs.clear();
   }
 
@@ -728,7 +990,12 @@ export class VoxelView {
   }
 
   dispose(): void {
+    this.cancelWaterBatch();
+    this.waterQueue.clear();
+    this.waterWorker?.terminate(); this.waterWorker = null;
     for (const chunk of this.chunks.values()) this.dropChunk(chunk);
+    this.setWarm(false);
+    this.waterMaterial.dispose();
     for (const mesh of this.studMeshes.values()) {
       this.scene.remove(mesh);
       mesh.dispose();

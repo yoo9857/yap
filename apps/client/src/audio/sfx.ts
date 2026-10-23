@@ -16,7 +16,9 @@ type SfxName =
   | "doorOpen"
   | "doorClose"
   | "sit"
-  | "undo";
+  | "undo"
+  | "splash"
+  | "pour";
 
 export class Sfx {
   private ctx: AudioContext | null = null;
@@ -94,6 +96,14 @@ export class Sfx {
         break;
       case "undo":
         this.beep(ctx, 660, 0.06, "sine", 0.045, 440);
+        break;
+      case "splash":
+        this.noise(ctx, 0.35, 0.08);
+        this.beep(ctx, 380, 0.2, "sine", 0.04, 140);
+        break;
+      case "pour":
+        this.beep(ctx, 540, 0.14, "sine", 0.035, 300);
+        this.noise(ctx, 0.16, 0.03);
         break;
     }
   }

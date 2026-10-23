@@ -5,6 +5,7 @@ import { CharacterRig, disposeRig } from "../player/rig.js";
 import type { ClassClient, ClassSession } from "../net/classClient.js";
 import { ClassHud } from "./classHud.js";
 import { turnToward } from "./smoothing.js";
+import { SOLID_ID } from "./blocks.js";
 import type { FieldWindow } from "./fieldWorld.js";
 import type { VoxelView } from "./voxelView.js";
 
@@ -272,8 +273,12 @@ export class ClassSync {
   private applyEdits(edits: ClassEdit[]): void {
     for (const [ax, y, az, block, shape] of edits) {
       this.pending.delete(`${ax},${y},${az}`); // someone else's write supersedes ours
+      const [prev] = this.field.cellAt(ax, y, az);
       const cell = this.field.applyRemote(ax, y, az, block, shape);
-      if (cell) this.view.markCellDirty(cell[0], cell[1], cell[2]);
+      if (!cell) continue;
+      // the server's water flowing (water ↔ air) never changes a brick
+      if (SOLID_ID[prev] === 0 && SOLID_ID[block] === 0) this.view.markWaterDirty(cell[0], cell[1], cell[2]);
+      else { this.view.markCellDirty(cell[0], cell[1], cell[2]); this.view.markWaterDirty(cell[0], cell[1], cell[2]); }
     }
   }
 
@@ -284,7 +289,7 @@ export class ClassSync {
       if (!p) continue;
       this.pending.delete(key);
       const cell = this.field.applyRemote(ax, y, az, p.prev[0], p.prev[1]);
-      if (cell) this.view.markCellDirty(cell[0], cell[1], cell[2]);
+      if (cell) { this.view.markCellDirty(cell[0], cell[1], cell[2]); this.view.markWaterDirty(cell[0], cell[1], cell[2]); }
     }
     if (this.session.role === "student" && this.settings.buildLocked) this.hooks.toast("🧱 지금은 건축이 잠겨 있어요");
   }

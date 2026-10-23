@@ -3,6 +3,8 @@
  * (0 = air); everything else is data-driven so adding a block is one row.
  */
 
+import { WATER, isWater } from "@robo/shared";
+
 export interface BlockDef {
   /** Stable numeric id — persisted in saves, NEVER reorder existing rows. */
   id: number;
@@ -19,6 +21,9 @@ export interface BlockDef {
   emissive?: boolean;
   /** Suppress studs (glass / foliage read cleaner without them). */
   noStud?: boolean;
+  /** A liquid: not a brick at all. Drawn by the water mesh, walked and aimed
+   *  through, and placed from an endless "bucket" (see @robo/shared fluid). */
+  fluid?: boolean;
 }
 
 export const AIR = 0;
@@ -42,10 +47,24 @@ export const BLOCKS: BlockDef[] = [
   { id: 16, key: "iron-block", name: "Iron Block", texture: "iron-block", color: "#d8dce0", hardness: 1.2 },
   { id: 17, key: "gold-block", name: "Gold Block", texture: "gold-block", color: "#ffd21c", hardness: 1.2 },
   { id: 18, key: "diamond-block", name: "Diamond Block", texture: "diamond-block", color: "#5fe0d8", hardness: 1.6 },
+  // 19 is a water SOURCE; 20‒27 (flowing levels, falling) are its states and
+  // have no row of their own — they are never items (see @robo/shared fluid)
+  { id: WATER, key: "water", name: "Water", texture: "water", color: "#3d8fe0", hardness: 0, fluid: true, noStud: true },
 ];
+
+/**
+ * Does this cell id stop bodies, rays and the faces of its neighbours? Air
+ * and every water state do not — that one table is what lets physics, aiming,
+ * the pet and face culling treat water like air without a special case each.
+ */
+export const SOLID_ID = new Uint8Array(256);
+for (let id = 1; id < 256; id++) SOLID_ID[id] = isWater(id) ? 0 : 1;
 
 const BY_ID = new Map(BLOCKS.map((b) => [b.id, b]));
 const BY_KEY = new Map(BLOCKS.map((b) => [b.key, b]));
+
+/** May a cell id be stored in a world (air, a catalog block, or a water state)? */
+export const isKnownCell = (id: number): boolean => id === AIR || isWater(id) || BY_ID.has(id);
 
 export function blockById(id: number): BlockDef | undefined {
   return BY_ID.get(id);

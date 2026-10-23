@@ -1,6 +1,7 @@
 import type { WebSocket } from "ws";
 import {
   CLASS_PASSWORD_MIN,
+  FLUID_STEP,
   CLASS_PROTOCOL_VERSION,
   classKey,
   claimedClassVersion,
@@ -105,6 +106,10 @@ export class ClassManager {
     this.timers.push(setInterval(() => this.saveDirty(), SAVE_MS));
     this.timers.push(setInterval(() => this.heartbeat(), HEARTBEAT_MS));
     this.timers.push(setInterval(() => this.gc(), 60_000));
+    // water flows on the server, so a class's students all see the same stream
+    this.timers.push(setInterval(() => {
+      for (const room of this.classes.values()) room.stepFluids();
+    }, FLUID_STEP * 1000));
   }
 
   accept(ws: WebSocket, from: string): void {

@@ -3,7 +3,13 @@ import type { PlacedFurniture } from "@robo/shared/furniture/types";
 import { randomBytes, randomUUID } from "node:crypto";
 import {
   CLASS_MAX_STUDENTS,
+  CLASS_MAX_COORD,
+  CLASS_MAX_Y,
+  FluidSim,
+  WATER,
   classKey,
+  isWater,
+  type FluidWorld,
   type ClassClientMessage,
   type ClassEdit,
   type ClassFurniture,
@@ -84,7 +90,45 @@ export class ClassRoom {
     this.furniture.load(saved.furniture);
     this.addMember(saved.teacherName, "teacher", saved.teacherKey);
     for (const s of saved.students) this.addMember(s.name, "student", s.key);
-    for (const [x, y, z, block, shape] of saved.edits) this.edits.set(`${x},${y},${z}`, [block, shape]);
+    for (const [x, y, z, block, shape] of saved.edits) {
+      this.edits.set(`${x},${y},${z}`, [block, shape]);
+      // a stream saved mid-flow carries on (sources alone are always stable)
+      if (isWater(block)) this.fluid.touch(x, y, z);
+    }
+  }
+
+  /**
+   * The class's water. The SERVER runs the flow — the shared FluidSim over
+   * this field — and sends what changed as ordinary edits, so every student
+   * sees the same water and a late joiner gets it with the rest of the field.
+   */
+  private readonly fluid = new FluidSim();
+  private readonly fluidWorld: FluidWorld = {
+    get: (x, y, z) => this.edits.get(`${x},${y},${z}`)?.[0] ?? pristine(y),
+    open: (x, y, z) =>
+      Math.abs(x) <= CLASS_MAX_COORD && Math.abs(z) <= CLASS_MAX_COORD &&
+      y >= 1 && y <= CLASS_MAX_Y && !this.furniture.occupied(x, y, z) &&
+      // a full store takes no new cells — water included
+      (this.edits.has(`${x},${y},${z}`) || this.edits.size < MAX_EDITS),
+    set: (x, y, z, block) => {
+      const cell = `${x},${y},${z}`;
+      if (block === pristine(y)) this.edits.delete(cell);
+      else this.edits.set(cell, [block, 0]);
+    },
+  };
+
+  /** One flow step (ClassManager calls this every FLUID_STEP). Returns the
+   *  number of cells that changed. */
+  stepFluids(): number {
+    if (!this.fluid.busy) return 0;
+    const changes = this.fluid.step(this.fluidWorld);
+    if (changes.length === 0) return 0;
+    this.dirty = true;
+    const edits: ClassEdit[] = changes.map(([x, y, z, block]) => [x, y, z, block, 0]);
+    for (let i = 0; i < edits.length; i += 500) {
+      this.broadcast({ t: "s-k-edit", by: "", edits: edits.slice(i, i + 500) });
+    }
+    return changes.length;
   }
 
   /** Snapshot for the store; clears the dirty flag. */
@@ -285,6 +329,7 @@ export class ClassRoom {
         return;
       case "k-reset-world":
         this.edits.clear();
+        this.fluid.clear();
         this.furniture.clear();
         this.dirty = true;
         this.broadcast({ t: "s-k-world-reset" });
@@ -306,13 +351,14 @@ export class ClassRoom {
       const [x, y, z, block, shape] = edit;
       const cell = `${x},${y},${z}`;
       // bedrock is unbreakable, and a full store takes no NEW cells
-      if (y === 0 || (block !== 0 && this.furniture.blocksBlock(x, y, z)) || (!this.edits.has(cell) && this.edits.size >= MAX_EDITS)) {
+      if (y === 0 || block > WATER || (isWater(block) && shape !== 0) || (block !== 0 && this.furniture.blocksBlock(x, y, z)) || (!this.edits.has(cell) && this.edits.size >= MAX_EDITS)) {
         refused.push(edit);
         continue;
       }
       if (block === pristine(y) && shape === 0) this.edits.delete(cell);
       else this.edits.set(cell, [block, shape]);
       accepted.push(edit);
+      this.fluid.touch(x, y, z); // water around it may flow in, or drain
       if (block === 0) this.furniture.afterBlockRemoved(x, y, z, this.placementWorld);
     }
     if (refused.length > 0) peer.send({ t: "s-k-reject", edits: refused });
@@ -326,7 +372,11 @@ export class ClassRoom {
   }
 
   private readonly placementWorld: PlacementWorld = {
-    isBlock: (x, y, z) => (this.edits.get(`${x},${y},${z}`)?.[0] ?? pristine(y)) !== 0,
+    // water holds nothing up: only a real block supports furniture
+    isBlock: (x, y, z) => {
+      const block = this.edits.get(`${x},${y},${z}`)?.[0] ?? pristine(y);
+      return block !== 0 && !isWater(block);
+    },
     hasBody: (x, y, z) => [...this.byPeer.values()].some(({ pos }) => pos !== null &&
       pos[0] + 0.3 > x && pos[0] - 0.3 < x + 1 &&
       pos[1] + 1.8 > y && pos[1] < y + 1 && pos[2] + 0.3 > z && pos[2] - 0.3 < z + 1),
@@ -361,6 +411,8 @@ export class ClassRoom {
       } else if (!next.canPlace(item, this.placementWorld) || !next.add(item)) return reject();
     }
     this.furniture = next;
+    for (const [kind, x, y, z, rot] of [...msg.placed, ...msg.removed])
+      for (const [cx, cy, cz] of next.cellsOf({ kind, x, y, z, rot })) this.fluid.touch(cx, cy, cz);
     this.dirty = true;
     this.broadcast({ t: "s-k-furniture", furniture: next.toJSON() });
   }

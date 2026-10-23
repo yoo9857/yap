@@ -705,6 +705,19 @@
       }
 
       /* ---------- craft mode ---------- */
+      /* underwater: a blue wash under the HUD (the fog does the murk) */
+      .craft-underwater {
+        position: fixed;
+        inset: 0;
+        pointer-events: none;
+        z-index: 19;
+        background: radial-gradient(ellipse at 50% 40%, rgba(40, 120, 200, 0.18), rgba(10, 50, 110, 0.42));
+        opacity: 0;
+        transition: opacity 0.15s ease-out;
+      }
+      .craft-underwater.on {
+        opacity: 1;
+      }
       .craft-hud {
         position: fixed;
         inset: 0;

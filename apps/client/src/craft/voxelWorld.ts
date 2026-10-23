@@ -1,4 +1,5 @@
-import { AIR, blockByKey } from "./blocks.js";
+import { isWater } from "@robo/shared";
+import { AIR, SOLID_ID, blockByKey } from "./blocks.js";
 
 /**
  * The craft island — a fixed-size voxel grid (Uint8Array of block ids).
@@ -100,8 +101,15 @@ export class VoxelWorld {
     return this.inBounds(x, y, z) ? this.shapes[VoxelWorld.index(x, y, z)]! : 0;
   }
 
+  /** A block that stops bodies, rays and neighbours' faces — not air, not water. */
   isSolid(x: number, y: number, z: number): boolean {
-    return this.get(x, y, z) !== AIR;
+    return SOLID_ID[this.get(x, y, z)] === 1;
+  }
+
+  /** Air or water: a block may be placed here (water is simply displaced). */
+  isReplaceable(x: number, y: number, z: number): boolean {
+    const id = this.get(x, y, z);
+    return id === AIR || isWater(id);
   }
 
   /** Does anything — a block or a piece of furniture — fill this cell? */
@@ -123,7 +131,8 @@ export class VoxelWorld {
   }
 
   /** Grid-DDA ray march. Origin/dir in world units (1 voxel = 1 m).
-   *  `props` also stops at furniture (`isBlocked`), for the player's aim. */
+   *  `props` also stops at furniture (`isBlocked`), for the player's aim;
+   *  `fluids` also stops at water (scooping it up with the bucket). */
   raycast(
     ox: number,
     oy: number,
@@ -133,6 +142,7 @@ export class VoxelWorld {
     dz: number,
     maxDist: number,
     props = false,
+    fluids = false,
   ): RayHit | null {
     let x = Math.floor(ox);
     let y = Math.floor(oy);
@@ -154,7 +164,7 @@ export class VoxelWorld {
     let pz = z;
 
     for (let t = 0; t <= maxDist; ) {
-      if (props ? this.isBlocked(x, y, z) : this.isSolid(x, y, z)) {
+      if ((props ? this.isBlocked(x, y, z) : this.isSolid(x, y, z)) || (fluids && isWater(this.get(x, y, z)))) {
         return { voxel: [x, y, z], before: [px, py, pz], dist: t };
       }
       px = x;

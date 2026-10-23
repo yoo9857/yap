@@ -6,7 +6,7 @@ import { CharacterRig, disposeRig } from "../player/rig.js";
 import { Sfx } from "../audio/sfx.js";
 import { Bgm, BGM_PLAYLIST } from "../audio/bgm.js";
 import { PerfMonitor } from "../ui/perf.js";
-import { AIR, blockById, blockByKey, dropOf, textureUrl } from "./blocks.js";
+import { AIR, SOLID_ID, blockById, blockByKey, dropOf, textureUrl } from "./blocks.js";
 import { loadTexture } from "../render/textures.js";
 import {
   CRAFT_RECIPES,
@@ -22,7 +22,9 @@ import { FIELD_MAX_VIEW, FieldWindow, clearFieldSave, fieldStarterInventory } fr
 import { SkyDome } from "./skyDome.js";
 import { ClassSync } from "./classSync.js";
 import type { ClassClient, ClassSession } from "../net/classClient.js";
-import { stepBody, overlapsVoxel, unstick, wishFromInput, type Body } from "./voxelBody.js";
+import { SWIM_DEPTH, pointInWater, stepBody, overlapsVoxel, unstick, wishFromInput, type Body } from "./voxelBody.js";
+import { WaterSim } from "./waterSim.js";
+import { WATER, WATER_SETTLED, isWater } from "@robo/shared";
 import { CRAFT_SPAWN, surfaceY, type RayHit } from "./voxelWorld.js";
 import { PIECES, pieceCells } from "./pieces.js";
 import { CUBE, ROUND, slopeShape } from "./shapes.js";
@@ -53,6 +55,8 @@ const EYE_HEIGHT = 1.55;
 const FIELD_GROUND_Y = 1 - 0.03;
 /** Horizon colour: fog and the sky dome's lower band share it. */
 const FOG_COLOR = 0x9fd8f5;
+/** Murky blue the fog turns while the camera is underwater. */
+const UNDERWATER_FOG = 0x1d5f9e;
 const SKY_TOP = 0x6fbfee;
 /** Render distance presets (metres), cycled with O. The island is 160 m
  *  across, so its far preset shows nearly all of it; the field's window can
@@ -180,6 +184,9 @@ export class CraftGame {
       sfx: this.sfx,
       canBuild: () => this.canBuild(),
       changed: (placed, removed) => {
+        for (const [kind, x, y, z, rot] of [...placed, ...removed])
+          for (const [ax, ay, az] of this.state.furniture.cellsOf({ kind, x, y, z, rot }))
+            this.water?.touch(ax - (this.field?.absOriginX ?? 0), ay, az - (this.field?.absOriginZ ?? 0));
         if (!opts.classroom) return;
         this.sync?.flushEdits();
         opts.classroom.client.send({ t: "k-furniture", placed, removed });
@@ -237,11 +244,30 @@ export class CraftGame {
       if (document.visibilityState === "hidden") this.persist();
     });
 
+    // solo play runs the water itself; a classroom's water is the server's
+    this.water = this.sync ? null : new WaterSim(this.state.world, this.view, this.field);
+    this.water?.wakeAll();
+    this.underwaterTint.className = "craft-underwater";
+    document.body.appendChild(this.underwaterTint);
+
     this.loop = new GameLoop({
       fixedUpdate: () => this.fixedUpdate(),
       render: (alpha, frameDt) => this.render(alpha, frameDt),
     });
     if (import.meta.env.DEV) this.installDebugHooks();
+  }
+
+  /** Solo play's flowing water (null in a classroom — the server flows it). */
+  private readonly water: WaterSim | null;
+  /** Blue wash over the screen while the camera is underwater. */
+  private readonly underwaterTint = document.createElement("div");
+  private underwater = false;
+  /** How wet the body was last tick — a dry → wet change with speed splashes. */
+  private lastWet = 0;
+
+  /** Is the selected hotbar slot the water bucket? */
+  private holdingWater(): boolean {
+    return blockByKey(HOTBAR[this.selected]!)?.fluid === true;
   }
 
   /**
@@ -254,10 +280,12 @@ export class CraftGame {
     await texturesReady();
     setMessage("Preparing graphics…");
     this.furniture.setWarm(true);
+    this.view.setWarm(true); // the water shader, too
     this.warming = true;
     await warmupGpuAsync(this.renderer.renderer, this.renderer.scene, this.renderer.camera, () => this.render(1, 1 / 60));
     this.warming = false;
     this.furniture.setWarm(false);
+    this.view.setWarm(false);
     this.warmed = true;
     this.facing = this.yaw; // start facing the way the camera looks
   }
@@ -280,6 +308,7 @@ export class CraftGame {
   dispose(): void {
     this.loop.stop();
     this.persist();
+    this.underwaterTint.remove();
     this.workshop.dispose();
     this.view.dispose();
     this.sky.dispose();
@@ -364,6 +393,7 @@ export class CraftGame {
       // furniture's keys first: in furniture mode 1-9, Q/E, X and R are its own
       if (this.furniture.handleKey(key, e.repeat)) return;
       if (key >= "1" && key <= "9") this.selected = Number(key) - 1;
+      if (key === "0" && HOTBAR.length > 9) this.selected = 9;
       if (key === "c") {
         this.hud.toggleRecipes();
         if (this.hud.recipesOpen) document.exitPointerLock();
@@ -443,6 +473,10 @@ export class CraftGame {
     if (this.body.grounded && this.prevVy < -11) {
       this.camera.addShake(Math.min(0.11, -this.prevVy * 0.006));
     }
+    const wet = this.body.wet ?? 0;
+    if (this.lastWet === 0 && wet > 0 && this.prevVy < -4) this.sfx.play("splash");
+    this.lastWet = wet;
+    if (this.water) this.perf.time("water", () => this.water!.update(dt));
 
     // walked far across the field → scroll the voxel window under the player
     if (this.field) {
@@ -497,7 +531,8 @@ export class CraftGame {
     const dy = Math.sin(this.pitch);
     const dz = Math.cos(this.yaw) * Math.cos(this.pitch);
     // furniture stops the ray too: you aim at a chair, not the floor under it
-    this.aim = this.state.world.raycast(this.body.x, eyeY, this.body.z, dx, dy, dz, REACH, true);
+    // holding the bucket, water is a target too (to scoop it back up)
+    this.aim = this.state.world.raycast(this.body.x, eyeY, this.body.z, dx, dy, dz, REACH, true, this.holdingWater());
     this.aimFurniture = this.furniture.aimAt(
       { x: this.body.x, y: eyeY, z: this.body.z },
       { x: dx, y: dy, z: dz },
@@ -519,7 +554,12 @@ export class CraftGame {
       return;
     }
     const [x, y, z] = this.aim.voxel;
-    const def = blockById(this.state.world.get(x, y, z));
+    const cellId = this.state.world.get(x, y, z);
+    if (isWater(cellId)) {
+      this.scoop(x, y, z, cellId);
+      return;
+    }
+    const def = blockById(cellId);
     if (!def || def.hardness <= 0 || !this.canBuild()) {
       this.miningFrac = null; // bedrock: unbreakable (or the teacher locked building)
       return;
@@ -593,6 +633,35 @@ export class CraftGame {
     unstick(this.state.world, this.body); // blocked in front: lifted clear, never stuck
   }
 
+  /**
+   * Left click on water with the bucket: a SOURCE is scooped up (and the
+   * stream it fed drains on its own); flowing water just refills, so it says
+   * where to scoop instead. One scoop per click.
+   */
+  private scoop(x: number, y: number, z: number, id: number): void {
+    this.mining = false;
+    this.miningFrac = null;
+    if (!this.canBuild()) {
+      this.hud.toast("🧱 지금은 건축이 잠겨 있어요");
+      return;
+    }
+    if (id !== WATER && id !== WATER_SETTLED) {
+      this.hud.toast("💧 흐르는 물이에요 — 물이 시작된 곳(원천)을 떠야 없어져요");
+      return;
+    }
+    this.writeCell(x, y, z, AIR, 0);
+    this.sfx.play("pour");
+  }
+
+  /** Right click with the bucket: a water source in the aimed cell. */
+  private pour(x: number, y: number, z: number): void {
+    const world = this.state.world;
+    if (!world.inBounds(x, y, z) || !world.isReplaceable(x, y, z) || this.furniture.blocksCell(x, y, z)) return;
+    if (world.get(x, y, z) === WATER) return;
+    this.writeCell(x, y, z, WATER, 0);
+    this.sfx.play("pour");
+  }
+
   /** Held left click on furniture: a short hold puts it away (it is free). */
   private stepPickup(item: PlacedFurniture, dt: number): void {
     if (!this.canBuild()) {
@@ -634,6 +703,10 @@ export class CraftGame {
       this.furniture.place(this.aim, this.yaw);
       return;
     }
+    if (this.holdingWater()) {
+      this.pour(...this.aim.before);
+      return;
+    }
     if (this.stampPiece(this.aim.before, HOTBAR[this.selected]!)) this.sfx.play("land");
   }
 
@@ -654,7 +727,7 @@ export class CraftGame {
       const y = ay + dy;
       const z = az + dz;
       if (!this.state.world.inBounds(x, y, z)) return false;
-      if (this.state.world.get(x, y, z) !== AIR) return false;
+      if (!this.state.world.isReplaceable(x, y, z)) return false; // air, or water it displaces
       if (this.furniture.blocksCell(x, y, z)) return false;
       if (overlapsVoxel(this.body, x, y, z)) return false; // never bury yourself
       targets.push([x, y, z]);
@@ -674,7 +747,9 @@ export class CraftGame {
     const prevBlock = world.get(x, y, z);
     const prevShape = world.getShape(x, y, z);
     world.setShaped(x, y, z, block, shape);
-    this.view.markCellDirty(x, y, z);
+    if (SOLID_ID[prevBlock] === 0 && SOLID_ID[block] === 0) this.view.markWaterDirty(x, y, z);
+    else { this.view.markCellDirty(x, y, z); this.view.markWaterDirty(x, y, z); }
+    this.water?.touch(x, y, z); // water around it may flow in, or drain
     this.sync?.recordEdit(x, y, z, prevBlock, prevShape, block, shape);
     if (block === AIR) this.furniture.onBlockRemoved(x, y, z);
   }
@@ -727,7 +802,8 @@ export class CraftGame {
       for (const m of this.ghostMeshes) m.visible = false;
       return;
     }
-    const piece = PIECES[this.pieceIndex]!;
+    // the bucket pours one cell, whatever brick shape is picked
+    const piece = this.holdingWater() ? PIECES[0]! : PIECES[this.pieceIndex]!;
     const geo =
       piece.shape === "round"
         ? this.ghostRoundGeo
@@ -736,7 +812,7 @@ export class CraftGame {
           : this.ghostCubeGeo;
     if (piece.shape === "slope") brickOrientation(this.pieceRot, this.pieceTilt, this.ghostQuat);
     else this.ghostQuat.identity();
-    const cells = pieceCells(piece, this.pieceRot, this.pieceTilt);
+    const cells = this.holdingWater() ? [[0, 0, 0] as const] : pieceCells(piece, this.pieceRot, this.pieceTilt);
     const [ax, ay, az] = this.aim.before;
     for (let i = 0; i < this.ghostMeshes.length; i++) {
       const m = this.ghostMeshes[i]!;
@@ -748,7 +824,7 @@ export class CraftGame {
       const x = ax + c[0];
       const y = ay + c[1];
       const z = az + c[2];
-      const ok = this.state.world.inBounds(x, y, z) && this.state.world.get(x, y, z) === AIR && !this.furniture.blocksCell(x, y, z);
+      const ok = this.state.world.inBounds(x, y, z) && this.state.world.isReplaceable(x, y, z) && !this.furniture.blocksCell(x, y, z);
       m.visible = true;
       m.geometry = geo;
       m.material = ok ? this.ghostOk : this.ghostBad;
@@ -947,7 +1023,9 @@ export class CraftGame {
     this.updateFacing(frameDt);
     this.rig.root.rotation.y = this.facing;
     const planar = Math.hypot(this.body.vx, this.body.vz);
-    const anim = this.seated ? "sit" : !this.body.grounded ? "jump" : planar > 0.5 ? "run" : "idle";
+    // swimming is paddling (run) or treading water (idle) — not a jump pose
+    const swimming = (this.body.wet ?? 0) >= SWIM_DEPTH;
+    const anim = this.seated ? "sit" : !this.body.grounded && !swimming ? "jump" : planar > 0.5 ? "run" : "idle";
     this.rig.update(anim, planar, frameDt);
 
     const eye = this.tmpEye.set(drawn.x, this.smoothedEyeY(drawn.y, frameDt), drawn.z);
@@ -962,6 +1040,8 @@ export class CraftGame {
     );
     this.applyRobotOpacity(this.debugHideRobot ? 0 : robotOpacity, frameDt);
     this.renderer.trackTarget(eye);
+    this.updateUnderwater();
+    this.view.animateWater(performance.now() / 1000, this.field?.absOriginX ?? 0, this.field?.absOriginZ ?? 0);
 
     this.updateGhost();
     this.hud.update(this.state.inventory, this.selected);
@@ -1050,6 +1130,30 @@ export class CraftGame {
   }
 
   /**
+   * Under the surface the world goes murky blue: the fog closes in to a few
+   * metres and a tint washes the screen. Only fog numbers change (uniforms,
+   * no shader recompile), and the render distance's fog comes back on exit.
+   */
+  private updateUnderwater(): void {
+    const p = this.renderer.camera.position;
+    // A small hysteresis band stops tiny surface waves/camera bobbing from
+    // flashing between the underwater fog and the daylight fog every frame.
+    const under = pointInWater(this.state.world, p.x, p.y + (this.underwater ? -0.07 : 0.07), p.z);
+    if (under === this.underwater) return;
+    this.underwater = under;
+    this.underwaterTint.classList.toggle("on", under);
+    const fog = this.renderer.scene.fog as THREE.Fog;
+    if (under) {
+      fog.color.set(UNDERWATER_FOG);
+      fog.near = 0.5;
+      fog.far = 18;
+    } else {
+      fog.color.set(FOG_COLOR);
+      this.applyViewDistance(this.viewPreset);
+    }
+  }
+
+  /**
    * Minecraft-style render distance: fog thickens from ~45% of the distance
    * and is opaque exactly where chunks stop being drawn, so far terrain fades
    * into the horizon instead of popping at the cut.
@@ -1058,8 +1162,10 @@ export class CraftGame {
     this.viewPreset = preset;
     const metres = this.viewPresets[preset]!;
     const fog = this.renderer.scene.fog as THREE.Fog;
-    fog.near = metres * 0.45;
-    fog.far = metres;
+    if (!this.underwater) {
+      fog.near = metres * 0.45;
+      fog.far = metres;
+    }
     this.view.setRenderDistance(metres + 8);
   }
   private readonly detailFocus = new THREE.Vector3();
@@ -1087,6 +1193,18 @@ export class CraftGame {
        *  a warm-up missed: diff this before and after an action. */
       programs: () =>
         (this.renderer.renderer.info.programs ?? []).map((p) => `${p.name}|${p.cacheKey}`),
+      /** Water state: how wet the body is, the camera underwater, and every
+       *  water cell in the live window (count + how many are sources). */
+      water: () => {
+        let cells = 0;
+        let sources = 0;
+        for (const id of this.state.world.cells) {
+          if (!isWater(id)) continue;
+          cells++;
+          if (id === WATER) sources++;
+        }
+        return { wet: this.body.wet ?? 0, underwater: this.underwater, cells, sources, y: this.body.y, selected: HOTBAR[this.selected] };
+      },
       /** The live scene — for resource audits (duplicate materials/geometries). */
       scene: () => this.renderer.scene,
       cameraState: () => {
@@ -1132,7 +1250,7 @@ export class CraftGame {
       },
       placeAt: (x: number, y: number, z: number, key: string) => {
         const def = blockByKey(key);
-        if (!def || this.state.world.get(x, y, z) !== AIR || this.furniture.blocksCell(x, y, z)) return false;
+        if (!def || !this.state.world.isReplaceable(x, y, z) || this.furniture.blocksCell(x, y, z)) return false;
         this.writeCell(x, y, z, def.id, 0);
         return true;
       },
@@ -1154,6 +1272,7 @@ export class CraftGame {
       },
       saveNow: () => this.persist(),
       perf: () => this.perf.sample(),
+      waterStats: () => this.view.waterStats(),
       machine: () => this.workshop.snapshot(),
       classroom: () => this.sync?.debug() ?? null,
       classSend: (msg: Parameters<ClassClient["send"]>[0]) => this.sync?.client.send(msg),

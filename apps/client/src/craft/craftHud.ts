@@ -33,7 +33,7 @@ export class CraftHud {
     const slots = HOTBAR.map(
       (key, i) => `
         <div class="craft-slot" data-id="slot-${key}">
-          <span class="craft-slot-num">${i + 1}</span>
+          <span class="craft-slot-num">${(i + 1) % 10}</span>
           <img src="${textureUrl(blockByKey(key)!)}" alt="${key}" />
           <b data-id="count-${key}">0</b>
         </div>`,
@@ -42,7 +42,7 @@ export class CraftHud {
       <div class="craft-crosshair">+</div>
       <div class="craft-mine-bar hidden"><div class="craft-mine-fill" data-id="mine-fill"></div></div>
       <div class="craft-hotbar" data-id="hotbar">${slots}</div>
-      <div class="craft-help">Move WASD · Jump Space · Mine hold LMB · Place RMB · Slots 1-9 / wheel · Shape F · Rotate R · Tilt T · Recipes C · View V · View distance O · Pet sit/follow P · Adopt 🐾 ·${opts.furniture === false ? "" : " Furniture G ·"} Music M</div>
+      <div class="craft-help">Move WASD · Jump Space · Mine hold LMB · Place RMB · Slots 1-9 · Water 0 / wheel · Shape F · Rotate R · Tilt T · Recipes C · View V · View distance O · Pet sit/follow P · Adopt 🐾 ·${opts.furniture === false ? "" : " Furniture G ·"} Music M</div>
     `;
     parent.appendChild(this.root);
 
@@ -166,11 +166,12 @@ export class CraftHud {
 
     HOTBAR.forEach((k, i) => {
       const el = this.slots[i]!;
+      const endless = blockByKey(k)?.fluid === true;
       const n = countOf(counts, k);
       el.classList.toggle("selected", i === selected);
-      el.classList.toggle("empty", n === 0);
+      el.classList.toggle("empty", !endless && n === 0);
       const count = el.querySelector<HTMLElement>(`[data-id="count-${k}"]`);
-      if (count) count.textContent = String(n);
+      if (count) count.textContent = endless ? "∞" : String(n);
     });
     if (this.recipesOpen) {
       for (const recipe of CRAFT_RECIPES) {

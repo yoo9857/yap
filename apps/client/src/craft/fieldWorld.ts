@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { AIR, blockById, blockByKey } from "./blocks.js";
+import { blockByKey, isKnownCell } from "./blocks.js";
 import { HOTBAR, sanitizeCounts, type Counts } from "./inventory.js";
 import { VoxelWorld, WORLD_X, WORLD_Y, WORLD_Z } from "./voxelWorld.js";
 import type { KeyValueStorage } from "./craftSave.js";
@@ -234,7 +234,7 @@ export class FieldWindow {
     this.edits.clear();
     for (const [x, y, zz, block, shape] of d.edits) {
       if (y < 0 || y >= WORLD_Y || shape < 0 || shape > 17) continue;
-      if (block !== AIR && !blockById(block)) continue;
+      if (!isKnownCell(block)) continue;
       this.edits.set(`${x},${y},${zz}`, [block, shape]);
     }
     this.fill();

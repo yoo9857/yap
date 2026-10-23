@@ -19,6 +19,8 @@ export const HOTBAR: string[] = [
   "glass",
   "glowstone",
   "gold-block",
+  // slot 0: an endless bucket — water is never mined, crafted or counted
+  "water",
 ];
 
 export interface CraftRecipe {

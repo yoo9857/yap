@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { AIR, blockById } from "./blocks.js";
+import { isKnownCell } from "./blocks.js";
 import { sanitizeCounts, type Counts } from "./inventory.js";
 import { isPetSpecies, type PetSpecies } from "../player/creatureRig.js";
 import { FurnitureLayout, furnitureSaveSchema } from "./furniture/layout.js";
@@ -152,7 +152,7 @@ export function loadCraft(storage: KeyValueStorage, defaultSeed: number): CraftG
   };
   for (const [index, id] of d.edits) {
     const target = remap(index);
-    if (target < cellCount && (id === AIR || blockById(id))) {
+    if (target < cellCount && isKnownCell(id)) {
       state.world.cells[target] = id;
     }
   }
