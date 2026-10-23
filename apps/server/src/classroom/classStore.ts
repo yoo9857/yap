@@ -9,6 +9,9 @@ const nativeRequire = createRequire(import.meta.url);
 
 /** Everything a class keeps between lessons and server restarts. */
 export interface SavedClass {
+  /** The class's name. Classes saved before named classes have none: their
+   *  key was the teacher's name, so the teacher's name IS their class name. */
+  roomName?: string;
   teacherName: string;
   /** scrypt(password, salt) — the password itself is never stored. */
   passHash: string;

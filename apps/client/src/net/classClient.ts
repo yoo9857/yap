@@ -13,13 +13,22 @@ import {
 } from "@robo/shared";
 
 export type ClassJoin =
-  | { role: "teacher"; teacher: string; password?: string }
-  | { role: "student"; teacher: string; student: string };
+  | { role: "teacher"; room: string; teacher: string; password?: string }
+  | { role: "student"; room: string; student: string };
+
+/** What `peekClass` learns about a class name before joining it. */
+export interface ClassPeek {
+  room: string;
+  exists: boolean;
+  open: boolean;
+  teacher?: string;
+}
 
 /** Everything the game needs at the moment it enters the class. */
 export interface ClassSession {
   you: string;
   role: ClassRole;
+  room: string;
   teacher: string;
   members: ClassMember[];
   settings: ClassSettings;
@@ -30,23 +39,60 @@ export interface ClassSession {
 
 export const CLASS_ERROR_TEXT: Record<ClassErrorCode | "offline", string> = {
   "bad-version": "새 버전이 있어요. 페이지를 새로고침 해주세요.",
-  "no-class": "그 이름으로 열린 반이 없어요. 선생님 이름을 확인하거나, 선생님이 반을 열 때까지 기다려 주세요.",
+  "no-class": "그 이름의 반이 지금 열려 있지 않아요. 반 이름을 확인하거나, 선생님이 반을 열 때까지 기다려 주세요.",
   "bad-password": "비밀번호가 맞지 않아요. (새 반을 만들 때는 4자 이상)",
-  "teacher-taken": "이미 같은 이름으로 수업 중인 선생님이 있어요.",
+  "teacher-taken": "이 반의 선생님이 이미 다른 곳에서 접속해 있어요.",
+  "room-taken": "이 반 이름은 다른 선생님이 쓰고 있어요. 다른 반 이름을 정해주세요.",
   "name-taken": "이 반에 같은 이름의 학생이 이미 접속해 있어요.",
   "class-full": "반 정원이 가득 찼어요.",
   banned: "선생님이 내보내서 잠시 동안 들어갈 수 없어요.",
-  "bad-name": "이름은 1~16자로 입력해주세요.",
+  "bad-name": "반 이름은 1~20자, 이름은 1~16자로 입력해주세요.",
   internal: "서버 오류가 났어요. 잠시 후 다시 시도해주세요.",
   offline: "서버에 연결할 수 없어요. 인터넷 연결을 확인해주세요.",
 };
 
 const RECONNECT_MAX_MS = 8000;
 
-/** Remembers seat/host keys per class so a refresh keeps your place. */
+/** Remembers seat/host keys per class so a refresh keeps your place.
+ *  Keyed by class NAME; classes from before named classes were keyed by the
+ *  teacher's name, which is now their class name, so old keys still match. */
 function keyStoreName(join: ClassJoin): string {
   const who = join.role === "teacher" ? "teacher" : `student:${classKey(join.student)}`;
-  return `craftyap-class:${classKey(join.teacher)}:${who}`;
+  return `craftyap-class:${classKey(join.room)}:${who}`;
+}
+
+function classSocketUrl(): string {
+  const proto = location.protocol === "https:" ? "wss" : "ws";
+  return `${proto}://${location.host}/ws?mode=class`;
+}
+
+/**
+ * Ask the server whose class a class name is, without joining: a student sees
+ * "김선생 선생님의 햇살반" and confirms before walking in. Rejects with
+ * "offline" or "bad-version".
+ */
+export function peekClass(room: string): Promise<ClassPeek> {
+  return new Promise((resolve, rejectWith) => {
+    // rejects with a code, like connect() — the lobby maps codes to messages
+    const reject: (code: ClassErrorCode | "offline") => void = rejectWith;
+    const ws = new WebSocket(classSocketUrl());
+    let settled = false;
+    const finish = (fn: () => void) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      fn();
+      ws.close();
+    };
+    const timer = setTimeout(() => finish(() => reject("offline")), 6000);
+    ws.onopen = () => ws.send(JSON.stringify({ t: "k-peek", v: CLASS_PROTOCOL_VERSION, room } satisfies ClassClientMessage));
+    ws.onmessage = (e) => {
+      const msg = decodeClassServer(e.data);
+      if (msg?.t === "s-k-room") finish(() => resolve({ room: msg.room, exists: msg.exists, open: msg.open, teacher: msg.teacher }));
+      else if (msg?.t === "s-k-error") finish(() => reject(msg.code));
+    };
+    ws.onclose = () => finish(() => reject("offline"));
+  });
 }
 function loadKey(join: ClassJoin): string | undefined {
   try {
@@ -96,8 +142,7 @@ export class ClassClient {
   constructor(readonly join: ClassJoin) {}
 
   private get url(): string {
-    const proto = location.protocol === "https:" ? "wss" : "ws";
-    return `${proto}://${location.host}/ws?mode=class`;
+    return classSocketUrl();
   }
 
   connect(): Promise<ClassSession> {
@@ -125,8 +170,8 @@ export class ClassClient {
       const key = loadKey(this.join);
       this.send(
         this.join.role === "teacher"
-          ? { t: "k-host", v: CLASS_PROTOCOL_VERSION, teacher: this.join.teacher, password: this.join.password, hostKey: key }
-          : { t: "k-join", v: CLASS_PROTOCOL_VERSION, teacher: this.join.teacher, student: this.join.student, seatKey: key },
+          ? { t: "k-host", v: CLASS_PROTOCOL_VERSION, room: this.join.room, teacher: this.join.teacher, password: this.join.password, hostKey: key }
+          : { t: "k-join", v: CLASS_PROTOCOL_VERSION, room: this.join.room, student: this.join.student, seatKey: key },
       );
     };
     ws.onmessage = (e) => {
@@ -159,6 +204,7 @@ export class ClassClient {
           session: {
             you: msg.you,
             role: msg.role,
+            room: msg.room,
             teacher: msg.teacher,
             members: msg.members,
             settings: msg.settings,

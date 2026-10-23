@@ -70,6 +70,11 @@ jobs:
             git fetch origin
             git reset --hard origin/main
 
+            # snapshot the live DB BEFORE anything restarts — the rollback point
+            # for saved classrooms and the leaderboard. Aborts the deploy if the
+            # snapshot cannot be taken. (/srv/craftyap/data/pre-deploy/)
+            bash scripts/pre-deploy-backup.sh
+
             # rebuild + restart the single-port container (static + WS + SQLite).
             # The separate SQLite DB is bind-mounted from /srv/craftyap/data and
             # is never touched by a rebuild.

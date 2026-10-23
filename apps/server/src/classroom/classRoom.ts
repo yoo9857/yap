@@ -67,12 +67,18 @@ export class ClassRoom {
    * A brand-new class (`saved` omitted) or one restored from the store: the
    * field, the settings and every student's seat come back, all offline.
    */
+  /** The class's name — what students type; `key` is its normalised form. */
+  readonly roomName: string;
+
   constructor(
     readonly teacherName: string,
     private readonly auth: { passHash: string; salt: string },
     saved?: SavedClass,
+    roomName?: string,
   ) {
-    this.key = classKey(teacherName);
+    // a class saved before named classes was keyed by its teacher's name
+    this.roomName = roomName ?? saved?.roomName ?? teacherName;
+    this.key = classKey(this.roomName);
     if (!saved) return;
     this.settings = saved.settings;
     this.furniture.load(saved.furniture);
@@ -91,6 +97,7 @@ export class ClassRoom {
       edits.push([x, y, z, block, shape]);
     }
     return {
+      roomName: this.roomName,
       teacherName: this.teacherName,
       passHash: this.auth.passHash,
       salt: this.auth.salt,
@@ -144,7 +151,7 @@ export class ClassRoom {
 
   joinStudent(peer: ClassPeer, name: string, seatKey?: string, now = Date.now()): "ok" | "name-taken" | "class-full" | "banned" {
     const wanted = classKey(name);
-    if (wanted === this.key) return "name-taken"; // can't pose as the teacher
+    if (wanted === classKey(this.teacherName)) return "name-taken"; // can't pose as the teacher
     if ((this.banned.get(wanted) ?? 0) > now) return "banned";
     const existing = [...this.members.values()].find((m) => m.role === "student" && classKey(m.name) === wanted);
     if (existing) {
@@ -190,6 +197,7 @@ export class ClassRoom {
       t: "s-k-welcome",
       you: member.id,
       role: member.role,
+      room: this.roomName,
       teacher: this.teacherName,
       key: member.key,
       members: this.memberList(),

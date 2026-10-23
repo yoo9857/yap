@@ -186,3 +186,29 @@
   font: 600 12px/1.4 system-ui, sans-serif;
   text-align: left;
 }
+
+/* Student join, step 2: whose class is this? A card big enough that a child
+   reads the teacher's name before pressing "yes". */
+.class-confirm {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 6px 0 12px;
+  padding: 14px 16px;
+  text-align: left;
+  background: #fffdf6;
+  border: 2.5px solid #1f1f1f;
+  border-radius: 14px 12px 15px 13px / 13px 15px 12px 14px;
+  box-shadow: 2px 3px 0 rgba(31, 31, 31, 0.75);
+}
+.class-confirm-room {
+  font-size: 22px;
+  font-weight: 800;
+}
+.class-confirm-teacher {
+  font-size: 17px;
+}
+.class-confirm-me {
+  font-size: 13px;
+  opacity: 0.75;
+}

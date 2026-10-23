@@ -17,6 +17,8 @@ DB_DIR="${DB_DIR:-/srv/craftyap/data}"
 mkdir -p "${DB_DIR}"
 
 docker compose config >/dev/null
+# rollback point for saved classrooms + leaderboard, before the restart
+bash scripts/pre-deploy-backup.sh
 docker compose up -d --build
 docker compose ps
 

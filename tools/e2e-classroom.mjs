@@ -1,5 +1,6 @@
-// Classroom E2E: a teacher opens a class by name, students join with that
-// name + their own, and the shared field, roster, chat and teacher controls
+// Classroom E2E: a teacher opens a class under a CLASS NAME (+ their own
+// name); students type the class name + their own, confirm whose class it is,
+// and join; the shared field, roster, chat and teacher controls
 // stay in sync live. Needs `pnpm dev` (server + client). Each participant runs
 // in its OWN browser: background tabs pause rAF, which is the game loop.
 import puppeteer from "puppeteer-core";
@@ -7,6 +8,7 @@ import puppeteer from "puppeteer-core";
 const EDGE = "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe";
 const BASE = process.env.BASE_URL ?? "http://localhost:5173";
 const TEACHER = `쌤${Date.now() % 100000}`; // unique per run, ≤16 chars
+const ROOM = `햇살${Date.now() % 100000}반`; // the class's name, ≤20 chars
 const results = [];
 const check = (name, ok, detail = "") => {
   results.push(ok);
@@ -30,38 +32,66 @@ async function open(label) {
   return page;
 }
 
-/** Menu → 교육 모드 → teacher/student form. Returns the error text (or ""). */
-async function enterViaLobby(page, role, teacher, student, password = "1234") {
+/** The last confirm card a student saw ("whose class is this?"). */
+let lastConfirm = "";
+
+/**
+ * Menu → 교육 모드 → form. Teacher: class name + teacher name + password.
+ * Student: class name + own name → the confirm card → "yes". Returns the
+ * error text shown, or "" once the game has booted.
+ */
+async function enterViaLobby(page, role, room, person, password = "1234") {
   await page.goto(`${BASE}/?play=1`, { waitUntil: "networkidle2", timeout: 30000 });
   await page.click('[data-pick="field"]');
   await page.waitForSelector(`[data-go="${role}"]`);
   await page.click(`[data-go="${role}"]`);
+  const fill = async (sel, text) => {
+    await page.$eval(sel, (el) => (el.value = ""));
+    if (text) await page.type(sel, text);
+  };
   if (role === "teacher") {
-    await page.$eval("#cl-host", (el) => (el.value = ""));
-    await page.type("#cl-host", teacher);
-    await page.$eval("#cl-pass", (el) => (el.value = ""));
-    if (password) await page.type("#cl-pass", password);
+    await fill("#cl-host-room", room);
+    await fill("#cl-host", person);
+    await fill("#cl-pass", password);
   } else {
-    await page.$eval("#cl-teacher", (el) => (el.value = ""));
-    await page.$eval("#cl-student", (el) => (el.value = ""));
-    await page.type("#cl-teacher", teacher);
-    await page.type("#cl-student", student);
+    await fill("#cl-room", room);
+    await fill("#cl-student", person);
   }
   await page.click(`[data-step="${role}"] button[type="submit"]`);
-  // either the game boots or the form shows an error
-  await page.waitForFunction(
-    (role) => {
-      const err = document.querySelector(`[data-step="${role}"] [data-id="error"]`)?.textContent ?? "";
-      return !!globalThis.__roboCraft || (err && !err.includes("연결하는 중"));
-    },
-    { timeout: 15000 },
-    role,
-  );
+  const settled = (steps) =>
+    page.waitForFunction(
+      (steps) => {
+        if (globalThis.__roboCraft) return true;
+        return steps.some((step) => {
+          const box = document.querySelector(`[data-step="${step}"]`);
+          if (!box || box.hidden) return false;
+          const err = box.querySelector('[data-id="error"]')?.textContent ?? "";
+          return step === "confirm" ? err === "" || !err.includes("연결하는 중") : !!err && !/연결하는 중|찾는 중/.test(err);
+        });
+      },
+      { timeout: 15000 },
+      steps,
+    );
+  if (role === "student") {
+    // step 1 settles on an error, or moves on to the confirm card
+    await settled(["student", "confirm"]);
+    const onConfirm = await page.evaluate(() => !document.querySelector('[data-step="confirm"]').hidden);
+    if (!onConfirm) return page.$eval('[data-step="student"] [data-id="error"]', (el) => el.textContent);
+    lastConfirm = await page.$eval('[data-id="confirm-card"]', (el) => el.textContent.replace(/\s+/g, " ").trim());
+    await page.click('[data-id="confirm-yes"]');
+    await page.waitForFunction(
+      () => !!globalThis.__roboCraft || /[^\s]/.test(document.querySelector('[data-step="confirm"] [data-id="error"]')?.textContent.replace("연결하는 중…", "") ?? ""),
+      { timeout: 15000 },
+    );
+  } else {
+    await settled(["teacher"]);
+  }
   if (await page.evaluate(() => !!globalThis.__roboCraft)) {
     await sleep(1500);
     return "";
   }
-  return page.$eval(`[data-step="${role}"] [data-id="error"]`, (el) => el.textContent);
+  const step = role === "teacher" ? "teacher" : "confirm";
+  return page.$eval(`[data-step="${step}"] [data-id="error"]`, (el) => el.textContent);
 }
 
 const cls = (page) => page.evaluate(() => globalThis.__roboCraft.classroom());
@@ -73,17 +103,22 @@ try {
   const jun = await open("jun");
 
   // 1) entry and the error paths
-  const noPass = await enterViaLobby(teacher, "teacher", TEACHER, undefined, "");
+  const noPass = await enterViaLobby(teacher, "teacher", ROOM, TEACHER, "");
   check("a new class needs a password", noPass.includes("비밀번호"), noPass);
-  check("teacher opens a class by name + password", (await enterViaLobby(teacher, "teacher", TEACHER)) === "");
-  check("student joins with teacher name + own name", (await enterViaLobby(minji, "student", TEACHER, "민지")) === "");
-  const wrong = await enterViaLobby(jun, "student", `${TEACHER}x`, "준");
-  check("unknown teacher name is refused", wrong.includes("열린 반이 없어요"), wrong);
-  const dup = await enterViaLobby(jun, "student", TEACHER, " 민지 ");
+  check("teacher opens a class by class name + teacher name + password", (await enterViaLobby(teacher, "teacher", ROOM, TEACHER)) === "");
+  const title = await teacher.$eval(".class-title", (el) => el.textContent);
+  check("the class overlay names the class and the teacher", title.includes(ROOM) && title.includes(TEACHER), title);
+  check("student joins with class name + own name", (await enterViaLobby(minji, "student", ROOM, "민지")) === "");
+  check("the student was shown whose class it is before joining", lastConfirm.includes(ROOM) && lastConfirm.includes(TEACHER), lastConfirm);
+  const wrong = await enterViaLobby(jun, "student", `${ROOM}x`, "준");
+  check("an unknown class name is refused before anything else", wrong.includes("찾을 수 없어요"), wrong);
+  const dup = await enterViaLobby(jun, "student", ROOM, " 민지 ");
   check("duplicate student name is refused", dup.includes("같은 이름의 학생"), dup);
   const fake = await open("fake");
-  const taken = await enterViaLobby(fake, "teacher", TEACHER.toUpperCase(), undefined, "1234");
-  check("a second teacher can't take the same name", taken.includes("이미 같은 이름"), taken);
+  const rival = await enterViaLobby(fake, "teacher", ROOM, `${TEACHER}2`, "1234");
+  check("another teacher can't take a class name in use", rival.includes("다른 선생님"), rival);
+  const twice = await enterViaLobby(fake, "teacher", ROOM.toUpperCase(), TEACHER, "1234");
+  check("the same teacher can't open their class twice at once", twice.includes("이미 다른 곳에서"), twice);
 
   // 2) live roster + robots
   await sleep(1200);
@@ -129,7 +164,7 @@ try {
   const sharedFurniture = await furniture(teacher);
 
   // 4) a late joiner gets the whole field
-  check("second student joins", (await enterViaLobby(jun, "student", TEACHER, "준")) === "");
+  check("second student joins", (await enterViaLobby(jun, "student", ROOM, "준")) === "");
   const lateView = await jun.evaluate(() => [globalThis.__roboCraft.blockAt(70, 4, 70), globalThis.__roboCraft.blockAt(72, 4, 70)]);
   check("late joiner sees bricks built before they came", lateView.every((b) => b !== 0), JSON.stringify(lateView));
   check("late joiner gets furniture and open doors", JSON.stringify(await furniture(jun)) === JSON.stringify(sharedFurniture));
@@ -184,7 +219,7 @@ try {
 
   // 9) a dropped student gets their seat (and the field) back
   const before = (await cls(minji)).you;
-  await minji.goto(`${BASE}/?mode=field&teacher=${encodeURIComponent(TEACHER)}&student=${encodeURIComponent("민지")}`, {
+  await minji.goto(`${BASE}/?mode=field&room=${encodeURIComponent(ROOM)}&student=${encodeURIComponent("민지")}`, {
     waitUntil: "domcontentloaded",
     timeout: 60000,
   });
@@ -203,9 +238,11 @@ try {
 
   // 11) the class is saved: re-open it next lesson from ANOTHER PC (no key)
   await sleep(500);
-  const wrongPass = await enterViaLobby(fake, "teacher", TEACHER, undefined, "9999");
+  const closed = await enterViaLobby(jun, "student", ROOM, "하나");
+  check("a saved class waits for its teacher: students are told it isn't open yet", closed.includes("아직 열리지 않았어요") && closed.includes(TEACHER), closed);
+  const wrongPass = await enterViaLobby(fake, "teacher", ROOM, TEACHER, "9999");
   check("re-opening a saved class from another PC needs the right password", wrongPass.includes("비밀번호"), wrongPass);
-  check("the right password re-opens it", (await enterViaLobby(fake, "teacher", TEACHER, undefined, "1234")) === "");
+  check("the right password re-opens it", (await enterViaLobby(fake, "teacher", ROOM, TEACHER, "1234")) === "");
   const restored = await fake.evaluate(() => [globalThis.__roboCraft.blockAt(70, 4, 70), globalThis.__roboCraft.blockAt(72, 4, 70)]);
   check("last lesson's bricks are still there", restored.every((b) => b !== 0), JSON.stringify(restored));
   check("last lesson's furniture is still there", JSON.stringify(await furniture(fake)) === JSON.stringify(sharedFurniture));

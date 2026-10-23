@@ -3,6 +3,7 @@ import {
   CLASS_PASSWORD_MIN,
   CLASS_PROTOCOL_VERSION,
   classKey,
+  claimedClassVersion,
   decodeClassClient,
   playerNameSchema,
   type ClassClientMessage,
@@ -91,7 +92,7 @@ class ClassSocket implements ClassPeer {
 }
 
 /**
- * Every live class, found by its teacher's name. A socket first says k-host
+ * Every live class, found by its CLASS name. A socket first says k-host
  * (teacher) or k-join (student); after that its messages go to its class.
  */
 export class ClassManager {
@@ -117,8 +118,12 @@ export class ClassManager {
     ws.on("pong", () => (socket.alive = true));
     ws.on("message", (data, isBinary) => {
       // eslint-disable-next-line @typescript-eslint/no-base-to-string
-      const msg = isBinary ? null : decodeClassClient(data.toString());
+      const raw = isBinary ? null : data.toString();
+      const msg = raw === null ? null : decodeClassClient(raw);
       if (!msg) {
+        // an un-refreshed page speaking last version's entry message
+        const claimed = room ? null : claimedClassVersion(raw);
+        if (claimed !== null && claimed !== CLASS_PROTOCOL_VERSION) return void this.refuse(socket, "bad-version");
         socket.strike();
         return;
       }
@@ -131,6 +136,13 @@ export class ClassManager {
       if (room) {
         room.handle(socket, msg);
         if (room.closed) this.retire(room);
+        return;
+      }
+      if (msg.t === "k-peek") {
+        if (msg.v !== CLASS_PROTOCOL_VERSION) return this.refuse(socket, "bad-version");
+        clearTimeout(joinTimer);
+        socket.send(this.peek(msg.room));
+        socket.close("peeked");
         return;
       }
       if (msg.t !== "k-host" && msg.t !== "k-join") return;
@@ -150,22 +162,42 @@ export class ClassManager {
    * Open a class: re-attach to a live one, restore a saved one (host key or
    * password), or create a new one (password required, stored hashed).
    */
+  /**
+   * Whose class is this, and can a student walk in? Live classes answer from
+   * memory, saved ones from the store — a saved class exists but stays closed
+   * until its teacher opens it again.
+   */
+  private peek(roomName: string): Extract<ClassServerMessage, { t: "s-k-room" }> {
+    const key = classKey(roomName);
+    const live = this.classes.get(key);
+    // `open` must match what k-join will do: a loaded class takes students
+    if (live) return { t: "s-k-room", room: live.roomName, exists: true, open: true, teacher: live.teacherName };
+    const saved = this.store.load(key);
+    if (saved) return { t: "s-k-room", room: saved.roomName ?? saved.teacherName, exists: true, open: false, teacher: saved.teacherName };
+    return { t: "s-k-room", room: roomName.trim(), exists: false, open: false };
+  }
+
   private host(socket: ClassSocket, msg: Extract<ClassClientMessage, { t: "k-host" }>): ClassRoom | null {
-    const key = classKey(msg.teacher);
+    const key = classKey(msg.room);
+    const sameTeacher = (name: string) => classKey(name) === classKey(msg.teacher);
     let room = this.classes.get(key);
+    if (room && !sameTeacher(room.teacherName)) return this.refuse(socket, "room-taken");
     if (!room) {
       const saved = this.store.load(key);
       if (saved) {
+        // the class name is someone else's: say so, rather than "wrong password"
+        if (!sameTeacher(saved.teacherName)) return this.refuse(socket, "room-taken");
         const keyOk = !!msg.hostKey && msg.hostKey === saved.teacherKey;
         const passOk = !!msg.password && checkPassword(msg.password, saved);
         if (!keyOk && !passOk) return this.refuse(socket, "bad-password");
         room = new ClassRoom(saved.teacherName, { passHash: saved.passHash, salt: saved.salt }, saved);
-        log.info({ teacher: room.teacherName, edits: saved.edits.length, from: socket.from }, "class restored");
+        log.info({ room: room.roomName, teacher: room.teacherName, edits: saved.edits.length, from: socket.from }, "class restored");
       } else {
         if (!msg.password || msg.password.length < CLASS_PASSWORD_MIN) return this.refuse(socket, "bad-password");
         const { hash, salt } = hashPassword(msg.password);
-        room = new ClassRoom(msg.teacher.trim().replace(/\s+/g, " "), { passHash: hash, salt });
-        log.info({ teacher: room.teacherName, from: socket.from }, "class opened");
+        const tidy = (s: string) => s.trim().replace(/\s+/g, " ");
+        room = new ClassRoom(tidy(msg.teacher), { passHash: hash, salt }, undefined, tidy(msg.room));
+        log.info({ room: room.roomName, teacher: room.teacherName, from: socket.from }, "class opened");
       }
       this.classes.set(key, room);
     }
@@ -177,7 +209,7 @@ export class ClassManager {
 
   private join(socket: ClassSocket, msg: Extract<ClassClientMessage, { t: "k-join" }>): ClassRoom | null {
     if (!playerNameSchema.safeParse(msg.student).success) return this.refuse(socket, "bad-name");
-    const room = this.classes.get(classKey(msg.teacher));
+    const room = this.classes.get(classKey(msg.room));
     if (!room) return this.refuse(socket, "no-class");
     const result = room.joinStudent(socket, msg.student, msg.seatKey);
     if (result !== "ok") return this.refuse(socket, result);

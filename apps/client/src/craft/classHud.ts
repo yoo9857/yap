@@ -40,11 +40,12 @@ export class ClassHud {
   constructor(
     private readonly role: ClassRole,
     private readonly you: string,
+    room: string,
     teacher: string,
     private readonly actions: ClassHudActions,
   ) {
     const head = el("div", "class-head");
-    const title = el("b", "class-title", `🏫 ${teacher} 선생님 반`);
+    const title = el("b", "class-title", `🏫 ${room} · ${teacher} 선생님`);
     head.append(title, this.status);
     const sub = el("div", "class-sub");
     sub.append(el("span", "", role === "teacher" ? "👩‍🏫 내가 선생님" : "🧒 내가 학생"), this.count);

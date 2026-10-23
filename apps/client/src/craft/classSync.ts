@@ -85,7 +85,7 @@ export class ClassSync {
     this.settings = session.settings;
     field.replaceAll(session.edits);
     furniture.load(session.furniture);
-    this.hud = new ClassHud(session.role, session.you, session.teacher, {
+    this.hud = new ClassHud(session.role, session.you, session.room, session.teacher, {
       chat: (text) => client.send({ t: "k-chat", text }),
       kick: (m) => client.send({ t: "k-kick", playerId: m.id }),
       gather: () => {

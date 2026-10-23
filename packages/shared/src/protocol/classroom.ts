@@ -3,8 +3,9 @@ import { playerNameSchema } from "./messages.js";
 
 /**
  * Classroom protocol — the education field's live multiplayer. A teacher
- * opens a class under their own name; students join by typing that teacher's
- * name plus their own. Everyone shares one field: block edits are relayed in
+ * opens a class under a CLASS NAME (and their own name); students type that
+ * class name plus their own, see whose class it is (`k-peek`), and join.
+ * Everyone shares one field: block edits are relayed in
  * ABSOLUTE field coordinates (the field scrolls its voxel window per client,
  * so grid coordinates would differ between machines).
  *
@@ -13,7 +14,8 @@ import { playerNameSchema } from "./messages.js";
  * selected with `?mode=class`.
  */
 
-export const CLASS_PROTOCOL_VERSION = 2;
+/** 3: classes are named rooms, no longer keyed by the teacher's name. */
+export const CLASS_PROTOCOL_VERSION = 3;
 /** Highest block layer of the field grid (WORLD_Y - 1). */
 export const CLASS_MAX_Y = 55;
 /** Field coordinates are bounded so a hostile client can't grow the store
@@ -25,6 +27,10 @@ export const CLASS_PASSWORD_MIN = 4;
 export const CLASS_PASSWORD_MAX = 32;
 
 const coordSchema = z.number().int().min(-COORD).max(COORD);
+
+/** A class (room) name, e.g. "햇살반" or "3학년 2반". */
+export const CLASS_ROOM_MAX = 20;
+export const classRoomNameSchema = z.string().trim().min(1).max(CLASS_ROOM_MAX);
 const vec3Schema = z.tuple([
   z.number().finite().min(-COORD).max(COORD),
   z.number().finite().min(-64).max(256),
@@ -64,6 +70,7 @@ export const classClientSchema = z.discriminatedUnion("t", [
   z.object({
     t: z.literal("k-host"),
     v: z.number().int(),
+    room: classRoomNameSchema,
     teacher: playerNameSchema,
     /** Required to open a NEW class, or to re-open a saved one from a
      *  browser that doesn't hold the host key (another school PC). */
@@ -73,11 +80,14 @@ export const classClientSchema = z.discriminatedUnion("t", [
   z.object({
     t: z.literal("k-join"),
     v: z.number().int(),
-    teacher: playerNameSchema,
+    room: classRoomNameSchema,
     student: playerNameSchema,
     /** Re-claims the same seat after a dropped connection. */
     seatKey: z.string().max(64).optional(),
   }),
+  /** "Whose class is this?" — answered with s-k-room, then the socket closes.
+   *  Lets a student confirm the teacher's name before joining. */
+  z.object({ t: z.literal("k-peek"), v: z.number().int(), room: classRoomNameSchema }),
   z.object({ t: z.literal("k-move"), pos: vec3Schema, yaw: z.number().finite(), anim: classAnimSchema }),
   /** Up to one placed piece (4 cells) per message. */
   z.object({ t: z.literal("k-edit"), edits: z.array(classEditSchema).min(1).max(8) }),
@@ -112,8 +122,9 @@ export type ClassSettings = z.infer<typeof classSettingsSchema>;
 
 export const classErrorCodeSchema = z.enum([
   "bad-version",
-  "no-class", // nobody is teaching under that name
-  "teacher-taken", // that teacher name is already running a class
+  "no-class", // no class is open under that class name
+  "teacher-taken", // the class's teacher is already online in it
+  "room-taken", // that class name belongs to another teacher
   "name-taken", // a student with that name is online in the class
   "class-full",
   "banned", // removed by the teacher a moment ago
@@ -128,6 +139,7 @@ export const classServerSchema = z.discriminatedUnion("t", [
     t: z.literal("s-k-welcome"),
     you: z.string(),
     role: classRoleSchema,
+    room: classRoomNameSchema,
     teacher: playerNameSchema,
     /** Teacher: proves ownership on reconnect. Student: keeps their seat. */
     key: z.string(),
@@ -140,6 +152,14 @@ export const classServerSchema = z.discriminatedUnion("t", [
   z.object({
     t: z.literal("s-k-furniture"), furniture: z.array(classFurnitureSchema).max(3000),
     rejected: z.boolean().optional(),
+  }),
+  /** Answer to k-peek. `exists`: saved or live; `open`: a student may join now. */
+  z.object({
+    t: z.literal("s-k-room"),
+    room: z.string(),
+    exists: z.boolean(),
+    open: z.boolean(),
+    teacher: playerNameSchema.optional(),
   }),
   z.object({ t: z.literal("s-k-world"), edits: z.array(classEditSchema) }),
   /** The teacher wiped the field: drop every edit. */
@@ -184,12 +204,31 @@ export function decodeClassClient(raw: unknown): ClassClientMessage | null {
   return decodeWith(raw, classClientSchema, 16384);
 }
 
+/**
+ * The protocol version an entry message claims, even when the rest of it no
+ * longer parses: a page that was not refreshed across a protocol change sends
+ * last version's k-host/k-join, which fails the schema — and must be told to
+ * refresh, not left on "connecting…" until it times out. Null when there is no
+ * such claim.
+ */
+export function claimedClassVersion(raw: unknown): number | null {
+  if (typeof raw !== "string" || raw.length > 16384) return null;
+  try {
+    const msg = JSON.parse(raw) as { t?: unknown; v?: unknown };
+    const entry = msg.t === "k-host" || msg.t === "k-join" || msg.t === "k-peek";
+    return entry && typeof msg.v === "number" ? msg.v : null;
+  } catch {
+    return null;
+  }
+}
+
 /** World batches are large; the server is trusted for size, not shape. */
 export function decodeClassServer(raw: unknown): ClassServerMessage | null {
   return decodeWith(raw, classServerSchema, 4 * 1024 * 1024);
 }
 
-/** Teacher names are matched case- and space-insensitively ("Kim  Ji" = "kim ji"). */
-export function classKey(teacher: string): string {
-  return teacher.trim().replace(/\s+/g, " ").toLowerCase();
+/** Class names (and people's names, for clashes) are matched case- and
+ *  space-insensitively ("햇살  반" = "햇살 반", "Kim" = "kim"). */
+export function classKey(name: string): string {
+  return name.trim().replace(/\s+/g, " ").toLowerCase();
 }
