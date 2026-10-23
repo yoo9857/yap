@@ -160,7 +160,25 @@ sofa, a vase stands on a table and a clock hangs over a bed:
   hit wins, so a vase on a table is picked before the table.
 - **Rendering cost** is one draw call per *distinct look* in use, ×3 (scene,
   ink mask, shadow). Measured: 400 chairs added 3 draw calls; 200 sofas in four
-  colours added 12. Geometries are built lazily per look.
+  colours added 12.
+- **Geometry stays small and indexed** (`model.ts`): boxes use 1–2 corner
+  segments (not the creatures' 4), and `RoundedBoxGeometry`'s un-indexed
+  output is welded back with `mergeVertices`. Un-indexed 4-segment bricks were
+  ~2 900 vertices each — a bookshelf ~175k, a curtain ~50k — and placing or
+  first seeing one dropped frames. Now all 53 default looks total ~83k.
+  Default looks are pre-built in idle slices after boot (`prebuild`).
+- **Colours reuse the shape**: `buildFurnitureShape` is built once per kind
+  (+ open), and each colour is `paintFurniture` — a geometry that SHARES the
+  shape's index/position/normal/uv and owns only a colour buffer. So never
+  dispose one look alone (it would free its siblings' buffers); the view
+  disposes them all together. Pinned by `test/furniture-model.test.ts`.
+- **No shader compiles mid-game**: the boot warm-up (`setWarm`) draws one real
+  instance, the furniture ghost and the block-cell highlight far below the
+  world (all three `frustumCulled = false` for that reason). Measured with a
+  program-count probe over placing every kind: zero new programs.
+- **The placement ghost** is drawn 1.2 % larger with `polygonOffset` and is
+  hidden on the spot you just placed on until the aim moves: a translucent red
+  copy in the same surfaces as the piece z-fought into a shimmering glow.
 - **Saves**: `[kind, x, y, z, rot, variant]` per piece in both the island and the
   field save. Entries are validated one by one; a bad entry is dropped, an
   unknown colour falls back to variant 0, five-element tuples (pre-variant

@@ -3,7 +3,7 @@ import type * as THREE from "three";
 import { withObjectParticle } from "../korean.js";
 import { overlapsVoxel, unstick, type Body } from "../voxelBody.js";
 import type { RayHit, VoxelWorld } from "../voxelWorld.js";
-import { CATEGORIES, furnitureDef, inCategory, isFurnitureKind, variantCount } from "./catalog/index.js";
+import { CATALOG, CATEGORIES, furnitureDef, inCategory, isFurnitureKind, variantCount } from "./catalog/index.js";
 import { frontOf, rayPiece, rotFacing, rotFromNormal } from "./footprint.js";
 import type { FurnitureLayout, PlaceVerdict, PlacementWorld } from "./layout.js";
 import { FurnitureShop } from "./shop.js";
@@ -79,6 +79,8 @@ export class FurnitureController {
   private extraRot = 0;
   /** The colour last used per kind, so coming back to a piece keeps it. */
   private readonly variants = new Map<string, number>();
+  /** The spot of the last placement while the aim has not left it. */
+  private justPlaced: string | null = null;
   /** What G brings back. */
   private lastKind: string = inCategory(CATEGORIES[0]!.key)[0]!.key;
   /** The piece last used in each category, for Q/E to land on. */
@@ -319,6 +321,7 @@ export class FurnitureController {
     if (!this.host.layout.add(c.item)) return false;
     unstick(this.host.world, this.host.pet()); // the pet is lifted clear, never refused
     this.record({ placed: [c.item], removed: [] });
+    this.justPlaced = Object.values(c.item).join(",");
     this.host.sfx.play("place");
     return true;
   }
@@ -484,7 +487,22 @@ export class FurnitureController {
   /** Per frame: instances, ghost, HUD label, panel visibility. */
   render(hit: RayHit | null, yaw: number, showGhost: boolean, ok: THREE.Material, bad: THREE.Material): void {
     this.view.sync(this.host.layout, this.host.originX(), this.host.originZ());
-    const c = showGhost && this.visible && hit ? this.candidate(hit, yaw) : null;
+    if (this.warmGhost) {
+      // the preview's own (transparent, basic) programs: far below the world
+      this.view.showGhost({ kind: CATALOG[0]!.key, rot: 0, variant: 0 }, 0, -1000, 0, ok);
+      return;
+    }
+    let c = showGhost && this.visible && hit ? this.candidate(hit, yaw) : null;
+    // Right after a placement the aim still points at the same spot, and the
+    // preview would sit, red ("occupied"), on top of the piece just placed —
+    // a translucent copy in the same surfaces, which shimmered like a glow.
+    // Hide it until the aim moves on.
+    const here = c ? Object.values(c.item).join(",") : null;
+    // Only while that spot is still taken: once it frees up (undo, put away)
+    // the preview is wanted again. Not a layout-version check — a classroom
+    // echo of the same placement reloads the layout and bumps the version.
+    if (here !== this.justPlaced || c?.verdict === "ok") this.justPlaced = null;
+    else c = null;
     if (c) {
       const ox = this.host.originX();
       const oz = this.host.originZ();
@@ -500,6 +518,15 @@ export class FurnitureController {
       this.host.hud.setPiece(`${def.name}${color}`, turns, 0, def.emoji);
     }
   }
+
+  /** Boot warm-up: draw a hidden instance — and the preview — so every
+   *  furniture shader compiles behind the loading screen. */
+  setWarm(on: boolean): void {
+    this.view.setWarm(on);
+    this.warmGhost = on;
+  }
+
+  private warmGhost = false;
 
   /** Hidden while the machine lab owns the screen. */
   setVisible(visible: boolean): void {

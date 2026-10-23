@@ -178,7 +178,7 @@ export class BattleGame {
   private bindInput(mount: HTMLElement): void {
     mount.addEventListener("click", () => {
       if (!this.locked && this.phase === "live") {
-        void mount.querySelector("canvas")?.requestPointerLock();
+        void Promise.resolve(mount.querySelector("canvas")?.requestPointerLock()).catch(() => {}); // refused during the re-lock cooldown: the next click retries
       }
     });
     document.addEventListener("pointerlockchange", () => {

@@ -176,6 +176,7 @@ export class VoxelView {
       new THREE.LineBasicMaterial({ color: 0x1f1f1f, linewidth: 2 }),
     );
     this.highlight.visible = false;
+    this.highlight.frustumCulled = false; // one box: never worth culling, and the boot warm-up draws it far below the world
     scene.add(this.highlight);
   }
 

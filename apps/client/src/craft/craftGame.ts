@@ -251,7 +251,11 @@ export class CraftGame {
     setMessage("Loading textures…");
     await texturesReady();
     setMessage("Preparing graphics…");
+    this.furniture.setWarm(true);
+    this.warming = true;
     await warmupGpuAsync(this.renderer.renderer, this.renderer.scene, this.renderer.camera, () => this.render(1, 1 / 60));
+    this.warming = false;
+    this.furniture.setWarm(false);
     this.warmed = true;
   }
 
@@ -266,6 +270,8 @@ export class CraftGame {
   }
 
   private warmed = false;
+  /** True only while `prepare` draws its warm-up frames. */
+  private warming = false;
 
   /** Release the WebGL/audio-facing resources when the mode is replaced. */
   dispose(): void {
@@ -295,7 +301,7 @@ export class CraftGame {
   private bindInput(mount: HTMLElement): void {
     mount.addEventListener("click", () => {
       if (!this.locked && !this.hud.recipesOpen && !this.workshop.active) {
-        void mount.querySelector("canvas")?.requestPointerLock();
+        void Promise.resolve(mount.querySelector("canvas")?.requestPointerLock()).catch(() => {}); // refused during the browser's re-lock cooldown: the next click retries
       }
     });
     document.addEventListener("pointerlockchange", () => {
@@ -681,11 +687,17 @@ export class CraftGame {
     this.ghostCubeGeo = cubeBrickGeometry();
     this.ghostRoundGeo = roundBrickGeometry();
     this.ghostSlopeGeo = slopeBrickGeometry();
-    this.ghostOk = new THREE.MeshBasicMaterial({ color: 0x8ce87a, transparent: true, opacity: 0.34, depthWrite: false });
-    this.ghostBad = new THREE.MeshBasicMaterial({ color: 0xe8695b, transparent: true, opacity: 0.34, depthWrite: false });
+    // polygonOffset pulls the preview toward the camera: where it shares
+    // surfaces with what is already there (a red "taken" preview over a placed
+    // piece, a brick flush with a wall) it wins cleanly instead of z-fighting
+    // into a flickering glow
+    const ghost = { transparent: true, opacity: 0.34, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -4 };
+    this.ghostOk = new THREE.MeshBasicMaterial({ color: 0x8ce87a, ...ghost });
+    this.ghostBad = new THREE.MeshBasicMaterial({ color: 0xe8695b, ...ghost });
     for (let i = 0; i < 4; i++) {
       const m = new THREE.Mesh(this.ghostCubeGeo, this.ghostOk);
       m.visible = false;
+      m.frustumCulled = false; // drawn off-screen by the boot warm-up (see prepare)
       this.ghost.add(m);
       this.ghostMeshes.push(m);
     }
@@ -693,6 +705,16 @@ export class CraftGame {
   }
 
   private updateGhost(): void {
+    if (this.warming) {
+      // boot warm-up: draw the block preview far below the world so its
+      // programs compile now, not at the first aim of play
+      this.ghostMeshes.forEach((m, i) => {
+        m.visible = i < 2;
+        m.material = i === 0 ? this.ghostOk : this.ghostBad;
+        m.position.set(0, -1000, 0);
+      });
+      return;
+    }
     // furniture mode draws its own ghost (FurnitureController.render)
     if (!this.locked || !this.aim || this.mining || this.furniture.active) {
       for (const m of this.ghostMeshes) m.visible = false;
@@ -790,17 +812,22 @@ export class CraftGame {
    */
   private applyRobotOpacity(target: number, dt: number): void {
     if (!this.robotMaterials) {
-      const collected: THREE.Material[] = [];
+      // one clone per SOURCE material: parts that shared a colour keep sharing
+      const clones = new Map<THREE.Material, THREE.Material>();
       this.rig.root.traverse((o) => {
         if (o instanceof THREE.Mesh) {
-          const cloned = (o.material as THREE.Material).clone();
-          cloned.transparent = true;
+          const source = o.material as THREE.Material;
+          let cloned = clones.get(source);
+          if (!cloned) {
+            cloned = source.clone();
+            cloned.transparent = true;
+            clones.set(source, cloned);
+          }
           o.material = cloned;
-          collected.push(cloned);
         }
       });
-      if (collected.length === 0) return; // model still loading
-      this.robotMaterials = collected;
+      if (clones.size === 0) return; // model still loading
+      this.robotMaterials = [...clones.values()];
     }
     this.robotOpacity += (target - this.robotOpacity) * (1 - Math.pow(0.001, dt));
     const opacity = Math.min(1, Math.max(0, this.robotOpacity));
@@ -904,7 +931,9 @@ export class CraftGame {
     this.pet.render(alpha, frameDt);
     // on furniture the mining bar is the feedback; a cell box would frame one
     // cell of a two-cell sofa, or the block under a rug
-    this.view.setHighlight(this.aim && !this.aimFurniture ? this.aim.voxel : null);
+    // (during the boot warm-up the cell box draws far below the world, so its
+    // line shader compiles behind the loading screen, not on the first aim)
+    this.view.setHighlight(this.warming ? [0, -1000, 0] : this.aim && !this.aimFurniture ? this.aim.voxel : null);
 
     this.rig.root.position.copy(drawn);
     this.updateView(frameDt);
@@ -1017,6 +1046,12 @@ export class CraftGame {
         voxel: this.aim?.voxel ?? null,
         furniture: this.aimFurniture?.kind ?? null,
       }),
+      /** Compiled shader programs (name + a short cache key) — to see what
+       *  a warm-up missed: diff this before and after an action. */
+      programs: () =>
+        (this.renderer.renderer.info.programs ?? []).map((p) => `${p.name}|${p.cacheKey}`),
+      /** The live scene — for resource audits (duplicate materials/geometries). */
+      scene: () => this.renderer.scene,
       cameraState: () => {
         const p = this.renderer.camera.position;
         return { dist: this.camera.distance, x: p.x, y: p.y, z: p.z, t: performance.now() };

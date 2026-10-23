@@ -5,7 +5,7 @@ import { castsInstancedShadow } from "../../render/instancedDepth.js";
 import { CATALOG, furnitureDef } from "./catalog/index.js";
 import { footprintCenter } from "./footprint.js";
 import type { FurnitureLayout } from "./layout.js";
-import { buildFurnitureGeometry } from "./model.js";
+import { buildFurnitureShape, paintFurniture, type FurnitureShape } from "./model.js";
 import type { PlacedFurniture } from "./types.js";
 
 /**
@@ -22,6 +22,8 @@ import type { PlacedFurniture } from "./types.js";
  * fallback, and the voxel modes have no VR.
  */
 export class FurnitureView {
+  /** One shape per kind (+ open), shared by all its colours' geometries. */
+  private readonly shapes = new Map<string, FurnitureShape>();
   private readonly geometries = new Map<string, THREE.BufferGeometry>();
   private readonly meshes = new Map<string, THREE.InstancedMesh>();
   private readonly material = new THREE.MeshStandardMaterial({
@@ -44,11 +46,41 @@ export class FurnitureView {
     this.ghost = new THREE.Mesh();
     this.ghost.visible = false;
     this.ghost.renderOrder = 2;
+    // never culled: the boot warm-up draws it far below the world so its
+    // shader compiles for the render target play actually uses — culled, it
+    // compiled mid-game on the first piece a child picked instead
+    this.ghost.frustumCulled = false;
     scene.add(this.ghost);
     // One empty instanced mesh from the start, so the boot-time `warmupGpu`
     // compiles the instanced vertex-colour program — otherwise the first piece
     // a child places pays a shader compile, a visible hitch.
     this.mesh(CATALOG[0]!.key, 0, false, 1);
+    this.prebuild();
+  }
+
+  private prebuildTimer: number | null = null;
+  /**
+   * Build every piece's default look in idle moments after boot, one per idle
+   * slice. A look's geometry is otherwise built the first time it is seen —
+   * measured 10–45 ms on the main thread for the busiest pieces (bookshelf,
+   * stove, bed), a dropped frame exactly when a child picks or places one.
+   * All 53 default looks together are ~83k vertices, so keeping them is cheap;
+   * other colours then cost only a colour buffer (see `paintFurniture`).
+   */
+  private prebuild(): void {
+    const todo = CATALOG.map((d) => d.key);
+    const idle = (fn: () => void): number =>
+      typeof requestIdleCallback === "function" ? requestIdleCallback(fn, { timeout: 2000 }) : window.setTimeout(fn, 50);
+    const step = () => {
+      const kind = todo.shift();
+      if (kind === undefined) {
+        this.prebuildTimer = null;
+        return;
+      }
+      this.geometry(kind, 0, false);
+      this.prebuildTimer = idle(step);
+    };
+    this.prebuildTimer = idle(step);
   }
 
   /** A "look": kind + colour + open/closed. Each is one geometry, one mesh. */
@@ -57,7 +89,13 @@ export class FurnitureView {
   private geometry(kind: string, variant: number, open: boolean): THREE.BufferGeometry {
     const key = FurnitureView.lookKey(kind, variant, open);
     let geo = this.geometries.get(key);
-    if (!geo) this.geometries.set(key, (geo = buildFurnitureGeometry(furnitureDef(kind), variant, open)));
+    if (!geo) {
+      const def = furnitureDef(kind);
+      const shapeKey = `${kind}${open ? "o" : ""}`;
+      let shape = this.shapes.get(shapeKey);
+      if (!shape) this.shapes.set(shapeKey, (shape = buildFurnitureShape(def, open)));
+      this.geometries.set(key, (geo = paintFurniture(def, variant, open, shape)));
+    }
     return geo;
   }
 
@@ -97,7 +135,10 @@ export class FurnitureView {
    * field's window scrolled (`originX/Z` = absolute coords of grid cell 0,0).
    */
   sync(layout: FurnitureLayout, originX = 0, originZ = 0): void {
-    if (layout.version === this.drawnVersion && originX === this.drawnOriginX && originZ === this.drawnOriginZ) return;
+    if (layout.version === this.drawnVersion && originX === this.drawnOriginX && originZ === this.drawnOriginZ) {
+      this.keepWarm();
+      return;
+    }
     this.drawnVersion = layout.version;
     this.drawnOriginX = originX;
     this.drawnOriginZ = originZ;
@@ -118,6 +159,19 @@ export class FurnitureView {
       mesh.count = items.length;
       mesh.instanceMatrix.needsUpdate = true;
     }
+    this.keepWarm();
+  }
+
+  private warming = false;
+
+  /** While warming, the first look always draws at least its hidden instance. */
+  private keepWarm(): void {
+    if (!this.warming) return;
+    const mesh = this.mesh(CATALOG[0]!.key, 0, false, 1);
+    if (mesh.count > 0) return; // real pieces of that look are drawing anyway
+    mesh.setMatrixAt(0, this.matrix.makeTranslation(0, -1000, 0));
+    mesh.instanceMatrix.needsUpdate = true;
+    mesh.count = 1;
   }
 
   /** The translucent preview of a piece about to be placed (grid coords). */
@@ -125,7 +179,23 @@ export class FurnitureView {
     this.ghost.geometry = this.geometry(p.kind, p.variant, false);
     this.ghost.material = material;
     this.placeMatrix(p, gx, gy, gz).decompose(this.ghost.position, this.ghost.quaternion, this.ghost.scale);
+    // a hair larger than the piece, so over a placed copy it sits OUTSIDE it
+    // rather than in the same surfaces (see the ghost materials' polygonOffset)
+    this.ghost.scale.setScalar(1.012);
     this.ghost.visible = true;
+  }
+
+  /**
+   * During the boot warm-up, draw one real instance (far below the world) so
+   * every furniture shader — scene, ink mask (instanced), shadow depth
+   * (instanced) — compiles behind the loading screen. Measured before: the
+   * first piece a child placed compiled them mid-game, a felt hitch on
+   * Windows GPUs.
+   */
+  setWarm(on: boolean): void {
+    this.warming = on;
+    if (on) this.keepWarm();
+    else this.drawnVersion = -1; // the next sync redraws exactly what is placed
   }
 
   hideGhost(): void {
@@ -133,12 +203,18 @@ export class FurnitureView {
   }
 
   dispose(): void {
+    if (this.prebuildTimer !== null) {
+      if (typeof cancelIdleCallback === "function") cancelIdleCallback(this.prebuildTimer);
+      clearTimeout(this.prebuildTimer);
+    }
     for (const mesh of this.meshes.values()) {
       this.scene.remove(mesh);
       mesh.dispose();
     }
     this.scene.remove(this.ghost);
+    // all together: the looks share their shape's buffers (see paintFurniture)
     for (const geo of this.geometries.values()) geo.dispose();
+    for (const shape of this.shapes.values()) shape.geometry.dispose();
     this.material.dispose();
   }
 }
