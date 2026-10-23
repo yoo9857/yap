@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { castsInstancedShadow } from "../render/instancedDepth.js";
 import { loadTexture } from "../render/textures.js";
 import type { BlueprintBlock, Landmark } from "./landmarks.js";
 
@@ -105,7 +106,7 @@ export class LandmarkView {
 
     for (const [surface, count] of totals) {
       const mesh = new THREE.InstancedMesh(this.blockGeo, materials[surface], count);
-      mesh.castShadow = surface !== "glass";
+      if (surface !== "glass") castsInstancedShadow(mesh);
       mesh.receiveShadow = true;
       mesh.count = 0;
       if (surface === "glass") mesh.renderOrder = 2;

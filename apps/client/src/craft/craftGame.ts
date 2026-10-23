@@ -1,7 +1,7 @@
 import * as THREE from "three";
 import { GameLoop } from "../app/loop.js";
 import { GameRenderer } from "../render/renderer.js";
-import { texturesReady, warmupGpu } from "../render/textures.js";
+import { texturesReady, warmupGpu, warmupGpuAsync } from "../render/textures.js";
 import { CharacterRig, disposeRig } from "../player/rig.js";
 import { Sfx } from "../audio/sfx.js";
 import { Bgm, BGM_PLAYLIST } from "../audio/bgm.js";
@@ -18,12 +18,12 @@ import {
   type CraftRecipe,
 } from "./inventory.js";
 import { clearCraftSave, loadCraft, saveCraft, type CraftGameState } from "./craftSave.js";
-import { FIELD_MAX_VIEW, FIELD_TOP, FieldWindow, clearFieldSave, fieldStarterInventory } from "./fieldWorld.js";
+import { FIELD_MAX_VIEW, FieldWindow, clearFieldSave, fieldStarterInventory } from "./fieldWorld.js";
 import { SkyDome } from "./skyDome.js";
 import { ClassSync } from "./classSync.js";
 import type { ClassClient, ClassSession } from "../net/classClient.js";
 import { stepBody, overlapsVoxel, unstick, wishFromInput, type Body } from "./voxelBody.js";
-import { CRAFT_SPAWN, surfaceY } from "./voxelWorld.js";
+import { CRAFT_SPAWN, surfaceY, type RayHit } from "./voxelWorld.js";
 import { PIECES, pieceCells } from "./pieces.js";
 import { CUBE, ROUND, slopeShape } from "./shapes.js";
 import {
@@ -40,11 +40,17 @@ import { PetCompanion } from "./petCompanion.js";
 import { PetShop } from "./petShop.js";
 import { SPECIES, isPetSpecies, type PetSpecies } from "../player/creatureRig.js";
 import { withObjectParticle } from "./korean.js";
+import { approach, easeAngle, interpolate } from "./smoothing.js";
+import { FurnitureLayout } from "./furniture/layout.js";
+import { FurnitureController, PICKUP_TIME } from "./furniture/controller.js";
+import type { PlacedFurniture } from "./furniture/types.js";
 
 const DEFAULT_SEED = 20260718;
 const SAVE_INTERVAL_MS = 5000;
 const REACH = 6;
 const EYE_HEIGHT = 1.55;
+/** The field's far-ground plane: a hair under the top of bedrock (cell y 0). */
+const FIELD_GROUND_Y = 1 - 0.03;
 /** Horizon colour: fog and the sky dome's lower band share it. */
 const FOG_COLOR = 0x9fd8f5;
 const SKY_TOP = 0x6fbfee;
@@ -71,6 +77,11 @@ export class CraftGame {
   private readonly rig = new CharacterRig();
   private readonly pet: PetCompanion;
   private readonly petShop: PetShop;
+  private readonly furniture: FurnitureController;
+  /** Furniture under the crosshair (nearer than the block the ray hit). */
+  private aimFurniture: PlacedFurniture | null = null;
+  /** The piece a held left click is putting away. */
+  private pickupTarget: PlacedFurniture | null = null;
   private readonly loop: GameLoop;
   private readonly workshop: MachineWorkshop;
   private readonly state: CraftGameState;
@@ -106,7 +117,7 @@ export class CraftGame {
   private robotOpacity = 1;
   private prevVy = 0;
   private lastSaveAt = 0;
-  private aim: { voxel: [number, number, number]; before: [number, number, number] } | null = null;
+  private aim: RayHit | null = null;
 
   constructor(
     mount: HTMLElement,
@@ -117,7 +128,7 @@ export class CraftGame {
     this.sky = new SkyDome(this.renderer.scene, SKY_TOP, FOG_COLOR);
     this.camera = new CraftCamera(this.renderer.camera);
     this.view = new VoxelView(this.renderer.scene);
-    this.hud = new CraftHud(document.body, (recipe) => this.handleCraft(recipe));
+    this.hud = new CraftHud(document.body, (recipe) => this.handleCraft(recipe), { furniture: !opts.classroom });
 
     const reset = new URLSearchParams(location.search).has("reset");
     if (opts.classroom) {
@@ -131,6 +142,9 @@ export class CraftGame {
         // spread arrivals out so a whole class doesn't land in one cell
         player: { x: spawn.x + (Math.random() - 0.5) * 8, y: spawn.y, z: spawn.z + (Math.random() - 0.5) * 8 },
         pet: "dog",
+        // Furniture is not on the class wire yet, so a classroom has none: a
+        // sofa only you can see (and others walk through) would be worse.
+        furniture: new FurnitureLayout(),
       };
       this.buildFieldGround();
     } else if (opts.field) {
@@ -143,13 +157,34 @@ export class CraftGame {
         inventory: saved?.inventory ?? fieldStarterInventory(),
         player: saved?.player ?? this.field.spawn,
         pet: isPetSpecies(saved?.pet) ? saved.pet : "dog",
+        furniture: new FurnitureLayout(),
       };
+      this.state.furniture.load(saved?.furniture);
       this.buildFieldGround();
     } else {
       if (reset) clearCraftSave(localStorage);
       this.field = null;
       this.state = loadCraft(localStorage, DEFAULT_SEED);
     }
+    // Before the first unstick: the player must not spawn inside a sofa. The
+    // host reads the game's fields lazily, since some are built further down.
+    this.furniture = new FurnitureController({
+      scene: this.renderer.scene,
+      world: this.state.world,
+      layout: this.state.furniture,
+      originX: () => this.field?.absOriginX ?? 0,
+      originZ: () => this.field?.absOriginZ ?? 0,
+      player: () => this.body,
+      pet: () => this.pet.body,
+      hud: this.hud,
+      sfx: this.sfx,
+      canBuild: () => this.canBuild(),
+      resumePlay: () => this.resumePlay(),
+      closeOtherPanels: () => {
+        this.petShop.setOpen(false);
+        this.hud.hideRecipes();
+      },
+    }, !opts.classroom);
     this.body = { ...this.state.player, vx: 0, vy: 0, vz: 0, grounded: false };
     unstick(this.state.world, this.body); // never spawn embedded in a block
     this.renderer.scene.add(this.rig.root);
@@ -159,7 +194,8 @@ export class CraftGame {
       { x: this.body.x + 1.2, y: this.body.y, z: this.body.z + 1.2 },
       this.state.pet,
     );
-    this.petShop = new PetShop(document.body, this.state.pet, (species) => this.adoptPet(species));
+    this.petShop = new PetShop(document.body, this.state.pet, (species) => this.adoptPet(species),
+      () => this.furniture.closePanel());
     this.view.markDirty();
     this.applyViewDistance(this.loadViewPreset());
     this.buildGhost();
@@ -197,17 +233,35 @@ export class CraftGame {
 
     this.loop = new GameLoop({
       fixedUpdate: () => this.fixedUpdate(),
-      render: (_alpha, frameDt) => this.render(frameDt),
+      render: (alpha, frameDt) => this.render(alpha, frameDt),
     });
     if (import.meta.env.DEV) this.installDebugHooks();
   }
 
+  /**
+   * Everything slow, done behind the boot overlay before the first playable
+   * frame: textures, every shader (in parallel where the browser can), and two
+   * real frames through the whole pipeline. See `warmupGpuAsync`.
+   */
+  async prepare(setMessage: (text: string) => void = () => {}): Promise<void> {
+    setMessage("Loading textures…");
+    await texturesReady();
+    setMessage("Preparing graphics…");
+    await warmupGpuAsync(this.renderer.renderer, this.renderer.scene, this.renderer.camera, () => this.render(1, 1 / 60));
+    this.warmed = true;
+  }
+
   start(): void {
     this.loop.start();
-    void texturesReady().then(() => {
-      warmupGpu(this.renderer.renderer, this.renderer.scene, this.renderer.camera);
-    });
+    // started without `prepare` (a test harness): warm up the old way
+    if (!this.warmed) {
+      void texturesReady().then(() => {
+        warmupGpu(this.renderer.renderer, this.renderer.scene, this.renderer.camera);
+      });
+    }
   }
+
+  private warmed = false;
 
   /** Release the WebGL/audio-facing resources when the mode is replaced. */
   dispose(): void {
@@ -227,6 +281,7 @@ export class CraftGame {
     disposeRig(this.rig.root);
     this.pet.dispose();
     this.petShop.dispose();
+    this.furniture.dispose();
     this.bgm.dispose();
     this.renderer.dispose();
   }
@@ -242,6 +297,11 @@ export class CraftGame {
     document.addEventListener("pointerlockchange", () => {
       this.locked = document.pointerLockElement !== null;
       this.hud.setPointerLocked(this.locked);
+      if (this.locked) {
+        // back in play: a panel left open would sit over the view, unusable
+        this.furniture.closePanel();
+        this.petShop.setOpen(false);
+      }
       if (!this.locked) {
         this.mining = false;
         this.placing = false;
@@ -260,6 +320,10 @@ export class CraftGame {
       if (!this.locked) return;
       if (e.button === 0) this.mining = true;
       if (e.button === 2) this.placing = true;
+      if (e.button === 1) {
+        e.preventDefault(); // no autoscroll cursor
+        if (this.aimFurniture) this.furniture.pickKind(this.aimFurniture);
+      }
     });
     document.addEventListener("mouseup", (e) => {
       if (e.button === 0) this.mining = false;
@@ -268,6 +332,7 @@ export class CraftGame {
     document.addEventListener("contextmenu", (e) => e.preventDefault());
     document.addEventListener("wheel", (e) => {
       if (!this.locked) return;
+      if (this.furniture.handleWheel(e.deltaY > 0)) return;
       this.selected = (this.selected + (e.deltaY > 0 ? 1 : HOTBAR.length - 1)) % HOTBAR.length;
     });
     document.addEventListener("keydown", (e) => {
@@ -276,6 +341,15 @@ export class CraftGame {
       if (key === "b" && !e.repeat) { this.workshop.toggle(); return; }
       if (this.workshop.active) return;
       this.keys.add(e.code);
+      // Ctrl+Z / Ctrl+Y (and Ctrl+Shift+Z) undo and redo furniture work
+      if ((e.ctrlKey || e.metaKey) && (key === "z" || key === "y")) {
+        e.preventDefault();
+        if (key === "y" || e.shiftKey) this.furniture.redo();
+        else this.furniture.undo();
+        return;
+      }
+      // furniture's keys first: in furniture mode 1-9, Q/E, X and R are its own
+      if (this.furniture.handleKey(key, e.repeat)) return;
       if (key >= "1" && key <= "9") this.selected = Number(key) - 1;
       if (key === "c") {
         this.hud.toggleRecipes();
@@ -310,12 +384,24 @@ export class CraftGame {
   // ---------------------------------------------------------------- sim
 
   private fixedUpdate(): void {
+    // where the body was before this tick: render() blends prev → current
+    this.prevBody.set(this.body.x, this.body.y, this.body.z);
     if (this.sync) {
       const planar = Math.hypot(this.body.vx, this.body.vz);
       this.sync.tick(1 / 60, this.body, this.yaw, !this.body.grounded ? "jump" : planar > 0.5 ? "run" : "idle");
     }
     if (this.workshop.active) { this.workshop.fixedUpdate(); return; }
     const dt = 1 / 60;
+    if (this.seated && this.stepSeated()) {
+      this.perf.time("pet", () => this.pet.fixedUpdate(this.state.world, dt, this.body));
+      this.perf.time("aim", () => this.updateAim());
+      if (this.mining) this.stepMining(dt);
+      if (this.placing) {
+        this.tryPlace();
+        this.placing = false;
+      }
+      return;
+    }
     let fwd = 0;
     let strafe = 0;
     if (this.locked) {
@@ -324,9 +410,19 @@ export class CraftGame {
       if (this.keys.has("KeyA")) strafe -= 1;
       if (this.keys.has("KeyD")) strafe += 1;
     }
-    const [wishX, wishZ] = wishFromInput(this.yaw, fwd, strafe);
+    const [rawX, rawZ] = wishFromInput(this.yaw, fwd, strafe);
+    // Ease toward the wanted direction instead of switching speed in one tick:
+    // full speed in ~0.1 s, stopped in ~0.08 s. Instant start/stop read as
+    // stiff and steppy. Only the PLAYER's input is eased — voxelBody's physics
+    // (and the pet riding on it) are untouched.
+    const k = approach(dt, fwd || strafe ? 0.045 : 0.035);
+    this.wishX += (rawX - this.wishX) * k;
+    this.wishZ += (rawZ - this.wishZ) * k;
+    if (Math.abs(this.wishX) < 1e-3 && Math.abs(this.wishZ) < 1e-3) this.wishX = this.wishZ = 0;
+    const wishX = this.wishX;
+    const wishZ = this.wishZ;
     this.prevVy = this.body.vy;
-    stepBody(this.state.world, this.body, dt, wishX, wishZ, this.locked && this.keys.has("Space"));
+    this.perf.time("physics", () => stepBody(this.state.world, this.body, dt, wishX, wishZ, this.locked && this.keys.has("Space")));
     // hard landings thump the camera a little
     if (this.body.grounded && this.prevVy < -11) {
       this.camera.addShake(Math.min(0.11, -this.prevVy * 0.006));
@@ -338,6 +434,8 @@ export class CraftGame {
       if (shift) {
         this.body.x -= shift.dx;
         this.body.z -= shift.dz;
+        this.prevBody.x -= shift.dx;
+        this.prevBody.z -= shift.dz;
         this.miningTarget = null;
         this.miningProgress = 0;
         this.view.shift(shift.dx, shift.dz);
@@ -359,12 +457,13 @@ export class CraftGame {
 
     // After the player's own step, so the pet chases where they ARE, not where
     // they were a tick ago — a frame of lag here reads as the dog lagging.
-    this.pet.fixedUpdate(this.state.world, dt, this.body);
+    this.perf.time("pet", () => this.pet.fixedUpdate(this.state.world, dt, this.body));
 
-    this.updateAim();
+    this.perf.time("aim", () => this.updateAim());
     if (this.mining) this.stepMining(dt);
     else {
       this.miningTarget = null;
+      this.pickupTarget = null;
       this.miningProgress = 0;
       this.miningFrac = null;
     }
@@ -373,7 +472,7 @@ export class CraftGame {
       this.placing = false; // one block per press
     }
 
-    if (Date.now() - this.lastSaveAt > SAVE_INTERVAL_MS) this.persist();
+    if (Date.now() - this.lastSaveAt > SAVE_INTERVAL_MS) this.perf.time("save", () => this.persist());
   }
 
   private updateAim(): void {
@@ -381,10 +480,22 @@ export class CraftGame {
     const dx = Math.sin(this.yaw) * Math.cos(this.pitch);
     const dy = Math.sin(this.pitch);
     const dz = Math.cos(this.yaw) * Math.cos(this.pitch);
-    this.aim = this.state.world.raycast(this.body.x, eyeY, this.body.z, dx, dy, dz, REACH);
+    // furniture stops the ray too: you aim at a chair, not the floor under it
+    this.aim = this.state.world.raycast(this.body.x, eyeY, this.body.z, dx, dy, dz, REACH, true);
+    this.aimFurniture = this.furniture.aimAt(
+      { x: this.body.x, y: eyeY, z: this.body.z },
+      { x: dx, y: dy, z: dz },
+      this.aim,
+      REACH,
+    );
   }
 
   private stepMining(dt: number): void {
+    if (this.aimFurniture) {
+      this.stepPickup(this.aimFurniture, dt);
+      return;
+    }
+    this.pickupTarget = null;
     if (!this.aim) {
       this.miningTarget = null;
       this.miningProgress = 0;
@@ -415,15 +526,95 @@ export class CraftGame {
     }
   }
 
+  // ------------------------------------------------------------ sitting
+
+  /** The seat being sat on, and where the robot sits on it (grid coords). */
+  private seated: { item: PlacedFurniture; x: number; y: number; z: number; yaw: number } | null = null;
+
+  private trySit(item: PlacedFurniture): boolean {
+    const seat = this.furniture.seatAt(item, this.aim?.voxel ?? null);
+    if (!seat) return false;
+    this.seated = { item, ...seat };
+    this.body.vx = this.body.vy = this.body.vz = 0;
+    this.wishX = this.wishZ = 0;
+    this.sfx.play("sit");
+    this.hud.toast("🪑 앉았어요 — 움직이면 일어나요");
+    return true;
+  }
+
+  /**
+   * One tick seated: hold the body on the seat (no physics — it is INSIDE the
+   * piece's solid cells), and stand up on any move or jump, or if the seat is
+   * gone (put away, undone, or its floor mined). Returns false once standing.
+   */
+  private stepSeated(): boolean {
+    const s = this.seated!;
+    const wantsUp =
+      this.locked && ["KeyW", "KeyA", "KeyS", "KeyD", "Space"].some((k) => this.keys.has(k));
+    if (wantsUp || !this.furniture.has(s.item)) {
+      this.standUp();
+      return false;
+    }
+    this.body.x = s.x;
+    this.body.y = s.y;
+    this.body.z = s.z;
+    this.body.vx = this.body.vy = this.body.vz = 0;
+    this.body.grounded = true;
+    return true;
+  }
+
+  /** Off the seat: onto the floor in front of it if that is clear, else on top. */
+  private standUp(): void {
+    const s = this.seated;
+    if (!s) return;
+    this.seated = null;
+    const fx = Math.sin(s.yaw);
+    const fz = Math.cos(s.yaw);
+    this.body.x = s.x + fx * 0.75;
+    this.body.z = s.z + fz * 0.75;
+    this.body.y = s.item.y;
+    this.body.vx = this.body.vy = this.body.vz = 0;
+    unstick(this.state.world, this.body); // blocked in front: lifted clear, never stuck
+  }
+
+  /** Held left click on furniture: a short hold puts it away (it is free). */
+  private stepPickup(item: PlacedFurniture, dt: number): void {
+    if (!this.canBuild()) {
+      this.miningFrac = null;
+      return;
+    }
+    if (this.pickupTarget !== item) {
+      this.pickupTarget = item;
+      this.miningProgress = 0;
+    }
+    this.miningTarget = null; // a block mined next starts from zero
+    this.miningProgress += dt;
+    this.miningFrac = this.miningProgress / PICKUP_TIME;
+    if (this.miningProgress < PICKUP_TIME) return;
+    this.furniture.pickUp(item);
+    this.pickupTarget = null;
+    this.miningProgress = 0;
+    this.miningFrac = null;
+  }
+
   /**
    * Stamp the selected LEGO piece at the aim cell: every footprint cell must be
    * free, in-bounds and clear of the player, and you need one block per cell —
    * it's all-or-nothing so a piece never lands half-placed.
    */
   private tryPlace(): void {
+    // right click ON a door/gate/curtain opens or closes it, whatever you hold
+    if (this.aimFurniture && this.furniture.interact(this.aimFurniture)) return;
+    // ...and on a chair, sofa or bed you sit down — unless you are placing
+    // furniture, where the click means "put the piece here"
+    if (this.aimFurniture && !this.furniture.active && this.trySit(this.aimFurniture)) return;
     if (!this.aim) return;
     if (!this.canBuild()) {
       this.hud.toast("🧱 지금은 건축이 잠겨 있어요");
+      return;
+    }
+    if (this.furniture.active) {
+      this.furniture.place(this.aim, this.yaw);
       return;
     }
     if (this.stampPiece(this.aim.before, HOTBAR[this.selected]!)) this.sfx.play("land");
@@ -447,6 +638,7 @@ export class CraftGame {
       const z = az + dz;
       if (!this.state.world.inBounds(x, y, z)) return false;
       if (this.state.world.get(x, y, z) !== AIR) return false;
+      if (this.furniture.blocksCell(x, y, z)) return false;
       if (overlapsVoxel(this.body, x, y, z)) return false; // never bury yourself
       targets.push([x, y, z]);
     }
@@ -467,6 +659,7 @@ export class CraftGame {
     world.setShaped(x, y, z, block, shape);
     this.view.markCellDirty(x, y, z);
     this.sync?.recordEdit(x, y, z, prevBlock, prevShape, block, shape);
+    if (block === AIR) this.furniture.onBlockRemoved(x, y, z);
   }
 
   private canBuild(): boolean {
@@ -496,7 +689,8 @@ export class CraftGame {
   }
 
   private updateGhost(): void {
-    if (!this.locked || !this.aim || this.mining) {
+    // furniture mode draws its own ghost (FurnitureController.render)
+    if (!this.locked || !this.aim || this.mining || this.furniture.active) {
       for (const m of this.ghostMeshes) m.visible = false;
       return;
     }
@@ -521,7 +715,7 @@ export class CraftGame {
       const x = ax + c[0];
       const y = ay + c[1];
       const z = az + c[2];
-      const ok = this.state.world.inBounds(x, y, z) && this.state.world.get(x, y, z) === AIR;
+      const ok = this.state.world.inBounds(x, y, z) && this.state.world.get(x, y, z) === AIR && !this.furniture.blocksCell(x, y, z);
       m.visible = true;
       m.geometry = geo;
       m.material = ok ? this.ghostOk : this.ghostBad;
@@ -550,19 +744,39 @@ export class CraftGame {
     this.persist();
   }
 
+  /**
+   * Re-capture the mouse straight from a panel click. Picking a piece means
+   * "let me place it", so stopping at "Click to play" first was one click too
+   * many. Must run inside the click handler: browsers only grant pointer lock
+   * during a user gesture.
+   */
+  private resumePlay(): void {
+    if (this.locked || this.workshop.active) return;
+    const canvas = this.renderer.renderer.domElement;
+    try {
+      // newer browsers return a promise that rejects instead of throwing
+      void Promise.resolve(canvas.requestPointerLock()).catch(() => {});
+    } catch {
+      /* the hint stays up; a click on the world still resumes */
+    }
+  }
+
   private lastSaveSignature = "";
   private persist(): void {
     this.lastSaveAt = Date.now();
     if (this.sync) return; // the class's field lives on the server
     // standing still with no edits: nothing to write, skip the serialise +
     // synchronous localStorage write entirely
-    const signature = `${this.state.world.version}|${Math.round(this.body.x * 2)},${Math.round(this.body.y * 2)},${Math.round(this.body.z * 2)}|${JSON.stringify(this.state.inventory)}|${this.pet.species}`;
+    const signature = `${this.state.world.version}|${Math.round(this.body.x * 2)},${Math.round(this.body.y * 2)},${Math.round(this.body.z * 2)}|${JSON.stringify(this.state.inventory)}|${this.pet.species}|${this.state.furniture.version}`;
     if (signature === this.lastSaveSignature) return;
     this.lastSaveSignature = signature;
     this.state.player = { x: this.body.x, y: this.body.y, z: this.body.z };
     this.state.pet = this.pet.species;
-    if (this.field) this.field.save(localStorage, this.state.inventory, this.state.player, this.state.pet);
-    else saveCraft(this.state, localStorage, Date.now());
+    if (this.field) {
+      this.field.save(localStorage, this.state.inventory, this.state.player, this.state.pet, this.state.furniture.toJSON());
+    } else {
+      saveCraft(this.state, localStorage, Date.now());
+    }
   }
 
   /**
@@ -596,8 +810,8 @@ export class CraftGame {
    * teleports) snap instantly so the view never trails the body.
    */
   private smoothEyeY = Number.NaN;
-  private smoothedEyeY(dt: number): number {
-    const target = this.body.y + EYE_HEIGHT;
+  private smoothedEyeY(bodyY: number, dt: number): number {
+    const target = bodyY + EYE_HEIGHT;
     if (!Number.isFinite(this.smoothEyeY) || Math.abs(target - this.smoothEyeY) > 1.6) {
       this.smoothEyeY = target;
     } else {
@@ -607,9 +821,14 @@ export class CraftGame {
   }
 
   /**
-   * A huge grass plane just under the field's top layer. The voxel window ends
-   * 64+ cells from the player; past that this plane carries the ground out to
-   * the fog so the field reads as endless.
+   * A huge grass plane that carries the ground out to the fog past the voxel
+   * window, so the field reads as endless.
+   *
+   * It lies just under the top of the BEDROCK layer, not under the grass: at
+   * grass height it covered every hole dug in the top layer, so a mined grass
+   * block left green "grass" behind. Bedrock cannot be mined, so inside the
+   * window the plane is always hidden beneath it, and past the render distance
+   * — where it shows — the fog is opaque, so the drop in height never shows.
    */
   private buildFieldGround(): void {
     const size = 1024;
@@ -634,63 +853,112 @@ export class CraftGame {
 
   // ---------------------------------------------------------------- render
 
-  private render(frameDt: number): void {
+  /**
+   * The body as it should be DRAWN this frame: blended between the last two
+   * 60 Hz physics ticks by the loop's `alpha`. Drawing the raw tick position
+   * moved the robot (and the camera riding on it) in steps — some frames two
+   * ticks' worth, some frames none — which reads as stutter, worst on a
+   * 120/144 Hz screen and when sliding along a wall. A jump of more than a
+   * couple of metres in one tick (respawn, teleport, class gather) is a cut,
+   * not motion, and is drawn where it landed.
+   */
+  private interpolatedBody(alpha: number): THREE.Vector3 {
+    interpolate(this.prevBody, this.body, alpha, this.drawBody);
+    return this.drawBody;
+  }
+
+  private render(alpha: number, frameDt: number): void {
+    const drawn = this.interpolatedBody(alpha);
     this.sky.update(this.renderer.camera);
     this.sync?.render(frameDt);
     // integer steps keep the 1 m texture tiles aligned with the voxel grid
-    this.fieldGround?.position.set(Math.round(this.body.x), FIELD_TOP + 1 - 0.03, Math.round(this.body.z));
+    this.fieldGround?.position.set(Math.round(this.body.x), FIELD_GROUND_Y, Math.round(this.body.z));
     // Detail (rounded bricks, studs) follows what you're looking AT — the
     // robot, or the machine being driven/flown. Not the orbiting camera:
     // turning the view would swing it metres around and re-ring every frame.
-    if (!this.workshop.active) this.detailFocus.set(this.body.x, this.body.y + EYE_HEIGHT, this.body.z);
-    this.view.update(this.state.world, this.detailFocus);
+    if (!this.workshop.active) this.detailFocus.set(drawn.x, drawn.y + EYE_HEIGHT, drawn.z);
+    this.perf.time("chunks", () => this.view.update(this.state.world, this.detailFocus));
     if (this.workshop.active) {
       this.rig.root.visible = false;
       this.pet.setVisible(false);
       this.petShop.setVisible(false);
+      this.furniture.setVisible(false);
       this.ghost.visible = false;
       this.view.setHighlight(null);
       if (this.workshop.scienceActive) { this.workshop.renderScience(frameDt); return; }
       const target = this.workshop.render(frameDt);
       this.detailFocus.copy(target);
       this.renderer.trackTarget(target);
-      this.renderer.render();
+      this.perf.time("render", () => this.renderer.render());
       this.perf.update(this.renderer.renderer, frameDt);
       return;
     }
     this.ghost.visible = true;
     this.pet.setVisible(true);
     this.petShop.setVisible(true);
-    this.pet.render(frameDt);
-    this.view.setHighlight(this.aim ? this.aim.voxel : null);
+    this.furniture.setVisible(true);
+    this.pet.render(alpha, frameDt);
+    // on furniture the mining bar is the feedback; a cell box would frame one
+    // cell of a two-cell sofa, or the block under a rug
+    this.view.setHighlight(this.aim && !this.aimFurniture ? this.aim.voxel : null);
 
-    this.rig.root.position.set(this.body.x, this.body.y, this.body.z);
-    this.rig.root.rotation.y = this.yaw;
+    this.rig.root.position.copy(drawn);
+    this.updateView(frameDt);
+    // seated, the robot faces the way the seat does, whatever the camera does
+    this.rig.root.rotation.y = this.seated ? this.seated.yaw : this.viewYaw;
     const planar = Math.hypot(this.body.vx, this.body.vz);
-    const anim = !this.body.grounded ? "jump" : planar > 0.5 ? "run" : "idle";
+    const anim = this.seated ? "sit" : !this.body.grounded ? "jump" : planar > 0.5 ? "run" : "idle";
     this.rig.update(anim, planar, frameDt);
 
-    const eye = this.tmpEye.set(this.body.x, this.smoothedEyeY(frameDt), this.body.z);
+    const eye = this.tmpEye.set(drawn.x, this.smoothedEyeY(drawn.y, frameDt), drawn.z);
+    const t0 = performance.now();
     const robotOpacity = this.camera.update(
       this.state.world,
       eye,
-      this.yaw,
-      this.pitch,
+      this.viewYaw,
+      this.viewPitch,
       planar > 0.5,
       frameDt,
     );
-    this.applyRobotOpacity(robotOpacity, frameDt);
+    this.applyRobotOpacity(this.debugHideRobot ? 0 : robotOpacity, frameDt);
     this.renderer.trackTarget(eye);
 
     this.updateGhost();
     this.hud.update(this.state.inventory, this.selected);
     this.hud.setMineProgress(this.miningFrac);
-    this.hud.setPiece(PIECES[this.pieceIndex]!.name, this.pieceRot, this.pieceTilt);
-    this.renderer.render();
+    this.perf.phase("camera", performance.now() - t0);
+    this.perf.time("furniture", () => this.furniture.render(this.aim, this.yaw, this.locked && !this.mining, this.ghostOk, this.ghostBad));
+    if (!this.furniture.active) this.hud.setPiece(PIECES[this.pieceIndex]!.name, this.pieceRot, this.pieceTilt);
+    this.perf.time("render", () => this.renderer.render());
     this.perf.update(this.renderer.renderer, frameDt);
   }
 
   private readonly tmpEye = new THREE.Vector3();
+  /** Eased movement input (see fixedUpdate). */
+  private wishX = 0;
+  private wishZ = 0;
+  /** The view angles the camera DRAWS with — `yaw`/`pitch` lightly smoothed. */
+  private viewYaw = Math.PI;
+  private viewPitch = -0.25;
+
+  /**
+   * A mouse reports at its own rate (often 125 Hz) and the screen refreshes at
+   * another (60–144 Hz), so some frames carry two mouse moves and some none:
+   * the view turned in a stop–jump rhythm. Easing the DRAWN angles over ~25 ms
+   * spreads those moves evenly across frames. Aim, mining and placing still use
+   * the exact `yaw`/`pitch`, so nothing lands anywhere but under the crosshair
+   * once the view settles a frame later. A big jump (a teleport's `look`, a
+   * respawn) is taken at once.
+   */
+  private updateView(frameDt: number): void {
+    this.viewYaw = easeAngle(this.viewYaw, this.yaw, frameDt);
+    this.viewPitch = easeAngle(this.viewPitch, this.pitch, frameDt);
+  }
+  /** Body position at the start of the last physics tick (see interpolatedBody). */
+  private readonly prevBody = new THREE.Vector3();
+  private readonly drawBody = new THREE.Vector3();
+  /** Dev-only perf bisection switch (`__roboCraft.renderFlags`). */
+  private debugHideRobot = false;
   private readonly sky: SkyDome;
   /** Live classroom link (education mode with a teacher); null when solo. */
   private readonly sync: ClassSync | null = null;
@@ -735,8 +1003,25 @@ export class CraftGame {
         grounded: this.body.grounded,
         seed: this.state.seed,
         selected: this.selected,
+        yaw: this.yaw,
         inventory: { ...this.state.inventory },
       }),
+      seated: () => (this.seated ? { kind: this.seated.item.kind, pos: [this.body.x, this.body.y, this.body.z] } : null),
+      /** What the crosshair is on: the voxel ray's hit and any furniture. */
+      aimInfo: () => ({
+        locked: this.locked,
+        voxel: this.aim?.voxel ?? null,
+        furniture: this.aimFurniture?.kind ?? null,
+      }),
+      cameraState: () => {
+        const p = this.renderer.camera.position;
+        return { dist: this.camera.distance, x: p.x, y: p.y, z: p.z, t: performance.now() };
+      },
+      /** Perf bisection: switch costly render features off one at a time. */
+      renderFlags: (flags: { shadows?: boolean; robot?: boolean }) => {
+        if (flags.shadows !== undefined) this.renderer.renderer.shadowMap.enabled = flags.shadows;
+        if (flags.robot !== undefined) this.debugHideRobot = !flags.robot;
+      },
       give: (key: string, n = 1) => addItem(this.state.inventory, key, n),
       teleport: (x: number, y: number, z: number) => {
         this.body.x = x;
@@ -760,6 +1045,7 @@ export class CraftGame {
       },
       petShopOpen: () => this.petShop.open,
       petShopToggle: () => this.petShop.toggle(),
+      ...this.furniture.debug(),
       blockAt: (x: number, y: number, z: number) => this.state.world.get(x, y, z),
       mineAt: (x: number, y: number, z: number) => {
         const def = blockById(this.state.world.get(x, y, z));
@@ -770,7 +1056,7 @@ export class CraftGame {
       },
       placeAt: (x: number, y: number, z: number, key: string) => {
         const def = blockByKey(key);
-        if (!def || this.state.world.get(x, y, z) !== AIR) return false;
+        if (!def || this.state.world.get(x, y, z) !== AIR || this.furniture.blocksCell(x, y, z)) return false;
         this.writeCell(x, y, z, def.id, 0);
         return true;
       },

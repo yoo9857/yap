@@ -148,8 +148,9 @@ export function part(
   return inkable(mesh);
 }
 
-/** Unit sphere, shared and scaled per use — see `blob`. */
-const BLOB_GEO = new THREE.SphereGeometry(0.5, 20, 14);
+/** Unit sphere, shared and scaled per use — see `blob`. Exported for code
+ *  that merges parts itself (furniture) and must match the creatures' look. */
+export const BLOB_GEO = new THREE.SphereGeometry(0.5, 20, 14);
 
 /**
  * A smooth, un-outlined lump: a unit sphere scaled to w/h/d.

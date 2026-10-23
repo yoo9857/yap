@@ -8,6 +8,7 @@ import {
   type PetMode,
   type PetSense,
 } from "../player/pet.js";
+import { interpolate } from "./smoothing.js";
 import { stepBody, unstick, type Body } from "./voxelBody.js";
 import { surfaceY, type VoxelWorld } from "./voxelWorld.js";
 
@@ -105,7 +106,13 @@ export class PetCompanion {
     return togglePetMode(this.brain);
   }
 
+  /** Position at the start of the last tick, for render-time interpolation. */
+  private readonly prev = { x: 0, y: 0, z: 0 };
+
   fixedUpdate(world: VoxelWorld, dt: number, owner: { x: number; y: number; z: number }): void {
+    this.prev.x = this.body.x;
+    this.prev.y = this.body.y;
+    this.prev.z = this.body.z;
     const cmd = thinkPet(this.brain, this.body, owner, dt, this.senseAhead(world, owner));
     if (cmd.teleport) {
       this.recall(world, owner);
@@ -143,7 +150,7 @@ export class PetCompanion {
     const px = this.body.x + (dx / len) * reach;
     const pz = this.body.z + (dz / len) * reach;
     const foot = Math.floor(this.body.y + 0.1);
-    const solid = (y: number): boolean => world.isSolid(Math.floor(px), y, Math.floor(pz));
+    const solid = (y: number): boolean => world.isBlocked(Math.floor(px), y, Math.floor(pz));
     // Headroom scales with the animal: a giraffe hopping onto a step needs a
     // whole neck's worth of clear air above it, a cat needs one cell.
     const headroom = Math.ceil(this.body.h ?? 1);
@@ -178,14 +185,19 @@ export class PetCompanion {
    *  needs no fixing up: it tracks distance to the owner, and the owner
    *  shifted by the same amount. */
   shift(dx: number, dz: number): void {
+    this.prev.x -= dx;
+    this.prev.z -= dz;
     this.body.x -= dx;
     this.body.z -= dz;
     this.brain.lastX -= dx;
     this.brain.lastZ -= dz;
   }
 
-  render(frameDt: number): void {
-    this.rig.root.position.set(this.body.x, this.body.y, this.body.z);
+  /** Draw blended between the last two ticks (`alpha`), like the player — a
+   *  pet stepping at 60 Hz next to a smoothly moving robot visibly judders.
+   *  A recall is a cut, drawn where it landed. */
+  render(alpha: number, frameDt: number): void {
+    interpolate(this.prev, this.body, alpha, this.rig.root.position);
     // Ease the turn: snapping yaw to the brain's bearing makes the pet pivot
     // like a turret every time the owner strafes.
     let delta = this.brain.yaw - this.rig.root.rotation.y;

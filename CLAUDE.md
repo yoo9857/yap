@@ -8,7 +8,7 @@ CraftYap — a Roblox-style blocky 3D web game collection (English UI, crayon-do
 
 - **Daily Tower (tower)**: multiplayer obby. A new deterministic tower every day (KST midnight), client-authoritative movement with server sanity validation, persisted daily leaderboard.
 - **Robo Builder (builder)**: idle game. Blocky workers construct real-scale voxel world landmarks (Eiffel 330 m, pyramid 230 m base…); no physics, no server dependency, localStorage save with offline settlement.
-- **Craft Island (craft)**: single-player voxel sandbox (mine / craft / place). NO rapier — the voxel grid itself is the collider (`craft/voxelBody.ts` AABB sweeps, `voxelWorld.ts` DDA raycast). World regenerates from its seed; the save stores only the edit diff + inventory (zod-validated, hostile-safe). A blocky **pet** tags along (`craft/petCompanion.ts`) — dog, cat, elephant, giraffe or panda, swapped from the 🐾 **입양** chip under the machine-lab chip; **P** toggles sit/follow, and the choice is saved. Desktop-only (pointer lock). Press **B** for the **machine lab** — a Besiege-style build-and-test-drive mode that *does* use rapier (see below).
+- **Craft Island (craft)**: single-player voxel sandbox (mine / craft / place). NO rapier — the voxel grid itself is the collider (`craft/voxelBody.ts` AABB sweeps, `voxelWorld.ts` DDA raycast). World regenerates from its seed; the save stores only the edit diff + inventory (zod-validated, hostile-safe). A blocky **pet** tags along (`craft/petCompanion.ts`) — dog, cat, elephant, giraffe or panda, swapped from the 🐾 **입양** chip under the machine-lab chip; **P** toggles sit/follow, and the choice is saved. The 🛋️ **가구** chip below it opens the furniture catalog (~50 pieces in 7 categories, colour variants, search — free and unlimited); **G** enters furniture mode without releasing the mouse (the hotbar becomes the category's furniture bar: **Q/E** category, **1‒9**/wheel piece, **X** colour, **R** turn, right-click place, hold left click to put away, **G** back to blocks). See `docs/FURNITURE.md`. Desktop-only (pointer lock). Press **B** for the **machine lab** — a Besiege-style build-and-test-drive mode that *does* use rapier (see below).
 - **Education field (field)**: Craft Island's sandbox (and machine lab) on an endless, empty flat field with 999 of every hotbar block. `craft/fieldWorld.ts` scrolls the usual 160×160 grid under the player in 32-cell steps (= 2 render chunks), banking edits by absolute coordinate, and sets `VoxelWorld.outsideColumn` so physics, rays and machines have ground beyond the grid; a big grass plane carries the view to the fog and the sky is fog-coloured so the far-plane cut never shows. Own save key, separate from the island. `O` cycles the render distance (fog is opaque exactly where chunks stop drawing; a gradient `skyDome.ts` makes the horizon the fog colour).
 - **Classroom (education, live)**: the education lobby (`app/classLobby.ts`) offers 선생님 반 만들기 / 학생 반 참여하기 / 혼자 하기. A teacher opens a class under **their own name**; students type that teacher name + their own name and land in the same shared field. See *Classroom* below.
 - **Blast Royale (battle)**: arcade solo battle royale — you vs 7 bots (who also fight each other) on a random voxel island, hitscan blasters, 3-phase shrinking storm, last robot standing. Client-only (no server); reuses craft's world/physics/camera. Pure logic in `battle/{zone,combat,bots}.ts`; a 4 s weapons-free grace after the drop keeps spawns fair.
@@ -38,17 +38,20 @@ node tools/e2e-robustness.mjs     # tower: cheat snapback/kick, server-restart r
 node tools/e2e-builder.mjs        # builder: economy, goals, offline settlement exact-match
 node tools/e2e-craft.mjs          # craft: island boot, mine/craft/place, physics, save round-trip
 node tools/e2e-pet.mjs            # pet: spawns, comes to heel, sits on P, recalled when walled off, adopt every species + reload
+node tools/e2e-furniture.mjs [png]  # furniture: panel tabs/search/swatches, keyboard bar, floor/rug/surface/wall rules, held-click pickup, cascades, field scroll, reload
 node tools/e2e-field.mjs          # education: category screen, endless field, scrolling window keeps edits, save
 node tools/e2e-classroom.mjs      # classroom: teacher + 2 students in separate browsers — join/errors, shared building, late join, locks, chat, gather, kick, reconnect, end
 node tools/e2e-machines.mjs       # machine lab: build shortcuts, library/share, drive, cameras, flight, wings
 node tools/e2e-battle.mjs         # battle: bots live/roam, storm shrink, win & lose paths
 node tools/e2e-builder-vr.mjs     # builder VR: rig placement, comfort contract, teardown (needs no headset)
 node tools/e2e-production.mjs     # built dist on a single port (no dev server needed)
+node tools/perf-craft.mjs [--profile|--alloc|--no-soak]  # field: frame time / camera judder / garbage per scenario (open, wall slide, back-to-wall, corner) + 10-round leak soak
 node tools/builder-gallery.mjs <outdir> [i]   # screenshot each landmark for visual review
 node tools/builder-shots.mjs <outdir> [i]     # screenshot each camera shot type
 node tools/vr-shots.mjs <outdir> [i] [fraction]  # screenshot each VR viewpoint station
 node tools/vr-tour.mjs <outdir> [i] [fraction]   # ...plus a self-contained HTML page of them (headset-free "what VR looks like")
 node tools/shot-pets.mjs <outdir> [species]   # pose every pet (lineup + six angles each) — this is how proportions get judged
+node tools/shot-furniture.mjs <outdir> [category|kind]  # close-up contact sheet per furniture category — how a new piece gets judged
 ```
 
 ## Architecture
@@ -128,6 +131,16 @@ Mid-air stations get a railed platform, or height vertigo makes the view unwatch
   - **The hop must clear a full block** — rise is `v²/2g`, so against voxelBody's 24 m/s² anything under ~7 m/s leaves the pet rattling against every 1 m step on the island.
   - **It goes round, then gives up.** Two-block walls exist and the pet has no pathfinding; after `LOST_TIME` of no gain it asks to be recalled. A companion that can be permanently lost behind a wall is worse than one that occasionally reappears.
   - **The step probe lives in the caller.** `PetCompanion` reads the voxel ahead and passes a boolean in, so the brain stays world-free and testable.
+- **Furniture** (`craft/furniture/`, full standard in `docs/FURNITURE.md`): the catalog is **data** (`catalog/*.ts`, parts lists built with `kit.ts`) checked entry by entry by `test/furniture-catalog.test.ts`; rules are pure (`layout.ts`, `footprint.ts`, tested in `test/furniture-layout.test.ts`); `CraftGame` only talks to `FurnitureController`. Load-bearing:
+  - **Collision is whole cells, through `VoxelWorld.propSolid`.** Bodies (`isBlocked`) and the player's aim (`raycast(..., true)`) hit solid furniture; **`isSolid` must not** — the renderer culls faces with it, so a chair beside a wall would punch a hole in the wall.
+  - **Four layers per cell** (solid / rug / surface / wall) are what let a rug lie under a sofa, a vase stand on a table and a clock hang over a bed. Placement is all-or-nothing; a piece goes when its *last* support is mined, and takes what stood on it.
+  - **The layout holds ABSOLUTE cells**, so a field scroll never touches it.
+  - **One `InstancedMesh` per (kind, colour) in use**, geometry merged per look and built lazily — 400 chairs cost 3 draw calls. `model.ts` must copy shared geometries before transforming: `toNonIndexed()` returns the ORIGINAL when it is already non-indexed, and mutating it corrupts the creatures' cached bricks.
+  - **Keys and palette indices are persisted**: never rename a kind, only append palettes. Categories hold ≤ 9 pieces (the bar is 1‒9).
+  - **Depth is built, not painted.** Parts are `box`/`ball`/`cyl` (tapered: shades, an open parasol)/`dome`, each optionally rotated; a tub or basin is `hollow()` with the water below the rim. Floor-level slabs must be ≥ `RUG_TOP` (0.14 m) or the floor studs poke through.
+  - **Not in classrooms yet** (not on the class wire — a sofa only you can see would be worse than none). Machines collide with solid furniture (the rapier terrain bake uses `isBlocked`).
+  - **Doors/gates/curtains** (`openParts`): right-click toggles in any mode, middle-click picks a piece's kind+colour; an open door is not solid; aiming is per part (`rayPiece`) so an open doorway can be clicked through and still shut again.
+  - **Seats** (`seat` height): right-click outside furniture mode sits the robot (rig `"sit"` pose) facing the seat's front; physics is suspended while seated (the body is inside the piece's solid cells) and any move key, or the seat disappearing, stands it up in front. **Ctrl+Z / Ctrl+Y** undo/redo the player's own place/put-away steps (block-mining cascades are deliberately not undoable).
 
 #### Machine lab (`craft/machines/`) — build, test drive, missions
 
@@ -175,7 +188,12 @@ Live multiplayer for the education field, deliberately separate from the tower p
   - Judge every change with `tools/shot-pets.mjs`, which shoots a lineup, six body angles and **two face close-ups** per species. Reasoning about rounded boxes does not work and whole-body framing hides faces — the first cat was a rabbit, the first elephant wore solar panels, and the panda went through war paint, a scowl and a cardboard box.
 - `apps/client/src/app/charPreview.ts` — `?preview=char` turntable (mascots behind, pets in front) with `__charPreview.pinDog(anim, yaw)` to freeze a pose for screenshots, the same idea as the builder's `pinShot()`.
 - `render/textures.ts` — central texture registry (one cached instance per URL) + `warmupGpu` (upload every texture and `renderer.compile` every shader during the boot overlay). This is why mid-gameplay never pays a first-sight upload/compile hitch — route ALL texture loads through `loadTexture`, not `new TextureLoader()`.
-- `ui/perf.ts` — `?perf=1` overlay (fps / worst-frame ms / draw calls / geo·tex·program counts / JS heap); `__robo*.perf()` exposes the same sample for soak/leak checks.
+- `ui/perf.ts` — `?perf=1` overlay (fps / worst-frame ms / draw calls / geo·tex·program counts / JS heap, and the worst frame's per-phase work: `perf.time("render", …)`); `__robo*.perf()` exposes the same sample for soak/leak checks.
+- **Never let one material serve two shader variants per frame.** three re-derives the program (parameters + cache-key strings) on every switch — every object, every frame — which was the top of the CPU profile and ~90% of the garbage (GC pauses = the "turning stutters" reports). The rules that keep it from coming back:
+  - **Every light is `layers.enableAll()`** wherever it is created. The ink mask camera only sees `INK_LAYER`s; a mask pass that saw no lights flipped the shared light state 2 → 0 → 2 each frame and invalidated EVERY lit material.
+  - **Instanced shadow casters use `castsInstancedShadow(mesh)`** (`render/instancedDepth.ts`): three's single shared depth material otherwise flips between instanced and plain casters.
+  - **A material is either instanced or not**: voxelView keeps twin materials (instanced near bricks / merged far chunks); instanced meshes go on `INK_INSTANCED_LAYER`, not `INK_LAYER`, for the mask pass's own override material.
+- **Draw between ticks** (`craft/smoothing.ts`): physics is fixed 60 Hz; the player and the pet are DRAWN `interpolate(prev, curr, alpha)` and the view angles `easeAngle` (~25 ms, absorbs a 125 Hz mouse vs a 144 Hz screen). Aim/mining use the exact angles. Unit-tested with irregular frame schedules — headless SwiftShader frame times are too noisy to judge smoothness by.
 - Landing assets are size-capped: banner/paper are WebP, logo is a resized PNG; renderer caps `pixelRatio` at 1.5.
 
 ### Deployment

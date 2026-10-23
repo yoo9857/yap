@@ -3,6 +3,7 @@ import { AIR, blockById, blockByKey } from "./blocks.js";
 import { HOTBAR, sanitizeCounts, type Counts } from "./inventory.js";
 import { VoxelWorld, WORLD_X, WORLD_Y, WORLD_Z } from "./voxelWorld.js";
 import type { KeyValueStorage } from "./craftSave.js";
+import { furnitureSaveSchema, type FurnitureTuple } from "./furniture/layout.js";
 
 /**
  * Education mode's endless empty field. The voxel grid stays the usual fixed
@@ -52,6 +53,8 @@ const saveSchema = z.object({
   /** Adopted companion. Optional: fields saved before the adoption panel
    *  existed have none, and the caller falls back to the dog. */
   pet: z.string().optional(),
+  /** Placed furniture in ABSOLUTE cells, like `edits`. */
+  furniture: furnitureSaveSchema.optional(),
 });
 
 export class FieldWindow {
@@ -63,6 +66,16 @@ export class FieldWindow {
   /** Absolute coordinate of grid cell (0, 0). */
   private originX = -CENTER_X;
   private originZ = -CENTER_Z;
+  /** Absolute coordinates of grid cell (0, 0), for callers that convert in a
+   *  hot path (furniture collision) and cannot afford `toAbsolute`'s array. */
+  get absOriginX(): number {
+    return this.originX;
+  }
+
+  get absOriginZ(): number {
+    return this.originZ;
+  }
+
   /** world.version when the window last matched `edits`; skips idle banks. */
   private bankedVersion = -1;
 
@@ -187,13 +200,14 @@ export class FieldWindow {
     inventory: Counts,
     player: { x: number; y: number; z: number },
     pet?: string,
+    furniture?: FurnitureTuple[],
   ): void {
     this.bank();
     const edits = [...this.edits].map(([key, [block, shape]]) => [...key.split(",").map(Number), block, shape]);
     try {
       storage.setItem(
         SAVE_KEY,
-        JSON.stringify({ v: 1, originX: this.originX, originZ: this.originZ, edits, inventory, player, pet }),
+        JSON.stringify({ v: 1, originX: this.originX, originZ: this.originZ, edits, inventory, player, pet, furniture }),
       );
     } catch {
       // storage full/unavailable — keep playing unsaved
@@ -203,7 +217,7 @@ export class FieldWindow {
   /** Restore a saved field; returns its inventory/player or null for a fresh one. */
   load(
     storage: KeyValueStorage,
-  ): { inventory: Counts; player: { x: number; y: number; z: number }; pet?: string } | null {
+  ): { inventory: Counts; player: { x: number; y: number; z: number }; pet?: string; furniture?: unknown[] } | null {
     let parsed: unknown;
     try {
       const raw = storage.getItem(SAVE_KEY);
@@ -229,6 +243,7 @@ export class FieldWindow {
       inventory: sanitizeCounts(d.inventory),
       player: { x: clamp(d.player.x, WORLD_X), y: clamp(d.player.y, WORLD_Y + 4), z: clamp(d.player.z, WORLD_Z) },
       pet: d.pet,
+      furniture: d.furniture,
     };
   }
 }

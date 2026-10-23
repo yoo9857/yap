@@ -74,3 +74,34 @@ export function warmupGpu(
   uploadAllTextures(renderer);
   renderer.compile(scene, camera);
 }
+
+/**
+ * Warm-up to run BEHIND a loading screen, before the game loop starts.
+ *
+ * `warmupGpu` compiles synchronously — on Windows each program is translated
+ * to D3D by the driver, tens to hundreds of milliseconds apiece — and it only
+ * knows the materials the camera can see: the shadow pass's depth programs,
+ * the ink mask's override programs and its composite are compiled on first
+ * use instead. Run once play had started, that was the "very slow at first,
+ * then smooth" opening: one long freeze and a string of hitches.
+ *
+ * So: upload textures; `compileAsync` (the browser compiles in parallel, off
+ * the main thread, where KHR_parallel_shader_compile exists); then draw
+ * `frames` complete frames through the mode's own render path, which compiles
+ * and uploads whatever is left — shadow, mask, composite, render targets.
+ */
+export async function warmupGpuAsync(
+  renderer: THREE.WebGLRenderer,
+  scene: THREE.Scene,
+  camera: THREE.Camera,
+  renderFrame: () => void,
+  frames = 2,
+): Promise<void> {
+  uploadAllTextures(renderer);
+  await renderer.compileAsync(scene, camera);
+  for (let i = 0; i < frames; i++) {
+    renderFrame();
+    // let the browser present, so GPU-side work lands now, not in play
+    await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+  }
+}

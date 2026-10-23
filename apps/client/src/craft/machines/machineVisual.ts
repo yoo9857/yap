@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { castsInstancedShadow } from "../../render/instancedDepth.js";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import {
   DIRECTIONS,
@@ -136,7 +137,8 @@ export class MachineVisual {
           indices.length,
         );
         mesh.userData.partIndices = indices;
-        mesh.castShadow = mesh.receiveShadow = true;
+        castsInstancedShadow(mesh);
+        mesh.receiveShadow = true;
         indices.forEach((index, i) =>
           mesh.setMatrixAt(i, this.transforms[index]!),
         );

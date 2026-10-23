@@ -3,7 +3,20 @@
  * AudioContext is created lazily and resumed on the first user gesture;
  * until then every play call is a silent no-op (browser autoplay policy).
  */
-type SfxName = "jump" | "land" | "checkpoint" | "crumble" | "oof" | "clear" | "click";
+type SfxName =
+  | "jump"
+  | "land"
+  | "checkpoint"
+  | "crumble"
+  | "oof"
+  | "clear"
+  | "click"
+  | "place"
+  | "pickup"
+  | "doorOpen"
+  | "doorClose"
+  | "sit"
+  | "undo";
 
 export class Sfx {
   private ctx: AudioContext | null = null;
@@ -58,6 +71,29 @@ export class Sfx {
         break;
       case "click":
         this.beep(ctx, 700, 0.04, "square", 0.04, 700);
+        break;
+      // furniture: soft and woody, so a room furnished piece by piece does not
+      // sound like a building site (they used to borrow land/crumble)
+      case "place":
+        this.beep(ctx, 240, 0.07, "triangle", 0.07, 150);
+        this.beep(ctx, 180, 0.09, "triangle", 0.05, 120, 0.05);
+        break;
+      case "pickup":
+        this.beep(ctx, 300, 0.1, "sine", 0.06, 620);
+        break;
+      case "doorOpen":
+        this.beep(ctx, 110, 0.32, "sawtooth", 0.025, 190); // a little creak
+        this.beep(ctx, 520, 0.05, "square", 0.025, 520); // the latch
+        break;
+      case "doorClose":
+        this.beep(ctx, 150, 0.12, "triangle", 0.08, 70); // the thud
+        this.beep(ctx, 620, 0.04, "square", 0.025, 620, 0.06); // the latch
+        break;
+      case "sit":
+        this.beep(ctx, 200, 0.14, "sine", 0.06, 120);
+        break;
+      case "undo":
+        this.beep(ctx, 660, 0.06, "sine", 0.045, 440);
         break;
     }
   }

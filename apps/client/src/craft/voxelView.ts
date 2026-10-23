@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { castsInstancedShadow } from "../render/instancedDepth.js";
 import { BLOCKS, blockById, textureUrl, type BlockDef } from "./blocks.js";
 import { loadTexture } from "../render/textures.js";
 import { WORLD_X, WORLD_Y, WORLD_Z, type VoxelWorld } from "./voxelWorld.js";
@@ -163,10 +164,10 @@ export class VoxelView {
 
   constructor(private readonly scene: THREE.Scene) {
     for (const def of BLOCKS) {
-      const material = this.makeMaterial(def);
+      const [material, merged] = this.makeMaterials(def);
       this.materials.set(def.id, material);
       this.materialIndex.set(def.id, this.materialList.length);
-      this.materialList.push(material);
+      this.materialList.push(merged);
       if (def.key === "glass") this.seeThrough.add(def.id);
     }
     const edges = new THREE.EdgesGeometry(new THREE.BoxGeometry(1.002, 1.002, 1.002));
@@ -188,6 +189,18 @@ export class VoxelView {
    * map (grass-top, stone, …). The tile carries the hue; the solid crayon colour
    * is only the fallback until it loads / for a block with no tile.
    */
+  /**
+   * Two identical materials per block: one for the instanced near bricks and
+   * studs, one for the merged far meshes. A single material shared by both
+   * needs two shader programs, and three re-derives the program on every
+   * switch between them — every object, every frame (see render/instancedDepth.ts).
+   */
+  private makeMaterials(def: BlockDef): [THREE.Material, THREE.Material] {
+    const a = this.makeMaterial(def);
+    const b = this.makeMaterial(def);
+    return [a, b];
+  }
+
   private makeMaterial(def: BlockDef): THREE.Material {
     const isGlass = def.key === "glass";
     const material = new THREE.MeshStandardMaterial({
@@ -590,7 +603,7 @@ export class VoxelView {
       const material = this.materials.get(block);
       if (!material) continue;
       const mesh = new THREE.InstancedMesh(this.geometryFor(shape), material, count);
-      mesh.castShadow = true;
+      castsInstancedShadow(mesh);
       mesh.receiveShadow = true;
       if (this.seeThrough.has(block)) mesh.renderOrder = 2;
       if (isSlope(shape)) brickOrientation(slopeYaw(shape), slopeTilt(shape), q);
@@ -721,6 +734,7 @@ export class VoxelView {
     }
     this.studGeometry.dispose();
     for (const material of this.materials.values()) material.dispose();
+    for (const material of this.materialList) material.dispose(); // the merged twins
     this.scene.remove(this.highlight);
     this.highlight.geometry.dispose();
     (this.highlight.material as THREE.Material).dispose();

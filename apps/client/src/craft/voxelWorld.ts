@@ -53,6 +53,11 @@ export class VoxelWorld {
    *  island (outside is open air). The infinite education field sets this so
    *  physics, rays and machines always have ground under them. */
   outsideColumn: Uint8Array | null = null;
+  /** Solid cells that are NOT blocks — placed furniture. Bodies and aim rays
+   *  collide with them (`isBlocked`, `raycast(..., true)`); `isSolid` does not,
+   *  because the renderer culls faces against it and a chair beside a wall
+   *  must not punch a hole in the wall. Grid coordinates. */
+  propSolid: ((x: number, y: number, z: number) => boolean) | null = null;
   /** Bumped on every set()/setShaped(); lets savers skip unchanged worlds. */
   version = 0;
 
@@ -99,6 +104,11 @@ export class VoxelWorld {
     return this.get(x, y, z) !== AIR;
   }
 
+  /** Does anything — a block or a piece of furniture — fill this cell? */
+  isBlocked(x: number, y: number, z: number): boolean {
+    return this.isSolid(x, y, z) || (this.propSolid !== null && this.propSolid(x, y, z));
+  }
+
   /** A solid cell with at least one air neighbour — the renderable surface. */
   isExposed(x: number, y: number, z: number): boolean {
     if (!this.isSolid(x, y, z)) return false;
@@ -112,7 +122,8 @@ export class VoxelWorld {
     );
   }
 
-  /** Grid-DDA ray march. Origin/dir in world units (1 voxel = 1 m). */
+  /** Grid-DDA ray march. Origin/dir in world units (1 voxel = 1 m).
+   *  `props` also stops at furniture (`isBlocked`), for the player's aim. */
   raycast(
     ox: number,
     oy: number,
@@ -121,6 +132,7 @@ export class VoxelWorld {
     dy: number,
     dz: number,
     maxDist: number,
+    props = false,
   ): RayHit | null {
     let x = Math.floor(ox);
     let y = Math.floor(oy);
@@ -142,7 +154,7 @@ export class VoxelWorld {
     let pz = z;
 
     for (let t = 0; t <= maxDist; ) {
-      if (this.isSolid(x, y, z)) {
+      if (props ? this.isBlocked(x, y, z) : this.isSolid(x, y, z)) {
         return { voxel: [x, y, z], before: [px, py, pz], dist: t };
       }
       px = x;

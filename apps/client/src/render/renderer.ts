@@ -48,9 +48,11 @@ export class GameRenderer {
     );
 
     this.hemi = new THREE.HemisphereLight(0xdff3ff, 0x5a7d54, 0.9);
+    this.hemi.layers.enableAll(); // see inkVisibleLights
     this.scene.add(this.hemi);
 
     this.sun = new THREE.DirectionalLight(0xfff4d6, 2.0);
+    this.sun.layers.enableAll(); // see inkVisibleLights
     this.sun.castShadow = true;
     this.sun.shadow.mapSize.set(2048, 2048);
     const cam = this.sun.shadow.camera;

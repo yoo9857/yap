@@ -40,6 +40,15 @@ import * as THREE from "three";
  * - **The composite must convert to sRGB itself.** A raw `ShaderMaterial` gets
  *   none of three's output chunks, so writing the linear render target
  *   straight to the canvas yields a dark, over-saturated image.
+ * - **Every light must be visible to the mask camera** (`light.layers.enableAll()`
+ *   wherever a light is made). three gathers lights per render() filtered by
+ *   the camera's layers, and the mask pass shares the scene's render state: a
+ *   mask camera that saw no lights flipped the light setup 2 → 0 → 2 every
+ *   frame, bumping its version, and three then re-derived the shader program
+ *   — parameters, cache-key strings — for EVERY lit object, EVERY frame. That
+ *   was the top of the CPU profile and ~90% of the garbage (10–24 MB/s, a GC
+ *   pause several times a second): the "turning the camera stutters" feel.
+ *   Lights draw nothing, so seeing them costs the mask pass nothing.
  * - **It must switch off in WebXR.** A headset owns the framebuffer; render
  *   targets and full-screen quads do not survive that, so `GameRenderer` falls
  *   back to the hull shells while presenting. That is why the shells are still
@@ -48,10 +57,30 @@ import * as THREE from "three";
 
 /** Solid character geometry, rendered into the silhouette mask. */
 export const INK_LAYER = 7;
+/**
+ * The same, for INSTANCED meshes (furniture). They get their own layer and
+ * their own mask material because one override material shared between plain
+ * and instanced meshes needs a different shader for each, and three then
+ * re-derives the program — parameters, cache-key string — on every object,
+ * every frame. Measured: ~90% of the mode's garbage (10–24 MB/s) and the top
+ * of the CPU profile, the moment the first sofa was placed.
+ */
+export const INK_INSTANCED_LAYER = 8;
 /** Per-brick inverted-hull shells — the fallback, hidden when ink is on. */
 export const HULL_LAYER = 6;
 
 const INK_COLOR = new THREE.Color(0x17171c);
+
+/**
+ * How strongly furniture is inked, relative to characters (1). Characters are
+ * the subject and keep a bold line; furniture is set dressing, and at full
+ * weight a room of it looked drawn-on next to the un-outlined voxel world.
+ */
+const INK_WEIGHT_INSTANCED = 0.55;
+/** Ink fades with distance (m) from full at START to FLOOR × full at END. */
+const INK_FADE_START = 8;
+const INK_FADE_END = 40;
+const INK_FADE_FLOOR = 0.2;
 
 const VERT = `
 varying vec2 vUv;
@@ -60,6 +89,7 @@ void main() { vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }
 
 const FRAG = `
 precision highp float;
+#include <packing>
 uniform sampler2D tScene;
 uniform sampler2D tMask;
 uniform sampler2D tMaskDepth;
@@ -67,9 +97,14 @@ uniform sampler2D tSceneDepth;
 uniform vec2 texel;
 uniform vec3 inkColor;
 uniform float thickness;
+uniform float cameraNear;
+uniform float cameraFar;
+uniform vec2 fadeRange;
+uniform float fadeFloor;
 varying vec2 vUv;
 
-/** 1 where a character is visible, 0 elsewhere. */
+/** The ink WEIGHT where something inked is visible (1 for characters, less
+ *  for furniture — see INK_WEIGHT_INSTANCED), 0 elsewhere. */
 float maskAt(vec2 uv) { return texture2D(tMask, uv).r; }
 
 /** three writes linear colour into a render target; the canvas expects sRGB. */
@@ -110,7 +145,18 @@ void main() {
   float sceneDepth = texture2D(tSceneDepth, vUv).r;
   float visible = step(charDepth, sceneDepth + 0.0015);
 
-  gl_FragColor = vec4(toSRGB(mix(scene, inkColor, smoothstep(0.2, 0.8, e) * visible)), 1.0);
+  // The edge test runs on the mask NORMALISED by the object's weight, so a
+  // light-weight object still gets a crisp line — just a fainter one.
+  float edge = smoothstep(0.2, 0.8, e / max(best, 1e-3));
+
+  // A line of constant PIXEL width is right up close and wrong far away: a
+  // distant chair is a few pixels of furniture inside a frame of ink, while
+  // the un-outlined world around it reads as soft. Fade the ink with the
+  // object's distance, down to a floor, so far things settle into the scene.
+  float dist = -perspectiveDepthToViewZ(charDepth, cameraNear, cameraFar);
+  float fade = mix(1.0, fadeFloor, smoothstep(fadeRange.x, fadeRange.y, dist));
+
+  gl_FragColor = vec4(toSRGB(mix(scene, inkColor, edge * best * fade * visible)), 1.0);
 }
 `;
 
@@ -122,6 +168,13 @@ export class InkOutline {
   private readonly quadCamera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
   private readonly composite: THREE.ShaderMaterial;
   private readonly maskMaterial = new THREE.MeshBasicMaterial({ color: 0xffffff, fog: false });
+  /** A separate material object, so its (instanced) program is cached apart.
+   *  Its grey is the furniture's ink weight: the mask carries it to the
+   *  composite, which draws that object's line at that strength. */
+  private readonly maskMaterialInstanced = new THREE.MeshBasicMaterial({
+    color: new THREE.Color().setRGB(INK_WEIGHT_INSTANCED, INK_WEIGHT_INSTANCED, INK_WEIGHT_INSTANCED, THREE.LinearSRGBColorSpace),
+    fog: false,
+  });
   /** Reused so a per-frame camera clone never hits the allocator. */
   private readonly maskCamera = new THREE.PerspectiveCamera();
   private width = 1;
@@ -158,6 +211,10 @@ export class InkOutline {
         texel: { value: new THREE.Vector2(1 / this.width, 1 / this.height) },
         inkColor: { value: INK_COLOR },
         thickness: { value: thickness },
+        cameraNear: { value: 0.1 },
+        cameraFar: { value: 400 },
+        fadeRange: { value: new THREE.Vector2(INK_FADE_START, INK_FADE_END) },
+        fadeFloor: { value: INK_FADE_FLOOR },
       },
       vertexShader: VERT,
       fragmentShader: FRAG,
@@ -179,6 +236,8 @@ export class InkOutline {
   }
 
   render(renderer: THREE.WebGLRenderer, scene: THREE.Scene, camera: THREE.PerspectiveCamera): void {
+    this.composite.uniforms.cameraNear!.value = camera.near;
+    this.composite.uniforms.cameraFar!.value = camera.far;
     const prevTarget = renderer.getRenderTarget();
     const prevOverride = scene.overrideMaterial;
     const prevBackground = scene.background;
@@ -205,7 +264,13 @@ export class InkOutline {
     renderer.setRenderTarget(this.maskRT);
     renderer.setClearColor(0x000000, 1);
     renderer.clear();
+    const prevAutoClear = renderer.autoClear;
+    renderer.autoClear = false; // one cleared mask, drawn in two passes
     renderer.render(scene, this.maskCamera);
+    this.maskCamera.layers.set(INK_INSTANCED_LAYER);
+    scene.overrideMaterial = this.maskMaterialInstanced;
+    renderer.render(scene, this.maskCamera);
+    renderer.autoClear = prevAutoClear;
     scene.overrideMaterial = prevOverride;
     scene.background = prevBackground;
 
@@ -222,6 +287,7 @@ export class InkOutline {
     this.maskRT.dispose();
     this.composite.dispose();
     this.maskMaterial.dispose();
+    this.maskMaterialInstanced.dispose();
     this.quadGeometry.dispose();
   }
 }

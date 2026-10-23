@@ -7,7 +7,7 @@ import { GameRenderer } from "../render/renderer.js";
 // mode that starts instantly by design.
 import { Effects } from "../render/effects.js";
 import { brickMaterial } from "../world/materials.js";
-import { loadTexture, texturesReady, warmupGpu } from "../render/textures.js";
+import { loadTexture, texturesReady, uploadAllTextures } from "../render/textures.js";
 import { Sfx } from "../audio/sfx.js";
 import { Bgm, BGM_PLAYLIST } from "../audio/bgm.js";
 import {
@@ -137,8 +137,11 @@ export class BuilderGame {
     // builder starts instantly by design — warm the GPU right after instead:
     // upload every texture and compile every shader so the first camera cut
     // that reveals a material doesn't hitch
-    void texturesReady().then(() => {
-      warmupGpu(this.renderer.renderer, this.renderer.scene, this.renderer.camera);
+    void texturesReady().then(async () => {
+      // compileAsync, not compile: the builder is already running, and a
+      // synchronous compile of every program froze its opening seconds
+      uploadAllTextures(this.renderer.renderer);
+      await this.renderer.renderer.compileAsync(this.renderer.scene, this.renderer.camera);
       // offer VR only AFTER the warmup: a shader compile inside a live session
       // drops frames, and dropped frames in a headset are felt, not just seen
       void this.initVr();
@@ -349,6 +352,7 @@ export class BuilderGame {
     // Cool frontal fill catches glass and metal; the warm sun still defines the form.
     const architecturalFill = new THREE.DirectionalLight(0x9fd8ff, 0.72);
     architecturalFill.position.set(-180, 120, -140);
+    architecturalFill.layers.enableAll(); // every camera, the ink mask's too (see inkOutline.ts)
     scene.add(architecturalFill);
   }
 

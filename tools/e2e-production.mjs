@@ -73,6 +73,33 @@ const heightDuring = await a.evaluate(() => document.querySelector('[data-id="he
 await a.keyboard.up("KeyW");
 check("prod build gameplay responds (height % changes mid-jump)", heightBefore !== heightDuring, `${heightBefore} → ${heightDuring}`);
 
+// Every other mode boots from the same build: loading overlay gone, a canvas
+// drawing, and not one page error (minification and chunking break things
+// dev mode never shows). The education field and Craft Island also show
+// their furniture chip; the other modes must not.
+for (const mode of ["field", "craft", "battle", "builder"]) {
+  const page = await browser.newPage();
+  const errors = [];
+  page.on("pageerror", (e) => errors.push(e.message));
+  await page.goto(`http://localhost:${PORT}/?mode=${mode}&reset=1`, { waitUntil: "load", timeout: 60000 });
+  const booted = await page
+    .waitForFunction(() => document.getElementById("boot-overlay")?.classList.contains("hidden"), { timeout: 30000 })
+    .then(() => true)
+    .catch(() => false);
+  await sleep(2500);
+  const state = await page.evaluate(() => ({
+    canvas: !!document.querySelector("canvas"),
+    furniture: !!document.querySelector('[data-id="furniture-chip"]'),
+  }));
+  const wantsFurniture = mode === "field" || mode === "craft";
+  check(
+    `prod build boots ${mode}`,
+    booted && state.canvas && state.furniture === wantsFurniture && errors.length === 0,
+    errors.length ? errors.join(" | ").slice(0, 200) : JSON.stringify(state),
+  );
+  await page.close();
+}
+
 await browser.close();
 server.kill();
 const failed = results.filter((r) => !r).length;

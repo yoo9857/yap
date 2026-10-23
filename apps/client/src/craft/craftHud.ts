@@ -26,6 +26,7 @@ export class CraftHud {
   constructor(
     parent: HTMLElement,
     private readonly onCraft: (recipe: CraftRecipe) => void,
+    opts: { furniture?: boolean } = {},
   ) {
     this.root = document.createElement("div");
     this.root.className = "craft-hud";
@@ -41,7 +42,7 @@ export class CraftHud {
       <div class="craft-crosshair">+</div>
       <div class="craft-mine-bar hidden"><div class="craft-mine-fill" data-id="mine-fill"></div></div>
       <div class="craft-hotbar" data-id="hotbar">${slots}</div>
-      <div class="craft-help">Move WASD · Jump Space · Mine hold LMB · Place RMB · Slots 1-9 / wheel · Shape F · Rotate R · Tilt T · Recipes C · View V · View distance O · Pet sit/follow P · Adopt 🐾 · Music M</div>
+      <div class="craft-help">Move WASD · Jump Space · Mine hold LMB · Place RMB · Slots 1-9 / wheel · Shape F · Rotate R · Tilt T · Recipes C · View V · View distance O · Pet sit/follow P · Adopt 🐾 ·${opts.furniture === false ? "" : " Furniture G ·"} Music M</div>
     `;
     parent.appendChild(this.root);
 
@@ -129,13 +130,22 @@ export class CraftHud {
   }
 
   /** Show the active building piece + its yaw / tilt rotation. */
-  setPiece(name: string, yaw: number, tilt: number): void {
+  setPiece(name: string, yaw: number, tilt: number, icon = "🧱"): void {
     const spin = yaw ? ` · ↻${yaw * 90}°` : "";
     const tip = tilt ? ` · ⤢${tilt * 90}°` : "";
-    const label = `🧱 ${name}${spin}${tip}`;
+    const label = `${icon} ${name}${spin}${tip}`;
     if (label === this.lastPiece) return;
     this.lastPiece = label;
     this.pieceChip.textContent = label;
+  }
+
+  /** The block hotbar (and its key help, which the furniture bar's switcher
+   *  would sit on) step aside while the furniture bar is up. */
+  setHotbarVisible(visible: boolean): void {
+    for (const sel of ['[data-id="hotbar"]', ".craft-help"]) {
+      const el = this.root.querySelector<HTMLElement>(sel);
+      if (el) el.style.display = visible ? "" : "none";
+    }
   }
 
   /** Mining progress under the crosshair (null hides the gauge). */

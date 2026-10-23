@@ -73,14 +73,24 @@ async function bootBuilder(mount: HTMLElement): Promise<void> {
 }
 
 async function bootCraft(mount: HTMLElement, field = false, classroom: ClassEntry | null = null): Promise<void> {
+  overlay?.classList.remove("hidden");
+  setBootMessage("Building the world…");
   const { CraftGame } = await import("./craft/craftGame.js");
-  new CraftGame(mount, { field, classroom: classroom ?? undefined }).start();
+  const game = new CraftGame(mount, { field, classroom: classroom ?? undefined });
+  // shaders and uploads behind the overlay, so play never opens slow and
+  // catches up (see warmupGpuAsync); best-effort — never block play on it
+  await withTimeout(game.prepare(setBootMessage), 20_000, "graphics warmup").catch(() => {});
+  game.start();
   hideOverlay();
 }
 
 async function bootBattle(mount: HTMLElement): Promise<void> {
+  overlay?.classList.remove("hidden");
+  setBootMessage("Building the island…");
   const { BattleGame } = await import("./battle/battleGame.js");
-  new BattleGame(mount).start();
+  const game = new BattleGame(mount);
+  await withTimeout(game.prepare(setBootMessage), 20_000, "graphics warmup").catch(() => {});
+  game.start();
   hideOverlay();
 }
 

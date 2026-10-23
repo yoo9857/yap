@@ -62,7 +62,7 @@ function collides(world: VoxelWorld, body: Body): boolean {
   for (let ix = x0; ix <= x1; ix++) {
     for (let iy = y0; iy <= y1; iy++) {
       for (let iz = z0; iz <= z1; iz++) {
-        if (world.isSolid(ix, iy, iz)) return true;
+        if (world.isBlocked(ix, iy, iz)) return true;
       }
     }
   }

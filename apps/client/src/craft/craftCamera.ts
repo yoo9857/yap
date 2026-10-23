@@ -24,8 +24,13 @@ const MAX_DIST = 8;
 const MIN_DIST = 0.55;
 const SHOULDER = 0.28;
 const WALL_MARGIN = 0.32;
+/** The closest the camera may ever be to what it is looking past: a little
+ *  more than the near plane (0.1 m), so a wall is never cut open on screen. */
+const HARD_MARGIN = 0.14;
 /** Corner-probe spread — roughly the near-plane half-extent at MAX_DIST. */
 const PROBE = 0.28;
+/** Centre + four corners; hoisted so the per-frame probe allocates nothing. */
+const PROBES: readonly (readonly [number, number])[] = [[0, 0], [1, 1], [1, -1], [-1, 1], [-1, -1]];
 
 export class CraftCamera {
   firstPerson = false;
@@ -48,6 +53,11 @@ export class CraftCamera {
   /** Impulse shake (amplitude in meters, decays in ~0.3 s). */
   addShake(amp: number): void {
     this.shakeAmp = Math.min(0.14, this.shakeAmp + amp);
+  }
+
+  /** Current distance behind the pivot (debug/perf probes). */
+  get distance(): number {
+    return this.dist;
   }
 
   toggleView(): void {
@@ -86,9 +96,11 @@ export class CraftCamera {
 
     // occlusion: probe the center ray + 4 corner rays, keep the tightest
     let wantDist = this.firstPerson ? 0 : MAX_DIST;
+    // first person needs no wall limit — the camera is heading into the head
+    let hardLimit = MAX_DIST;
     if (!this.firstPerson) {
       let clear = MAX_DIST;
-      for (const [sx, sy] of [[0, 0], [1, 1], [1, -1], [-1, 1], [-1, -1]] as const) {
+      for (const [sx, sy] of PROBES) {
         this.probeDir
           .copy(this.dir)
           .multiplyScalar(-1)
@@ -103,9 +115,16 @@ export class CraftCamera {
         if (hit) clear = Math.min(clear, hit.dist);
       }
       wantDist = Math.max(MIN_DIST, clear - WALL_MARGIN);
+      hardLimit = Math.max(MIN_DIST, clear - HARD_MARGIN);
     }
-    // snap in (never clip), ease out (no pumping when hugging walls)
-    this.dist = wantDist < this.dist ? wantDist : this.dist + (wantDist - this.dist) * ease(0.01);
+    // In FAST but smooth, out slowly. Snapping straight in made the camera
+    // jump whenever a corner probe flickered between hitting and missing —
+    // rubbing along a wall it lurched in and crept out several times a
+    // second. The hard limit is what keeps it from ever passing through the
+    // wall; inside that, it may glide.
+    if (wantDist < this.dist) this.dist += (wantDist - this.dist) * ease(1e-7);
+    else this.dist += (wantDist - this.dist) * ease(0.01);
+    this.dist = Math.min(this.dist, hardLimit);
 
     // dynamic FOV — a touch wider on the move
     const wantFov = moving && !this.firstPerson ? MOVE_FOV : BASE_FOV;
@@ -132,8 +151,9 @@ export class CraftCamera {
       this.shakeAmp = 0;
     }
 
-    if (this.firstPerson) return 0;
-    // fade the robot out as the camera closes in (no visibility pop)
+    // Fade the robot out as the camera closes in — also while gliding into
+    // first person, so V is a move into the head, not a cut with a vanishing
+    // robot.
     return Math.min(1, Math.max(0, (this.dist - 0.9) / 0.9));
   }
 }

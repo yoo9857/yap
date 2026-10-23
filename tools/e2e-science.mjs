@@ -15,7 +15,7 @@ try {
   const errors = [];
   page.on("pageerror", (e) => errors.push(e.message));
   await page.goto(
-    `${process.env.BASE_URL ?? "http://127.0.0.1:5173"}/?mode=craft`,
+    `${process.env.BASE_URL ?? "http://localhost:5173"}/?mode=craft`,
     { waitUntil: "networkidle2", timeout: 60000 },
   );
   await page.waitForFunction(() => window.__roboCraft?.machine().assetsLoaded);

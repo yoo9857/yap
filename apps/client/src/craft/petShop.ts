@@ -25,6 +25,8 @@ export class PetShop {
     parent: HTMLElement,
     initial: PetSpecies,
     private readonly onAdopt: (species: PetSpecies) => void,
+    /** Called whenever the panel opens, so a neighbouring panel can close. */
+    private readonly onOpen: () => void = () => {},
   ) {
     this.current = initial;
 
@@ -77,7 +79,10 @@ export class PetShop {
   setOpen(open: boolean): void {
     this.panel.classList.toggle("hidden", !open);
     // Cards are unclickable while the mouse is captured for looking around.
-    if (open) document.exitPointerLock();
+    if (open) {
+      document.exitPointerLock();
+      this.onOpen();
+    }
   }
 
   /** Reflect a species adopted from somewhere else (a save, a debug hook). */

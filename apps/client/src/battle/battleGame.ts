@@ -1,7 +1,7 @@
 import * as THREE from "three";
 import { GameLoop } from "../app/loop.js";
 import { GameRenderer } from "../render/renderer.js";
-import { texturesReady, warmupGpu } from "../render/textures.js";
+import { texturesReady, warmupGpu, warmupGpuAsync } from "../render/textures.js";
 import { CharacterRig, VARIANT_CYCLE } from "../player/rig.js";
 import { Sfx } from "../audio/sfx.js";
 import { Bgm, BGM_PLAYLIST } from "../audio/bgm.js";
@@ -151,12 +151,27 @@ export class BattleGame {
     return clear(yaw) >= clear(yaw + Math.PI) ? yaw : yaw + Math.PI;
   }
 
+  /** Textures, shaders and two real frames, behind the boot overlay — so the
+   *  match never opens slow and catches up (see `warmupGpuAsync`). */
+  async prepare(setMessage: (text: string) => void = () => {}): Promise<void> {
+    setMessage("Loading textures…");
+    await texturesReady();
+    setMessage("Preparing graphics…");
+    await warmupGpuAsync(this.renderer.renderer, this.renderer.scene, this.renderer.camera, () => this.renderer.render());
+    this.warmed = true;
+  }
+
   start(): void {
     this.loop.start();
-    void texturesReady().then(() => {
-      warmupGpu(this.renderer.renderer, this.renderer.scene, this.renderer.camera);
-    });
+    // started without `prepare` (a test harness): warm up the old way
+    if (!this.warmed) {
+      void texturesReady().then(() => {
+        warmupGpu(this.renderer.renderer, this.renderer.scene, this.renderer.camera);
+      });
+    }
   }
+
+  private warmed = false;
 
   // ---------------------------------------------------------------- input
 

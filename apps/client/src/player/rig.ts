@@ -21,7 +21,7 @@ export type CharacterVariant = "mascot" | "blue" | "purple";
 /** Cycle for giving crowds (bots, remote players, builder crew) some variety. */
 export const VARIANT_CYCLE: CharacterVariant[] = ["mascot", "blue", "purple"];
 
-type Anim = AnimState | "carry" | "place";
+type Anim = AnimState | "carry" | "place" | "sit";
 type Expr = "happy" | "blink" | "oh" | "dead";
 
 interface VariantSpec {
@@ -276,8 +276,18 @@ export class CharacterRig {
       waddle = Math.sin(this.phase * 0.28) * 0.015;
     }
 
+    if (anim === "sit") {
+      // both legs straight out in front, hands resting on the knees, a slight
+      // lean back — the pose reads as "sitting" from any camera angle
+      legSwing = -1.45;
+      armRaise = -0.7;
+      lean = -0.08;
+      bobY = Math.sin(this.phase * 0.55) * 0.012;
+      armSwing = 0;
+      waddle = 0;
+    }
     this.hipL.rotation.x = legSwing;
-    this.hipR.rotation.x = -legSwing;
+    this.hipR.rotation.x = anim === "sit" ? legSwing : -legSwing;
     this.shoulderL.rotation.x = armSwing + armRaise;
     this.shoulderR.rotation.x = -armSwing + armRaise;
     this.shoulderL.rotation.z = armSplay;

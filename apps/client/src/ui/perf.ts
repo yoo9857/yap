@@ -18,6 +18,13 @@ export interface PerfSample {
   textures: number;
   programs: number;
   heapMB: number | null;
+  /**
+   * Where the window's most expensive frame spent its time, by phase (ms of
+   * main-thread work the mode reported through `phase()`). A hitch report
+   * that says "render 180 ms" and one that says "fixed 180 ms" are different
+   * bugs; the frame interval alone cannot tell them apart.
+   */
+  worstFrame: { totalMs: number; phases: Record<string, number> };
 }
 
 interface MemoryInfo {
@@ -29,6 +36,10 @@ export class PerfMonitor {
   private frames = 0;
   private acc = 0;
   private worst = 0;
+  /** Phase times of the frame being built, and of the window's worst one. */
+  private phases: Record<string, number> = {};
+  private worstWork = 0;
+  private worstPhases: Record<string, number> = {};
   private readonly current: PerfSample = {
     fps: 0,
     avgMs: 0,
@@ -39,6 +50,7 @@ export class PerfMonitor {
     textures: 0,
     programs: 0,
     heapMB: null,
+    worstFrame: { totalMs: 0, phases: {} },
   };
 
   constructor(parent: HTMLElement) {
@@ -53,7 +65,27 @@ export class PerfMonitor {
     }
   }
 
+  /** Add `ms` of work to a named phase of the current frame. */
+  phase(name: string, ms: number): void {
+    this.phases[name] = (this.phases[name] ?? 0) + ms;
+  }
+
+  /** Time `fn` as phase `name` (returns its result). */
+  time<T>(name: string, fn: () => T): T {
+    const t0 = performance.now();
+    const out = fn();
+    this.phase(name, performance.now() - t0);
+    return out;
+  }
+
   update(renderer: THREE.WebGLRenderer, frameDt: number): void {
+    let work = 0;
+    for (const ms of Object.values(this.phases)) work += ms;
+    if (work > this.worstWork) {
+      this.worstWork = work;
+      this.worstPhases = this.phases;
+    }
+    this.phases = {};
     this.frames++;
     this.acc += frameDt;
     if (frameDt > this.worst) this.worst = frameDt;
@@ -71,20 +103,30 @@ export class PerfMonitor {
     s.programs = info.programs?.length ?? 0;
     const memory = (performance as Performance & { memory?: MemoryInfo }).memory;
     s.heapMB = memory ? memory.usedJSHeapSize / 1048576 : null;
+    s.worstFrame = { totalMs: this.worstWork, phases: this.worstPhases };
     this.frames = 0;
     this.acc = 0;
     this.worst = 0;
+    this.worstWork = 0;
+    this.worstPhases = {};
 
     if (this.el) {
       this.el.textContent =
         `${s.fps.toFixed(0)} fps  ${s.avgMs.toFixed(1)}ms  worst ${s.worstMs.toFixed(0)}ms\n` +
         `draw ${s.drawCalls}  tri ${(s.triangles / 1000).toFixed(0)}k  prog ${s.programs}\n` +
-        `geo ${s.geometries}  tex ${s.textures}  heap ${s.heapMB?.toFixed(0) ?? "?"}MB`;
+        `geo ${s.geometries}  tex ${s.textures}  heap ${s.heapMB?.toFixed(0) ?? "?"}MB
+` +
+        `worst work ${s.worstFrame.totalMs.toFixed(1)}ms: ` +
+        Object.entries(s.worstFrame.phases)
+          .sort((a, b) => b[1] - a[1])
+          .slice(0, 3)
+          .map(([k, v]) => `${k} ${v.toFixed(1)}`)
+          .join(" · ");
     }
   }
 
   /** Last completed window — for debug hooks / automated leak checks. */
   sample(): PerfSample {
-    return { ...this.current };
+    return { ...this.current, worstFrame: { ...this.current.worstFrame, phases: { ...this.current.worstFrame.phases } } };
   }
 }

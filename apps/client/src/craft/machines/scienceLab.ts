@@ -381,8 +381,11 @@ export class ScienceLab {
     scene.background = new THREE.Color(0xc4d8d5);
     scene.fog = new THREE.Fog(0xc4d8d5, 50, 130);
     scene.environment = this.environment.texture;
-    scene.add(new THREE.HemisphereLight(0xecf7ee, 0x344b52, 1.4));
+    const hemi = new THREE.HemisphereLight(0xecf7ee, 0x344b52, 1.4);
+    hemi.layers.enableAll(); // every camera, the ink mask's too (see inkOutline.ts)
+    scene.add(hemi);
     const sun = new THREE.DirectionalLight(0xfff0da, 2.5);
+    sun.layers.enableAll();
     sun.position.set(12, 22, 8);
     sun.castShadow = true;
     sun.shadow.mapSize.set(1024, 1024);

@@ -200,12 +200,14 @@ export class MachinePhysics {
             const current: [number, number][] = [];
             if (ix < (x + 1) * 16) {
               for (let y = 0; y < WORLD_Y; ) {
-                if (!this.voxels.isSolid(ix, y, iz)) {
+                // isBlocked, not isSolid: furniture is solid to machines too,
+                // or a test drive would plough straight through a sofa
+                if (!this.voxels.isBlocked(ix, y, iz)) {
                   y++;
                   continue;
                 }
                 const bottom = y++;
-                while (y < WORLD_Y && this.voxels.isSolid(ix, y, iz)) y++;
+                while (y < WORLD_Y && this.voxels.isBlocked(ix, y, iz)) y++;
                 current.push([bottom, y]);
               }
             }

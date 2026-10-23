@@ -2,6 +2,7 @@ import { z } from "zod";
 import { AIR, blockById } from "./blocks.js";
 import { sanitizeCounts, type Counts } from "./inventory.js";
 import { isPetSpecies, type PetSpecies } from "../player/creatureRig.js";
+import { FurnitureLayout, furnitureSaveSchema } from "./furniture/layout.js";
 import { VoxelWorld, WORLD_X, WORLD_Y, WORLD_Z, CRAFT_SPAWN, generateIsland, surfaceY } from "./voxelWorld.js";
 
 /**
@@ -31,6 +32,9 @@ const saveSchema = z.object({
    *  string from a hand-edited payload falls back to the dog rather than
    *  failing the whole parse and wiping the island. */
   pet: z.string().optional(),
+  /** Placed furniture, `[kind, x, y, z, rot]` in grid cells. Optional (older
+   *  saves have none) and checked entry by entry in `FurnitureLayout.load`. */
+  furniture: furnitureSaveSchema.optional(),
   savedAtMs: z.number().finite().positive(),
 });
 
@@ -45,6 +49,7 @@ export interface CraftGameState {
   inventory: Counts;
   player: { x: number; y: number; z: number };
   pet: PetSpecies;
+  furniture: FurnitureLayout;
 }
 
 export function freshState(seed: number): CraftGameState {
@@ -58,6 +63,7 @@ export function freshState(seed: number): CraftGameState {
     inventory: {},
     player: { x, y: surfaceY(world, Math.floor(x), Math.floor(z)) + 1, z },
     pet: "dog",
+    furniture: new FurnitureLayout(),
   };
 }
 
@@ -95,6 +101,7 @@ export function serializeCraft(state: CraftGameState, nowMs: number): string {
     inventory: state.inventory,
     player: state.player,
     pet: state.pet,
+    furniture: state.furniture.toJSON(),
     savedAtMs: nowMs,
   });
 }
@@ -155,6 +162,7 @@ export function loadCraft(storage: KeyValueStorage, defaultSeed: number): CraftG
   }
   state.inventory = sanitizeCounts(d.inventory);
   if (isPetSpecies(d.pet)) state.pet = d.pet;
+  state.furniture.load(d.furniture);
   // a save from inside a wall (or out of bounds) respawns on the surface
   const px = Math.min(Math.max(d.player.x, 1), WORLD_X - 1);
   const pz = Math.min(Math.max(d.player.z, 1), WORLD_Z - 1);
