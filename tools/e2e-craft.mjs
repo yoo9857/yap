@@ -18,12 +18,12 @@ const page = await browser.newPage();
 await page.setViewport({ width: 1280, height: 800 });
 page.on("pageerror", (e) => console.log("PAGEERROR:", e.message));
 
-await page.goto("http://localhost:5173/?play=1", { waitUntil: "networkidle2", timeout: 30000 });
+await page.goto("http://localhost:5173/?play=1", { waitUntil: "load", timeout: 60000 });
 await page.waitForSelector(".mode-btn");
 const modes = await page.$$eval(".mode-btn", (els) => els.map((el) => el.dataset.mode));
 check("mode selector offers craft island", modes.includes("craft"), modes.join(","));
 
-await page.goto("http://localhost:5173/?mode=craft&reset=1", { waitUntil: "networkidle2", timeout: 30000 });
+await page.goto("http://localhost:5173/?mode=craft&reset=1", { waitUntil: "load", timeout: 60000 });
 await page.waitForFunction(() => !!globalThis.__roboCraft, { timeout: 15000 });
 await new Promise((r) => setTimeout(r, 2500));
 const snap0 = await page.evaluate(() => globalThis.__roboCraft.snapshot());

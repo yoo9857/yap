@@ -98,6 +98,29 @@ for (const mode of ["field", "craft", "battle", "builder"]) {
     booted && state.canvas && state.furniture === wantsFurniture && errors.length === 0,
     errors.length ? errors.join(" | ").slice(0, 200) : JSON.stringify(state),
   );
+  if (mode === "field") {
+    const worker = page.workers().find((w) => w.url().includes("waterWorker"));
+    check("production loads the water worker bundle", !!worker);
+    if (worker) {
+      await worker.evaluate(() => {
+        self.__waterProductionBuilds = 0;
+        const send = self.postMessage.bind(self);
+        self.postMessage = (message, ...args) => {
+          if (message.t === "ready" && message.results.some((r) => r.attributes)) self.__waterProductionBuilds++;
+          return send(message, ...args);
+        };
+      });
+      await page.mouse.click(400, 300);
+      await page.waitForFunction(() => !!document.pointerLockElement, { timeout: 5000 });
+      await page.mouse.move(400, 500, { steps: 3 }); // aim at reachable ground
+      await sleep(150);
+      await page.keyboard.press("Digit0");
+      await page.mouse.down({ button: "right" }); await sleep(100); await page.mouse.up({ button: "right" });
+      let built = false;
+      for (let i = 0; i < 50 && !built; i++) { await sleep(100); built = await worker.evaluate(() => self.__waterProductionBuilds > 0); }
+      check("real bucket input builds water through the production worker", built && errors.length === 0, errors.join(" | "));
+    }
+  }
   await page.close();
 }
 

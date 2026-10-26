@@ -77,37 +77,29 @@ check watertight connections, separate diagonal components, identical chunk edge
 interrupted transitions, randomized terrain destruction, retained-pool drainage,
 door displacement, worker failure and stale-generation cancellation.
 
-## Status — work in progress (branch `water`, 2026-10-23)
+## Release validation (2026-10-26)
 
-Not merged to `main` and **not deployed**: a push to `main` auto-deploys, and
-this changes the classroom protocol (v4), the save contents and the renderer.
+- 371 unit tests; type checking and ESLint pass.
+- Real water input: 14/14 (bucket, seven-cell flow, scoop/drain, swim, climb,
+  underwater camera, reload, worker, two-browser classroom flow and build lock).
+- Regression suites: craft 7/7, field 11/11, furniture 58/58, pet 18/18,
+  classroom 44/44, machine lab, battle 7/7, production 9/9.
+- Production verification includes a real bucket pour through the bundled module
+  worker, with no development hooks.
+- Terrain QA: staircase destruction and pit filling have no JavaScript/WebGL
+  errors. Six pour/replace cycles plateau at 93 geometries and 26 shader programs.
+  The observed main-thread water rebuild peak is 1.4 ms in this test scene.
+- Reference geometry: a 32x32 deep pool uses 116,832 bytes versus 589,824 in the
+  initial renderer; the 16x20 waterfall uses 77,808 versus 281,088. CPU meshing
+  happens off the render thread; these are scene-specific measurements.
+- Compatibility proof: the previous production ClassRoom loads and preserves all
+  water IDs, furniture, class name and credentials in a new saved classroom.
 
-Done and passing (`pnpm typecheck && pnpm lint && pnpm test`: 371 unit tests):
-- shared fluid sim (`packages/shared/src/fluid.ts`) + tests, server-run flow in
-  classrooms (`classRoom.stepFluids`, stepped by `ClassManager` every 250 ms) + tests;
-- swimming/wading/climb-out (`voxelBody.ts`), water is "not air, not solid"
-  (`SOLID_ID` in `blocks.ts`, `isReplaceable`, `raycast(..., fluids)`);
-- hotbar slot `0` = endless water bucket: right click pours a source, left click
-  scoops a source (flowing water says to scoop its source); underwater fog + tint,
-  splash/pour sounds, water shader warmed up behind the loading screen;
-- worker-built continuous surface (`waterGeometry.ts`, `waterWorker.ts`) with the
-  main-thread fallback; water-only rebuilds (`markWaterDirty`) so a running stream
-  never rebuilds its chunks' bricks.
+Deployment snapshots the live SQLite database before rebuilding. After the image
+is ready, `scripts/wait-idle.sh` checks established app connections inside the
+container. If they remain active for two minutes it aborts without replacing the
+running app. Initial, idle and active-connection paths are verified with mocks.
+Refreshing an older classroom tab loads protocol 4 and the new water renderer.
 
-Still to do before merging:
-1. `tools/e2e-water.mjs` — real input (key 0, right/left click, Space), flow
-   reaches 7 cells, scoop drains, swim up / climb out, underwater tint, reload
-   keeps water, no new shader programs mid-game, two-browser classroom sync.
-   (`__roboCraft.water()` exposes wet / underwater / cell counts for it.)
-2. Re-run the other suites against water: e2e-craft, e2e-field, e2e-furniture,
-   e2e-pet (the pet swims through the same `stepBody`), e2e-classroom,
-   e2e-machines (rapier terrain ignores water: machines drive through it),
-   e2e-battle, e2e-production; then `node tools/qa-water.mjs` and
-   `node tools/bench-water.mjs`.
-3. `CLASS_PROTOCOL_VERSION` is 4 but its doc comment still describes 3 — add the
-   v4 line (water states on the wire). Deploying v4 makes every open classroom
-   tab show "please refresh" (bad-version) — deploy outside class hours.
-4. Rollback check: an older server must still load a class saved with water
-   (ids 19–28 are accepted as 0–255 edits; an old client would not draw them).
-5. Then the sea (island coast / field lake), which was deferred until the water
-   physics was finished.
+Automatic ocean/lake generation remains a separate follow-up; this release covers
+player-built water, its interaction with edited terrain, and classroom sharing.

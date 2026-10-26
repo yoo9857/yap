@@ -14,7 +14,7 @@ import { playerNameSchema } from "./messages.js";
  * selected with `?mode=class`.
  */
 
-/** 3: classes are named rooms, no longer keyed by the teacher's name. */
+/** 3: named classrooms. 4: shared water states (19..28), including retained water. */
 export const CLASS_PROTOCOL_VERSION = 4;
 /** Highest block layer of the field grid (WORLD_Y - 1). */
 export const CLASS_MAX_Y = 55;

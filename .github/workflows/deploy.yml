@@ -78,7 +78,10 @@ jobs:
             # rebuild + restart the single-port container (static + WS + SQLite).
             # The separate SQLite DB is bind-mounted from /srv/craftyap/data and
             # is never touched by a rebuild.
-            docker compose up -d --build
+            docker compose build
+            # Do not interrupt an active classroom while changing protocol.
+            bash scripts/wait-idle.sh
+            docker compose up -d --no-build
 
             # keep the nginx vhost in sync with the repo (validated before reload).
             # NOTE: the TLS cert must already exist from the one-time bootstrap
