@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { FluidSim, WATER, WATER_FALLING, WATER_SETTLED, flowingWater, isWater, waterLevel, type FluidWorld } from "../src/fluid.js";
 
 /** A small test world: a floor at y = 0 (block 1), air above, optional walls. */
@@ -30,6 +30,22 @@ function settle(sim: FluidSim, world: FluidWorld, max = 400): number {
 const waterCells = (w: ReturnType<typeof makeWorld>) => [...w.cells.entries()].filter(([, id]) => isWater(id));
 
 describe("fluid", () => {
+  it("yields expensive work without dropping the pending frontier", () => {
+    const world = makeWorld(), sim = new FluidSim();
+    world.set(0, 1, 0, WATER); sim.touch(0, 1, 0);
+    sim.step(world);
+    const pending = sim.pendingCount;
+    let now = 0;
+    const clock = vi.spyOn(performance, "now").mockImplementation(() => now += 5);
+    try { sim.step(world, 1); } finally { clock.mockRestore(); }
+    expect(sim.busy).toBe(true);
+    expect(sim.pendingCount).toBeGreaterThan(pending - 9);
+    expect(settle(sim, world)).toBeLessThan(400);
+    expect(world.get(7, 1, 0)).toBe(flowingWater(7));
+    world.set(0, 1, 0, 0); sim.touch(0, 1, 0); settle(sim, world);
+    expect(waterCells(world)).toEqual([]);
+  });
+
   it("a source on a floor spreads 7 cells, one level weaker per cell", () => {
     const w = makeWorld();
     const sim = new FluidSim();

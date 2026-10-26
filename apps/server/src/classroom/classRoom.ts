@@ -9,6 +9,9 @@ import {
   WATER,
   classKey,
   isWater,
+  voxelCoordinates,
+  voxelKey,
+  type VoxelKey,
   type FluidWorld,
   type ClassClientMessage,
   type ClassEdit,
@@ -57,8 +60,8 @@ export class ClassRoom {
   readonly key: string;
   private readonly members = new Map<string, Member>();
   private readonly byPeer = new Map<ClassPeer, Member>();
-  /** "x,y,z" → [block, shape]; only cells that differ from the flat field. */
-  private readonly edits = new Map<string, [number, number]>();
+  /** Compact coordinate → [block, shape]; only cells differing from the field. */
+  private readonly edits = new Map<VoxelKey, [number, number]>();
   private furniture = new FurnitureLayout();
   private settings: ClassSettings = { chatLocked: false, buildLocked: false };
   /** Wall-clock ms when the room last had nobody connected (null = occupied). */
@@ -91,7 +94,7 @@ export class ClassRoom {
     this.addMember(saved.teacherName, "teacher", saved.teacherKey);
     for (const s of saved.students) this.addMember(s.name, "student", s.key);
     for (const [x, y, z, block, shape] of saved.edits) {
-      this.edits.set(`${x},${y},${z}`, [block, shape]);
+      this.edits.set(voxelKey(x, y, z), [block, shape]);
       // A source can have been saved before its first flow step too.
       if (isWater(block)) this.fluid.touch(x, y, z);
     }
@@ -104,15 +107,17 @@ export class ClassRoom {
    */
   private readonly fluid = new FluidSim();
   private fluidAtCapacity = false;
+  private fluidRescan: MapIterator<[VoxelKey, [number, number]]> | null = null;
+  private fluidRescanLeft = 0;
   private readonly fluidWorld: FluidWorld = {
-    get: (x, y, z) => this.edits.get(`${x},${y},${z}`)?.[0] ?? pristine(y),
+    get: (x, y, z) => this.edits.get(voxelKey(x, y, z))?.[0] ?? pristine(y),
     open: (x, y, z) =>
       Math.abs(x) <= CLASS_MAX_COORD && Math.abs(z) <= CLASS_MAX_COORD &&
       y >= 1 && y <= CLASS_MAX_Y && !this.furniture.occupied(x, y, z) &&
       // a full store takes no new cells — water included
-      (this.edits.has(`${x},${y},${z}`) || this.hasFluidCapacity()),
+      (this.edits.has(voxelKey(x, y, z)) || this.hasFluidCapacity()),
     set: (x, y, z, block) => {
-      const cell = `${x},${y},${z}`;
+      const cell = voxelKey(x, y, z);
       // A step reads all candidates before writing them. Several candidates
       // may have seen the same last slot, so enforce the cap at commit too.
       if (block !== pristine(y) && !this.edits.has(cell) && !this.hasFluidCapacity()) return false;
@@ -129,17 +134,29 @@ export class ClassRoom {
 
   /** One flow step (ClassManager calls this every FLUID_STEP). Returns the
    *  number of cells that changed. */
-  stepFluids(): number {
-    if (this.fluidAtCapacity && this.edits.size < MAX_EDITS) {
-      this.fluidAtCapacity = false;
-      for (const [cell, [block]] of this.edits) {
-        if (!isWater(block)) continue;
-        const [x, y, z] = cell.split(",").map(Number) as [number, number, number];
-        this.fluid.touch(x, y, z);
+  stepFluids(maxMs = 6): number {
+    if (this.edits.size >= MAX_EDITS && this.fluidRescan) {
+      // Do not retain a paused Map iterator (and old hash tables) while a
+      // full classroom repeatedly replaces cells. Restart after space opens.
+      this.fluidRescan = null; this.fluidAtCapacity = true;
+    }
+    if (this.edits.size < MAX_EDITS) {
+      if (this.fluidAtCapacity && !this.fluidRescan) {
+        this.fluidAtCapacity = false;
+        this.fluidRescan = this.edits.entries();
+        this.fluidRescanLeft = this.edits.size;
+      }
+      const start = performance.now(); let visited = 0, activated = 0;
+      while (this.fluidRescan && visited < 4096 && activated < 256) {
+        const next = this.fluidRescan.next();
+        if (next.done || this.fluidRescanLeft-- <= 0) { this.fluidRescan = null; break; }
+        const [cell, [block]] = next.value;
+        if (isWater(block)) { this.fluid.touch(...voxelCoordinates(cell)); activated++; }
+        if (++visited % 32 === 0 && performance.now() - start >= 1) break;
       }
     }
     if (!this.fluid.busy) return 0;
-    const changes = this.fluid.step(this.fluidWorld);
+    const changes = this.fluid.step(this.fluidWorld, maxMs);
     if (changes.length === 0) return 0;
     this.dirty = true;
     const edits: ClassEdit[] = changes.map(([x, y, z, block]) => [x, y, z, block, 0]);
@@ -155,7 +172,7 @@ export class ClassRoom {
     const teacher = [...this.members.values()].find((m) => m.role === "teacher");
     const edits: ClassEdit[] = [];
     for (const [cell, [block, shape]] of this.edits) {
-      const [x, y, z] = cell.split(",").map(Number) as [number, number, number];
+      const [x, y, z] = voxelCoordinates(cell);
       edits.push([x, y, z, block, shape]);
     }
     return {
@@ -270,7 +287,7 @@ export class ClassRoom {
     // the shared field, in batches so no single frame is huge
     let batch: ClassEdit[] = [];
     for (const [cell, [block, shape]] of this.edits) {
-      const [x, y, z] = cell.split(",").map(Number) as [number, number, number];
+      const [x, y, z] = voxelCoordinates(cell);
       batch.push([x, y, z, block, shape]);
       if (batch.length === WORLD_BATCH) {
         peer.send({ t: "s-k-world", edits: batch });
@@ -347,6 +364,7 @@ export class ClassRoom {
         return;
       case "k-reset-world":
         this.edits.clear();
+        this.fluidAtCapacity = false; this.fluidRescan = null;
         this.fluid.clear();
         this.furniture.clear();
         this.dirty = true;
@@ -367,7 +385,7 @@ export class ClassRoom {
     const refused: ClassEdit[] = [];
     for (const edit of edits) {
       const [x, y, z, block, shape] = edit;
-      const cell = `${x},${y},${z}`;
+      const cell = voxelKey(x, y, z);
       // bedrock is unbreakable, and a full store takes no NEW cells
       if (y === 0 || block > WATER || (isWater(block) && shape !== 0) || (block !== 0 && this.furniture.blocksBlock(x, y, z)) || (!this.edits.has(cell) && this.edits.size >= MAX_EDITS)) {
         refused.push(edit);
@@ -392,7 +410,7 @@ export class ClassRoom {
   private readonly placementWorld: PlacementWorld = {
     // water holds nothing up: only a real block supports furniture
     isBlock: (x, y, z) => {
-      const block = this.edits.get(`${x},${y},${z}`)?.[0] ?? pristine(y);
+      const block = this.edits.get(voxelKey(x, y, z))?.[0] ?? pristine(y);
       return block !== 0 && !isWater(block);
     },
     hasBody: (x, y, z) => [...this.byPeer.values()].some(({ pos }) => pos !== null &&

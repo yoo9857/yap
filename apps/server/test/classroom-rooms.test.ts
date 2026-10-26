@@ -59,6 +59,21 @@ function setup(store = new MemoryClassStore()) {
 }
 
 describe("named classes", () => {
+  it("shares the water time budget fairly between busy classrooms", () => {
+    vi.useFakeTimers(); let time = 0;
+    vi.spyOn(performance, "now").mockImplementation(() => time);
+    const visited: string[] = [];
+    vi.spyOn(ClassRoom.prototype, "stepFluids").mockImplementation(function (this: ClassRoom) {
+      visited.push(this.roomName); time += 5; return 1;
+    });
+    const { connect } = setup();
+    for (let i = 0; i < 4; i++) connect().say({ t: "k-host", v, room: `Busy${i}`, teacher: `Teacher${i}`, password: "1234" });
+    vi.advanceTimersByTime(250);
+    expect(visited).toEqual(["Busy0", "Busy1", "Busy2"]);
+    vi.advanceTimersByTime(250);
+    expect(visited.slice(3)).toEqual(["Busy3", "Busy0", "Busy1"]);
+  });
+
   it("retries a failed classroom save without requiring another player edit", () => {
     vi.useFakeTimers();
     const { connect, store } = setup(), teacher = connect();

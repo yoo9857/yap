@@ -1280,7 +1280,7 @@ export class CraftGame {
       },
       saveNow: () => this.persist(),
       perf: () => this.perf.sample(),
-      waterStats: () => this.view.waterStats(),
+      waterStats: () => ({ ...this.view.waterStats(), simulation: this.water?.stats() ?? null }),
       machine: () => this.workshop.snapshot(),
       classroom: () => this.sync?.debug() ?? null,
       classSend: (msg: Parameters<ClassClient["send"]>[0]) => this.sync?.client.send(msg),

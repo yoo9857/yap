@@ -1,4 +1,4 @@
-import { FLUID_STEP, FluidSim, isWater, type FluidWorld } from "@robo/shared";
+import { FLUID_STEP, FluidSim, WATER, isWater, type FluidWorld } from "@robo/shared";
 import type { FieldWindow } from "./fieldWorld.js";
 import type { VoxelView } from "./voxelView.js";
 import { WORLD_X, WORLD_Z, type VoxelWorld } from "./voxelWorld.js";
@@ -17,6 +17,7 @@ export class WaterSim {
   private timer = 0;
   private activeOriginX: number;
   private activeOriginZ: number;
+  private wakeCursor = -1;
 
   constructor(
     private readonly world: VoxelWorld,
@@ -63,11 +64,12 @@ export class WaterSim {
       this.sim.clear();
       this.wakeAll();
     }
+    this.wakeSlice();
     this.timer += dt;
     if (this.timer < FLUID_STEP) return 0;
     this.timer = Math.min(this.timer - FLUID_STEP, FLUID_STEP); // never a burst of catch-up steps
     if (!this.sim.busy) return 0;
-    return this.sim.step(this.fluidWorld).length;
+    return this.sim.step(this.fluidWorld, 3).length;
   }
 
   /** Re-evaluate every saved water cell: a source may have been saved before
@@ -75,19 +77,43 @@ export class WaterSim {
   wakeAll(): void {
     this.activeOriginX = this.ox;
     this.activeOriginZ = this.oz;
+    this.wakeCursor = 0;
+  }
+
+  /** Dense saves can contain hundreds of thousands of cells. Scan air cheaply,
+   *  but activate at most 256 wet cells per fixed tick, rather than allocating
+   *  their entire simulation frontier in one visible frame. */
+  private wakeSlice(): void {
+    if (this.wakeCursor < 0) return;
     const { cells } = this.world;
-    for (let i = 0; i < cells.length; i++) {
+    const end = Math.min(cells.length, this.wakeCursor + 262_144);
+    const start = performance.now();
+    let activated = 0;
+    while (this.wakeCursor < end && activated < 256) {
+      const i = this.wakeCursor;
+      if ((i & 1023) === 0 && performance.now() - start >= 1) break;
+      this.wakeCursor++;
       const id = cells[i]!;
       if (id === 0 || !isWater(id)) continue;
       // VoxelWorld.index: (y * WORLD_Z + z) * WORLD_X + x
       const x = i % WORLD_X;
       const z = Math.floor(i / WORLD_X) % WORLD_Z;
       const y = Math.floor(i / (WORLD_X * WORLD_Z));
+      if (id === WATER && x > 0 && x < WORLD_X - 1 && z > 0 && z < WORLD_Z - 1 && y > 0 &&
+        isWater(cells[i - 1]!) && isWater(cells[i + 1]!) &&
+        isWater(cells[i - WORLD_X]!) && isWater(cells[i + WORLD_X]!) &&
+        isWater(cells[i - WORLD_X * WORLD_Z]!) && isWater(cells[i + WORLD_X * WORLD_Z]!) &&
+        !(this.world.propSolid?.(x, y, z) ?? false)) continue;
       this.touch(x, y, z);
+      activated++;
     }
+    if (this.wakeCursor >= cells.length) this.wakeCursor = -1;
   }
+
+  stats() { return { pending: this.sim.pendingCount, waking: this.wakeCursor >= 0 }; }
 
   clear(): void {
     this.sim.clear();
+    this.wakeCursor = -1;
   }
 }

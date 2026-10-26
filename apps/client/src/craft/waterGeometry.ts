@@ -9,11 +9,19 @@ interface Node {
   id: number;
   p: V3; n: V3; grid: [number, number, number, number];
   wave: number; wet: number; foam: number; depth: number; flow: V3; impact: V3;
+  crowded: boolean;
 }
 const CORNERS: V3[] = Array.from({ length: 8 }, (_, i) => [i & 1, i >> 1 & 1, i >> 2 & 1]);
 const EDGES: [number, number, number][] = [];
 for (let i = 0; i < 8; i++) for (let axis = 0; axis < 3; axis++)
   if (!(i & 1 << axis)) EDGES.push([i, i | 1 << axis, axis]);
+const CUBE_FACES = Array.from({ length: 6 }, (_, i) => {
+  const axis = i >> 1, side = i & 1, u = (axis + 1) % 3, v = (axis + 2) % 3;
+  const corners = [side << axis, side << axis | 1 << u, side << axis | 1 << u | 1 << v, side << axis | 1 << v];
+  const edges = corners.map((a, j) => EDGES.findIndex(([x, y]) =>
+    (x === a && y === corners[(j + 1) % 4]) || (y === a && x === corners[(j + 1) % 4])));
+  return { corners, edges };
+});
 const DIRECTIONS: V3[] = [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]];
 const HORIZONTAL = [DIRECTIONS[0]!, DIRECTIONS[1]!, DIRECTIONS[4]!, DIRECTIONS[5]!];
 const cellKey = (x: number, y: number, z: number) => ((y + 2) * 164 + z + 2) * 164 + x + 2;
@@ -27,8 +35,8 @@ const dot = (a: V3, b: V3) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
  * is identical in adjacent chunks: terrain edits cannot separate a lip, fall
  * and pool into independent transparent plates.
  *
- * Separate components in an ambiguous cube keep diagonally touching streams
- * apart. Solid-contact constraints keep the surface on walls/floors, while
+ * Face-consistent contour loops keep diagonally touching streams apart and
+ * distinguish separate air pockets. Solid-contact constraints keep the surface on walls/floors, while
  * unconstrained edges round off naturally. Curved edges are tessellated on
  * BOTH incident faces using the same tangent projection (no T-junctions).
  */
@@ -77,36 +85,48 @@ export function buildWaterGeometry(world: World, cells: readonly number[]): THRE
     if (!groups) {
       groups = new Array<Node | undefined>(64);
       const ids = CORNERS.map(([x, y, z]) => world.get(cx + x, cy + y, cz + z));
-      let remaining = 0;
-      for (let i = 0; i < 8; i++) if (isWater(ids[i]!)) remaining |= 1 << i;
-      let air = 255 ^ remaining;
-      const outsideGroups: number[] = [];
-      while (air) {
-        const queue = [31 - Math.clz32(air & -air)]; let mask = 0;
-        for (let q = 0; q < queue.length; q++) {
-          const i = queue[q]!; if (mask & 1 << i) continue; mask |= 1 << i;
-          for (let axis = 0; axis < 3; axis++) { const j = i ^ 1 << axis; if (air & 1 << j && !(mask & 1 << j)) queue.push(j); }
-        }
-        outsideGroups.push(mask); air &= ~mask;
+      let waterMask = 0, remaining = 0;
+      for (let i = 0; i < 8; i++) if (isWater(ids[i]!)) waterMask |= 1 << i;
+      for (let i = 0; i < EDGES.length; i++) {
+        const [a, b] = EDGES[i]!;
+        if (!!(waterMask & 1 << a) !== !!(waterMask & 1 << b)) remaining |= 1 << i;
+      }
+      // Several isolated droplets in one lattice cube need separate topology,
+      // but rounding every shared edge adds little shape detail and multiplies
+      // the vertex count. Both chunks derive this decision from the same cube.
+      const crowded = (waterMask & (waterMask - 1)) !== 0 &&
+        !EDGES.some(([a, b]) => (waterMask & 1 << a) !== 0 && (waterMask & 1 << b) !== 0);
+      // Join crossing edges along each cube face into closed contour loops.
+      // On a checkerboard face, connect around each wet corner. The adjacent
+      // cube makes the identical decision, so even a fully alternating 3D
+      // lattice has closed surfaces instead of disconnected component pairs.
+      const links: number[][] = Array.from({ length: 12 }, () => []);
+      const join = (a: number, b: number) => { links[a]!.push(b); links[b]!.push(a); };
+      for (const face of CUBE_FACES) {
+        const crossed = face.edges.filter((edge) => (remaining & 1 << edge) !== 0);
+        if (crossed.length === 2) join(crossed[0]!, crossed[1]!);
+        else if (crossed.length === 4) for (let j = 0; j < 4; j++)
+          if (waterMask & 1 << face.corners[j]!) join(face.edges[(j + 3) % 4]!, face.edges[j]!);
       }
       while (remaining) {
         const seed = 31 - Math.clz32(remaining & -remaining), queue = [seed];
-        let mask = 0;
+        let edgeMask = 0, mask = 0;
         for (let q = 0; q < queue.length; q++) {
           const i = queue[q]!;
-          if (mask & 1 << i) continue;
-          mask |= 1 << i;
-          for (let axis = 0; axis < 3; axis++) { const j = i ^ 1 << axis; if (remaining & 1 << j && !(mask & 1 << j)) queue.push(j); }
+          if (edgeMask & 1 << i) continue;
+          edgeMask |= 1 << i;
+          const [a, b] = EDGES[i]!;
+          mask |= waterMask & ((1 << a) | (1 << b));
+          for (const j of links[i]!) if (!(edgeMask & 1 << j)) queue.push(j);
         }
-        remaining &= ~mask;
-        for (const outsideMask of outsideGroups) {
+        remaining &= ~edgeMask;
         const points: V3[] = [], normal: V3 = [0, 0, 0], surfaceHeights: number[] = [];
         const constraints: (number | undefined)[] = [undefined, undefined, undefined];
-        for (const [ia, ib, axis] of EDGES) {
-          const wa = !!(mask & 1 << ia), wb = !!(mask & 1 << ib);
-          if (wa === wb || isWater(ids[wa ? ib : ia]!)) continue;
+        for (let e = 0; e < EDGES.length; e++) {
+          if (!(edgeMask & 1 << e)) continue;
+          const [ia, ib, axis] = EDGES[e]!;
+          const wa = !!(waterMask & 1 << ia);
           const wi = wa ? ia : ib, ai = wa ? ib : ia;
-          if (!(outsideMask & 1 << ai)) continue;
           const a = CORNERS[wi]!, b = CORNERS[ai]!;
           const x = cx + a[0], y = cy + a[1], z = cz + a[2];
           const h = waterHeight(ids[wi]!, isWater(world.get(x, y + 1, z)));
@@ -145,12 +165,13 @@ export function buildWaterGeometry(world: World, cells: readonly number[]): THRE
         }
         const len = Math.hypot(fx, fz), scale = len ? Math.min(1, len / (count * 4)) / len : 0;
         foam = Math.min(1, impact / Math.max(1, count));
-        const node: Node = { id: sequence++, p, n, grid: [cx, cy, cz, mask | outsideMask << 8], depth: d / count,
+        const node: Node = { id: sequence++, p, n, crowded, grid: [cx, cy, cz, edgeMask], depth: d / count,
           wave: Math.max(0, n[1]) * Math.min(1, d / count * 3) * (1 - foam * 0.7),
           wet: columns.size / 4, foam, flow: [fx * scale, falls / count, fz * scale],
           impact: impact ? [ix / impact, iz / impact, Math.min(1, impact / 4)] : [0, 0, 0] };
-        for (let i = 0; i < 8; i++) if (mask & 1 << i)
-          for (let j = 0; j < 8; j++) if (outsideMask & 1 << j) groups[i * 8 + j] = node;
+        for (let e = 0; e < EDGES.length; e++) if (edgeMask & 1 << e) {
+          const [a, b] = EDGES[e]!;
+          groups[waterMask & 1 << a ? a * 8 + b : b * 8 + a] = node;
         }
       }
       cache.set(key, groups);
@@ -163,23 +184,43 @@ export function buildWaterGeometry(world: World, cells: readonly number[]): THRE
   };
   const blend = (a: Node, b: Node, p: V3, grid: Node["grid"]): Node => ({
     id: sequence++, p, grid, n: normalize(lerp3(a.n, b.n, 0.5)), flow: lerp3(a.flow, b.flow, 0.5),
+    crowded: a.crowded || b.crowded,
     wave: (a.wave + b.wave) * 0.5, wet: (a.wet + b.wet) * 0.5, foam: (a.foam + b.foam) * 0.5,
     depth: (a.depth + b.depth) * 0.5,
     impact: a.impact[2] ? a.impact : b.impact,
   });
-  const edgePoint = (a: Node, b: Node): Node | null => {
-    if (dot(a.n, b.n) > 0.9995) return null;
-    const key = Math.min(a.id, b.id) * 1000000 + Math.max(a.id, b.id);
+  const edgePoint = (a: Node, b: Node, water: V3): Node | null => {
+    const axis = a.grid[0] !== b.grid[0] ? 0 : a.grid[1] !== b.grid[1] ? 1 : 2;
+    const side = a.grid[axis] < b.grid[axis] ? 1 : 0;
+    // Two contour loops may pass the same neighbouring cube pair twice.
+    // Keep those parallel edges distinct at a shared saddle face.
+    const saddle = CUBE_FACES[axis * 2 + side]!.edges.every((e) => !!(a.grid[3] & 1 << e)) &&
+      CUBE_FACES[axis * 2 + 1 - side]!.edges.every((e) => !!(b.grid[3] & 1 << e));
+    if (!saddle && (a.crowded || b.crowded || dot(a.n, b.n) > 0.9995)) return null;
+    const u = (axis + 1) % 3, v = (axis + 2) % 3;
+    const tag = saddle ? 1 + (water[u]! - a.grid[u]!) + 2 * (water[v]! - a.grid[v]!) : 0;
+    const key = (Math.min(a.id, b.id) * 1000000 + Math.max(a.id, b.id)) * 5 + tag;
     if (edgeCache.has(key)) return edgeCache.get(key)!;
     const mid = lerp3(a.p, b.p, 0.5);
     const da = dot([mid[0] - a.p[0], mid[1] - a.p[1], mid[2] - a.p[2]], a.n);
     const db = dot([mid[0] - b.p[0], mid[1] - b.p[1], mid[2] - b.p[2]], b.n);
     const p: V3 = [mid[0] - (a.n[0] * da + b.n[0] * db) * 0.4,
       mid[1] - (a.n[1] * da + b.n[1] * db) * 0.4, mid[2] - (a.n[2] * da + b.n[2] * db) * 0.4];
+    if (saddle) {
+      p.fill(0);
+      const h = waterHeight(world.get(...water), isWater(world.get(water[0], water[1] + 1, water[2])));
+      for (const cross of [u, v]) {
+        const sign = water[cross] === a.grid[cross] ? 1 : -1;
+        const point: V3 = [water[0] + 0.5, water[1] + h * 0.5, water[2] + 0.5];
+        if (cross === 1) point[1] = water[1] + (sign > 0 ? h : 0);
+        else point[cross] = point[cross]! + sign * 0.5;
+        for (let j = 0; j < 3; j++) p[j] = p[j]! + point[j]! / 2;
+      }
+    }
     const deviation = Math.hypot(p[0] - mid[0], p[1] - mid[1], p[2] - mid[2]);
-    const node = deviation > 0.006 && deviation < 0.2 && !deeplyInsideSolid(p)
+    const node = (saddle || deviation > 0.006 && deviation < 0.2) && !deeplyInsideSolid(p)
       ? blend(a, b, p, [(a.grid[0] + b.grid[0]) / 2, (a.grid[1] + b.grid[1]) / 2,
-        (a.grid[2] + b.grid[2]) / 2, 512 + a.grid[3] + b.grid[3]]) : null;
+        (a.grid[2] + b.grid[2]) / 2, 131072 + a.grid[3] + b.grid[3] + tag * 16384]) : null;
     edgeCache.set(key, node); return node;
   };
   const emit = (v: Node): number => {
@@ -191,16 +232,16 @@ export function buildWaterGeometry(world: World, cells: readonly number[]): THRE
     attribute.aImpact!.push(v.impact[0] * v.impact[2], v.impact[1] * v.impact[2], v.impact[2]);
     vertexIndices.set(v, i); return i;
   };
-  const face = (nodes: Node[], reverse: boolean) => {
+  const face = (nodes: Node[], reverse: boolean, water: V3) => {
     if (reverse) nodes.reverse();
-    const edges = nodes.map((a, i) => edgePoint(a, nodes[(i + 1) % 4]!));
+    const edges = nodes.map((a, i) => edgePoint(a, nodes[(i + 1) % 4]!, water));
     if (edges.every((edge) => !edge)) {
       indices.push(emit(nodes[0]!), emit(nodes[1]!), emit(nodes[2]!), emit(nodes[0]!), emit(nodes[2]!), emit(nodes[3]!));
       return;
     }
     const center = blend(blend(nodes[0]!, nodes[1]!, lerp3(nodes[0]!.p, nodes[1]!.p, 0.5), [0, 0, 0, 0]),
       blend(nodes[2]!, nodes[3]!, lerp3(nodes[2]!.p, nodes[3]!.p, 0.5), [0, 0, 0, 0]),
-      [0, 0, 0], [0, 0, 0, 256]);
+      [0, 0, 0], [0, 0, 0, 65536]);
     for (const v of nodes) for (let axis = 0; axis < 3; axis++) {
       center.p[axis] = center.p[axis]! + v.p[axis]! / 4;
       center.grid[axis] = center.grid[axis]! + v.grid[axis]! / 4;
@@ -223,7 +264,7 @@ export function buildWaterGeometry(world: World, cells: readonly number[]): THRE
       for (const [a, b] of [[-1, -1], [0, -1], [0, 0], [-1, 0]]) {
         const c: V3 = [...base]; c[u] = c[u]! + a!; c[v] = c[v]! + b!; coordinates.push(c);
       }
-      face(coordinates.map(([cx, cy, cz]) => getNode(cx, cy, cz, x, y, z, ...other)), sign < 0);
+      face(coordinates.map(([cx, cy, cz]) => getNode(cx, cy, cz, x, y, z, ...other)), sign < 0, [x, y, z]);
     }
   }
   if (!indices.length) return null;
@@ -241,10 +282,16 @@ export function buildWaterGeometry(world: World, cells: readonly number[]): THRE
 /** Match stable component/edge keys, including a field scroll, and preserve
  *  the displayed position if another edit interrupts an active transition. */
 export function prepareWaterTransition(next: THREE.BufferGeometry, previous: THREE.BufferGeometry | null,
-  offsetX: number, offsetZ: number, time: number): void {
-  const old = new Map<string, V3>();
-  const nodeKey = (g: THREE.BufferAttribute | THREE.InterleavedBufferAttribute, i: number, dx: number, dz: number) =>
-    `${g.getX(i) + dx},${g.getY(i)},${g.getZ(i) + dz},${g.getW(i)}`;
+  offsetX: number, offsetZ: number, time: number, animate = true): void {
+  // Fresh geometry already has its final position in aTransition. Under an
+  // exceptional generation, skip interpolation for ALL neighbours together.
+  if (!previous || !animate) return;
+  const old = new Map<number | string, V3>();
+  const nodeKey = (g: THREE.BufferAttribute | THREE.InterleavedBufferAttribute, i: number, dx: number, dz: number) => {
+    const x = (g.getX(i) + dx) * 4 + 1024, y = g.getY(i) * 4 + 128, z = (g.getZ(i) + dz) * 4 + 1024, tag = g.getW(i);
+    return x >= 0 && x < 4096 && z >= 0 && z < 4096 && y >= 0 && y < 512 && tag < 262144
+      ? ((x * 4096 + z) * 512 + y) * 262144 + tag : `${x},${y},${z},${tag}`;
+  };
   if (previous) {
     const p = previous.getAttribute("position"), grid = previous.getAttribute("aGrid"), t = previous.getAttribute("aTransition");
     for (let i = 0; i < p.count; i++) {

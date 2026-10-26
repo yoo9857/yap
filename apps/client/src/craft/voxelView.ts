@@ -400,10 +400,14 @@ export class VoxelView {
     this.waterBuildPeak = Math.max(this.waterBuildPeak, performance.now() - start);
     if (batch.cursor < batch.jobs.length) return;
     const commitTime = performance.now() / 1000;
+    // A maliciously fragmented batch can contain hundreds of thousands of
+    // vertices. Preserve every surface, but omit expensive morph matching as
+    // one atomic generation rather than blocking input or splitting seams.
+    const animate = batch.results.reduce((n, r) => n + (r.geometry?.getAttribute("position").count ?? 0), 0) <= 32_768;
     for (const { id, geometry, minY, maxY } of batch.results) {
       const chunk = this.chunks.get(id);
       if (!chunk || chunk.stale || this.queue.has(id)) { geometry?.dispose(); continue; }
-      this.installWater(chunk, geometry, minY, maxY, commitTime);
+      this.installWater(chunk, geometry, minY, maxY, commitTime, animate);
     }
     this.waterBatch = null;
     this.waterCommits++;
@@ -729,8 +733,8 @@ export class VoxelView {
     }
     chunk.top = top;
 
-    if (!this.primed) this.buildWater(world, chunk, water);
-    else if (rebuildWater) this.waterQueue.set(chunkId(cx, cz), [0, WORLD_Y - 1]);
+    if (!this.primed && typeof Worker === "undefined") this.buildWater(world, chunk, water);
+    else if (!this.primed || rebuildWater) this.waterQueue.set(chunkId(cx, cz), [0, WORLD_Y - 1]);
     if (far) this.buildFarMesh(chunk, farBuffers);
     else this.buildNearMeshes(chunk, positions);
   }
@@ -858,11 +862,11 @@ export class VoxelView {
   }
 
   private installWater(chunk: ChunkState, geometry: THREE.BufferGeometry | null, minY: number, maxY: number,
-    time = performance.now() / 1000): void {
+    time = performance.now() / 1000, animate = true): void {
     chunk.waterMinY = minY; chunk.waterMaxY = maxY;
     if (!geometry) { this.disposeWater(chunk); return; }
     prepareWaterTransition(geometry, chunk.water?.geometry ?? null,
-      chunk.water?.position.x ?? 0, chunk.water?.position.z ?? 0, time);
+      chunk.water?.position.x ?? 0, chunk.water?.position.z ?? 0, time, animate);
     if (chunk.water) {
       const old = chunk.water.geometry;
       chunk.water.geometry = geometry;

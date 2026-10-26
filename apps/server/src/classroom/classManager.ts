@@ -100,6 +100,7 @@ export class ClassManager {
   private readonly classes = new Map<string, ClassRoom>();
   private readonly sockets = new Set<ClassSocket>();
   private readonly timers: NodeJS.Timeout[] = [];
+  private fluidCursor = 0;
 
   constructor(private readonly store: ClassStore) {
     this.timers.push(setInterval(() => this.snapshot(), SNAPSHOT_MS));
@@ -108,7 +109,15 @@ export class ClassManager {
     this.timers.push(setInterval(() => this.gc(), 60_000));
     // water flows on the server, so a class's students all see the same stream
     this.timers.push(setInterval(() => {
-      for (const room of this.classes.values()) room.stepFluids();
+      const rooms = [...this.classes.values()], start = performance.now();
+      let visited = 0;
+      for (; visited < rooms.length; visited++) {
+        rooms[(this.fluidCursor + visited) % rooms.length]!.stepFluids(4);
+        if (performance.now() - start >= 12) { visited++; break; }
+      }
+      // Busy rooms share the budget in turn; an early classroom cannot starve
+      // later ones or monopolise the socket event loop every 250 ms.
+      this.fluidCursor = rooms.length ? (this.fluidCursor + visited) % rooms.length : 0;
     }, FLUID_STEP * 1000));
   }
 

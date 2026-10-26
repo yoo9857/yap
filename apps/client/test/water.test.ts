@@ -117,6 +117,44 @@ const allWater = (w: VoxelWorld, lo = 4, hi = 13): number[] => {
 };
 
 describe("continuous water boundary", () => {
+  it("closes every local arrangement of eight water/air cells", () => {
+    for (let pattern = 1; pattern < 256; pattern++) {
+      const w = new VoxelWorld(), cells: number[] = [];
+      for (let i = 0; i < 8; i++) if (pattern & 1 << i) {
+        const x = 8 + (i & 1), y = 4 + (i >> 1 & 1), z = 8 + (i >> 2 & 1);
+        w.set(x, y, z, WATER); cells.push(x, y, z);
+      }
+      const g = buildWaterGeometry(w, cells)!, index = g.index!, topology = new Map<string, number>();
+      for (let i = 0; i < index.count; i += 3) for (let j = 0; j < 3; j++) {
+        const a = index.getX(i + j), b = index.getX(i + (j + 1) % 3), key = a < b ? `${a}/${b}` : `${b}/${a}`;
+        topology.set(key, (topology.get(key) ?? 0) + 1);
+      }
+      expect([...topology.values()].every((n) => n === 2), `pattern ${pattern}`).toBe(true);
+      g.dispose();
+    }
+  });
+
+  it("bounds isolated-droplet geometry without opening its surface", () => {
+    const w = new VoxelWorld(), cells: number[] = [];
+    for (let y = 8; y < 16; y++) for (let z = 32; z < 48; z++) for (let x = 32; x < 48; x++)
+      if ((x + y + z) % 2 === 0) { w.set(x, y, z, WATER); cells.push(x, y, z); }
+    const g = buildWaterGeometry(w, cells)!;
+    const bytes = Object.values(g.attributes).reduce((n, a) => n + a.array.byteLength, g.index!.array.byteLength);
+    expect(bytes).toBeLessThan(2_200_000);
+    expect([...edges(g).values()].every((n) => n === 2)).toBe(true);
+    g.dispose();
+  });
+
+  it("keeps alternating droplets closed across independently built chunks", () => {
+    const w = new VoxelWorld(), left: number[] = [], right: number[] = [];
+    for (let y = 8; y < 12; y++) for (let z = 14; z < 18; z++) for (let x = 14; x < 18; x++)
+      if ((x + y + z) % 2 === 0) { w.set(x, y, z, WATER); (x < 16 ? left : right).push(x, y, z); }
+    const a = buildWaterGeometry(w, left)!, b = buildWaterGeometry(w, right)!, joined = edges(a);
+    for (const [key, count] of edges(b)) joined.set(key, (joined.get(key) ?? 0) + count);
+    expect([...joined.values()].every((n) => n === 2)).toBe(true);
+    a.dispose(); b.dispose();
+  });
+
   it("draws only the exposed pool surface and shares its vertices", () => {
     const w = pool(), cells: number[] = [];
     for (let x = 10; x < 20; x++) for (let z = 10; z < 20; z++) for (let y = 1; y <= 2; y++) cells.push(x, y, z);

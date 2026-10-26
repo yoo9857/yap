@@ -26,6 +26,8 @@
  * the source drains the whole stream within a few steps — no bookkeeping.
  */
 
+import { voxelCoordinates, voxelKey, type VoxelKey } from "./voxelKey.js";
+
 export const WATER = 19;
 export const WATER_FLOW_BASE = 19; // + level 1..7 → 20..26
 export const WATER_FALLING = 27;
@@ -77,7 +79,7 @@ const N6: readonly (readonly [number, number, number])[] = [
 
 export class FluidSim {
   /** Cells to re-evaluate next step, in a deterministic (insertion) order. */
-  private readonly pending = new Map<string, [number, number, number]>();
+  private readonly pending = new Set<VoxelKey>();
   /** Most cells evaluated per step; the rest wait one more step. */
   constructor(private readonly budget = 4096) {}
 
@@ -85,11 +87,12 @@ export class FluidSim {
     return this.pending.size > 0;
   }
 
+  get pendingCount(): number { return this.pending.size; }
+
   /** Something changed at this cell: it and its six neighbours need a look. */
   touch(x: number, y: number, z: number): void {
     for (const [dx, dy, dz] of N6) {
-      const k = `${x + dx},${y + dy},${z + dz}`;
-      if (!this.pending.has(k)) this.pending.set(k, [x + dx, y + dy, z + dz]);
+      this.pending.add(voxelKey(x + dx, y + dy, z + dz));
     }
   }
 
@@ -98,21 +101,20 @@ export class FluidSim {
   }
 
   /** Run one synchronous step: read everything, then write. Returns what changed. */
-  step(world: FluidWorld): FluidChange[] {
-    const batch: [number, number, number][] = [];
-    for (const [k, cell] of this.pending) {
-      this.pending.delete(k);
-      batch.push(cell);
-      if (batch.length >= this.budget) break;
-    }
+  step(world: FluidWorld, maxMs = Infinity): FluidChange[] {
+    const start = Number.isFinite(maxMs) ? performance.now() : 0;
     const changes: FluidChange[] = [];
     // One containment walk per basin per synchronous step, shared by all its
     // cells. Small pits can fill without flooding an unbounded open field.
-    const basins = new Map<string, boolean>();
-    for (const [x, y, z] of batch) {
+    const basins = new Map<VoxelKey, boolean>();
+    let evaluated = 0;
+    for (const key of this.pending) {
+      this.pending.delete(key);
+      const [x, y, z] = voxelCoordinates(key);
       const now = world.get(x, y, z);
       const next = nextState(world, x, y, z, now, basins);
       if (next !== now) changes.push([x, y, z, next]);
+      if (++evaluated >= this.budget || evaluated % 8 === 0 && Number.isFinite(maxMs) && performance.now() - start >= maxMs) break;
     }
     const committed: FluidChange[] = [];
     for (const change of changes) {
@@ -142,10 +144,10 @@ function spreadsSideways(world: FluidWorld, x: number, y: number, z: number): bo
 
 /** A fed depression with a closed rim and no lower outlet can retain water.
  *  The traversal is bounded: large lakes/open ground keep the normal flow rule. */
-function settledBasin(world: FluidWorld, x: number, y: number, z: number, memo: Map<string, boolean>): boolean {
-  const start = `${x},${y},${z}`, cached = memo.get(start);
+function settledBasin(world: FluidWorld, x: number, y: number, z: number, memo: Map<VoxelKey, boolean>): boolean {
+  const start = voxelKey(x, y, z), cached = memo.get(start);
   if (cached !== undefined) return cached;
-  const cells: [number, number][] = [[x, z]], seen = new Set([`${x},${z}`]);
+  const cells: [number, number][] = [[x, z]], seen = new Set([start]);
   let contained = true, fed = false;
   for (let i = 0; i < cells.length; i++) {
     const [cx, cz] = cells[i]!;
@@ -153,20 +155,20 @@ function settledBasin(world: FluidWorld, x: number, y: number, z: number, memo: 
     if (!reservoir(below) && holds(world, cx, y - 1, cz)) contained = false;
     fed ||= reservoir(world.get(cx, y, cz)) || isWater(world.get(cx, y + 1, cz));
     for (const [dx, dz] of N4) {
-      const nx = cx + dx, nz = cz + dz, k = `${nx},${nz}`;
+      const nx = cx + dx, nz = cz + dz, k = voxelKey(nx, y, nz);
       if (seen.has(k) || !holds(world, nx, y, nz)) continue;
       seen.add(k); cells.push([nx, nz]);
     }
     if (cells.length > 256) { contained = false; break; }
   }
   const result = contained && fed;
-  for (const [cx, cz] of cells) memo.set(`${cx},${y},${cz}`, result);
+  for (const [cx, cz] of cells) memo.set(voxelKey(cx, y, cz), result);
   return result;
 }
 
 /** What this cell should hold next step. */
 export function nextState(world: FluidWorld, x: number, y: number, z: number, now: number,
-  basins = new Map<string, boolean>()): number {
+  basins = new Map<VoxelKey, boolean>()): number {
   if (!(now === 0 || isWater(now))) return now;
   if (!world.open(x, y, z)) return 0; // a closed door displaces even a source
   if (now === WATER) return WATER;
