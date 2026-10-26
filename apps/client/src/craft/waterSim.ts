@@ -15,12 +15,17 @@ import { WORLD_X, WORLD_Z, type VoxelWorld } from "./voxelWorld.js";
 export class WaterSim {
   private readonly sim = new FluidSim();
   private timer = 0;
+  private activeOriginX: number;
+  private activeOriginZ: number;
 
   constructor(
     private readonly world: VoxelWorld,
     private readonly view: VoxelView,
     private readonly field: FieldWindow | null,
-  ) {}
+  ) {
+    this.activeOriginX = this.ox;
+    this.activeOriginZ = this.oz;
+  }
 
   private get ox(): number {
     return this.field?.absOriginX ?? 0;
@@ -52,6 +57,12 @@ export class WaterSim {
 
   /** Per fixed tick. Returns how many cells the water changed this tick. */
   update(dt: number): number {
+    if (this.activeOriginX !== this.ox || this.activeOriginZ !== this.oz) {
+      // The bank can restore water whose pending work was consumed while it
+      // was outside the window. New window edges can also open a stopped flow.
+      this.sim.clear();
+      this.wakeAll();
+    }
     this.timer += dt;
     if (this.timer < FLUID_STEP) return 0;
     this.timer = Math.min(this.timer - FLUID_STEP, FLUID_STEP); // never a burst of catch-up steps
@@ -62,6 +73,8 @@ export class WaterSim {
   /** Re-evaluate every saved water cell: a source may have been saved before
    *  its first flow step, so sources alone are not necessarily stable. */
   wakeAll(): void {
+    this.activeOriginX = this.ox;
+    this.activeOriginZ = this.oz;
     const { cells } = this.world;
     for (let i = 0; i < cells.length; i++) {
       const id = cells[i]!;

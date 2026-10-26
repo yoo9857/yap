@@ -9,6 +9,16 @@ const memory = () => {
 };
 
 describe("education field", () => {
+  it("preserves the previous readable save when the field exceeds its save limit", () => {
+    const storage = memory(), field = new FieldWindow();
+    expect(field.save(storage, {}, field.spawn)).toBe(true);
+    const previous = storage.getItem("craftyap-field-save-v1");
+    for (let i = 0; i < 400_001; i++) field.applyRemote(1000 + i, FIELD_TOP + 1, 1000, 19, 0);
+    expect(field.save(storage, {}, field.spawn)).toBe(false);
+    expect(storage.getItem("craftyap-field-save-v1")).toBe(previous);
+    expect(new FieldWindow().load(storage)).not.toBeNull();
+  });
+
   it("is flat grass everywhere, including outside the voxel window", () => {
     const field = new FieldWindow();
     const grass = blockByKey("grass")!.id;

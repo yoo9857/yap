@@ -4,6 +4,7 @@ import { WATER, flowingWater } from "@robo/shared";
 import { VoxelView } from "../src/craft/voxelView.js";
 import { VoxelWorld } from "../src/craft/voxelWorld.js";
 import { WaterSim } from "../src/craft/waterSim.js";
+import { FieldWindow } from "../src/craft/fieldWorld.js";
 
 vi.mock("../src/render/textures.js", () => ({ loadTexture: () => Promise.resolve(null) }));
 afterEach(() => { vi.restoreAllMocks(); vi.unstubAllGlobals(); });
@@ -16,6 +17,19 @@ const flush = (view: VoxelView, world: VoxelWorld, eye: THREE.Vector3) => {
 };
 
 describe("water mesh generations", () => {
+  it("resumes banked water after leaving and returning to the field window", () => {
+    const field = new FieldWindow(), view = new VoxelView(new THREE.Scene());
+    const sim = new WaterSim(field.world, view, field);
+    field.world.set(80, 4, 80, WATER); sim.touch(80, 4, 80);
+    field.recenter({ x: 256, z: 80 });
+    for (let i = 0; i < 20; i++) sim.update(0.25);
+    field.recenter({ x: -96, z: 80 });
+    expect(field.world.get(80, 4, 80)).toBe(WATER);
+    sim.update(0.25);
+    expect(field.world.get(81, 4, 80)).toBe(flowingWater(1));
+    view.dispose();
+  });
+
   it("starts a restored source even when the save has no flowing cells yet", () => {
     const world = new VoxelWorld(), view = new VoxelView(new THREE.Scene());
     for (let x = 14; x <= 18; x++) for (let z = 14; z <= 18; z++) world.set(x, 0, z, 3);

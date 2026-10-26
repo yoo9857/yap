@@ -103,3 +103,25 @@ Refreshing an older classroom tab loads protocol 4 and the new water renderer.
 
 Automatic ocean/lake generation remains a separate follow-up; this release covers
 player-built water, its interaction with edited terrain, and classroom sharing.
+
+## Functional audit (2026-10-26)
+
+- Solo field scrolling reactivates restored water and newly exposed flow edges.
+  Pending work outside the old window cannot strand a saved source.
+- Classroom fluid writes enforce the 300,000-cell cap at commit, not only during
+  the step's snapshot reads. Only committed writes are broadcast; freeing storage
+  reactivates frontiers that were stopped by the cap.
+- Island save validation accepts up to the actual grid's cell count, matching
+  what the serializer can write. Saves above the previous 200,000-edit limit
+  reload intact instead of resetting the island.
+- Browser autosave marks a snapshot saved only after a successful write. Failed
+  writes show a warning and retry; recovery is reported. Field saves above the
+  loader's 400,000-edit cap leave the previous readable save untouched. Field
+  scroll origins participate in autosave change detection.
+- A failed classroom database write remains dirty for the next save interval.
+
+Regression cases reproduce a field return, an almost-full classroom store,
+200,001 island water edits, an over-limit field save, and a transient database
+failure. Browser water E2E also injects a quota error and verifies retry/recovery.
+Validation: 376 unit tests, water E2E 16/16, field E2E 11/11, production E2E
+9/9; type checking, ESLint and the production build pass.

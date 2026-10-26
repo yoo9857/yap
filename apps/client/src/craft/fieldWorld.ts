@@ -27,6 +27,7 @@ const RECENTER = 8;
 /** Farthest render distance the scrolling window can back. */
 export const FIELD_MAX_VIEW = 72;
 const SAVE_KEY = "craftyap-field-save-v1";
+const MAX_SAVED_EDITS = 400_000;
 const CENTER_X = WORLD_X / 2;
 const CENTER_Z = WORLD_Z / 2;
 
@@ -47,7 +48,7 @@ const saveSchema = z.object({
   /** [absX, y, absZ, blockId, shape] — cells that differ from the flat field. */
   edits: z
     .array(z.tuple([z.number().int(), z.number().int(), z.number().int(), z.number().int(), z.number().int()]))
-    .max(400_000),
+    .max(MAX_SAVED_EDITS),
   inventory: z.record(z.string(), z.number()),
   player: z.object({ x: z.number().finite(), y: z.number().finite(), z: z.number().finite() }),
   /** Adopted companion. Optional: fields saved before the adoption panel
@@ -201,16 +202,19 @@ export class FieldWindow {
     player: { x: number; y: number; z: number },
     pet?: string,
     furniture?: FurnitureTuple[],
-  ): void {
+  ): boolean {
     this.bank();
+    // Never overwrite a readable save with one the loader would reject.
+    if (this.edits.size > MAX_SAVED_EDITS) return false;
     const edits = [...this.edits].map(([key, [block, shape]]) => [...key.split(",").map(Number), block, shape]);
     try {
       storage.setItem(
         SAVE_KEY,
         JSON.stringify({ v: 1, originX: this.originX, originZ: this.originZ, edits, inventory, player, pet, furniture }),
       );
+      return true;
     } catch {
-      // storage full/unavailable — keep playing unsaved
+      return false;
     }
   }
 

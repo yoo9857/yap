@@ -871,21 +871,29 @@ export class CraftGame {
   }
 
   private lastSaveSignature = "";
+  private saveFailed = false;
   private persist(): void {
     this.lastSaveAt = Date.now();
     if (this.sync) return; // the class's field lives on the server
     // standing still with no edits: nothing to write, skip the serialise +
     // synchronous localStorage write entirely
-    const signature = `${this.state.world.version}|${Math.round(this.body.x * 2)},${Math.round(this.body.y * 2)},${Math.round(this.body.z * 2)}|${JSON.stringify(this.state.inventory)}|${this.pet.species}|${this.state.furniture.version}`;
+    const signature = `${this.field?.absOriginX ?? 0},${this.field?.absOriginZ ?? 0}|${this.state.world.version}|${Math.round(this.body.x * 2)},${Math.round(this.body.y * 2)},${Math.round(this.body.z * 2)}|${JSON.stringify(this.state.inventory)}|${this.pet.species}|${this.state.furniture.version}`;
     if (signature === this.lastSaveSignature) return;
-    this.lastSaveSignature = signature;
     this.state.player = { x: this.body.x, y: this.body.y, z: this.body.z };
     this.state.pet = this.pet.species;
-    if (this.field) {
-      this.field.save(localStorage, this.state.inventory, this.state.player, this.state.pet, this.state.furniture.toJSON());
-    } else {
-      saveCraft(this.state, localStorage, Date.now());
+    let saved = false;
+    try {
+      saved = this.field
+        ? this.field.save(localStorage, this.state.inventory, this.state.player, this.state.pet, this.state.furniture.toJSON())
+        : saveCraft(this.state, localStorage, Date.now());
+    } catch { /* access to localStorage itself can be disabled by the browser */ }
+    if (saved) {
+      this.lastSaveSignature = signature;
+      if (this.saveFailed) this.hud.toast("💾 자동 저장이 다시 정상 작동해요");
+    } else if (!this.saveFailed) {
+      this.hud.toast("💾 자동 저장에 실패했어요. 최근 변경사항이 저장되지 않았으니 이 탭을 닫지 마세요");
     }
+    this.saveFailed = !saved;
   }
 
   /**

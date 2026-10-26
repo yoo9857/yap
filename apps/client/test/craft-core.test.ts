@@ -223,6 +223,17 @@ describe("inventory + recipes", () => {
 });
 
 describe("craft save", () => {
+  it("reloads a large legitimate water build written by the serializer", () => {
+    const state = freshState(42), storage = memoryStorage();
+    for (let i = 0; i < 200_001; i++) {
+      state.world.set(i % WORLD_X, 40 + Math.floor(i / (WORLD_X * WORLD_Z)), Math.floor(i / WORLD_X) % WORLD_Z, 19);
+    }
+    storage.setItem("craftyap-craft-save-v1", serializeCraft(state, 1000));
+    const loaded = loadCraft(storage, 999);
+    expect(loaded.seed).toBe(42);
+    expect(Buffer.from(loaded.world.cells).equals(Buffer.from(state.world.cells))).toBe(true);
+  });
+
   it("migrates legacy block and shape indices without moving player buildings", () => {
     for (const v of [1, 2]) {
       const storage = memoryStorage();

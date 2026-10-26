@@ -19,11 +19,11 @@ const saveSchema = z.object({
   v: z.union([z.literal(1), z.literal(2), z.literal(3)]),
   seed: z.number().int(),
   /** [index, blockId] pairs — cells that differ from the generated island. */
-  edits: z.array(z.tuple([z.number().int().nonnegative(), z.number().int().nonnegative()])).max(200_000),
+  edits: z.array(z.tuple([z.number().int().nonnegative(), z.number().int().nonnegative()])).max(WORLD_X * WORLD_Y * WORLD_Z),
   /** [index, shapeId] pairs for non-cube bricks (round/slope). */
   shapes: z
     .array(z.tuple([z.number().int().nonnegative(), z.number().int().nonnegative()]))
-    .max(200_000)
+    .max(WORLD_X * WORLD_Y * WORLD_Z)
     .optional(),
   inventory: z.record(z.string(), z.number()),
   player: z.object({ x: z.number().finite(), y: z.number().finite(), z: z.number().finite() }),
@@ -106,11 +106,12 @@ export function serializeCraft(state: CraftGameState, nowMs: number): string {
   });
 }
 
-export function saveCraft(state: CraftGameState, storage: KeyValueStorage, nowMs: number): void {
+export function saveCraft(state: CraftGameState, storage: KeyValueStorage, nowMs: number): boolean {
   try {
     storage.setItem(SAVE_KEY, serializeCraft(state, nowMs));
+    return true;
   } catch {
-    // storage full/unavailable — keep playing unsaved
+    return false;
   }
 }
 

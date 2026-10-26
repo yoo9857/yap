@@ -33,6 +33,26 @@ function settle(room: ClassRoom): void {
 }
 
 describe("classroom water", () => {
+  it("never exceeds the saved-cell limit when one step fills several new cells", () => {
+    const initial = new ClassRoom("Capacity", AUTH), teacher = new Peer();
+    initial.hostTeacher(teacher);
+    const saved = initial.toSaved();
+    saved.edits = [[0, Y, 0, WATER, 0]];
+    for (let i = 0; i < 299_998; i++) saved.edits.push([1000 + i, Y, 1000, 3, 0]);
+    const room = new ClassRoom("Capacity", AUTH, saved), again = new Peer();
+    room.hostTeacher(again, { password: "1234" }); again.inbox = [];
+    room.stepFluids();
+    expect(room.editCount).toBe(300_000);
+    expect(again.water().size).toBe(1);
+    // Free a distant stored cell: a stopped frontier must resume without
+    // needing the player to pour the source again.
+    room.handle(again, { t: "k-edit", edits: [[1000, Y, 1000, 0, 0]] });
+    const changes = room.stepFluids();
+    expect(changes).toBeGreaterThan(0);
+    expect(room.editCount).toBe(300_000);
+    expect(again.water().size).toBe(2);
+  });
+
   it("restores a source saved before its first simulation step", () => {
     const room = new ClassRoom("Restore", AUTH), teacher = new Peer();
     room.hostTeacher(teacher);

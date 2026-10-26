@@ -56,6 +56,23 @@ try {
   await until(page, ([x, y, z]) => globalThis.__waterTest.blockAt(x + 7, y, z) === 26, source);
   check("flow reaches seven cells and stops before the eighth", await page.evaluate(([x, y, z]) => globalThis.__waterTest.blockAt(x + 8, y, z) === 0, source));
   check("first flow reuses the warmed water shader", (await page.evaluate(() => globalThis.__roboCraft.programs().length)) === programs);
+  const saveFailure = await page.evaluate(() => {
+    globalThis.__waterTest.placeAt(70, 4, 70, "stone"); // a new, unsaved edit
+    const original = Storage.prototype.setItem; let attempts = 0;
+    Storage.prototype.setItem = function (key, value) {
+      if (key === "craftyap-field-save-v1") { attempts++; throw new DOMException("storage full", "QuotaExceededError"); }
+      return original.call(this, key, value);
+    };
+    try {
+      globalThis.__roboCraft.saveNow(); globalThis.__roboCraft.saveNow();
+      return { attempts, warned: document.querySelector(".b-toast")?.textContent.includes("자동 저장에 실패") };
+    } finally { Storage.prototype.setItem = original; }
+  });
+  check("a full browser store warns and failed saves remain eligible for retry", saveFailure.attempts === 2 && saveFailure.warned);
+  check("autosave recovers without another world edit", await page.evaluate(() => {
+    globalThis.__roboCraft.saveNow();
+    return JSON.parse(localStorage.getItem("craftyap-field-save-v1")).edits.some((e) => e[3] === 19);
+  }));
   await page.evaluate(([x, , z]) => { const c = globalThis.__waterTest; c.teleport(x + 0.5, 6, z + 0.5); c.look(0, -1.55); }, source);
   await wait(160); await click(page, "left");
   await until(page, () => globalThis.__roboCraft.water().sources === 0);

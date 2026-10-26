@@ -63,7 +63,9 @@ export interface FluidWorld {
   /** May water exist in this cell at all — in range, and not inside solid
    *  furniture (a closed door holds water back, an open one lets it through)? */
   open(x: number, y: number, z: number): boolean;
-  set(x: number, y: number, z: number, id: number): void;
+  /** Return false if a write is refused (for example, a store filled during
+   *  this synchronous step). Only committed writes become fluid changes. */
+  set(x: number, y: number, z: number, id: number): void | boolean;
 }
 
 export type FluidChange = [x: number, y: number, z: number, id: number];
@@ -112,11 +114,14 @@ export class FluidSim {
       const next = nextState(world, x, y, z, now, basins);
       if (next !== now) changes.push([x, y, z, next]);
     }
-    for (const [x, y, z, id] of changes) {
-      world.set(x, y, z, id);
+    const committed: FluidChange[] = [];
+    for (const change of changes) {
+      const [x, y, z, id] = change;
+      if (world.set(x, y, z, id) === false) continue;
+      committed.push(change);
       this.touch(x, y, z);
     }
-    return changes;
+    return committed;
   }
 }
 

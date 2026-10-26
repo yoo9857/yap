@@ -1,5 +1,5 @@
 import { EventEmitter } from "node:events";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { CLASS_PROTOCOL_VERSION, decodeClassServer, type ClassClientMessage, type ClassServerMessage } from "@robo/shared";
 import { ClassManager } from "../src/classroom/classManager.js";
 import { ClassRoom } from "../src/classroom/classRoom.js";
@@ -43,6 +43,8 @@ let managers: ClassManager[] = [];
 afterEach(() => {
   for (const m of managers) m.shutdown();
   managers = [];
+  vi.restoreAllMocks();
+  vi.useRealTimers();
 });
 
 function setup(store = new MemoryClassStore()) {
@@ -57,6 +59,20 @@ function setup(store = new MemoryClassStore()) {
 }
 
 describe("named classes", () => {
+  it("retries a failed classroom save without requiring another player edit", () => {
+    vi.useFakeTimers();
+    const { connect, store } = setup(), teacher = connect();
+    teacher.say({ t: "k-host", v, room: "Recovery", teacher: "Teacher", password: "1234" });
+    teacher.say({ t: "k-edit", edits: [[0, 4, 0, 3, 0]] });
+    const write = vi.spyOn(store, "save").mockImplementationOnce(() => { throw new Error("disk temporarily unavailable"); });
+    vi.advanceTimersByTime(15_000);
+    expect(write).toHaveBeenCalledTimes(1);
+    expect(store.load("recovery")!.edits).toEqual([]);
+    vi.advanceTimersByTime(15_000);
+    expect(write).toHaveBeenCalledTimes(2);
+    expect(store.load("recovery")!.edits).toEqual([[0, 4, 0, 3, 0]]);
+  });
+
   it("opens a class under a class name, and a student joins by that name", () => {
     const { connect } = setup();
     const teacher = connect();

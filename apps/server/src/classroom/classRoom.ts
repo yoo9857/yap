@@ -92,7 +92,7 @@ export class ClassRoom {
     for (const s of saved.students) this.addMember(s.name, "student", s.key);
     for (const [x, y, z, block, shape] of saved.edits) {
       this.edits.set(`${x},${y},${z}`, [block, shape]);
-      // a stream saved mid-flow carries on (sources alone are always stable)
+      // A source can have been saved before its first flow step too.
       if (isWater(block)) this.fluid.touch(x, y, z);
     }
   }
@@ -103,23 +103,41 @@ export class ClassRoom {
    * sees the same water and a late joiner gets it with the rest of the field.
    */
   private readonly fluid = new FluidSim();
+  private fluidAtCapacity = false;
   private readonly fluidWorld: FluidWorld = {
     get: (x, y, z) => this.edits.get(`${x},${y},${z}`)?.[0] ?? pristine(y),
     open: (x, y, z) =>
       Math.abs(x) <= CLASS_MAX_COORD && Math.abs(z) <= CLASS_MAX_COORD &&
       y >= 1 && y <= CLASS_MAX_Y && !this.furniture.occupied(x, y, z) &&
       // a full store takes no new cells — water included
-      (this.edits.has(`${x},${y},${z}`) || this.edits.size < MAX_EDITS),
+      (this.edits.has(`${x},${y},${z}`) || this.hasFluidCapacity()),
     set: (x, y, z, block) => {
       const cell = `${x},${y},${z}`;
+      // A step reads all candidates before writing them. Several candidates
+      // may have seen the same last slot, so enforce the cap at commit too.
+      if (block !== pristine(y) && !this.edits.has(cell) && !this.hasFluidCapacity()) return false;
       if (block === pristine(y)) this.edits.delete(cell);
       else this.edits.set(cell, [block, 0]);
     },
   };
 
+  private hasFluidCapacity(): boolean {
+    if (this.edits.size < MAX_EDITS) return true;
+    this.fluidAtCapacity = true;
+    return false;
+  }
+
   /** One flow step (ClassManager calls this every FLUID_STEP). Returns the
    *  number of cells that changed. */
   stepFluids(): number {
+    if (this.fluidAtCapacity && this.edits.size < MAX_EDITS) {
+      this.fluidAtCapacity = false;
+      for (const [cell, [block]] of this.edits) {
+        if (!isWater(block)) continue;
+        const [x, y, z] = cell.split(",").map(Number) as [number, number, number];
+        this.fluid.touch(x, y, z);
+      }
+    }
     if (!this.fluid.busy) return 0;
     const changes = this.fluid.step(this.fluidWorld);
     if (changes.length === 0) return 0;

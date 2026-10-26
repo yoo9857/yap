@@ -262,6 +262,7 @@ export class ClassManager {
     try {
       this.store.save(room.key, room.toSaved());
     } catch (err) {
+      room.dirty = true; // toSaved cleared it; retry a failed write next interval
       log.error({ teacher: room.teacherName, err }, "class save failed");
     }
   }
