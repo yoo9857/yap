@@ -33,6 +33,14 @@ function classWithTeacher() {
 }
 
 describe("ClassRoom", () => {
+  it("rejects a repeated write with the last accepted authoritative cell", () => {
+    const { room, teacher } = classWithTeacher(), student = new Peer(); room.joinStudent(student, "Writer");
+    room.handle(student, { t: "k-edit", edits: [[0, 4, 0, 3, 0]] });
+    room.handle(teacher, { t: "k-settings", buildLocked: true, chatLocked: false });
+    room.handle(student, { t: "k-edit", edits: [[0, 4, 0, 17, 0]] });
+    expect(student.last("s-k-reject")).toEqual({ t: "s-k-reject", edits: [[0, 4, 0, 3, 0]], authoritative: true });
+  });
+
   it("seats a teacher and students, everyone sees the roster", () => {
     const { room, teacher } = classWithTeacher();
     const a = new Peer();
@@ -113,7 +121,8 @@ describe("ClassRoom", () => {
     const { room, teacher } = classWithTeacher();
     room.handle(teacher, { t: "k-edit", edits: [[0, 0, 0, 0, 0]] });
     expect(room.editCount).toBe(0);
-    expect(teacher.last("s-k-reject")!.edits).toEqual([[0, 0, 0, 0, 0]]);
+    expect(teacher.last("s-k-reject")!.edits).toEqual([[0, 0, 0, 11, 0]]);
+    expect(teacher.last("s-k-reject")!.authoritative).toBe(true);
   });
 
   it("build and chat locks bind students, not the teacher", () => {
@@ -315,7 +324,7 @@ describe("classroom furniture", () => {
     room.joinStudent(student, "Minji");
     place(room, teacher, chair);
     room.handle(student, { t: "k-edit", edits: [[-20, 4, 10, 3, 0]] });
-    expect(student.last("s-k-reject")!.edits).toEqual([[-20, 4, 10, 3, 0]]);
+    expect(student.last("s-k-reject")!.edits).toEqual([[-20, 4, 10, 0, 0]]);
     room.handle(teacher, { t: "k-edit", edits: [[-20, 3, 10, 0, 0]] });
     expect(student.last("s-k-furniture")!.furniture).toEqual([]);
     expect(room.toSaved().furniture).toEqual([]);

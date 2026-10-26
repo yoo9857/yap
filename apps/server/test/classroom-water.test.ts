@@ -29,7 +29,9 @@ class Peer implements ClassPeer {
 const Y = 4;
 
 function settle(room: ClassRoom): void {
-  for (let i = 0; i < 100 && room.stepFluids() > 0; i++);
+  // A time-sliced scan can change zero cells while work remains. Run a
+  // deterministic bounded simulation here; the manager keeps ticking in play.
+  for (let i = 0; i < 100; i++) room.stepFluids(Infinity);
 }
 
 describe("classroom water", () => {

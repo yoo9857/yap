@@ -51,6 +51,8 @@ export class RafScheduler implements FrameScheduler {
  * than burst-simulated.
  */
 export class GameLoop {
+  private readonly events = new AbortController();
+  private disposed = false;
   private accumulator = 0;
   private lastTime: number | null = null;
   private tick = 0;
@@ -68,7 +70,7 @@ export class GameLoop {
         this.lastTime = null;
         this.accumulator = 0;
       }
-    });
+    }, { signal: this.events.signal });
   }
 
   get currentTick(): number {
@@ -76,6 +78,7 @@ export class GameLoop {
   }
 
   start(): void {
+    if (this.disposed) return;
     if (this.running) return;
     this.running = true;
     this.lastTime = null;
@@ -86,6 +89,8 @@ export class GameLoop {
     this.running = false;
     this.scheduler.stop();
   }
+
+  dispose(): void { this.stop(); this.disposed = true; this.events.abort(); }
 
   /**
    * Hand frame timing to a different source (entering/leaving VR). The tick

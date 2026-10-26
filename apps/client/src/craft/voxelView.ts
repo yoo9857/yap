@@ -154,6 +154,7 @@ interface FarBuffers {
  * they touch; rebuilds go through a nearest-first queue with a frame budget.
  */
 export class VoxelView {
+  private disposed = false;
   private readonly cubeGeo = cubeBrickGeometry();
   private readonly roundGeo = roundBrickGeometry();
   private readonly slopeGeo = slopeBrickGeometry();
@@ -233,7 +234,7 @@ export class VoxelView {
       material.emissiveIntensity = 0.55;
     }
     void loadTexture(textureUrl(def)).then((tex) => {
-      if (!tex) return; // keep the solid crayon colour
+      if (this.disposed || !tex) return; // keep the solid crayon colour
       material.map = tex;
       material.color.set(0xffffff); // the tile carries the hue, exactly like the tower
       if (def.emissive) material.emissiveMap = tex;
@@ -426,6 +427,15 @@ export class VoxelView {
       commits: this.waterCommits, peakBuildMs: this.waterBuildPeak, worker: !!this.waterWorker, workerMeshMs: this.workerMeshMs };
   }
 
+  chunkStats() {
+    let near = 0, far = 0, water = 0;
+    for (const chunk of this.chunks.values()) {
+      near += chunk.meshes.size; far += Number(chunk.far !== null); water += Number(chunk.water !== null);
+    }
+    return { chunks: this.chunks.size, queued: this.queue.size, nearMeshes: near, farMeshes: far, waterMeshes: water,
+      disposed: this.disposed };
+  }
+
   private invalidate(id: number): void {
     const cx = chunkX(id);
     const cz = chunkZ(id);
@@ -483,6 +493,14 @@ export class VoxelView {
       chunks.set(chunkId(cx, cz), chunk);
     }
     this.chunks = chunks;
+    // Retained boundary faces were meshed against the old outside column or
+    // a neighbour that just unloaded. Restored neighbours can change both
+    // brick exposure and a perfectly stable water surface without any edit.
+    for (const [id] of chunks) {
+      const cx = chunkX(id), cz = chunkZ(id);
+      if (scx !== 0 && (cx === 0 || cx === CHUNKS_X - 1 || !chunks.has(chunkId(cx - 1, cz)) || !chunks.has(chunkId(cx + 1, cz))) ||
+        scz !== 0 && (cz === 0 || cz === CHUNKS_Z - 1 || !chunks.has(chunkId(cx, cz - 1)) || !chunks.has(chunkId(cx, cz + 1)))) this.invalidate(id);
+    }
     for (const [id, range] of waterQueued) {
       const cx = chunkX(id) - scx, cz = chunkZ(id) - scz;
       if (cx >= 0 && cz >= 0 && cx < CHUNKS_X && cz < CHUNKS_Z) this.waterQueue.set(chunkId(cx, cz), range);
@@ -515,6 +533,7 @@ export class VoxelView {
    * every stud is emitted — the old behaviour, which a fly-through wants.
    */
   update(world: VoxelWorld, eye?: THREE.Vector3): void {
+    if (this.disposed) return;
     this.hasFocus = !!eye;
     if (eye && this.focus.distanceToSquared(eye) > STUD_STEP * STUD_STEP) {
       this.focus.copy(eye);
@@ -994,19 +1013,24 @@ export class VoxelView {
   }
 
   dispose(): void {
+    if (this.disposed) return;
+    this.disposed = true;
     this.cancelWaterBatch();
     this.waterQueue.clear();
     this.waterWorker?.terminate(); this.waterWorker = null;
     for (const chunk of this.chunks.values()) this.dropChunk(chunk);
+    this.chunks.clear(); this.queue.clear(); this.waterSnapshot = null;
     this.setWarm(false);
     this.waterMaterial.dispose();
     for (const mesh of this.studMeshes.values()) {
       this.scene.remove(mesh);
       mesh.dispose();
     }
+    this.studMeshes.clear();
     this.studGeometry.dispose();
     for (const material of this.materials.values()) material.dispose();
     for (const material of this.materialList) material.dispose(); // the merged twins
+    this.materials.clear(); this.materialList.length = 0;
     this.scene.remove(this.highlight);
     this.highlight.geometry.dispose();
     (this.highlight.material as THREE.Material).dispose();

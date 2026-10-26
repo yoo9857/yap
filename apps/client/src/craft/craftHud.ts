@@ -184,6 +184,12 @@ export class CraftHud {
   private toastEl: HTMLElement | null = null;
   private toastTimer: ReturnType<typeof setTimeout> | undefined;
 
+  dispose(): void {
+    clearTimeout(this.toastTimer); this.toastEl?.remove(); this.toastEl = null;
+    this.root.remove(); this.recipePanel.remove(); this.pieceChip.remove(); this.hint.remove();
+    this.slots.length = 0; this.recipeButtons.clear();
+  }
+
   /** One toast at a time: a new message replaces the old one instead of
    *  stacking on top of it (cycling a setting fires several in a row). */
   toast(text: string): void {

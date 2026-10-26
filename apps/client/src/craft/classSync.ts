@@ -33,6 +33,7 @@ export interface ClassSyncHooks {
   teleport(x: number, y: number, z: number): void;
   toast(text: string): void;
   clearKeys(): void;
+  worldChanged?(): void;
 }
 
 function nameTag(name: string, teacher: boolean): THREE.Sprite {
@@ -67,6 +68,7 @@ function nameTag(name: string, teacher: boolean): THREE.Sprite {
  * only place that converts to and from the local scrolling grid.
  */
 export class ClassSync {
+  private readonly session: Pick<ClassSession, "you" | "role">;
   readonly hud: ClassHud;
   private readonly remotes = new Map<string, Remote>();
   private members: ClassMember[];
@@ -79,13 +81,17 @@ export class ClassSync {
 
   constructor(
     readonly client: ClassClient,
-    private readonly session: ClassSession,
+    session: ClassSession,
     private readonly field: FieldWindow,
     private readonly view: VoxelView,
     private readonly scene: THREE.Scene,
     private readonly hooks: ClassSyncHooks,
     furniture: FurnitureLayout,
   ) {
+    // The full initial edit array can contain 300,000 tuples. The field owns
+    // the live state; retain only identity, not a second obsolete world copy.
+    this.session = { you: session.you, role: session.role };
+    this.online = client.connected;
     this.members = session.members;
     this.settings = session.settings;
     field.replaceAll(session.edits);
@@ -118,13 +124,13 @@ export class ClassSync {
       furniture.load(items, true);
       if (rejected) hooks.toast("🛋️ 다른 변경이나 건축 잠금 때문에 가구 작업을 적용하지 못했어요");
     };
-    client.onReject = (edits) => this.undo(edits);
+    client.onReject = (edits, authoritative) => this.undo(edits, authoritative);
     client.onChat = (msg) => this.hud.chat(msg.name, msg.role, msg.text, msg.system);
     client.onSettings = (settings) => {
       const was = this.settings;
       this.settings = settings;
       this.hud.setSettings(settings);
-      if (session.role === "student") {
+      if (this.session.role === "student") {
         if (settings.buildLocked !== was.buildLocked)
           hooks.toast(settings.buildLocked ? "🧱 선생님이 건축을 잠갔어요" : "🧱 다시 건축할 수 있어요");
         if (settings.chatLocked !== was.chatLocked)
@@ -144,6 +150,7 @@ export class ClassSync {
       this.pending.clear();
       this.outbox.length = 0;
       view.markDirty();
+      hooks.worldChanged?.();
       hooks.toast("🧹 들판이 새로 비워졌어요");
     };
     client.onConnection = (online) => {
@@ -151,6 +158,10 @@ export class ClassSync {
       this.hud.setOnline(online);
     };
     client.onResync = (fresh) => {
+      this.session.you = fresh.you;
+      this.session.role = fresh.role;
+      this.hud.setYou(fresh.you);
+      for (const id of [...this.remotes.keys()]) this.dropRemote(id);
       // the server restarted and the class was opened afresh: say so instead
       // of silently swapping everyone's buildings for an empty field
       if (fresh.edits.length === 0 && field.hasEdits()) hooks.toast("⚠️ 서버가 다시 시작되어 반이 새로 열렸어요");
@@ -164,15 +175,17 @@ export class ClassSync {
       this.hud.setMembers(fresh.members);
       this.settings = fresh.settings;
       this.hud.setSettings(fresh.settings);
+      hooks.worldChanged?.();
     };
     client.onEnded = (reason) => {
       this.online = false;
+      for (const id of [...this.remotes.keys()]) this.dropRemote(id);
       hooks.clearKeys();
       this.hud.showEnded(
         reason === "kicked"
           ? "선생님이 수업에서 내보냈어요."
           : reason === "closed"
-            ? session.role === "teacher"
+            ? this.session.role === "teacher"
               ? "수업을 마쳤어요. 모든 학생의 연결이 끝났어요."
               : "선생님이 수업을 마쳤어요. 수고했어요!"
             : reason === "no-class"
@@ -180,6 +193,7 @@ export class ClassSync {
             : "연결이 끝났어요. 다시 참여해 주세요.",
       );
     };
+    client.activate(); // replay reliable edits that arrived during world/graphics setup
   }
 
   get role(): "teacher" | "student" {
@@ -200,7 +214,10 @@ export class ClassSync {
   }
 
   flushEdits(): void {
-    while (this.outbox.length > 0) this.client.send({ t: "k-edit", edits: this.outbox.splice(0, 8) });
+    while (this.outbox.length > 0) {
+      if (!this.client.send({ t: "k-edit", edits: this.outbox.slice(0, 8) })) break;
+      this.outbox.splice(0, 8);
+    }
   }
 
   /** Per fixed tick: flush edits, report position, glide remote robots. */
@@ -219,6 +236,10 @@ export class ClassSync {
 
   /** Per rendered frame: place remote robots in local grid space. */
   render(frameDt: number): void {
+    if (!this.online) {
+      for (const r of this.remotes.values()) r.rig.root.visible = false;
+      return;
+    }
     const k = 1 - Math.pow(0.0005, frameDt); // ~100 ms catch-up
     const now = performance.now();
     for (const r of this.remotes.values()) {
@@ -282,13 +303,13 @@ export class ClassSync {
     }
   }
 
-  private undo(edits: ClassEdit[]): void {
-    for (const [ax, y, az] of edits) {
+  private undo(edits: ClassEdit[], authoritative: boolean): void {
+    for (const [ax, y, az, block, shape] of edits) {
       const key = `${ax},${y},${az}`;
       const p = this.pending.get(key);
-      if (!p) continue;
+      if (!p && !authoritative) continue;
       this.pending.delete(key);
-      const cell = this.field.applyRemote(ax, y, az, p.prev[0], p.prev[1]);
+      const cell = this.field.applyRemote(ax, y, az, authoritative ? block : p!.prev[0], authoritative ? shape : p!.prev[1]);
       if (cell) { this.view.markCellDirty(cell[0], cell[1], cell[2]); this.view.markWaterDirty(cell[0], cell[1], cell[2]); }
     }
     if (this.session.role === "student" && this.settings.buildLocked) this.hooks.toast("🧱 지금은 건축이 잠겨 있어요");
@@ -322,5 +343,6 @@ export class ClassSync {
     for (const id of [...this.remotes.keys()]) this.dropRemote(id);
     this.hud.dispose();
     this.client.close();
+    this.pending.clear(); this.outbox.length = 0; this.members = [];
   }
 }

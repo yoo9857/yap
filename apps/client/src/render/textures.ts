@@ -85,8 +85,8 @@ export function warmupGpu(
  * use instead. Run once play had started, that was the "very slow at first,
  * then smooth" opening: one long freeze and a string of hitches.
  *
- * So: upload textures; `compileAsync` (the browser compiles in parallel, off
- * the main thread, where KHR_parallel_shader_compile exists); then draw
+ * So: upload textures; compile and await the GL completion flag (the browser
+ * compiles in parallel where KHR_parallel_shader_compile exists); then draw
  * `frames` complete frames through the mode's own render path, which compiles
  * and uploads whatever is left — shadow, mask, composite, render targets.
  */
@@ -96,12 +96,39 @@ export async function warmupGpuAsync(
   camera: THREE.Camera,
   renderFrame: () => void,
   frames = 2,
+  signal?: AbortSignal,
 ): Promise<void> {
+  if (signal?.aborted) return;
   uploadAllTextures(renderer);
-  await renderer.compileAsync(scene, camera);
+  // Three's compileAsync keeps an uncancellable polling timer over material
+  // properties. A mode disposing those materials mid-compile can leave that
+  // poll reading a deleted program. Poll the public GL completion flag here
+  // and cancel waits before disposing the renderer instead.
+  renderer.compile(scene, camera);
+  const gl = renderer.getContext(), parallel = gl.getExtension("KHR_parallel_shader_compile");
+  if (parallel) while (!signal?.aborted && !gl.isContextLost()) {
+    const ready = (renderer.info.programs ?? []).every((p) => {
+      const program = p.program as WebGLProgram | undefined;
+      return !program || gl.getProgramParameter(program, parallel.COMPLETION_STATUS_KHR) === true;
+    });
+    if (ready) break;
+    await warmupYield(false, signal);
+  }
   for (let i = 0; i < frames; i++) {
+    if (signal?.aborted || gl.isContextLost()) return;
     renderFrame();
     // let the browser present, so GPU-side work lands now, not in play
-    await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+    await warmupYield(true, signal);
   }
+}
+
+function warmupYield(frame: boolean, signal?: AbortSignal): Promise<void> {
+  return new Promise((resolve) => {
+    if (signal?.aborted) { resolve(); return; }
+    let cancel = () => {};
+    const done = () => { cancel(); signal?.removeEventListener("abort", done); resolve(); };
+    if (frame) { const id = requestAnimationFrame(done); cancel = () => cancelAnimationFrame(id); }
+    else { const id = setTimeout(done, 10); cancel = () => clearTimeout(id); }
+    signal?.addEventListener("abort", done, { once: true });
+  });
 }

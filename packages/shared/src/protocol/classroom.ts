@@ -14,8 +14,8 @@ import { playerNameSchema } from "./messages.js";
  * selected with `?mode=class`.
  */
 
-/** 3: named classrooms. 4: shared water states (19..28), including retained water. */
-export const CLASS_PROTOCOL_VERSION = 4;
+/** 3: named classrooms. 4: water. 5: paced live-world streaming + reliable replay. */
+export const CLASS_PROTOCOL_VERSION = 5;
 /** Highest block layer of the field grid (WORLD_Y - 1). */
 export const CLASS_MAX_Y = 55;
 /** Field coordinates are bounded so a hostile client can't grow the store
@@ -182,7 +182,7 @@ export const classServerSchema = z.discriminatedUnion("t", [
   z.object({ t: z.literal("s-k-gather"), pos: vec3Schema }),
   z.object({ t: z.literal("s-k-settings"), settings: classSettingsSchema }),
   /** Your edit was refused (build lock) — undo it locally. */
-  z.object({ t: z.literal("s-k-reject"), edits: z.array(classEditSchema) }),
+  z.object({ t: z.literal("s-k-reject"), edits: z.array(classEditSchema), authoritative: z.boolean().optional() }),
   z.object({ t: z.literal("s-k-kicked") }),
   z.object({ t: z.literal("s-k-closed") }),
   z.object({ t: z.literal("s-k-error"), code: classErrorCodeSchema }),

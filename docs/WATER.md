@@ -13,8 +13,10 @@ simulation on the server. Solo fields/islands run the same rules locally.
 
 These IDs are persisted; never renumber them. The client only submits source
 placement/removal. The server produces flowing, falling and retained states.
-Classroom protocol 4 prevents clients without water support from interpreting
-these IDs as solid, invisible blocks. Existing block/furniture saves remain valid.
+Classroom protocol 5 includes water support and paced world transfer with reliable
+replay during loading (protocol 4 introduced water). The version gate prevents
+clients predating water from interpreting these IDs as solid, invisible blocks.
+Existing block/furniture saves remain valid.
 
 ## Continuous geometry
 
@@ -105,7 +107,7 @@ Deployment snapshots the live SQLite database before rebuilding. After the image
 is ready, `scripts/wait-idle.sh` checks established app connections inside the
 container. If they remain active for two minutes it aborts without replacing the
 running app. Initial, idle and active-connection paths are verified with mocks.
-Refreshing an older classroom tab loads protocol 4 and the new water renderer.
+Refreshing an older classroom tab loads protocol 5 and the current water renderer.
 
 Automatic ocean/lake generation remains a separate follow-up; this release covers
 player-built water, its interaction with edited terrain, and classroom sharing.

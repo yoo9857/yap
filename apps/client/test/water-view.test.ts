@@ -17,6 +17,19 @@ const flush = (view: VoxelView, world: VoxelWorld, eye: THREE.Vector3) => {
 };
 
 describe("water mesh generations", () => {
+  it("rebuilds a retained border when scrolling restores its saved neighbour", () => {
+    const field = new FieldWindow(), scene = new THREE.Scene(), view = new VoxelView(scene), eye = new THREE.Vector3(80, 5, 80);
+    field.applyRemote(79, 4, 0, WATER, 0); field.applyRemote(80, 4, 0, WATER, 0);
+    view.update(field.world, eye);
+    const retained = meshes(scene)[0]!, before = retained.geometry;
+    const shift = field.recenter({ x: 96, z: 80 })!;
+    view.shift(shift.dx, shift.dz);
+    for (let i = 0; i < 150; i++) view.update(field.world, eye);
+    expect(retained.geometry).not.toBe(before);
+    expect(meshes(scene)).toHaveLength(2);
+    view.dispose();
+  });
+
   it("resumes banked water after leaving and returning to the field window", () => {
     const field = new FieldWindow(), view = new VoxelView(new THREE.Scene());
     const sim = new WaterSim(field.world, view, field);

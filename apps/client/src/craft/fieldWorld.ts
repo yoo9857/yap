@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { voxelCoordinates, voxelKey, type VoxelKey } from "@robo/shared";
 import { blockByKey, isKnownCell } from "./blocks.js";
 import { HOTBAR, sanitizeCounts, type Counts } from "./inventory.js";
 import { VoxelWorld, WORLD_X, WORLD_Y, WORLD_Z } from "./voxelWorld.js";
@@ -63,7 +64,7 @@ export class FieldWindow {
   private readonly column = fieldColumn();
   /** Absolute cell key → [blockId, shape], for cells outside the live window
    *  (and, after a bank(), inside it too). */
-  private readonly edits = new Map<string, [number, number]>();
+  private readonly edits = new Map<VoxelKey, [number, number]>();
   /** Absolute coordinate of grid cell (0, 0). */
   private originX = -CENTER_X;
   private originZ = -CENTER_Z;
@@ -111,7 +112,7 @@ export class FieldWindow {
     // forget the window's old entries, then re-record what differs now —
     // keys are only built for edited cells, never for the 1.4M pristine ones
     for (const key of this.edits.keys()) {
-      const [ax, y, az] = key.split(",").map(Number) as [number, number, number];
+      const [ax, y, az] = voxelCoordinates(key);
       if (this.world.inBounds(ax - this.originX, y, az - this.originZ)) this.edits.delete(key);
     }
     const { cells, shapes } = this.world;
@@ -121,7 +122,7 @@ export class FieldWindow {
       for (let z = 0; z < WORLD_Z; z++) {
         for (let x = 0; x < WORLD_X; x++, i++) {
           if (cells[i] === pristine && shapes[i] === 0) continue;
-          this.edits.set(`${x + this.originX},${y},${z + this.originZ}`, [cells[i]!, shapes[i]!]);
+          this.edits.set(voxelKey(x + this.originX, y, z + this.originZ), [cells[i]!, shapes[i]!]);
         }
       }
     }
@@ -137,7 +138,7 @@ export class FieldWindow {
     }
     shapes.fill(0);
     for (const [key, [block, shape]] of this.edits) {
-      const [ax, y, az] = key.split(",").map(Number) as [number, number, number];
+      const [ax, y, az] = voxelCoordinates(key);
       const x = ax - this.originX;
       const z = az - this.originZ;
       if (!this.world.inBounds(x, y, z)) continue;
@@ -145,6 +146,7 @@ export class FieldWindow {
       cells[i] = block;
       shapes[i] = shape;
     }
+    this.world.version++;
     this.bankedVersion = this.world.version;
   }
 
@@ -164,7 +166,7 @@ export class FieldWindow {
   cellAt(ax: number, y: number, az: number): [number, number] {
     const [x, z] = this.toGrid(ax, az);
     if (this.world.inBounds(x, y, z)) return [this.world.get(x, y, z), this.world.getShape(x, y, z)];
-    return this.edits.get(`${ax},${y},${az}`) ?? [this.column[y] ?? 0, 0];
+    return this.edits.get(voxelKey(ax, y, az)) ?? [this.column[y] ?? 0, 0];
   }
 
   /**
@@ -177,7 +179,7 @@ export class FieldWindow {
       this.world.setShaped(x, y, z, block, shape);
       return [x, y, z];
     }
-    const key = `${ax},${y},${az}`;
+    const key = voxelKey(ax, y, az);
     if (block === (this.column[y] ?? 0) && shape === 0) this.edits.delete(key);
     else this.edits.set(key, [block, shape]);
     return null;
@@ -191,7 +193,7 @@ export class FieldWindow {
   replaceAll(edits: readonly (readonly [number, number, number, number, number])[]): void {
     this.edits.clear();
     for (const [ax, y, az, block, shape] of edits) {
-      if (y >= 0 && y < WORLD_Y) this.edits.set(`${ax},${y},${az}`, [block, shape]);
+      if (y >= 0 && y < WORLD_Y && (block !== this.column[y] || shape !== 0)) this.edits.set(voxelKey(ax, y, az), [block, shape]);
     }
     this.fill();
   }
@@ -206,7 +208,7 @@ export class FieldWindow {
     this.bank();
     // Never overwrite a readable save with one the loader would reject.
     if (this.edits.size > MAX_SAVED_EDITS) return false;
-    const edits = [...this.edits].map(([key, [block, shape]]) => [...key.split(",").map(Number), block, shape]);
+    const edits = [...this.edits].map(([key, [block, shape]]) => [...voxelCoordinates(key), block, shape]);
     try {
       storage.setItem(
         SAVE_KEY,
@@ -239,7 +241,7 @@ export class FieldWindow {
     for (const [x, y, zz, block, shape] of d.edits) {
       if (y < 0 || y >= WORLD_Y || shape < 0 || shape > 17) continue;
       if (!isKnownCell(block)) continue;
-      this.edits.set(`${x},${y},${zz}`, [block, shape]);
+      this.edits.set(voxelKey(x, y, zz), [block, shape]);
     }
     this.fill();
     const clamp = (v: number, hi: number) => Math.min(Math.max(v, 1), hi - 1);

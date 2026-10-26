@@ -74,6 +74,9 @@ const VIEW_KEY = "craftyap-view-distance";
  * lives in the pure craft/* modules.
  */
 export class CraftGame {
+  private readonly events = new AbortController();
+  private disposed = false;
+  private debugHooks: object | null = null;
   private readonly renderer: GameRenderer;
   private readonly view: VoxelView;
   private readonly hud: CraftHud;
@@ -172,6 +175,7 @@ export class CraftGame {
     }
     // Before the first unstick: the player must not spawn inside a sofa. The
     // host reads the game's fields lazily, since some are built further down.
+    const classroomClient = opts.classroom?.client;
     this.furniture = new FurnitureController({
       scene: this.renderer.scene,
       world: this.state.world,
@@ -187,9 +191,9 @@ export class CraftGame {
         for (const [kind, x, y, z, rot] of [...placed, ...removed])
           for (const [ax, ay, az] of this.state.furniture.cellsOf({ kind, x, y, z, rot }))
             this.water?.touch(ax - (this.field?.absOriginX ?? 0), ay, az - (this.field?.absOriginZ ?? 0));
-        if (!opts.classroom) return;
+        if (!classroomClient) return;
         this.sync?.flushEdits();
-        opts.classroom.client.send({ t: "k-furniture", placed, removed });
+        classroomClient.send({ t: "k-furniture", placed, removed });
       },
       resumePlay: () => this.resumePlay(),
       closeOtherPanels: () => {
@@ -226,6 +230,12 @@ export class CraftGame {
             this.keys.clear();
             this.mining = this.placing = false;
           },
+          worldChanged: () => {
+            unstick(this.state.world, this.body);
+            this.body.vx = this.body.vy = this.body.vz = 0;
+            this.prevBody.set(this.body.x, this.body.y, this.body.z);
+            unstick(this.state.world, this.pet.body);
+          },
         }, this.state.furniture);
       unstick(this.state.world, this.body);
       this.view.markDirty(); // the class's field replaced the empty one
@@ -240,9 +250,9 @@ export class CraftGame {
       });
 
     this.bindInput(mount);
-    window.addEventListener("visibilitychange", () => {
+    document.addEventListener("visibilitychange", () => {
       if (document.visibilityState === "hidden") this.persist();
-    });
+    }, { signal: this.events.signal });
 
     // solo play runs the water itself; a classroom's water is the server's
     this.water = this.sync ? null : new WaterSim(this.state.world, this.view, this.field);
@@ -278,11 +288,17 @@ export class CraftGame {
   async prepare(setMessage: (text: string) => void = () => {}): Promise<void> {
     setMessage("Loading textures…");
     await texturesReady();
+    if (this.disposed) return;
     setMessage("Preparing graphics…");
     this.furniture.setWarm(true);
     this.view.setWarm(true); // the water shader, too
     this.warming = true;
-    await warmupGpuAsync(this.renderer.renderer, this.renderer.scene, this.renderer.camera, () => this.render(1, 1 / 60));
+    try {
+      await warmupGpuAsync(this.renderer.renderer, this.renderer.scene, this.renderer.camera, () => {
+        if (!this.disposed) this.render(1, 1 / 60);
+      }, 2, this.events.signal);
+    } catch (error) { if (!this.disposed) throw error; }
+    if (this.disposed) return;
     this.warming = false;
     this.furniture.setWarm(false);
     this.view.setWarm(false);
@@ -291,10 +307,12 @@ export class CraftGame {
   }
 
   start(): void {
+    if (this.disposed) return;
     this.loop.start();
     // started without `prepare` (a test harness): warm up the old way
     if (!this.warmed) {
       void texturesReady().then(() => {
+        if (this.disposed) return;
         warmupGpu(this.renderer.renderer, this.renderer.scene, this.renderer.camera);
       });
     }
@@ -306,8 +324,16 @@ export class CraftGame {
 
   /** Release the WebGL/audio-facing resources when the mode is replaced. */
   dispose(): void {
-    this.loop.stop();
+    if (this.disposed) return;
+    this.disposed = true;
+    this.loop.dispose();
     this.persist();
+    this.events.abort();
+    if (document.pointerLockElement === this.renderer.renderer.domElement) document.exitPointerLock();
+    const globals = window as unknown as Record<string, unknown>;
+    if (globals.__roboCraft === this.debugHooks) delete globals.__roboCraft;
+    this.debugHooks = null;
+    this.water?.clear();
     this.underwaterTint.remove();
     this.workshop.dispose();
     this.view.dispose();
@@ -325,19 +351,28 @@ export class CraftGame {
     this.petShop.dispose();
     this.furniture.dispose();
     this.bgm.dispose();
+    this.sfx.dispose();
+    this.perf.dispose();
+    this.hud.dispose();
+    this.ghostCubeGeo.dispose(); this.ghostRoundGeo.dispose(); this.ghostSlopeGeo.dispose();
+    this.ghostOk.dispose(); this.ghostBad.dispose();
+    for (const material of this.robotMaterials ?? []) material.dispose();
+    this.robotMaterials = null;
     this.renderer.dispose();
   }
 
   // ---------------------------------------------------------------- input
 
   private bindInput(mount: HTMLElement): void {
+    const on = <K extends keyof DocumentEventMap>(name: K, handler: (event: DocumentEventMap[K]) => void) =>
+      document.addEventListener(name, handler, { signal: this.events.signal });
     mount.addEventListener("click", () => {
       if (!this.locked && !this.hud.recipesOpen && !this.workshop.active) {
         void Promise.resolve(mount.querySelector("canvas")?.requestPointerLock()).catch(() => {}); // refused during the browser's re-lock cooldown: the next click retries
       }
-    });
-    document.addEventListener("pointerlockchange", () => {
-      this.locked = document.pointerLockElement !== null;
+    }, { signal: this.events.signal });
+    on("pointerlockchange", () => {
+      this.locked = document.pointerLockElement === this.renderer.renderer.domElement;
       this.hud.setPointerLocked(this.locked);
       if (this.locked) {
         // back in play: a panel left open would sit over the view, unusable
@@ -349,7 +384,7 @@ export class CraftGame {
         this.placing = false;
       }
     });
-    document.addEventListener("mousemove", (e) => {
+    on("mousemove", (e) => {
       if (!this.locked) return;
       // clamp the per-event delta: pointer lock occasionally emits a huge
       // spurious movementX/Y (browser/OS spike) that whips the camera around
@@ -358,7 +393,7 @@ export class CraftGame {
       this.yaw -= dx * 0.0026;
       this.pitch = Math.min(1.35, Math.max(-1.25, this.pitch - dy * 0.0026));
     });
-    document.addEventListener("mousedown", (e) => {
+    on("mousedown", (e) => {
       if (!this.locked) return;
       if (e.button === 0) this.mining = true;
       if (e.button === 2) this.placing = true;
@@ -367,18 +402,18 @@ export class CraftGame {
         if (this.aimFurniture) this.furniture.pickKind(this.aimFurniture);
       }
     });
-    document.addEventListener("mouseup", (e) => {
+    on("mouseup", (e) => {
       if (e.button === 0) this.mining = false;
       if (e.button === 2) this.placing = false;
     });
-    document.addEventListener("contextmenu", (e) => e.preventDefault());
-    document.addEventListener("wheel", (e) => {
+    on("contextmenu", (e) => e.preventDefault());
+    on("wheel", (e) => {
       if (!this.locked) return;
       if (this.furniture.handleWheel(e.deltaY > 0)) return;
       this.selected = (this.selected + (e.deltaY > 0 ? 1 : HOTBAR.length - 1)) % HOTBAR.length;
     });
-    document.addEventListener("keydown", (e) => {
-      if (e.target instanceof HTMLElement && /INPUT|SELECT|TEXTAREA/.test(e.target.tagName)) return;
+    on("keydown", (e) => {
+      if (e.target instanceof HTMLElement && (/INPUT|SELECT|TEXTAREA/.test(e.target.tagName) || e.target.isContentEditable)) return;
       const key = e.key.toLowerCase();
       if (key === "b" && !e.repeat) { this.workshop.toggle(); return; }
       if (this.workshop.active) return;
@@ -420,8 +455,10 @@ export class CraftGame {
         this.pieceTilt = 0;
       }
     });
-    document.addEventListener("keyup", (e) => this.keys.delete(e.code));
-    window.addEventListener("blur", () => this.keys.clear());
+    on("keyup", (e) => this.keys.delete(e.code));
+    window.addEventListener("blur", () => {
+      this.keys.clear(); this.mining = this.placing = false;
+    }, { signal: this.events.signal });
   }
 
   // ---------------------------------------------------------------- sim
@@ -962,7 +999,7 @@ export class CraftGame {
     this.renderer.scene.add(ground);
     this.fieldGround = ground;
     void loadTexture(textureUrl(blockByKey("grass")!)).then((tex) => {
-      if (!tex) return;
+      if (this.disposed || !tex) return;
       const tiled = tex.clone();
       tiled.wrapS = tiled.wrapT = THREE.RepeatWrapping;
       tiled.repeat.set(size, size);
@@ -1181,7 +1218,7 @@ export class CraftGame {
   // ---------------------------------------------------------------- debug
 
   private installDebugHooks(): void {
-    (window as unknown as Record<string, unknown>).__roboCraft = {
+    const hooks = {
       snapshot: () => ({
         pos: [this.body.x, this.body.y, this.body.z],
         grounded: this.body.grounded,
@@ -1281,10 +1318,14 @@ export class CraftGame {
       saveNow: () => this.persist(),
       perf: () => this.perf.sample(),
       waterStats: () => ({ ...this.view.waterStats(), simulation: this.water?.stats() ?? null }),
+      chunks: () => this.view.chunkStats(),
+      dispose: () => this.dispose(),
       machine: () => this.workshop.snapshot(),
       classroom: () => this.sync?.debug() ?? null,
       classSend: (msg: Parameters<ClassClient["send"]>[0]) => this.sync?.client.send(msg),
       absolute: () => (this.field ? this.field.toAbsolute(this.body.x, this.body.z) : null),
     };
+    this.debugHooks = hooks;
+    (window as unknown as Record<string, unknown>).__roboCraft = hooks;
   }
 }

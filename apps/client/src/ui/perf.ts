@@ -32,6 +32,7 @@ interface MemoryInfo {
 }
 
 export class PerfMonitor {
+  dispose(): void { this.el?.remove(); this.el = null; }
   private el: HTMLElement | null = null;
   private frames = 0;
   private acc = 0;

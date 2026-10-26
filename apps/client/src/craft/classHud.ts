@@ -39,7 +39,7 @@ export class ClassHud {
 
   constructor(
     private readonly role: ClassRole,
-    private readonly you: string,
+    private you: string,
     room: string,
     teacher: string,
     private readonly actions: ClassHudActions,
@@ -179,6 +179,8 @@ export class ClassHud {
     this.log.classList.remove("open");
     this.actions.typing(false);
   }
+
+  setYou(you: string): void { this.you = you; }
 
   dispose(): void {
     document.removeEventListener("keydown", this.onKey, true);

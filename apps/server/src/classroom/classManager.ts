@@ -8,6 +8,7 @@ import {
   decodeClassClient,
   playerNameSchema,
   type ClassClientMessage,
+  type ClassEdit,
   type ClassServerMessage,
 } from "@robo/shared";
 import { log } from "../log.js";
@@ -20,6 +21,23 @@ const JOIN_TIMEOUT_MS = 10_000;
 /** A class nobody is connected to survives this long (teacher's coffee break). */
 const EMPTY_CLASS_TTL_MS = 30 * 60_000;
 const MAX_BUFFERED = 1024 * 1024;
+const STREAM_BUFFERED = 256 * 1024;
+const streamQueue = new Set<ClassSocket>();
+let streamTimer: NodeJS.Timeout | null = null;
+/** All initial field transfers share the same CPU budget, including different
+ *  classrooms. Requeued transports go behind those not visited this round. */
+function scheduleStreams(): void {
+  if (streamTimer || streamQueue.size === 0) return;
+  streamTimer = setTimeout(() => {
+    streamTimer = null;
+    const start = performance.now();
+    for (const socket of [...streamQueue]) {
+      streamQueue.delete(socket); socket.pump();
+      if (performance.now() - start >= 8) break;
+    }
+    scheduleStreams();
+  }, 16);
+}
 /** Changed classes are written to the store this often (and on end/exit). */
 const SAVE_MS = 15_000;
 
@@ -38,6 +56,9 @@ class ClassSocket implements ClassPeer {
   alive = true;
   private closed = false;
   private strikes = 0;
+  private stream: Generator<ClassEdit[], void, unknown> | null = null;
+  private readonly outbound: string[] = [];
+  private queuedBytes = 0;
   private readonly buckets = new Map<string, { tokens: number; last: number }>();
 
   constructor(
@@ -47,20 +68,57 @@ class ClassSocket implements ClassPeer {
 
   send(msg: ClassServerMessage): void {
     if (this.closed || this.ws.readyState !== this.ws.OPEN) return;
-    // a snapshot can be skipped; anything else to a hopeless client ends it
-    if (this.ws.bufferedAmount > MAX_BUFFERED) {
-      if (msg.t === "s-k-snap") return;
-      this.close("backpressure");
-      return;
+    if (msg.t === "s-k-closed" || msg.t === "s-k-kicked" || msg.t === "s-k-error") {
+      this.release(); this.ws.send(JSON.stringify(msg)); return;
     }
-    this.ws.send(JSON.stringify(msg));
+    if (msg.t === "s-k-snap" && (this.stream || this.outbound.length || this.ws.bufferedAmount >= STREAM_BUFFERED)) return;
+    const raw = JSON.stringify(msg);
+    if (!this.outbound.length && this.ws.bufferedAmount < STREAM_BUFFERED) { this.ws.send(raw); return; }
+    const bytes = Buffer.byteLength(raw);
+    if (this.queuedBytes + bytes > MAX_BUFFERED) { this.close("backpressure"); return; }
+    this.outbound.push(raw); this.queuedBytes += bytes; this.schedulePump();
+  }
+
+  streamWorld(batches: Generator<ClassEdit[], void, unknown>, count: number): void {
+    this.stream?.return(); this.stream = batches;
+    if (count > 2000) this.schedulePump();
+    else this.pump();
+  }
+
+  private schedulePump(): void {
+    if (!this.closed) { streamQueue.add(this); scheduleStreams(); }
+  }
+
+  pump(): void {
+    if (this.closed || this.ws.readyState !== this.ws.OPEN) { this.release(); return; }
+    const start = performance.now();
+    while (this.ws.bufferedAmount < STREAM_BUFFERED) {
+      const queued = this.outbound.shift();
+      if (queued !== undefined) { this.queuedBytes -= Buffer.byteLength(queued); this.ws.send(queued); }
+      else if (this.stream) {
+        const next = this.stream.next();
+        if (next.done) { this.stream = null; break; }
+        this.ws.send(JSON.stringify({ t: "s-k-world", edits: next.value } satisfies ClassServerMessage));
+      } else break;
+      if (performance.now() - start >= 2) break;
+    }
+    if (this.stream || this.outbound.length) this.schedulePump();
+  }
+
+  private release(): void {
+    streamQueue.delete(this);
+    if (streamQueue.size === 0 && streamTimer) { clearTimeout(streamTimer); streamTimer = null; }
+    this.stream?.return(); this.stream = null;
+    this.outbound.length = 0; this.queuedBytes = 0;
   }
 
   close(reason: string): void {
     if (this.closed) return;
     this.closed = true;
+    this.release();
     try {
-      this.ws.close(1000, reason);
+      if (reason === "heartbeat" || reason === "backpressure" || reason === "join timeout" || reason === "server shutdown") this.ws.terminate();
+      else this.ws.close(1000, reason);
     } catch {
       this.ws.terminate();
     }
@@ -142,14 +200,16 @@ export class ClassManager {
         return;
       }
       if (!socket.allow(msg)) {
+        if (msg.t === "k-edit") room?.rejectEdits(socket, msg.edits);
         // A furniture edit is optimistic: reconnect to restore the authoritative
         // layout rather than silently leaving a placement only this client sees.
         if (msg.t === "k-furniture") socket.close("furniture rate limit");
         return;
       }
-      if (room) {
-        room.handle(socket, msg);
-        if (room.closed) this.retire(room);
+      const activeRoom = room;
+      if (activeRoom) {
+        activeRoom.handle(socket, msg);
+        if (activeRoom.closed) this.retire(activeRoom);
         return;
       }
       if (msg.t === "k-peek") {
@@ -165,9 +225,11 @@ export class ClassManager {
       if (room) clearTimeout(joinTimer);
     });
     ws.on("close", () => {
+      socket.close("transport closed");
       clearTimeout(joinTimer);
       this.sockets.delete(socket);
-      room?.leave(socket);
+      const prior = room; room = null;
+      prior?.leave(socket);
     });
     ws.on("error", (err) => log.warn({ from, err: err.message }, "class socket error"));
   }
@@ -287,6 +349,8 @@ export class ClassManager {
       room.close();
     }
     this.classes.clear();
+    for (const socket of this.sockets) socket.close("server shutdown");
+    this.sockets.clear();
     this.store.close();
   }
 }

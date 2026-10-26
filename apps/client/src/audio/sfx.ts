@@ -21,6 +21,8 @@ type SfxName =
   | "pour";
 
 export class Sfx {
+  private readonly events = new AbortController();
+  private disposed = false;
   private ctx: AudioContext | null = null;
   private unlocked = false;
 
@@ -32,11 +34,12 @@ export class Sfx {
       }
       this.unlocked = true;
     };
-    window.addEventListener("pointerdown", unlock, { passive: true });
-    window.addEventListener("keydown", unlock);
+    window.addEventListener("pointerdown", unlock, { passive: true, signal: this.events.signal });
+    window.addEventListener("keydown", unlock, { signal: this.events.signal });
   }
 
   private ensureContext(): void {
+    if (this.disposed) return;
     if (this.ctx) return;
     try {
       this.ctx = new AudioContext();
@@ -106,6 +109,13 @@ export class Sfx {
         this.noise(ctx, 0.16, 0.03);
         break;
     }
+  }
+
+  dispose(): void {
+    if (this.disposed) return;
+    this.disposed = true; this.events.abort(); this.unlocked = false;
+    if (this.ctx) void this.ctx.close().catch(() => {});
+    this.ctx = null;
   }
 
   private beep(

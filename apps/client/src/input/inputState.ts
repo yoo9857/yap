@@ -13,6 +13,7 @@ export interface InputFrame {
 export interface InputSource {
   /** Additive contribution to the current frame. */
   read(frame: MutableInputFrame): void;
+  dispose?(): void;
 }
 
 export interface MutableInputFrame {
@@ -28,6 +29,11 @@ export class InputState {
 
   addSource(source: InputSource): void {
     this.sources.push(source);
+  }
+
+  dispose(): void {
+    for (const source of this.sources) source.dispose?.();
+    this.sources.length = 0;
   }
 
   /** Drains edge flags from all sources into one immutable frame. */

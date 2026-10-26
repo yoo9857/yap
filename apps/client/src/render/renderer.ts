@@ -146,6 +146,8 @@ export class GameRenderer {
     window.removeEventListener("resize", this.onResize);
     this.renderer.setAnimationLoop(null);
     this.renderer.dispose();
+    this.renderer.forceContextLoss();
+    this.scene.clear();
     this.renderer.domElement.remove();
   }
 

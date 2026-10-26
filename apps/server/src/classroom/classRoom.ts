@@ -26,6 +26,7 @@ import { checkPassword, type SavedClass } from "./classStore.js";
 /** Anything that can receive messages — a socket in production, a stub in tests. */
 export interface ClassPeer {
   send(msg: ClassServerMessage): void;
+  streamWorld?(batches: Generator<ClassEdit[], void, unknown>, count: number): void;
   close(reason: string): void;
 }
 
@@ -62,6 +63,9 @@ export class ClassRoom {
   private readonly byPeer = new Map<ClassPeer, Member>();
   /** Compact coordinate → [block, shape]; only cells differing from the field. */
   private readonly edits = new Map<VoxelKey, [number, number]>();
+  /** Shared append log: joining peers retain a prefix length, not their own
+   *  copy of every key. Periodic compaction bounds historical tombstones. */
+  private editKeys: VoxelKey[] = [];
   private furniture = new FurnitureLayout();
   private settings: ClassSettings = { chatLocked: false, buildLocked: false };
   /** Wall-clock ms when the room last had nobody connected (null = occupied). */
@@ -98,6 +102,7 @@ export class ClassRoom {
       // A source can have been saved before its first flow step too.
       if (isWater(block)) this.fluid.touch(x, y, z);
     }
+    this.editKeys = [...this.edits.keys()];
   }
 
   /**
@@ -121,8 +126,7 @@ export class ClassRoom {
       // A step reads all candidates before writing them. Several candidates
       // may have seen the same last slot, so enforce the cap at commit too.
       if (block !== pristine(y) && !this.edits.has(cell) && !this.hasFluidCapacity()) return false;
-      if (block === pristine(y)) this.edits.delete(cell);
-      else this.edits.set(cell, [block, 0]);
+      this.writeEdit(cell, block === pristine(y) ? null : [block, 0]);
     },
   };
 
@@ -272,6 +276,8 @@ export class ClassRoom {
     member.peer = peer;
     this.byPeer.set(peer, member);
     this.emptySince = null;
+    if (this.editKeys.length > this.edits.size * 2 + 4096) this.editKeys = [...this.edits.keys()];
+    const keys = this.editKeys, count = peer.streamWorld ? keys.length : this.edits.size;
     peer.send({
       t: "s-k-welcome",
       you: member.id,
@@ -281,10 +287,17 @@ export class ClassRoom {
       key: member.key,
       members: this.memberList(),
       settings: this.settings,
-      editCount: this.edits.size,
+      editCount: count,
       furniture: this.furniture.toJSON(),
     });
-    // the shared field, in batches so no single frame is huge
+    // Freeze membership, not 300k duplicate tuples. Values may change while a
+    // slow client loads; reliable edits replay after its initial world arrives.
+    if (peer.streamWorld) {
+      peer.streamWorld(this.worldBatches(keys, count), count);
+      this.broadcastMembers();
+      return;
+    }
+    // In-memory peers/tests consume the complete field synchronously.
     let batch: ClassEdit[] = [];
     for (const [cell, [block, shape]] of this.edits) {
       const [x, y, z] = voxelCoordinates(cell);
@@ -364,6 +377,7 @@ export class ClassRoom {
         return;
       case "k-reset-world":
         this.edits.clear();
+        this.editKeys = [];
         this.fluidAtCapacity = false; this.fluidRescan = null;
         this.fluid.clear();
         this.furniture.clear();
@@ -376,7 +390,7 @@ export class ClassRoom {
 
   private applyEdits(me: Member, peer: ClassPeer, edits: ClassEdit[]): void {
     if (me.role === "student" && this.settings.buildLocked) {
-      peer.send({ t: "s-k-reject", edits });
+      this.rejectEdits(peer, edits);
       peer.send({ t: "s-k-furniture", furniture: this.furniture.toJSON() });
       return;
     }
@@ -391,13 +405,12 @@ export class ClassRoom {
         refused.push(edit);
         continue;
       }
-      if (block === pristine(y) && shape === 0) this.edits.delete(cell);
-      else this.edits.set(cell, [block, shape]);
+      this.writeEdit(cell, block === pristine(y) && shape === 0 ? null : [block, shape]);
       accepted.push(edit);
       this.fluid.touch(x, y, z); // water around it may flow in, or drain
       if (block === 0) this.furniture.afterBlockRemoved(x, y, z, this.placementWorld);
     }
-    if (refused.length > 0) peer.send({ t: "s-k-reject", edits: refused });
+    if (refused.length > 0) this.rejectEdits(peer, refused);
     if (refused.length > 0 || this.furniture.version !== furnitureVersion)
       this.broadcast({ t: "s-k-furniture", furniture: this.furniture.toJSON() });
     if (accepted.length === 0) return;
@@ -405,6 +418,16 @@ export class ClassRoom {
     for (const [other, member] of this.byPeer) {
       if (member !== me) other.send({ t: "s-k-edit", by: me.id, edits: accepted });
     }
+  }
+
+  /** Refusals carry the current cell, so a repeated write rolls back to the
+   *  last accepted edit instead of the client's first ten-second-old value. */
+  rejectEdits(peer: ClassPeer, edits: ClassEdit[]): void {
+    if (!this.byPeer.has(peer)) return;
+    peer.send({ t: "s-k-reject", authoritative: true, edits: edits.map<ClassEdit>(([x, y, z]) => {
+      const [block, shape] = this.edits.get(voxelKey(x, y, z)) ?? [pristine(y), 0];
+      return [x, y, z, block, shape];
+    }) });
   }
 
   private readonly placementWorld: PlacementWorld = {
@@ -471,6 +494,7 @@ export class ClassRoom {
       peer.close("class ended");
     }
     this.byPeer.clear();
+    for (const member of this.members.values()) member.peer = null;
     this.emptySince = Date.now();
   }
 
@@ -490,5 +514,25 @@ export class ClassRoom {
 
   private broadcast(msg: ClassServerMessage): void {
     for (const peer of this.byPeer.keys()) peer.send(msg);
+  }
+
+  private writeEdit(key: VoxelKey, value: [number, number] | null): void {
+    if (value === null) { this.edits.delete(key); return; }
+    if (!this.edits.has(key)) {
+      if (this.editKeys.length >= MAX_EDITS * 2) this.editKeys = [...this.edits.keys()];
+      this.editKeys.push(key);
+    }
+    this.edits.set(key, value);
+  }
+
+  private *worldBatches(keys: readonly VoxelKey[], count: number): Generator<ClassEdit[], void, unknown> {
+    let batch: ClassEdit[] = [];
+    for (let i = 0; i < count; i++) {
+      const key = keys[i]!;
+      const [x, y, z] = voxelCoordinates(key), [block, shape] = this.edits.get(key) ?? [pristine(y), 0];
+      batch.push([x, y, z, block, shape]);
+      if (batch.length === WORLD_BATCH) { yield batch; batch = []; }
+    }
+    if (batch.length) yield batch;
   }
 }

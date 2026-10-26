@@ -14,6 +14,8 @@ export const BGM_PLAYLIST: readonly string[] = [
 ];
 
 export class Bgm {
+  private readonly events = new AbortController();
+  private disposed = false;
   private readonly el: HTMLAudioElement;
   private muted = false;
   private readonly tracks: string[];
@@ -29,7 +31,7 @@ export class Bgm {
       this.el.addEventListener("ended", () => {
         this.el.src = this.tracks[this.nextIndex()]!;
         if (!this.muted) void this.el.play().catch(() => {});
-      });
+      }, { signal: this.events.signal });
     }
 
     const tryPlay = () => {
@@ -43,14 +45,14 @@ export class Bgm {
     const unlock = () => {
       if (this.el.paused && !this.muted) tryPlay();
     };
-    window.addEventListener("pointerdown", unlock, { passive: true });
-    window.addEventListener("keydown", unlock);
+    window.addEventListener("pointerdown", unlock, { passive: true, signal: this.events.signal });
+    window.addEventListener("keydown", unlock, { signal: this.events.signal });
     window.addEventListener("keydown", (e) => {
       if (e.key.toLowerCase() !== "m") return;
       const t = e.target as HTMLElement | null;
       if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA")) return;
       this.toggleMute();
-    });
+    }, { signal: this.events.signal });
   }
 
   /** Next track from a reshuffled queue (each song once per cycle). */
@@ -74,12 +76,15 @@ export class Bgm {
   }
 
   toggleMute(): void {
+    if (this.disposed) return;
     this.muted = !this.muted;
     this.el.muted = this.muted;
   }
 
   dispose(): void {
+    if (this.disposed) return;
+    this.disposed = true; this.events.abort();
     this.el.pause();
-    this.el.src = "";
+    this.el.removeAttribute("src"); this.el.load(); this.queue.length = 0;
   }
 }

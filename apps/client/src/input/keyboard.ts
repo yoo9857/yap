@@ -5,6 +5,7 @@ import type { InputSource, MutableInputFrame } from "./inputState.js";
  * handler and drained on the next fixed-tick sample.
  */
 export class KeyboardInput implements InputSource {
+  private readonly events = new AbortController();
   private readonly held = new Set<string>();
   private jumpEdge = false;
   private respawnEdge = false;
@@ -23,14 +24,17 @@ export class KeyboardInput implements InputSource {
         e.preventDefault();
       }
       if (e.code === "KeyR") this.respawnEdge = true;
-    });
+    }, { signal: this.events.signal });
     window.addEventListener("keyup", (e) => {
       this.held.delete(e.code);
-    });
+    }, { signal: this.events.signal });
     window.addEventListener("blur", () => {
-      this.held.clear();
-    });
+      this.clear();
+    }, { signal: this.events.signal });
   }
+
+  private clear(): void { this.held.clear(); this.jumpEdge = this.respawnEdge = false; }
+  dispose(): void { this.events.abort(); this.clear(); }
 
   read(frame: MutableInputFrame): void {
     if (this.held.has("KeyA") || this.held.has("ArrowLeft")) frame.moveX -= 1;

@@ -59,6 +59,46 @@ function setup(store = new MemoryClassStore()) {
 }
 
 describe("named classes", () => {
+  it("requires the streaming protocol so old clients cannot discard live edits while loading", () => {
+    const { connect } = setup(), old = connect();
+    old.say({ t: "k-host", v: v - 1, room: "Old", teacher: "Teacher", password: "1234" });
+    expect(old.last("s-k-error")?.code).toBe("bad-version");
+  });
+
+  it("rolls rate-limited edits back to the server value rather than dropping them silently", () => {
+    vi.useFakeTimers(); const { connect } = setup(), teacher = connect();
+    teacher.say({ t: "k-host", v, room: "RateTest", teacher: "Teacher", password: "1234" });
+    for (let i = 0; i < 80; i++) teacher.say({ t: "k-edit", edits: [[0, 4, 0, 3, 0]] });
+    teacher.say({ t: "k-edit", edits: [[0, 4, 0, 17, 0]] });
+    expect(teacher.last("s-k-reject")).toEqual({ t: "s-k-reject", edits: [[0, 4, 0, 3, 0]], authoritative: true });
+  });
+
+  it("streams a large field through a slow transport and preserves concurrent edits", () => {
+    vi.useFakeTimers();
+    const auth = hashPassword("1234"), store = new MemoryClassStore();
+    const saved: SavedClass = { teacherName: "Teacher", roomName: "Large", teacherKey: "host-key", passHash: auth.hash,
+      salt: auth.salt, students: [], settings: { buildLocked: false, chatLocked: false },
+      edits: Array.from({ length: 100000 }, (_, x) => [x, 4, 0, 3, 0]) };
+    store.save("large", saved);
+    const { manager, connect } = setup(store), slow = new FakeWs();
+    const original = slow.send.bind(slow);
+    slow.send = (raw: string) => { original(raw); slow.bufferedAmount += Buffer.byteLength(raw); };
+    manager.accept(slow as never, "slow-test");
+    slow.say({ t: "k-host", v, room: "Large", teacher: "Teacher", hostKey: "host-key" });
+    expect(slow.last("s-k-welcome")!.editCount).toBe(100000);
+    expect(slow.got.filter((m) => m.t === "s-k-world").flatMap((m) => m.edits).length).toBeLessThan(100000);
+    const writer = connect(); writer.say({ t: "k-join", v, room: "Large", student: "Writer" });
+    writer.say({ t: "k-edit", edits: [[99999, 4, 0, 0, 0], [200000, 4, 0, 17, 0]] });
+    for (let i = 0; i < 200; i++) { slow.bufferedAmount = 0; vi.advanceTimersByTime(16); }
+    const world = slow.got.filter((m) => m.t === "s-k-world").flatMap((m) => m.edits);
+    expect(slow.closedWith).toBeNull(); expect(world).toHaveLength(100000);
+    expect(world.find(([x]) => x === 99999)?.[3]).toBe(0);
+    expect(world.some(([x]) => x === 200000)).toBe(false);
+    expect(slow.got.some((m) => m.t === "s-k-edit" && m.edits.some(([x]) => x === 200000))).toBe(true);
+    manager.shutdown();
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
   it("shares the water time budget fairly between busy classrooms", () => {
     vi.useFakeTimers(); let time = 0;
     vi.spyOn(performance, "now").mockImplementation(() => time);

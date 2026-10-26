@@ -248,10 +248,17 @@ try {
   check("last lesson's furniture is still there", JSON.stringify(await furniture(fake)) === JSON.stringify(sharedFurniture));
   const seats = await fake.evaluate(() => globalThis.__roboCraft.classroom().members.map((m) => m.name));
   check("the class roster is kept (minus the kicked student)", seats.includes("민지") && !seats.includes("준"), seats.join(","));
+  await fake.evaluate(() => {
+    const c = globalThis.__roboCraft;
+    for (let x = 79; x <= 81; x++) for (let z = 79; z <= 81; z++) for (let y = 1; y <= 3; y++) c.mineAt(x, y, z);
+    c.teleport(80.5, 1, 80.5);
+  });
+  await sleep(500);
   await send(fake, { t: "k-reset-world" });
   await sleep(500);
   check("teacher can wipe the field", (await fake.evaluate(() => globalThis.__roboCraft.blockAt(70, 4, 70))) === 0);
   check("reset also clears shared furniture", (await furniture(fake)).length === 0);
+  check("reset lifts an underground player clear of the restored terrain", (await fake.evaluate(() => globalThis.__roboCraft.snapshot().pos[1])) >= 4);
   await send(fake, { t: "k-end" });
 
   check("no browser errors", errors.length === 0, errors.join(" | "));
