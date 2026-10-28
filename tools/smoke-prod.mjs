@@ -12,8 +12,8 @@ const check = (name, ok, detail = "") => {
   console.log(`${ok ? "PASS" : "FAIL"}  ${name}${detail ? " — " + detail : ""}`);
 };
 
-async function head(path) {
-  const r = await fetch(base + path, { signal: AbortSignal.timeout(15000) });
+async function head(path, method = "GET") {
+  const r = await fetch(base + path, { method, signal: AbortSignal.timeout(15000) });
   return { status: r.status, type: r.headers.get("content-type") ?? "", cache: r.headers.get("cache-control") ?? "", body: r };
 }
 
@@ -59,7 +59,8 @@ for (const [path, wantType] of [
   ["/guide/assets/battle.webp", "image/webp"],
 ]) {
   try {
-    const r = await head(path);
+    // Inspect headers without starting and cancelling an audio/image stream.
+    const r = await head(path, "HEAD");
     check(`asset ${path}`, r.status === 200 && r.type.split(";")[0].trim() === wantType, `${r.status} ${r.type}`);
     await r.body.body?.cancel();
   } catch (e) {
