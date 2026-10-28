@@ -31,6 +31,8 @@ const MIME: Record<string, string> = {
   ".ogg": "audio/ogg",
   ".webp": "image/webp",
   ".avif": "image/avif",
+  ".mp4": "video/mp4",
+  ".webm": "video/webm",
   ".txt": "text/plain; charset=utf-8",
   ".xml": "application/xml; charset=utf-8",
 };
@@ -107,13 +109,37 @@ const httpServer = createServer((req, res) => {
     }
     const sessionPage = extname(filePath) === ".html" &&
       ["room", "host", "teacher", "student", "pass", "preview"].some((key) => url.searchParams.has(key));
-    res.writeHead(200, {
-      "content-type": MIME[extname(filePath)] ?? "application/octet-stream",
+    const contentType = MIME[extname(filePath)] ?? "application/octet-stream";
+    const size = statSync(filePath).size;
+    const media = contentType.startsWith("video/");
+    let start = 0;
+    let end = size - 1;
+    let partial = false;
+    // Browsers seek and loop video using single byte ranges, including suffixes.
+    if (media && req.method === "GET" && req.headers.range && !req.headers["if-range"]) {
+      const match = /^bytes=(\d*)-(\d*)$/.exec(req.headers.range);
+      const suffix = match?.[1] === "";
+      start = suffix ? Math.max(0, size - Number(match[2])) : Number(match?.[1]);
+      end = suffix || !match?.[2] ? size - 1 : Math.min(Number(match[2]), size - 1);
+      if (!match || (!match[1] && !match[2]) || (suffix && Number(match[2]) <= 0) ||
+          !Number.isSafeInteger(start) || !Number.isSafeInteger(end) || start < 0 || start >= size || end < start) {
+        res.writeHead(416, { "content-range": `bytes */${size}`, "accept-ranges": "bytes", "content-length": 0 }).end();
+        return;
+      }
+      partial = true;
+    }
+    res.writeHead(partial ? 206 : 200, {
+      "content-type": contentType,
+      "content-length": partial ? end - start + 1 : size,
+      ...(media ? { "accept-ranges": "bytes" } : {}),
+      ...(partial ? { "content-range": `bytes ${start}-${end}/${size}` } : {}),
       "cache-control": sessionPage ? "no-store" : cacheControlFor(rawPath, filePath),
       // Class/player links and internal previews are not public search pages.
       ...(sessionPage ? { "x-robots-tag": "noindex, nofollow" } : {}),
     });
-    const stream = createReadStream(filePath);
+    if (req.method === "HEAD") { res.end(); return; }
+    const stream = createReadStream(filePath, partial ? { start, end } : undefined);
+    res.on("close", () => stream.destroy());
     stream.on("error", (err) => {
       // async read failure must never take the process down
       log.error({ err, filePath }, "static stream failed");

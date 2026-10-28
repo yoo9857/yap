@@ -5,12 +5,14 @@
  * on a fatal overlay with a retry button — a game never half-starts.
  */
 import { selectMode } from "./app/modeSelect.js";
+import { initMenuBackground } from "./app/menuBackground.js";
 import { t } from "./ui/i18n.js";
 import type { ClassEntry } from "./app/classLobby.js";
 
 const overlay = document.getElementById("boot-overlay");
 const messageEl = document.getElementById("boot-message");
 const retryBtn = document.getElementById("boot-retry");
+initMenuBackground();
 
 function setBootMessage(text: string): void {
   if (messageEl) messageEl.textContent = text;

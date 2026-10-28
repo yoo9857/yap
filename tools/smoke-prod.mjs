@@ -50,6 +50,10 @@ for (const [path, wantType] of [
   ["/backgrounds/craftyap-sunny-village-mobile.avif", "image/avif"],
   ["/backgrounds/craftyap-sunny-village-mobile.webp", "image/webp"],
   ["/backgrounds/craftyap-sunny-village-share.jpg", "image/jpeg"],
+  ["/backgrounds/craftyap-sunny-village-alive-v1-desktop.webm", "video/webm"],
+  ["/backgrounds/craftyap-sunny-village-alive-v1-desktop.mp4", "video/mp4"],
+  ["/backgrounds/craftyap-sunny-village-alive-v1-mobile.webm", "video/webm"],
+  ["/backgrounds/craftyap-sunny-village-alive-v1-mobile.mp4", "video/mp4"],
   ["/audio/bgm-tower.mp3", "audio/mpeg"],
   ["/textures/blocks/water.png", "image/png"],
   ["/robots.txt", "text/plain"],
@@ -73,6 +77,20 @@ for (const [path, wantType] of [
   } catch (e) {
     check(`asset ${path}`, false, String(e));
   }
+}
+
+// Video seek/loop transport: bounded chunks, suffix reads and invalid ranges.
+try {
+  const path = "/backgrounds/craftyap-sunny-village-alive-v1-desktop.mp4";
+  for (const [range, count] of [["bytes=0-31", 32], ["bytes=-16", 16]]) {
+    const response = await fetch(base + path, { headers: { Range: range }, signal: AbortSignal.timeout(15000) });
+    check(`background video range ${range}`, response.status === 206 && response.headers.get("accept-ranges") === "bytes" && response.headers.get("content-range")?.startsWith("bytes ") && (await response.arrayBuffer()).byteLength === count);
+  }
+  const invalid = await fetch(base + path, { headers: { Range: "bytes=999999999-" }, signal: AbortSignal.timeout(15000) });
+  check("background video rejects an unsatisfiable range", invalid.status === 416 && invalid.headers.get("content-range")?.startsWith("bytes */"));
+  await invalid.body?.cancel();
+} catch (e) {
+  check("background video streaming", false, String(e));
 }
 
 // Crawlable Korean guide, sitemap discovery and canonical/404 routing.

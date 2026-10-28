@@ -277,6 +277,39 @@
         background: rgba(20, 30, 50, 0.35);
       }
       /* Shared artwork for the mode picker, classroom lobby and loading screen. */
+      #menu-backdrop {
+        position: fixed;
+        inset: 0;
+        z-index: 29;
+        pointer-events: none;
+        background: #9bd7ec var(--menu-background) center / cover no-repeat;
+      }
+      #menu-backdrop video {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        object-position: center;
+        opacity: 0;
+        transition: opacity 0.25s;
+      }
+      .menu-video-ready #menu-backdrop video { opacity: 1; }
+      .menu-video-ready .mode-screen,
+      .menu-video-ready #boot-overlay { background: transparent; }
+      #menu-motion-toggle {
+        position: fixed;
+        top: max(12px, env(safe-area-inset-top));
+        right: max(12px, env(safe-area-inset-right));
+        z-index: 101;
+        padding: 8px 12px;
+        border: 2px solid var(--ink);
+        border-radius: var(--wobble-sm);
+        background: rgba(255, 255, 255, 0.95);
+        box-shadow: var(--shadow-soft);
+        font: 14px "Jua", system-ui, sans-serif;
+        color: var(--ink);
+        cursor: pointer;
+      }
+      #menu-motion-toggle:focus-visible { outline: 3px solid var(--cy-blue); outline-offset: 4px; }
       .mode-screen {
         background: #9bd7ec var(--menu-background) center / cover no-repeat;
       }
@@ -1130,6 +1163,10 @@
   </head>
   <body>
     <div id="app"></div>
+    <div id="menu-backdrop" hidden aria-hidden="true">
+      <video id="menu-background-video" muted loop playsinline preload="none" tabindex="-1" disablepictureinpicture disableremoteplayback></video>
+    </div>
+    <button id="menu-motion-toggle" type="button" hidden aria-pressed="false">배경 멈추기</button>
     <main id="mode-select" class="screen mode-screen">
       <div class="screen-card">
         <img class="brand-logo" src="/craftyap-logo.png" alt="크래프트얍 CraftYap" />
