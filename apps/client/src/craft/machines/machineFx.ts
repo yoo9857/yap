@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { settings } from "../../ui/settings.js";
 
 /**
  * Test-drive feedback: dust under the wheels and a continuous engine/thruster
@@ -184,12 +185,12 @@ export class MachineAudio {
   update(load: number, speed: number, thrust: number): void {
     if (!this.ctx || !this.engine) return;
     const now = this.ctx.currentTime;
-    const target = Math.min(1, Math.abs(load)) * 0.055 + (speed > 0.6 ? 0.012 : 0);
+    const target = (Math.min(1, Math.abs(load)) * 0.055 + (speed > 0.6 ? 0.012 : 0)) * settings.sfx;
     this.engine.frequency.setTargetAtTime(58 + speed * 7.5, now, 0.08);
     this.engineFilter?.frequency.setTargetAtTime(360 + speed * 48, now, 0.12);
     this.engineGain?.gain.setTargetAtTime(target, now, 0.09);
     this.thrustGain?.gain.setTargetAtTime(
-      Math.min(1, thrust) * 0.045,
+      Math.min(1, thrust) * 0.045 * settings.sfx,
       now,
       0.06,
     );
@@ -197,14 +198,14 @@ export class MachineAudio {
 
   /** One-shot thud; `force` 0‒1. */
   impact(force: number): void {
-    if (!this.ctx || force <= 0.05) return;
+    if (!this.ctx || force <= 0.05 || settings.sfx === 0) return;
     const ctx = this.ctx;
     const osc = ctx.createOscillator();
     const gain = ctx.createGain();
     osc.type = "triangle";
     osc.frequency.setValueAtTime(150, ctx.currentTime);
     osc.frequency.exponentialRampToValueAtTime(48, ctx.currentTime + 0.18);
-    gain.gain.setValueAtTime(Math.min(0.14, force * 0.14), ctx.currentTime);
+    gain.gain.setValueAtTime(Math.min(0.14, force * 0.14) * settings.sfx, ctx.currentTime);
     gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.25);
     osc.connect(gain).connect(ctx.destination);
     osc.start();
@@ -222,7 +223,7 @@ export class MachineAudio {
       osc.frequency.value = hz;
       const at = ctx.currentTime + i * 0.09;
       gain.gain.setValueAtTime(0.0001, at);
-      gain.gain.exponentialRampToValueAtTime(0.09, at + 0.02);
+      gain.gain.exponentialRampToValueAtTime(Math.max(0.09 * settings.sfx, 0.0001), at + 0.02);
       gain.gain.exponentialRampToValueAtTime(0.0001, at + 0.22);
       osc.connect(gain).connect(ctx.destination);
       osc.start(at);

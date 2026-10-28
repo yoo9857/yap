@@ -17,6 +17,8 @@ export type PieceShape = "cube" | "round" | "slope";
 export interface Piece {
   key: string;
   name: string;
+  /** Korean display name; `name` is the English one. */
+  ko: string;
   /** Local footprint cells (dx, dy, dz); [0,0,0] is the anchor. */
   cells: readonly (readonly [number, number, number])[];
   /** Whether R rotates it (footprint yaw, or slope facing). */
@@ -26,13 +28,13 @@ export interface Piece {
 }
 
 export const PIECES: readonly Piece[] = [
-  { key: "1x1", name: "Brick 1×1", cells: [[0, 0, 0]], rotatable: false },
-  { key: "1x2", name: "Bar 1×2", cells: [[0, 0, 0], [1, 0, 0]], rotatable: true },
-  { key: "1x3", name: "Bar 1×3", cells: [[0, 0, 0], [1, 0, 0], [2, 0, 0]], rotatable: true },
-  { key: "corner", name: "Corner L", cells: [[0, 0, 0], [1, 0, 0], [0, 0, 1]], rotatable: true },
-  { key: "2x2", name: "Plate 2×2", cells: [[0, 0, 0], [1, 0, 0], [0, 0, 1], [1, 0, 1]], rotatable: true },
-  { key: "round", name: "Round ○", cells: [[0, 0, 0]], rotatable: false, shape: "round" },
-  { key: "slope", name: "Slope ◺", cells: [[0, 0, 0]], rotatable: true, shape: "slope" },
+  { key: "1x1", name: "Brick 1×1", ko: "블록 1×1", cells: [[0, 0, 0]], rotatable: false },
+  { key: "1x2", name: "Bar 1×2", ko: "막대 1×2", cells: [[0, 0, 0], [1, 0, 0]], rotatable: true },
+  { key: "1x3", name: "Bar 1×3", ko: "막대 1×3", cells: [[0, 0, 0], [1, 0, 0], [2, 0, 0]], rotatable: true },
+  { key: "corner", name: "Corner L", ko: "L자 모서리", cells: [[0, 0, 0], [1, 0, 0], [0, 0, 1]], rotatable: true },
+  { key: "2x2", name: "Plate 2×2", ko: "판 2×2", cells: [[0, 0, 0], [1, 0, 0], [0, 0, 1], [1, 0, 1]], rotatable: true },
+  { key: "round", name: "Round ○", ko: "둥근 기둥 ○", cells: [[0, 0, 0]], rotatable: false, shape: "round" },
+  { key: "slope", name: "Slope ◺", ko: "경사 ◺", cells: [[0, 0, 0]], rotatable: true, shape: "slope" },
 ];
 
 const wrap4 = (n: number): number => ((n % 4) + 4) % 4;

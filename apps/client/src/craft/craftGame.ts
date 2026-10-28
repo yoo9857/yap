@@ -6,6 +6,8 @@ import { CharacterRig, disposeRig } from "../player/rig.js";
 import { Sfx } from "../audio/sfx.js";
 import { Bgm, BGM_PLAYLIST } from "../audio/bgm.js";
 import { PerfMonitor } from "../ui/perf.js";
+import { t } from "../ui/i18n.js";
+import { settings } from "../ui/settings.js";
 import { AIR, SOLID_ID, blockById, blockByKey, dropOf, textureUrl } from "./blocks.js";
 import { loadTexture } from "../render/textures.js";
 import {
@@ -63,6 +65,7 @@ const SKY_TOP = 0x6fbfee;
  *  only back FIELD_MAX_VIEW. */
 const VIEW_PRESETS = { island: [56, 88, 130], field: [40, 56, FIELD_MAX_VIEW] } as const;
 const VIEW_NAMES = ["Short", "Normal", "Far"];
+const viewName = (i: number): string => [t("가깝게", "Short"), t("보통", "Normal"), t("멀리", "Far")][i] ?? "";
 /** After placing (or while mining) the body faces the crosshair this long (s). */
 const ACTION_FACE_TIME = 0.6;
 const VIEW_KEY = "craftyap-view-distance";
@@ -137,7 +140,13 @@ export class CraftGame {
     this.sky = new SkyDome(this.renderer.scene, SKY_TOP, FOG_COLOR);
     this.camera = new CraftCamera(this.renderer.camera);
     this.view = new VoxelView(this.renderer.scene);
-    this.hud = new CraftHud(document.body, (recipe) => this.handleCraft(recipe), { furniture: true });
+    this.hud = new CraftHud(document.body, (recipe) => this.handleCraft(recipe), {
+      furniture: true,
+      mode: opts.classroom
+        ? t(`교실 · ${opts.classroom.session.room}`, `Class · ${opts.classroom.session.room}`)
+        : opts.field ? t("교육 모드 · 들판", "Education field") : "Craft Island",
+      onResume: () => void Promise.resolve(this.renderer.renderer.domElement.requestPointerLock()).catch(() => {}),
+    });
 
     const reset = new URLSearchParams(location.search).has("reset");
     if (opts.classroom) {
@@ -390,8 +399,9 @@ export class CraftGame {
       // spurious movementX/Y (browser/OS spike) that whips the camera around
       const dx = Math.max(-180, Math.min(180, e.movementX));
       const dy = Math.max(-180, Math.min(180, e.movementY));
-      this.yaw -= dx * 0.0026;
-      this.pitch = Math.min(1.35, Math.max(-1.25, this.pitch - dy * 0.0026));
+      const look = 0.0026 * settings.sensitivity;
+      this.yaw -= dx * look;
+      this.pitch = Math.min(1.35, Math.max(-1.25, this.pitch - dy * look));
     });
     on("mousedown", (e) => {
       if (!this.locked) return;
@@ -435,7 +445,7 @@ export class CraftGame {
       }
       if (key === "v") this.camera.toggleView();
       if (key === "p" && !e.repeat) {
-        this.hud.toast(this.pet.toggleMode() === "stay" ? "🐶 Buddy: stay" : "🐶 Buddy: follow");
+        this.hud.toast(this.pet.toggleMode() === "stay" ? t("🐶 앉아! 여기서 기다려요", "🐶 Buddy: stay") : t("🐶 따라와! 다시 따라와요", "🐶 Buddy: follow"));
       }
       if (key === "o") {
         const next = (this.viewPreset + 1) % VIEW_NAMES.length;
@@ -445,7 +455,7 @@ export class CraftGame {
         } catch {
           /* remembered for this session only */
         }
-        this.hud.toast(`👁️ View distance: ${VIEW_NAMES[next]} (${this.viewPresets[next]} m)`);
+        this.hud.toast(`👁️ ${t("시야 거리", "View distance")}: ${viewName(next)} (${this.viewPresets[next]} m)`);
       }
       if (key === "r") this.pieceRot = (this.pieceRot + 1) % 4; // spin (yaw)
       if (key === "t") this.pieceTilt = (this.pieceTilt + 1) % 4; // tip sideways (tilt)
@@ -873,7 +883,8 @@ export class CraftGame {
   private handleCraft(recipe: CraftRecipe): void {
     if (!craftRecipe(this.state.inventory, recipe)) return;
     this.sfx.play("checkpoint");
-    this.hud.toast(`🛠️ Crafted ${recipe.name}!`);
+    const made = blockByKey(Object.keys(recipe.output)[0]!);
+    this.hud.toast(t(`🛠️ ${made?.ko ?? recipe.name} 만들었어요!`, `🛠️ Crafted ${recipe.name}!`));
   }
 
   /**
@@ -1090,10 +1101,11 @@ export class CraftGame {
 
     this.updateGhost();
     this.hud.update(this.state.inventory, this.selected);
+    this.hud.syncMenu(this.workshop.active || this.furniture.panelOpen || this.petShop.open || document.querySelector(".class-ended") !== null);
     this.hud.setMineProgress(this.miningFrac);
     this.perf.phase("camera", performance.now() - t0);
     this.perf.time("furniture", () => this.furniture.render(this.aim, this.yaw, this.locked && !this.mining, this.ghostOk, this.ghostBad));
-    if (!this.furniture.active) this.hud.setPiece(PIECES[this.pieceIndex]!.name, this.pieceRot, this.pieceTilt);
+    if (!this.furniture.active) this.hud.setPiece(PIECES[this.pieceIndex]!, this.pieceRot, this.pieceTilt);
     this.perf.time("render", () => this.renderer.render());
     this.perf.update(this.renderer.renderer, frameDt);
   }

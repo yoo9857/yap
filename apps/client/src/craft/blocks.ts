@@ -10,6 +10,8 @@ export interface BlockDef {
   id: number;
   key: string;
   name: string;
+  /** Korean display name (the default UI language); `name` is the English one. */
+  ko: string;
   /** Tile from the generated doodle set — used for the 2D HUD/hotbar icons. */
   texture: string;
   /** Solid crayon brick colour for the 3D world (the LEGO/toy-brick look). */
@@ -29,27 +31,27 @@ export interface BlockDef {
 export const AIR = 0;
 
 export const BLOCKS: BlockDef[] = [
-  { id: 1, key: "grass", name: "Grass", texture: "grass-top", color: "#5cbe4a", hardness: 0.4, drops: "dirt" },
-  { id: 2, key: "dirt", name: "Dirt", texture: "dirt", color: "#9c6b3f", hardness: 0.35 },
-  { id: 3, key: "stone", name: "Stone", texture: "stone", color: "#9aa0a8", hardness: 0.8 },
-  { id: 4, key: "sand", name: "Sand", texture: "sand", color: "#ecd9a0", hardness: 0.3 },
-  { id: 5, key: "oak-log", name: "Oak Log", texture: "oak-log", color: "#7a5230", hardness: 0.6 },
-  { id: 6, key: "oak-leaves", name: "Leaves", texture: "oak-leaves", color: "#57b23f", hardness: 0.15, noStud: true },
-  { id: 7, key: "coal-ore", name: "Coal Ore", texture: "coal-ore", color: "#5c6066", hardness: 1.1 },
-  { id: 8, key: "iron-ore", name: "Iron Ore", texture: "iron-ore", color: "#c2a488", hardness: 1.4 },
-  { id: 9, key: "gold-ore", name: "Gold Ore", texture: "gold-ore", color: "#d8b64a", hardness: 1.4 },
-  { id: 10, key: "diamond-ore", name: "Diamond Ore", texture: "diamond-ore", color: "#6fd6cf", hardness: 1.8 },
-  { id: 11, key: "bedrock", name: "Bedrock", texture: "bedrock", color: "#4a4d54", hardness: 0 },
-  { id: 12, key: "oak-planks", name: "Oak Planks", texture: "oak-planks", color: "#c08a4a", hardness: 0.5 },
-  { id: 13, key: "stone-bricks", name: "Stone Bricks", texture: "stone-bricks", color: "#b8bcc2", hardness: 0.9 },
-  { id: 14, key: "glass", name: "Glass", texture: "glass", color: "#bfe8ff", hardness: 0.2, noStud: true },
-  { id: 15, key: "glowstone", name: "Glowstone", texture: "glowstone", color: "#ffcf57", hardness: 0.4, emissive: true },
-  { id: 16, key: "iron-block", name: "Iron Block", texture: "iron-block", color: "#d8dce0", hardness: 1.2 },
-  { id: 17, key: "gold-block", name: "Gold Block", texture: "gold-block", color: "#ffd21c", hardness: 1.2 },
-  { id: 18, key: "diamond-block", name: "Diamond Block", texture: "diamond-block", color: "#5fe0d8", hardness: 1.6 },
+  { id: 1, key: "grass", name: "Grass", ko: "잔디", texture: "grass-top", color: "#5cbe4a", hardness: 0.4, drops: "dirt" },
+  { id: 2, key: "dirt", name: "Dirt", ko: "흙", texture: "dirt", color: "#9c6b3f", hardness: 0.35 },
+  { id: 3, key: "stone", name: "Stone", ko: "돌", texture: "stone", color: "#9aa0a8", hardness: 0.8 },
+  { id: 4, key: "sand", name: "Sand", ko: "모래", texture: "sand", color: "#ecd9a0", hardness: 0.3 },
+  { id: 5, key: "oak-log", name: "Oak Log", ko: "통나무", texture: "oak-log", color: "#7a5230", hardness: 0.6 },
+  { id: 6, key: "oak-leaves", name: "Leaves", ko: "나뭇잎", texture: "oak-leaves", color: "#57b23f", hardness: 0.15, noStud: true },
+  { id: 7, key: "coal-ore", name: "Coal Ore", ko: "석탄 광석", texture: "coal-ore", color: "#5c6066", hardness: 1.1 },
+  { id: 8, key: "iron-ore", name: "Iron Ore", ko: "철 광석", texture: "iron-ore", color: "#c2a488", hardness: 1.4 },
+  { id: 9, key: "gold-ore", name: "Gold Ore", ko: "금 광석", texture: "gold-ore", color: "#d8b64a", hardness: 1.4 },
+  { id: 10, key: "diamond-ore", name: "Diamond Ore", ko: "다이아몬드 광석", texture: "diamond-ore", color: "#6fd6cf", hardness: 1.8 },
+  { id: 11, key: "bedrock", name: "Bedrock", ko: "기반암", texture: "bedrock", color: "#4a4d54", hardness: 0 },
+  { id: 12, key: "oak-planks", name: "Oak Planks", ko: "나무 판자", texture: "oak-planks", color: "#c08a4a", hardness: 0.5 },
+  { id: 13, key: "stone-bricks", name: "Stone Bricks", ko: "돌 벽돌", texture: "stone-bricks", color: "#b8bcc2", hardness: 0.9 },
+  { id: 14, key: "glass", name: "Glass", ko: "유리", texture: "glass", color: "#bfe8ff", hardness: 0.2, noStud: true },
+  { id: 15, key: "glowstone", name: "Glowstone", ko: "빛나는 돌", texture: "glowstone", color: "#ffcf57", hardness: 0.4, emissive: true },
+  { id: 16, key: "iron-block", name: "Iron Block", ko: "철 블록", texture: "iron-block", color: "#d8dce0", hardness: 1.2 },
+  { id: 17, key: "gold-block", name: "Gold Block", ko: "금 블록", texture: "gold-block", color: "#ffd21c", hardness: 1.2 },
+  { id: 18, key: "diamond-block", name: "Diamond Block", ko: "다이아몬드 블록", texture: "diamond-block", color: "#5fe0d8", hardness: 1.6 },
   // 19 is a water SOURCE; 20‒27 (flowing levels, falling) are its states and
   // have no row of their own — they are never items (see @robo/shared fluid)
-  { id: WATER, key: "water", name: "Water", texture: "water", color: "#3d8fe0", hardness: 0, fluid: true, noStud: true },
+  { id: WATER, key: "water", name: "Water", ko: "물", texture: "water", color: "#3d8fe0", hardness: 0, fluid: true, noStud: true },
 ];
 
 /**

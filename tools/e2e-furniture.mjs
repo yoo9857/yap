@@ -18,6 +18,11 @@ const check = (name, ok, detail = "") => {
   console.log(`${ok ? "PASS" : "FAIL"}  ${name}${detail ? " — " + detail : ""}`);
 };
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+// capture the mouse as a player does: the start/pause card's play button, or the scene
+const capture = async () => {
+  if (await page.evaluate(() => !document.querySelector(".game-menu")?.classList.contains("hidden"))) await page.click('[data-id="gm-play"]');
+  else await page.mouse.click(640, 500);
+};
 
 const browser = await puppeteer.launch({
   executablePath: EDGE,
@@ -83,7 +88,7 @@ await page.evaluate(() => globalThis.__roboCraft.petShopToggle());
 
 // A real click on a swatch (a user gesture) must pick that colour AND take the
 // player straight back into play — no "Click to play" stop in between.
-await page.mouse.click(640, 500); // capture the mouse first, as in play
+await capture(); // capture the mouse first, as in play
 await wait(300);
 await page.evaluate(() => document.querySelector('[data-id="furniture-chip"]').click());
 await wait(300);
@@ -188,7 +193,7 @@ await craft((c) => {
   c.teleport(80.5, 4, 81.5);
   c.look(0, 0.03);
 });
-await page.mouse.click(640, 500);
+await capture();
 await wait(400);
 await page.mouse.down({ button: "left" });
 await wait(900);
@@ -211,7 +216,7 @@ await craft((c) => {
 });
 // Chrome refuses to re-capture the mouse for about a second after a release
 await wait(1500);
-await page.mouse.click(640, 500);
+await capture();
 await wait(400);
 const rightClick = async () => {
   await page.mouse.down({ button: "right" });

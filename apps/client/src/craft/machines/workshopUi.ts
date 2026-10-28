@@ -246,7 +246,7 @@ ${part.detail}`)}">
       <div class="mw-head">
         <div class="mw-mark">🔧</div>
         <div class="mw-headtext">
-          <div class="mw-eyebrow">기계 제작소</div>
+          <div class="mw-eyebrow">기계 작업실</div>
           <input class="mw-name" data-id="name" maxlength="48" aria-label="설계도 이름" />
         </div>
       </div>

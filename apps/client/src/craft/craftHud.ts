@@ -1,4 +1,4 @@
-import { blockByKey, textureUrl } from "./blocks.js";
+import { blockByKey, textureUrl, type BlockDef } from "./blocks.js";
 import {
   CRAFT_RECIPES,
   HOTBAR,
@@ -7,44 +7,105 @@ import {
   type Counts,
   type CraftRecipe,
 } from "./inventory.js";
+import { GameMenu, keyBarHtml, type HelpGroup, type KeyHelp } from "../ui/gameMenu.js";
+import { isEnglish, t } from "../ui/i18n.js";
+
+const blockName = (def: BlockDef | undefined): string => (def ? (isEnglish() ? def.name : def.ko) : "");
+
+const ESSENTIALS = (): KeyHelp[] => [
+  { keys: ["W A S D"], label: t("이동", "Move") },
+  { keys: ["Space"], label: t("점프", "Jump") },
+  { keys: [t("좌클릭", "Left click")], label: t("꾹 눌러 캐기", "Hold to mine") },
+  { keys: [t("우클릭", "Right click")], label: t("블록 놓기", "Place block") },
+];
+
+function helpGroups(furniture: boolean): HelpGroup[] {
+  return [
+    {
+      title: t("움직이기", "Moving"),
+      items: [
+        { keys: ["W A S D"], label: t("이동", "Move") },
+        { keys: ["Space"], label: t("점프 · 물속에서 위로", "Jump · swim up") },
+        { keys: [t("마우스", "Mouse")], label: t("둘러보기", "Look around") },
+        { keys: ["V"], label: t("1인칭 / 3인칭 시점", "First / third person") },
+        { keys: ["O"], label: t("시야 거리 바꾸기", "View distance") },
+      ],
+    },
+    {
+      title: t("블록 쌓기", "Building"),
+      items: [
+        { keys: [t("좌클릭", "Left click")], label: t("꾹 눌러 블록 캐기", "Hold to mine a block") },
+        { keys: [t("우클릭", "Right click")], label: t("블록 놓기", "Place a block") },
+        { keys: ["1–9", t("휠", "Wheel")], label: t("블록 고르기", "Pick a block") },
+        { keys: ["0"], label: t("물 양동이", "Water bucket") },
+        { keys: ["F"], label: t("블록 모양 바꾸기", "Change brick shape") },
+        { keys: ["R", "T"], label: t("돌리기 · 기울이기", "Rotate · tilt") },
+        { keys: ["C"], label: t("재료로 블록 만들기(조합)", "Crafting recipes") },
+      ],
+    },
+    {
+      title: t("꾸미기와 친구들", "Decorate & friends"),
+      items: [
+        ...(furniture ? [{ keys: ["G"], label: t("가구 모드", "Furniture mode") }] : []),
+        { keys: ["B"], label: t("기계 작업실 (자동차·비행기)", "Machine lab (cars, planes)") },
+        { keys: ["P"], label: t("반려동물 앉아 / 따라와", "Pet: stay / follow") },
+        { keys: ["Ctrl", "Z"], label: t("되돌리기 (가구)", "Undo (furniture)") },
+      ],
+    },
+    {
+      title: t("기타", "Other"),
+      items: [
+        { keys: ["M"], label: t("음악 켜기 / 끄기", "Music on / off") },
+        { keys: ["H"], label: t("조작법 열기", "Open controls") },
+        { keys: ["Esc"], label: t("마우스 풀기 · 메뉴", "Free mouse · menu") },
+      ],
+    },
+  ];
+}
 
 /**
- * Craft-mode DOM UI: crosshair, 9-slot hotbar (1–9 / wheel), the recipe
- * panel (C), and the click-to-play pointer-lock hint. Pure rendering — all
- * rules live in inventory.ts.
+ * Craft-mode DOM UI: crosshair, 10-slot hotbar with the selected block's name,
+ * a short key strip, the recipe panel (C) and the start/pause menu. Pure
+ * rendering — all rules live in inventory.ts.
  */
 export class CraftHud {
   private readonly root: HTMLElement;
   private readonly slots: HTMLElement[] = [];
   private readonly recipePanel: HTMLElement;
   private readonly recipeButtons = new Map<string, HTMLButtonElement>();
-  private readonly hint: HTMLElement;
   private readonly pieceChip: HTMLElement;
+  private readonly slotLabel: HTMLElement;
+  readonly menu: GameMenu;
   private lastKey = "";
   private lastPiece = "";
+  private lastSelected = -1;
+  private labelTimer: ReturnType<typeof setTimeout> | undefined;
+  private locked = false;
 
   constructor(
     parent: HTMLElement,
     private readonly onCraft: (recipe: CraftRecipe) => void,
-    opts: { furniture?: boolean } = {},
+    opts: { furniture?: boolean; mode?: string; onResume: () => void },
   ) {
     this.root = document.createElement("div");
     this.root.className = "craft-hud";
     const slots = HOTBAR.map(
       (key, i) => `
-        <div class="craft-slot" data-id="slot-${key}">
+        <div class="craft-slot" data-id="slot-${key}" title="${blockName(blockByKey(key))}">
           <span class="craft-slot-num">${(i + 1) % 10}</span>
-          <img src="${textureUrl(blockByKey(key)!)}" alt="${key}" />
+          <img src="${textureUrl(blockByKey(key)!)}" alt="${blockName(blockByKey(key))}" />
           <b data-id="count-${key}">0</b>
         </div>`,
     ).join("");
     this.root.innerHTML = `
       <div class="craft-crosshair">+</div>
       <div class="craft-mine-bar hidden"><div class="craft-mine-fill" data-id="mine-fill"></div></div>
+      <div class="craft-slot-label" data-id="slot-label"></div>
       <div class="craft-hotbar" data-id="hotbar">${slots}</div>
-      <div class="craft-help">Move WASD · Jump Space · Mine hold LMB · Place RMB · Slots 1-9 · Water 0 / wheel · Shape F · Rotate R · Tilt T · Recipes C · View V · View distance O · Pet sit/follow P · Adopt 🐾 ·${opts.furniture === false ? "" : " Furniture G ·"} Music M</div>
+      <div class="craft-help gm-keybar">${keyBarHtml(ESSENTIALS())}</div>
     `;
     parent.appendChild(this.root);
+    this.slotLabel = this.root.querySelector<HTMLElement>('[data-id="slot-label"]')!;
 
     // current LEGO piece indicator (top-center)
     this.pieceChip = document.createElement("div");
@@ -58,32 +119,29 @@ export class CraftHud {
 
     this.recipePanel = document.createElement("div");
     this.recipePanel.className = "screen craft-screen hidden";
+    const chips = (io: Record<string, number>) =>
+      Object.entries(io)
+        .map(([key, n]) => {
+          const def = blockByKey(key)!;
+          return `<span class="craft-chip" title="${blockName(def)}"><img src="${textureUrl(def)}" alt="${blockName(def)}" />×${n}</span>`;
+        })
+        .join("");
     const rows = CRAFT_RECIPES.map((r) => {
-      const inputs = Object.entries(r.input)
-        .map(
-          ([key, n]) =>
-            `<span class="craft-chip"><img src="${textureUrl(blockByKey(key)!)}" alt="${key}" />×${n}</span>`,
-        )
-        .join("");
-      const outputs = Object.entries(r.output)
-        .map(
-          ([key, n]) =>
-            `<span class="craft-chip"><img src="${textureUrl(blockByKey(key)!)}" alt="${key}" />×${n}</span>`,
-        )
-        .join("");
+      const out = blockByKey(Object.keys(r.output)[0]!);
       return `
         <div class="craft-recipe">
-          <span class="craft-recipe-name">${r.name}</span>
-          <span class="craft-recipe-io">${inputs} → ${outputs}</span>
-          <button class="craft-btn" data-id="recipe-${r.id}">Craft</button>
+          <span class="craft-recipe-name">${out ? blockName(out) : r.name}</span>
+          <span class="craft-recipe-io">${chips(r.input)} → ${chips(r.output)}</span>
+          <button class="craft-btn" data-id="recipe-${r.id}">${t("만들기", "Craft")}</button>
         </div>`;
     }).join("");
     this.recipePanel.innerHTML = `
       <div class="screen-card craft-card">
         <div class="craft-head">
-          <h1>🛠️ Crafting</h1>
-          <button class="craft-close" data-id="craft-close" aria-label="Close">✕</button>
+          <h1>🛠️ ${t("조합", "Crafting")}</h1>
+          <button class="craft-close" data-id="craft-close" aria-label="${t("닫기", "Close")}">✕</button>
         </div>
+        <p class="craft-recipe-tip">${t("캐서 모은 재료로 새 블록을 만들어요. 재료가 모자라면 버튼이 꺼져 있어요.", "Turn mined materials into new blocks. A button stays off until you have enough.")}</p>
         <div class="craft-recipes">${rows}</div>
       </div>`;
     parent.appendChild(this.recipePanel);
@@ -100,10 +158,12 @@ export class CraftHud {
       if (e.target === this.recipePanel) this.hideRecipes();
     });
 
-    this.hint = document.createElement("div");
-    this.hint.className = "craft-hint";
-    this.hint.textContent = "Click to play";
-    parent.appendChild(this.hint);
+    this.menu = new GameMenu(parent, {
+      mode: opts.mode ?? "Craft Island",
+      essentials: ESSENTIALS(),
+      help: helpGroups(opts.furniture !== false),
+      onResume: opts.onResume,
+    });
   }
 
   get recipesOpen(): boolean {
@@ -113,7 +173,6 @@ export class CraftHud {
   setWorkshopOpen(open: boolean): void {
     this.root.style.display = open ? "none" : "";
     this.pieceChip.style.display = open ? "none" : "";
-    this.hint.style.display = open ? "none" : "";
     if (open) this.hideRecipes();
   }
 
@@ -126,14 +185,24 @@ export class CraftHud {
   }
 
   setPointerLocked(locked: boolean): void {
-    this.hint.classList.toggle("hidden", locked);
+    this.locked = locked;
+  }
+
+  /** The start/pause card shows whenever the player is out of play and no
+   *  other panel (recipes, furniture, pets, the machine lab, chat) has the screen. */
+  syncMenu(panelOpen: boolean): void {
+    const typing = document.activeElement instanceof HTMLInputElement && document.activeElement.type !== "range";
+    this.menu.setVisible(!this.locked && !panelOpen && !this.recipesOpen && !typing);
   }
 
   /** Show the active building piece + its yaw / tilt rotation. */
-  setPiece(name: string, yaw: number, tilt: number, icon = "🧱"): void {
+  setPiece(piece: string | { name: string; ko: string }, yaw: number, tilt: number, icon = "🧱"): void {
     const spin = yaw ? ` · ↻${yaw * 90}°` : "";
     const tip = tilt ? ` · ⤢${tilt * 90}°` : "";
-    const label = `${icon} ${name}${spin}${tip}`;
+    // a brick shape gets the key that cycles it; furniture names its own keys elsewhere
+    const label = typeof piece === "string"
+      ? `${icon} ${piece}${spin}${tip}`
+      : `${icon} ${isEnglish() ? piece.name : piece.ko}${spin}${tip}  ·  ${t("F 모양 바꾸기", "F change shape")}`;
     if (label === this.lastPiece) return;
     this.lastPiece = label;
     this.pieceChip.textContent = label;
@@ -142,7 +211,7 @@ export class CraftHud {
   /** The block hotbar (and its key help, which the furniture bar's switcher
    *  would sit on) step aside while the furniture bar is up. */
   setHotbarVisible(visible: boolean): void {
-    for (const sel of ['[data-id="hotbar"]', ".craft-help"]) {
+    for (const sel of ['[data-id="hotbar"]', ".craft-help", '[data-id="slot-label"]']) {
       const el = this.root.querySelector<HTMLElement>(sel);
       if (el) el.style.display = visible ? "" : "none";
     }
@@ -173,6 +242,10 @@ export class CraftHud {
       const count = el.querySelector<HTMLElement>(`[data-id="count-${k}"]`);
       if (count) count.textContent = endless ? "∞" : String(n);
     });
+    if (selected !== this.lastSelected) {
+      this.lastSelected = selected;
+      this.showSlotLabel(HOTBAR[selected]!, counts);
+    }
     if (this.recipesOpen) {
       for (const recipe of CRAFT_RECIPES) {
         const btn = this.recipeButtons.get(recipe.id);
@@ -181,12 +254,25 @@ export class CraftHud {
     }
   }
 
+  /** The selected block's name over the hotbar, briefly, each time it changes. */
+  private showSlotLabel(key: string, counts: Counts): void {
+    const def = blockByKey(key);
+    if (!def) return;
+    const n = countOf(counts, key);
+    const extra = def.fluid ? t("무한 양동이", "endless bucket") : n === 0 ? t("없음 — 캐서 모아요", "none yet — mine some") : `${n}${t("개", "")}`;
+    this.slotLabel.textContent = `${blockName(def)} · ${extra}`;
+    this.slotLabel.classList.add("show");
+    clearTimeout(this.labelTimer);
+    this.labelTimer = setTimeout(() => this.slotLabel.classList.remove("show"), 1800);
+  }
+
   private toastEl: HTMLElement | null = null;
   private toastTimer: ReturnType<typeof setTimeout> | undefined;
 
   dispose(): void {
-    clearTimeout(this.toastTimer); this.toastEl?.remove(); this.toastEl = null;
-    this.root.remove(); this.recipePanel.remove(); this.pieceChip.remove(); this.hint.remove();
+    clearTimeout(this.toastTimer); clearTimeout(this.labelTimer);
+    this.toastEl?.remove(); this.toastEl = null;
+    this.root.remove(); this.recipePanel.remove(); this.pieceChip.remove(); this.menu.dispose();
     this.slots.length = 0; this.recipeButtons.clear();
   }
 

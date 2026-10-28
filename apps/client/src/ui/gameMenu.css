@@ -1,0 +1,152 @@
+/* Start / pause card shared by the game modes (ui/gameMenu.ts). Overrides the
+   old one-line .craft-hint pill it replaces. */
+.craft-hint.game-menu {
+  position: fixed;
+  inset: 0;
+  top: 0;
+  left: 0;
+  transform: none;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  box-sizing: border-box;
+  background: rgba(18, 22, 28, 0.32);
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  font-size: 16px;
+  z-index: 45;
+  /* the dim layer lets clicks through: the scene behind still captures the
+     mouse and the corner chips / furniture bar stay usable */
+  pointer-events: none;
+}
+.craft-hint.game-menu.hidden { display: none; }
+.gm-card {
+  box-sizing: border-box;
+  width: min(460px, 100%);
+  max-height: calc(100vh - 32px);
+  overflow-y: auto;
+  padding: 22px 24px 18px;
+  background: var(--paper);
+  color: var(--ink);
+  border: 3px solid var(--ink);
+  border-radius: var(--wobble-md);
+  box-shadow: var(--shadow-hard);
+  cursor: default;
+  text-align: center;
+  pointer-events: auto;
+}
+.gm-card h2 { margin: 2px 0 14px; font-size: 30px; line-height: 1.15; }
+.gm-kicker { margin: 0; font: 700 12px/1.4 system-ui, sans-serif; letter-spacing: 1.5px; text-transform: uppercase; color: #6a6f66; }
+.gm-card kbd {
+  display: inline-block;
+  min-width: 0;
+  padding: 1px 7px;
+  margin: 0 3px 0 0;
+  white-space: nowrap;
+  border: 2px solid var(--ink);
+  border-bottom-width: 3px;
+  border-radius: 7px;
+  background: #fff;
+  font: 700 13px/1.3 system-ui, sans-serif;
+  color: var(--ink);
+}
+.gm-keys {
+  list-style: none;
+  margin: 0 0 16px;
+  padding: 12px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px 12px;
+  background: #fff7cf;
+  border: 2px dashed rgba(31, 31, 31, 0.35);
+  border-radius: 12px;
+  text-align: left;
+}
+.gm-keys li { display: flex; align-items: center; gap: 6px; font-size: 15px; white-space: nowrap; }
+.gm-play {
+  width: 100%;
+  padding: 12px 18px;
+  border: 3px solid var(--ink);
+  border-radius: var(--wobble-sm);
+  background: var(--cy-yellow);
+  box-shadow: var(--shadow-soft);
+  font: inherit;
+  font-size: 22px;
+  color: var(--ink);
+  cursor: pointer;
+}
+.gm-play:hover { transform: translate(-1px, -2px); box-shadow: 4px 5px 0 rgba(31, 31, 31, 0.85); }
+.gm-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 10px; }
+.gm-row > *, .gm-back, .gm-seg {
+  padding: 9px 8px;
+  border: 2px solid var(--ink);
+  border-radius: 10px;
+  background: #fff;
+  font: inherit;
+  font-size: 15px;
+  color: var(--ink);
+  text-decoration: none;
+  cursor: pointer;
+}
+.gm-row > *:hover, .gm-back:hover, .gm-seg:hover { background: #fff3b0; }
+.gm-note { margin: 12px 0 0; font: 13px/1.5 system-ui, sans-serif; color: #5f645c; }
+.gm-back { margin-top: 14px; width: 100%; }
+.gm-groups { display: grid; gap: 12px; text-align: left; }
+.gm-card:has(section[data-view="help"]:not([hidden])) { width: min(860px, 100%); }
+@media (min-width: 760px) { .gm-groups { grid-template-columns: 1fr 1fr; gap: 14px 22px; } }
+.gm-group h3 { margin: 0 0 6px; font-size: 16px; }
+.gm-group dl { margin: 0; display: grid; gap: 5px; }
+.gm-group dl > div { display: grid; grid-template-columns: minmax(96px, max-content) 1fr; gap: 12px; align-items: center; padding: 4px 8px; border-radius: 8px; background: #f6f6f1; }
+.gm-group dt { white-space: nowrap; }
+.gm-group dd { margin: 0; font: 14px/1.4 system-ui, sans-serif; }
+.gm-slider { display: block; margin: 0 0 14px; text-align: left; }
+.gm-slider span { display: flex; justify-content: space-between; font-size: 16px; margin-bottom: 4px; }
+.gm-slider output { font: 700 14px system-ui, sans-serif; }
+.gm-slider input { width: 100%; accent-color: #e0a800; }
+.gm-lang { display: flex; align-items: center; justify-content: space-between; gap: 10px; text-align: left; }
+.gm-lang > div { display: flex; gap: 6px; }
+.gm-seg.on { background: var(--cy-yellow); }
+
+/* Always-on key strip: chips instead of one long sentence. */
+.craft-help.gm-keybar {
+  display: flex;
+  gap: 6px;
+  flex-wrap: nowrap;
+  font: 600 12px/1 system-ui, sans-serif;
+  color: #fff;
+  text-shadow: none;
+}
+.gm-kb { display: inline-flex; align-items: center; gap: 5px; padding: 4px 8px 4px 4px; border-radius: 999px; background: rgba(18, 22, 28, 0.62); }
+.gm-kb kbd { padding: 1px 6px; border-radius: 6px; background: #fff; color: #1f1f1f; font: 700 11px/1.4 system-ui, sans-serif; }
+.gm-kb kbd + kbd { margin-left: -2px; }
+
+@media (max-width: 520px) {
+  .gm-card { padding: 18px 16px 14px; }
+  .gm-keys { grid-template-columns: 1fr; }
+  .gm-row { grid-template-columns: 1fr; }
+  .gm-group dl > div { grid-template-columns: 1fr; gap: 2px; }
+}
+
+/* Craft: the selected block's name, briefly, above the key strip. */
+.craft-slot-label {
+  position: absolute;
+  bottom: 112px;
+  left: 50%;
+  transform: translate(-50%, 6px);
+  padding: 5px 14px;
+  border: 2px solid #1f1f1f;
+  border-radius: 999px;
+  background: #fff;
+  color: #1f1f1f;
+  font: 700 15px/1.3 system-ui, sans-serif;
+  white-space: nowrap;
+  opacity: 0;
+  transition: opacity 0.18s, transform 0.18s;
+  pointer-events: none;
+}
+.craft-slot-label.show { opacity: 1; transform: translate(-50%, 0); }
+.craft-recipe-tip { margin: 0 0 10px; font: 13px/1.5 system-ui, sans-serif; color: #5f645c; }
+
+/* Empty slots stay recognisable: faded, not washed to white. */
+.craft-slot.empty img { opacity: 0.5; filter: saturate(0.6); }

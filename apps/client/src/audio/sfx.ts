@@ -1,3 +1,5 @@
+import { settings } from "../ui/settings.js";
+
 /**
  * Tiny WebAudio synth blips — no assets to load, nothing to fail. The
  * AudioContext is created lazily and resumed on the first user gesture;
@@ -49,7 +51,7 @@ export class Sfx {
   }
 
   play(name: SfxName): void {
-    if (!this.unlocked) return;
+    if (!this.unlocked || settings.sfx === 0) return;
     this.ensureContext();
     const ctx = this.ctx;
     if (!ctx || ctx.state !== "running") return;
@@ -133,7 +135,7 @@ export class Sfx {
     osc.type = type;
     osc.frequency.setValueAtTime(freq, t0);
     osc.frequency.exponentialRampToValueAtTime(Math.max(slideTo, 1), t0 + dur);
-    gain.gain.setValueAtTime(vol, t0);
+    gain.gain.setValueAtTime(Math.max(vol * settings.sfx, 0.0001), t0);
     gain.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
     osc.connect(gain).connect(ctx.destination);
     osc.start(t0);
@@ -150,7 +152,7 @@ export class Sfx {
     const src = ctx.createBufferSource();
     src.buffer = buffer;
     const gain = ctx.createGain();
-    gain.gain.value = vol;
+    gain.gain.value = vol * settings.sfx;
     src.connect(gain).connect(ctx.destination);
     src.start();
   }

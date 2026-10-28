@@ -1,3 +1,5 @@
+import { onSettings, settings } from "../ui/settings.js";
+
 /**
  * Background music. Give it one track (loops) or a playlist (plays each song
  * once per shuffled cycle, then reshuffles — never the same track twice in a
@@ -24,7 +26,10 @@ export class Bgm {
   constructor(src: string | readonly string[], volume = 0.35) {
     this.tracks = typeof src === "string" ? [src] : [...src];
     this.el = new Audio();
-    this.el.volume = volume;
+    // the mode picks its level; the player's music slider scales it
+    this.el.volume = volume * settings.music;
+    const unsubscribe = onSettings((s) => { this.el.volume = volume * s.music; });
+    this.events.signal.addEventListener("abort", unsubscribe);
     this.el.loop = this.tracks.length <= 1; // single track loops; a playlist advances
     this.el.src = this.tracks[this.nextIndex()]!;
     if (this.tracks.length > 1) {

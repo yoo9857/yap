@@ -25,6 +25,7 @@ import { DustField, MachineAudio } from "./machineFx.js";
 import { MachineStore, decodeShare, encodeShare } from "./library.js";
 import { MISSIONS, MissionRun } from "./missions.js";
 import { ScienceLab } from "./scienceLab.js";
+import { t } from "../../ui/i18n.js";
 import {
   BuildPanel,
   CAMERA_LABEL,
@@ -177,7 +178,7 @@ export class MachineWorkshop {
     const signal = this.events.signal;
     this.launch = document.createElement("button");
     this.launch.className = "machine-ui machine-launch mw-btn";
-    this.launch.innerHTML = "🔧 기계 제작소 <kbd class='mw-kbd'>B</kbd>";
+    this.launch.innerHTML = `🔧 ${t("기계 작업실", "Machine lab")} <kbd class='mw-kbd'>B</kbd>`;
     this.panel = new BuildPanel(
       {
         selectPart: (kind) => this.pickPart(kind),
