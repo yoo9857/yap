@@ -8,6 +8,7 @@ import { Bgm, BGM_PLAYLIST } from "../audio/bgm.js";
 import { PerfMonitor } from "../ui/perf.js";
 import { t } from "../ui/i18n.js";
 import { settings } from "../ui/settings.js";
+import { lookDelta } from "../input/mouseLook.js";
 import { Effects } from "../render/effects.js";
 import { generateIsland, surfaceY, CASTLE_CENTER } from "../craft/voxelWorld.js";
 import { stepBody, unstick, wishFromInput, type Body } from "../craft/voxelBody.js";
@@ -59,6 +60,8 @@ export class BattleGame {
    *  first click and freezes on Esc (a real pause — this is single-player).
    *  Test harnesses without pointer lock set this to run it anyway. */
   private runUnlocked = false;
+  /** When the mouse was last captured (see lookDelta). */
+  private lockedAt = 0;
   private elapsed = 0;
   private yaw = 0;
   private pitch = -0.15;
@@ -191,14 +194,15 @@ export class BattleGame {
     });
     document.addEventListener("pointerlockchange", () => {
       this.locked = document.pointerLockElement !== null;
+      if (this.locked) this.lockedAt = performance.now();
       if (!this.locked) this.firing = false;
     });
     document.addEventListener("mousemove", (e) => {
       if (!this.locked) return;
-      // clamp the per-event delta: pointer lock occasionally emits a huge
-      // spurious movementX/Y (browser/OS spike) that whips the aim/camera around
-      const dx = Math.max(-180, Math.min(180, e.movementX));
-      const dy = Math.max(-180, Math.min(180, e.movementY));
+      // the cursor's jump on capture and OS spikes are dropped, not clamped (mouseLook.ts)
+      const d = lookDelta(e.movementX, e.movementY, performance.now() - this.lockedAt);
+      if (!d) return;
+      const [dx, dy] = d;
       const look = 0.0026 * settings.sensitivity;
       this.yaw -= dx * look;
       this.pitch = Math.min(1.35, Math.max(-1.25, this.pitch - dy * look));

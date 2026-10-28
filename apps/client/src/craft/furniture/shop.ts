@@ -36,6 +36,8 @@ export interface ShopEvents {
   onOpen(): void;
   /** A category arrow on the bar was clicked (same as Q / E). */
   onStepCategory(dir: 1 | -1): void;
+  /** The player closed the panel (✕ or the chip): back into play. */
+  onClose(): void;
 }
 
 const swatchColor = (def: FurnitureDef, variant: number): string => {
@@ -81,7 +83,7 @@ export class FurnitureShop {
         <span class="furn-panel-sub">${t("무료 · 몇 개든", "Free · unlimited")}</span>
         <button type="button" class="furn-close" data-id="furniture-close" aria-label="${t("닫기", "Close")}">✕</button>
       </div>`;
-    this.panel.querySelector('[data-id="furniture-close"]')?.addEventListener("click", () => this.setOpen(false));
+    this.panel.querySelector('[data-id="furniture-close"]')?.addEventListener("click", () => this.close());
 
     this.search = document.createElement("input");
     this.search.className = "furn-search";
@@ -164,7 +166,13 @@ export class FurnitureShop {
   }
 
   toggle(): void {
-    this.setOpen(!this.open);
+    if (this.open) this.close();
+    else this.setOpen(true);
+  }
+
+  private close(): void {
+    this.setOpen(false);
+    this.events.onClose();
   }
 
   setOpen(open: boolean): void {

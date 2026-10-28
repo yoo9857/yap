@@ -28,6 +28,8 @@ export class PetShop {
     private readonly onAdopt: (species: PetSpecies) => void,
     /** Called whenever the panel opens, so a neighbouring panel can close. */
     private readonly onOpen: () => void = () => {},
+    /** The player closed it (✕, Y, the chip, or a pick): straight back into play. */
+    private readonly onClose: () => void = () => {},
   ) {
     this.current = initial;
 
@@ -48,7 +50,7 @@ export class PetShop {
         <span class="pet-panel-sub">${t("한 마리만 데려갈 수 있어요", "You can take one home at a time")}</span>
         <button type="button" class="furn-close pet-close" data-id="pet-close" aria-label="${t("닫기", "Close")}">✕</button>
       </div>`;
-    this.panel.querySelector('[data-id="pet-close"]')?.addEventListener("click", () => this.setOpen(false));
+    this.panel.querySelector('[data-id="pet-close"]')?.addEventListener("click", () => this.close());
     for (const key of PET_SPECIES) {
       const info = SPECIES[key];
       const card = document.createElement("button");
@@ -76,7 +78,14 @@ export class PetShop {
   }
 
   toggle(): void {
-    this.setOpen(!this.open);
+    if (this.open) this.close();
+    else this.setOpen(true);
+  }
+
+  /** Close on the player's say-so and hand the mouse back to the game. */
+  close(): void {
+    this.setOpen(false);
+    this.onClose();
   }
 
   setOpen(open: boolean): void {
@@ -94,11 +103,14 @@ export class PetShop {
     this.refresh();
   }
 
+  /** A pick (even the one already at your side) goes straight back to the world. */
   private pick(species: PetSpecies): void {
-    if (species === this.current) return;
-    this.current = species;
-    this.refresh();
-    this.onAdopt(species);
+    if (species !== this.current) {
+      this.current = species;
+      this.refresh();
+      this.onAdopt(species);
+    }
+    this.close();
   }
 
   private refresh(): void {

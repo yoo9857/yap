@@ -42,6 +42,7 @@ function helpGroups(furniture: boolean): HelpGroup[] {
         { keys: ["F"], label: t("블록 모양 바꾸기", "Change brick shape") },
         { keys: ["R", "T"], label: t("돌리기 · 기울이기", "Rotate · tilt") },
         { keys: ["C"], label: t("재료로 블록 만들기(조합)", "Crafting recipes") },
+        { keys: ["Q"], label: t("빈손 ↔ 블록 쌓기 (빈손은 캐기만, 놓지 않아요)", "Empty hands ↔ building (empty hands mine but never place)") },
       ],
     },
     {
@@ -100,7 +101,7 @@ export class CraftHud {
   constructor(
     parent: HTMLElement,
     private readonly onCraft: (recipe: CraftRecipe) => void,
-    opts: { furniture?: boolean; mode?: string; onResume: () => void },
+    opts: { furniture?: boolean; mode?: string; onResume: () => void; onRecipesClose?: () => void },
   ) {
     this.root = document.createElement("div");
     this.root.className = "craft-hud";
@@ -117,7 +118,7 @@ export class CraftHud {
       <div class="craft-mine-bar hidden"><div class="craft-mine-fill" data-id="mine-fill"></div></div>
       <div class="craft-slot-label" data-id="slot-label"></div>
       <div class="craft-hotbar" data-id="hotbar">${slots}</div>
-      <div class="craft-help gm-keybar">${keyBarHtml(ESSENTIALS())}</div>
+      <div class="craft-help gm-keybar">${keyBarHtml([...ESSENTIALS(), { keys: ["Q"], label: t("빈손", "Empty hands") }])}</div>
     `;
     parent.appendChild(this.root);
     this.slotLabel = this.root.querySelector<HTMLElement>('[data-id="slot-label"]')!;
@@ -166,9 +167,14 @@ export class CraftHud {
     }
     this.recipePanel
       .querySelector('[data-id="craft-close"]')
-      ?.addEventListener("click", () => this.hideRecipes());
+      ?.addEventListener("click", () => {
+        this.hideRecipes();
+        opts.onRecipesClose?.();
+      });
     this.recipePanel.addEventListener("click", (e) => {
-      if (e.target === this.recipePanel) this.hideRecipes();
+      if (e.target !== this.recipePanel) return;
+      this.hideRecipes();
+      opts.onRecipesClose?.();
     });
 
     this.menu = new GameMenu(parent, {
@@ -255,9 +261,11 @@ export class CraftHud {
       const count = el.querySelector<HTMLElement>(`[data-id="count-${k}"]`);
       if (count) count.textContent = endless ? "∞" : String(n);
     });
+    this.root.classList.toggle("empty-hands", selected < 0);
     if (selected !== this.lastSelected) {
       this.lastSelected = selected;
-      this.showSlotLabel(HOTBAR[selected]!, counts);
+      if (selected < 0) this.flashSlotLabel(t("✋ 빈손 · Q로 다시 블록 들기", "✋ Empty hands · Q to hold blocks again"));
+      else this.showSlotLabel(HOTBAR[selected]!, counts);
     }
     if (this.recipesOpen) {
       for (const recipe of CRAFT_RECIPES) {
@@ -273,7 +281,11 @@ export class CraftHud {
     if (!def) return;
     const n = countOf(counts, key);
     const extra = def.fluid ? t("무한 양동이", "endless bucket") : n === 0 ? t("없음 — 캐서 모아요", "none yet — mine some") : `${n}${t("개", "")}`;
-    this.slotLabel.textContent = `${blockName(def)} · ${extra}`;
+    this.flashSlotLabel(`${blockName(def)} · ${extra}`);
+  }
+
+  private flashSlotLabel(text: string): void {
+    this.slotLabel.textContent = text;
     this.slotLabel.classList.add("show");
     clearTimeout(this.labelTimer);
     this.labelTimer = setTimeout(() => this.slotLabel.classList.remove("show"), 1800);

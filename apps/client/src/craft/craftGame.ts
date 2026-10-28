@@ -8,6 +8,7 @@ import { Bgm, BGM_PLAYLIST } from "../audio/bgm.js";
 import { PerfMonitor } from "../ui/perf.js";
 import { t } from "../ui/i18n.js";
 import { settings } from "../ui/settings.js";
+import { lookDelta } from "../input/mouseLook.js";
 import { AIR, SOLID_ID, blockById, blockByKey, dropOf, textureUrl } from "./blocks.js";
 import { loadTexture } from "../render/textures.js";
 import {
@@ -112,6 +113,14 @@ export class CraftGame {
   private miningProgress = 0;
   private miningFrac: number | null = null;
   private selected = 0;
+  /** Q: nothing in hand. Mining, doors and seats still work; nothing is placed
+   *  or poured and there is no preview, so a stray right click builds nothing. */
+  private emptyHands = false;
+  /** A re-capture of the mouse is on its way (pointer lock is asynchronous):
+   *  until it lands or is refused, the pause card must not flash up. */
+  private resumeUntil = 0;
+  /** When the mouse was last captured (see lookDelta). */
+  private lockedAt = 0;
   private pieceIndex = 0;
   private pieceRot = 0;
   private pieceTilt = 0;
@@ -145,7 +154,8 @@ export class CraftGame {
       mode: opts.classroom
         ? t(`교실 · ${opts.classroom.session.room}`, `Class · ${opts.classroom.session.room}`)
         : opts.field ? t("교육 모드 · 들판", "Education field") : "Craft Island",
-      onResume: () => void Promise.resolve(this.renderer.renderer.domElement.requestPointerLock()).catch(() => {}),
+      onResume: () => this.resumePlay(),
+      onRecipesClose: () => this.resumePlay(),
     });
 
     const reset = new URLSearchParams(location.search).has("reset");
@@ -220,7 +230,7 @@ export class CraftGame {
       this.state.pet,
     );
     this.petShop = new PetShop(document.body, this.state.pet, (species) => this.adoptPet(species),
-      () => this.furniture.closePanel());
+      () => this.furniture.closePanel(), () => this.resumePlay());
     this.view.markDirty();
     this.applyViewDistance(this.loadViewPreset());
     this.buildGhost();
@@ -255,7 +265,10 @@ export class CraftGame {
         this.keys.clear(); this.mining = this.placing = false;
         this.miningFrac = null; this.miningProgress = 0; this.miningTarget = null;
         this.hud.setWorkshopOpen(active);
-        if (!active) this.renderer.camera.clearViewOffset();
+        if (!active) {
+          this.renderer.camera.clearViewOffset();
+          this.resumePlay();
+        }
       });
 
     this.bindInput(mount);
@@ -286,7 +299,7 @@ export class CraftGame {
 
   /** Is the selected hotbar slot the water bucket? */
   private holdingWater(): boolean {
-    return blockByKey(HOTBAR[this.selected]!)?.fluid === true;
+    return !this.emptyHands && blockByKey(HOTBAR[this.selected]!)?.fluid === true;
   }
 
   /**
@@ -380,25 +393,25 @@ export class CraftGame {
         void Promise.resolve(mount.querySelector("canvas")?.requestPointerLock()).catch(() => {}); // refused during the browser's re-lock cooldown: the next click retries
       }
     }, { signal: this.events.signal });
-    on("pointerlockchange", () => {
-      this.locked = document.pointerLockElement === this.renderer.renderer.domElement;
-      this.hud.setPointerLocked(this.locked);
-      if (this.locked) {
-        // back in play: a panel left open would sit over the view, unusable
-        this.furniture.closePanel();
-        this.petShop.setOpen(false);
-      }
-      if (!this.locked) {
-        this.mining = false;
-        this.placing = false;
-      }
-    });
+    on("pointerlockchange", () => this.syncLock());
+    // Minimised, another window or tab: let go of the mouse ourselves and pause.
+    // Waiting for the browser to say so has left the game believing it still
+    // held a mouse it had lost — no menu, and a click on the scene did nothing.
+    const letGo = () => {
+      this.resumeUntil = 0;
+      if (document.pointerLockElement) document.exitPointerLock();
+      this.syncLock();
+    };
+    window.addEventListener("blur", letGo, { signal: this.events.signal });
+    on("visibilitychange", () => { if (document.hidden) letGo(); });
+    // refused (e.g. the browser's re-lock cooldown right after Esc): show the card now
+    on("pointerlockerror", () => { this.resumeUntil = 0; });
     on("mousemove", (e) => {
       if (!this.locked) return;
-      // clamp the per-event delta: pointer lock occasionally emits a huge
-      // spurious movementX/Y (browser/OS spike) that whips the camera around
-      const dx = Math.max(-180, Math.min(180, e.movementX));
-      const dy = Math.max(-180, Math.min(180, e.movementY));
+      // the cursor's jump on capture and OS spikes are dropped, not clamped (mouseLook.ts)
+      const d = lookDelta(e.movementX, e.movementY, performance.now() - this.lockedAt);
+      if (!d) return;
+      const [dx, dy] = d;
       const look = 0.0026 * settings.sensitivity;
       this.yaw -= dx * look;
       this.pitch = Math.min(1.35, Math.max(-1.25, this.pitch - dy * look));
@@ -421,6 +434,7 @@ export class CraftGame {
       if (!this.locked) return;
       if (this.furniture.handleWheel(e.deltaY > 0)) return;
       this.selected = (this.selected + (e.deltaY > 0 ? 1 : HOTBAR.length - 1)) % HOTBAR.length;
+      this.emptyHands = false; // picking a block means "let me build"
     });
     on("keydown", (e) => {
       if (e.target instanceof HTMLElement && (/INPUT|SELECT|TEXTAREA/.test(e.target.tagName) || e.target.isContentEditable)) return;
@@ -437,11 +451,20 @@ export class CraftGame {
       }
       // furniture's keys first: in furniture mode 1-9, Q/E, X and R are its own
       if (this.furniture.handleKey(key, e.repeat)) return;
-      if (key >= "1" && key <= "9") this.selected = Number(key) - 1;
-      if (key === "0" && HOTBAR.length > 9) this.selected = 9;
+      if (key >= "1" && key <= "9") { this.selected = Number(key) - 1; this.emptyHands = false; }
+      if (key === "0" && HOTBAR.length > 9) { this.selected = 9; this.emptyHands = false; }
+      // Q (furniture mode keeps Q for its categories, handled above)
+      if (key === "q" && !e.repeat) {
+        this.emptyHands = !this.emptyHands;
+        this.mining = this.placing = false;
+        this.hud.toast(this.emptyHands
+          ? t("✋ 빈손 — 캐기만 해요, 놓지 않아요 · Q로 다시 들기", "✋ Empty hands — mine only, nothing is placed · Q to pick blocks back up")
+          : t("🧱 블록 쌓기 — 다시 놓을 수 있어요", "🧱 Building — placing again"));
+      }
       if (key === "c") {
         this.hud.toggleRecipes();
         if (this.hud.recipesOpen) document.exitPointerLock();
+        else this.resumePlay();
       }
       if (key === "v") this.camera.toggleView();
       if (key === "p" && !e.repeat) {
@@ -605,6 +628,8 @@ export class CraftGame {
     const [x, y, z] = this.aim.voxel;
     const cellId = this.state.world.get(x, y, z);
     if (isWater(cellId)) {
+      // scooping is the bucket's job; empty hands just pass over water
+      if (this.emptyHands) { this.mining = false; return; }
       this.scoop(x, y, z, cellId);
       return;
     }
@@ -743,6 +768,7 @@ export class CraftGame {
     // ...and on a chair, sofa or bed you sit down — unless you are placing
     // furniture, where the click means "put the piece here"
     if (this.aimFurniture && !this.furniture.active && this.trySit(this.aimFurniture)) return;
+    if (this.emptyHands && !this.furniture.active) return;
     if (!this.aim) return;
     if (!this.canBuild()) {
       this.hud.toast(t("🧱 지금은 건축이 잠겨 있어요", "🧱 Building is locked right now"));
@@ -847,7 +873,7 @@ export class CraftGame {
       return;
     }
     // furniture mode draws its own ghost (FurnitureController.render)
-    if (!this.locked || !this.aim || this.mining || this.furniture.active) {
+    if (!this.locked || !this.aim || this.mining || this.furniture.active || this.emptyHands) {
       for (const m of this.ghostMeshes) m.visible = false;
       return;
     }
@@ -910,7 +936,9 @@ export class CraftGame {
    * during a user gesture.
    */
   private resumePlay(): void {
-    if (this.locked || this.workshop.active) return;
+    // a hidden or minimised window cannot take the mouse; the card waits for its return
+    if (this.locked || this.workshop.active || document.hidden) return;
+    this.resumeUntil = performance.now() + 800;
     const canvas = this.renderer.renderer.domElement;
     try {
       // newer browsers return a promise that rejects instead of throwing
@@ -1039,8 +1067,41 @@ export class CraftGame {
     return this.drawBody;
   }
 
+  /**
+   * Mouse capture is the browser's to decide: read it, never trust a cached
+   * flag. Runs on every pointerlockchange and once a frame, so a missed or
+   * late event can't leave the game thinking it holds (or lacks) the mouse.
+   */
+  private syncLock(): void {
+    const locked = document.pointerLockElement === this.renderer.renderer.domElement;
+    if (locked === this.locked) return;
+    this.locked = locked;
+    if (locked) {
+      this.resumeUntil = 0;
+      this.lockedAt = performance.now();
+    }
+    if (locked && this.workshop.active) {
+      // a capture that lands while the lab is open would hide the cursor over its UI
+      document.exitPointerLock();
+      return;
+    }
+    this.hud.setPointerLocked(locked);
+    if (locked) {
+      // back in play: a panel left open would sit over the view, unusable
+      this.furniture.closePanel();
+      this.petShop.setOpen(false);
+      this.hud.hideRecipes();
+    } else {
+      this.mining = false;
+      this.placing = false;
+    }
+  }
+
   private render(alpha: number, frameDt: number): void {
+    this.syncLock();
     const drawn = this.interpolatedBody(alpha);
+    this.hud.syncMenu(this.workshop.active || this.furniture.panelOpen || this.petShop.open
+      || performance.now() < this.resumeUntil || document.querySelector(".class-ended") !== null);
     this.sky.update(this.renderer.camera);
     this.sync?.render(frameDt);
     // integer steps keep the 1 m texture tiles aligned with the voxel grid
@@ -1102,12 +1163,14 @@ export class CraftGame {
     this.view.animateWater(performance.now() / 1000, this.field?.absOriginX ?? 0, this.field?.absOriginZ ?? 0);
 
     this.updateGhost();
-    this.hud.update(this.state.inventory, this.selected);
-    this.hud.syncMenu(this.workshop.active || this.furniture.panelOpen || this.petShop.open || document.querySelector(".class-ended") !== null);
+    this.hud.update(this.state.inventory, this.emptyHands ? -1 : this.selected);
     this.hud.setMineProgress(this.miningFrac);
     this.perf.phase("camera", performance.now() - t0);
     this.perf.time("furniture", () => this.furniture.render(this.aim, this.yaw, this.locked && !this.mining, this.ghostOk, this.ghostBad));
-    if (!this.furniture.active) this.hud.setPiece(PIECES[this.pieceIndex]!, this.pieceRot, this.pieceTilt);
+    if (!this.furniture.active) {
+      if (this.emptyHands) this.hud.setPiece(t("빈손 · Q로 블록 들기", "Empty hands · Q to hold blocks"), 0, 0, "✋");
+      else this.hud.setPiece(PIECES[this.pieceIndex]!, this.pieceRot, this.pieceTilt);
+    }
     this.perf.time("render", () => this.renderer.render());
     this.perf.update(this.renderer.renderer, frameDt);
   }
@@ -1238,6 +1301,8 @@ export class CraftGame {
         grounded: this.body.grounded,
         seed: this.state.seed,
         selected: this.selected,
+        emptyHands: this.emptyHands,
+        pitch: this.pitch,
         yaw: this.yaw,
         inventory: { ...this.state.inventory },
       }),
@@ -1268,7 +1333,8 @@ export class CraftGame {
       scene: () => this.renderer.scene,
       cameraState: () => {
         const p = this.renderer.camera.position;
-        return { dist: this.camera.distance, x: p.x, y: p.y, z: p.z, t: performance.now() };
+        const dir = this.renderer.camera.getWorldDirection(new THREE.Vector3());
+        return { dist: this.camera.distance, x: p.x, y: p.y, z: p.z, dirY: dir.y, t: performance.now() };
       },
       /** Perf bisection: switch costly render features off one at a time. */
       renderFlags: (flags: { shadows?: boolean; robot?: boolean }) => {

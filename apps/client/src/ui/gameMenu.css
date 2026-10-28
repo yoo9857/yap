@@ -496,3 +496,5 @@ body .furn-back:active { transform: translateY(3px); box-shadow: 0 1px 0 var(--b
 .gm-keys .gm-wasd kbd { min-width: 22px; padding: 1px 3px 2px; font-size: 12px; }
 .gm-keys .gm-wasd i { font-size: 8px; }
 @media (max-width: 520px) { .gm-keys { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+/* empty hands (Q): the hotbar steps back, nothing is lit */
+.craft-hud.empty-hands .craft-hotbar { opacity: 0.72; filter: saturate(0.45); }

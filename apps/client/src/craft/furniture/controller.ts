@@ -101,6 +101,7 @@ export class FurnitureController {
       },
       onOpen: () => host.closeOtherPanels(),
       onStepCategory: (dir) => this.stepCategory(dir),
+      onClose: () => host.resumePlay(),
     });
     if (!enabled) this.shop.setVisible(false);
     this.installCollision();

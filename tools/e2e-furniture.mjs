@@ -106,6 +106,26 @@ check(
   JSON.stringify({ open: resumed.open, locked: resumed.locked, mode: resumed.mode, variant: resumed.variant }),
 );
 
+// Re-capturing the mouse makes the browser report the cursor's jump to the
+// screen centre as movement. Applied, it threw the view to a new height on
+// every furniture pick, so the view seemed stuck; it is now ignored.
+const view = () => page.evaluate(() => { const s = globalThis.__roboCraft.snapshot(); return { yaw: s.yaw, pitch: s.pitch }; });
+const nudge = (mx, my) => page.evaluate(([x, y]) => document.dispatchEvent(new MouseEvent("mousemove", { movementX: x, movementY: y })), [mx, my]);
+const beforeJump = await view();
+await nudge(-500, 640);
+const afterJump = await view();
+await wait(250);
+await nudge(0, 900); // a lone OS spike
+const afterSpike = await view();
+await nudge(20, 10); // an ordinary hand movement
+const afterHand = await view();
+check(
+  "the cursor jump on re-capture and lone spikes do not turn the view; a hand does",
+  afterJump.yaw === beforeJump.yaw && afterJump.pitch === beforeJump.pitch && afterSpike.pitch === afterJump.pitch &&
+    afterHand.yaw !== afterSpike.yaw && afterHand.pitch !== afterSpike.pitch,
+  JSON.stringify({ beforeJump, afterJump, afterSpike, afterHand }),
+);
+
 // --- the bar (keyboard only) ----------------------------------------------
 const bar = () =>
   page.evaluate(() => ({
