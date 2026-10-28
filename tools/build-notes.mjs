@@ -18,7 +18,8 @@ const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&
 const json = (v) => JSON.stringify(v, null, 2).replace(/</g, "\\u003c");
 const dot = (date) => date.replaceAll("-", ".");
 // Static files are cached; a content hash in the query keeps pages and styles in step.
-const versioned = (path) => `${path}?v=${createHash("sha256").update(readFileSync(new URL(path.slice(1), PUBLIC))).digest("hex").slice(0, 10)}`;
+// Hashed with LF endings so a Windows (autocrlf) checkout and CI agree.
+const versioned = (path) => `${path}?v=${createHash("sha256").update(readFileSync(new URL(path.slice(1), PUBLIC), "utf8").replace(/\r\n/g, "\n")).digest("hex").slice(0, 10)}`;
 
 // ---- read sources ------------------------------------------------------------
 function parse(file) {
