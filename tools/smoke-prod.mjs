@@ -37,7 +37,7 @@ try {
   check("income-blog metadata removed", !/make money|side hustles|passive income|affiliate marketing/i.test(html));
   const schema = JSON.parse(html.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/)?.[1] ?? "{}");
   check("game and website structured data present", schema["@graph"]?.some((item) => item["@type"] === "VideoGame") && schema["@graph"]?.some((item) => item["@type"] === "WebSite"));
-  check("OG image points at craftyap.com", html.includes("craftyap.com/craftyap-banner.jpg"));
+  check("OG image uses the Sunny Village artwork", html.includes('property="og:image" content="https://craftyap.com/backgrounds/craftyap-sunny-village-share.jpg"'));
 } catch (e) {
   check("index.html served", false, String(e));
 }
@@ -45,6 +45,11 @@ try {
 // 3) static assets + correct MIME + caching
 for (const [path, wantType] of [
   ["/craftyap-logo.png", "image/png"],
+  ["/backgrounds/craftyap-sunny-village-desktop.avif", "image/avif"],
+  ["/backgrounds/craftyap-sunny-village-desktop.webp", "image/webp"],
+  ["/backgrounds/craftyap-sunny-village-mobile.avif", "image/avif"],
+  ["/backgrounds/craftyap-sunny-village-mobile.webp", "image/webp"],
+  ["/backgrounds/craftyap-sunny-village-share.jpg", "image/jpeg"],
   ["/audio/bgm-tower.mp3", "audio/mpeg"],
   ["/textures/blocks/water.png", "image/png"],
   ["/robots.txt", "text/plain"],

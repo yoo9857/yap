@@ -16,6 +16,8 @@
     <link rel="help" href="/guide/" />
     <link rel="icon" type="image/png" href="/craftyap-logo.png" />
     <link rel="apple-touch-icon" href="/craftyap-logo.png" />
+    <link rel="preload" as="image" type="image/avif" href="/backgrounds/craftyap-sunny-village-desktop.avif" media="(min-width: 768px)" />
+    <link rel="preload" as="image" type="image/avif" href="/backgrounds/craftyap-sunny-village-mobile.avif" media="(max-width: 767px)" />
     <meta name="robots" content="index, follow, max-image-preview:large" />
     <meta name="google-adsense-account" content="ca-pub-9021429421997169" />
     <noscript><style>#boot-overlay, .mode-step { display: none !important; }</style></noscript>
@@ -37,7 +39,7 @@
       content="크래프트얍(CraftYap)은 설치 없이 웹에서 즐기는 무료 3D 블록 게임입니다. 블록으로 나만의 세상을 만들고, 자동차와 비행기를 조립하고, 친구들과 교실에서 함께 만들거나 점프 타워에 도전해 보세요."
     />
     <meta property="og:url" content="https://craftyap.com/" />
-    <meta property="og:image" content="https://craftyap.com/craftyap-banner.jpg" />
+    <meta property="og:image" content="https://craftyap.com/backgrounds/craftyap-sunny-village-share.jpg" />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="675" />
     <meta property="og:image:alt" content="크래프트얍의 알록달록한 블록 세상과 로봇 캐릭터" />
@@ -47,7 +49,7 @@
       name="twitter:description"
       content="크래프트얍(CraftYap)은 설치 없이 웹에서 즐기는 무료 3D 블록 게임입니다. 블록으로 나만의 세상을 만들고, 자동차와 비행기를 조립하고, 친구들과 교실에서 함께 만들거나 점프 타워에 도전해 보세요."
     />
-    <meta name="twitter:image" content="https://craftyap.com/craftyap-banner.jpg" />
+    <meta name="twitter:image" content="https://craftyap.com/backgrounds/craftyap-sunny-village-share.jpg" />
     <meta name="twitter:image:alt" content="크래프트얍의 알록달록한 블록 세상과 로봇 캐릭터" />
 
     <script type="application/ld+json">
@@ -80,7 +82,7 @@
             "name": "크래프트얍",
             "alternateName": "CraftYap",
             "url": "https://craftyap.com/",
-            "image": "https://craftyap.com/craftyap-banner.jpg",
+            "image": "https://craftyap.com/backgrounds/craftyap-sunny-village-share.jpg",
             "description": "블록으로 나만의 세상을 만들고 자동차와 비행기를 조립하는 3D 샌드박스 게임. 함께 만드는 교육 모드와 점프 타워, 랜드마크 건설, 배틀로얄을 즐길 수 있습니다.",
             "inLanguage": ["ko", "en"],
             "genre": ["샌드박스", "블록 건축", "캐주얼"],
@@ -121,6 +123,28 @@
         --wobble-sm: 10px 13px 9px 12px / 12px 9px 13px 10px;
         --shadow-hard: 4px 5px 0 rgba(31, 31, 31, 0.85);
         --shadow-soft: 3px 3px 0 rgba(31, 31, 31, 0.8);
+        --menu-background: url("/backgrounds/craftyap-sunny-village-desktop.webp");
+      }
+      @supports (background-image: image-set(url("data:,") type("image/avif"))) {
+        :root {
+          --menu-background: image-set(
+            "/backgrounds/craftyap-sunny-village-desktop.avif" type("image/avif"),
+            "/backgrounds/craftyap-sunny-village-desktop.webp" type("image/webp")
+          );
+        }
+      }
+      @media (max-width: 767px) {
+        :root {
+          --menu-background: url("/backgrounds/craftyap-sunny-village-mobile.webp");
+        }
+        @supports (background-image: image-set(url("data:,") type("image/avif"))) {
+          :root {
+            --menu-background: image-set(
+              "/backgrounds/craftyap-sunny-village-mobile.avif" type("image/avif"),
+              "/backgrounds/craftyap-sunny-village-mobile.webp" type("image/webp")
+            );
+          }
+        }
       }
       html,
       body {
@@ -147,7 +171,7 @@
         align-items: center;
         justify-content: center;
         gap: 18px;
-        background: var(--paper) url("/craftyap-banner.webp") center bottom / cover no-repeat;
+        background: #9bd7ec var(--menu-background) center / cover no-repeat;
         color: var(--ink);
         z-index: 100;
         transition: opacity 0.3s;
@@ -252,9 +276,9 @@
         z-index: 30;
         background: rgba(20, 30, 50, 0.35);
       }
-      /* the very first screen sits on the doodle banner, not on the 3D world */
+      /* Shared artwork for the mode picker, classroom lobby and loading screen. */
       .mode-screen {
-        background: var(--paper) url("/craftyap-banner.webp") center / cover no-repeat;
+        background: #9bd7ec var(--menu-background) center / cover no-repeat;
       }
       .screen-card {
         background: var(--paper) url("/textures/doodle-paper.webp");

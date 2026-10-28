@@ -30,6 +30,7 @@ const MIME: Record<string, string> = {
   ".mp3": "audio/mpeg",
   ".ogg": "audio/ogg",
   ".webp": "image/webp",
+  ".avif": "image/avif",
   ".txt": "text/plain; charset=utf-8",
   ".xml": "application/xml; charset=utf-8",
 };
