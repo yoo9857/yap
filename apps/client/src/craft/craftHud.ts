@@ -52,6 +52,19 @@ function helpGroups(furniture: boolean): HelpGroup[] {
         { keys: ["Ctrl", "Z"], label: t("되돌리기 (가구)", "Undo (furniture)") },
       ],
     },
+    ...(furniture ? [{
+      title: t("가구 모드 (G)", "Furniture mode (G)"),
+      items: [
+        { keys: ["Q", "E"], label: t("가구 종류 바꾸기", "Change category") },
+        { keys: ["1–9", t("휠", "Wheel")], label: t("가구 고르기", "Pick a piece") },
+        { keys: [t("우클릭", "Right click")], label: t("놓기 · 문 열기 · 앉기", "Place · open doors · sit") },
+        { keys: [t("좌클릭 꾹", "Hold left")], label: t("가구 치우기", "Put a piece away") },
+        { keys: ["R"], label: t("돌리기", "Turn") },
+        { keys: ["X"], label: t("색 바꾸기", "Change colour") },
+        { keys: [t("휠 클릭", "Middle click")], label: t("보고 있는 가구 그대로 고르기", "Pick the piece you aim at") },
+        { keys: ["Ctrl", "Y"], label: t("다시 하기", "Redo") },
+      ],
+    }] : []),
     {
       title: t("기타", "Other"),
       items: [

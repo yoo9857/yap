@@ -191,7 +191,7 @@
 .gm-kb kbd { padding: 1px 6px 2px; border-width: 1.5px; border-radius: 6px; box-shadow: inset 0 -2px 0 #d6d6cc; font: 800 11px/1.3 system-ui, sans-serif; }
 
 /* ---- craft hotbar: a brick tray --------------------------------------- */
-.craft-hud .craft-hotbar {
+.craft-hud .craft-hotbar, .furn-bar .craft-hotbar {
   gap: 7px;
   padding: 8px;
   background: #313744;
@@ -199,7 +199,7 @@
   border-radius: 16px;
   box-shadow: inset 0 3px 0 rgba(255, 255, 255, 0.12), inset 0 -4px 0 rgba(0, 0, 0, 0.3), 0 5px 0 var(--brick-ink);
 }
-.craft-hud .craft-slot {
+.craft-hud .craft-slot, .furn-bar .craft-slot {
   border: 3px solid var(--brick-ink);
   border-radius: 10px;
   box-shadow: inset 0 -3px 0 rgba(0, 0, 0, 0.22);
@@ -207,13 +207,14 @@
   transition: transform 0.12s;
 }
 .craft-hud .craft-slot img { border-radius: 7px; }
-.craft-hud .craft-slot.selected {
+.furn-bar .craft-slot { background: #fff; }
+.craft-hud .craft-slot.selected, .furn-bar .craft-slot.selected {
   border-color: var(--brick-ink);
   transform: translateY(-7px);
   box-shadow: 0 0 0 3px #ffd21c, 0 5px 0 3px var(--brick-ink);
 }
 /* the picked brick shows its studs */
-.craft-hud .craft-slot.selected::after {
+.craft-hud .craft-slot.selected::after, .furn-bar .craft-slot.selected::after {
   content: "";
   position: absolute;
   left: 8px;
@@ -222,7 +223,7 @@
   height: 9px;
   background: radial-gradient(circle at 50% 100%, #ffd21c 0 6px, var(--brick-ink) 6px 8.5px, transparent 9px) center bottom / 20px 9px repeat-x;
 }
-.craft-hud .craft-slot-num { top: 2px; left: 5px; font: 800 10px/1 system-ui, sans-serif; opacity: 0.8; text-shadow: 0 0 2px #fff; }
+.craft-hud .craft-slot-num, .furn-bar .craft-slot-num { top: 2px; left: 5px; font: 800 10px/1 system-ui, sans-serif; opacity: 0.8; text-shadow: 0 0 2px #fff; }
 .craft-hud .craft-slot b { font: 800 13px/1 system-ui, sans-serif; }
 /* Empty slots stay recognisable: faded, not washed to white. */
 .craft-hud .craft-slot.empty img { opacity: 0.5; filter: saturate(0.6); }
@@ -328,3 +329,89 @@
 /* builder: a button you can't afford yet stays readable — it says what it needs */
 .b-shop-btn:disabled { filter: saturate(0.45) drop-shadow(2px 3px 0 rgba(31, 31, 31, 0.4)); opacity: 1; }
 .b-shop-btn:disabled small { color: #fff; font-weight: 700; }
+
+/* ---- corner chips + side panels (machine lab, adoption, furniture) -------
+   Each module keeps its own position; the look comes from here so the three
+   chips and two panels read as one family with the menu. `body` outranks the
+   modules' own single-class rules without !important. */
+body .machine-launch, body .pet-chip, body .furn-chip {
+  transform: none;
+  border: 3px solid var(--brick-ink);
+  border-radius: 12px;
+  box-shadow: var(--brick-edge), var(--brick-lift);
+  padding: 9px 16px 11px;
+  font-size: 15px;
+  color: var(--brick-ink);
+  transition: transform 0.08s, box-shadow 0.08s, filter 0.12s;
+}
+body .machine-launch { background: #ffd21c; }
+body .pet-chip { background: #ffb86b; }
+body .furn-chip { background: #9fd8ff; }
+body .machine-launch:hover:not(:disabled), body .pet-chip:hover, body .furn-chip:hover {
+  transform: translateY(-1px);
+  filter: brightness(1.05);
+  box-shadow: var(--brick-edge), 0 5px 0 var(--brick-ink);
+}
+body .machine-launch:active, body .pet-chip:active, body .furn-chip:active {
+  transform: translateY(3px);
+  box-shadow: inset 0 -2px 0 rgba(0, 0, 0, 0.18), 0 1px 0 var(--brick-ink);
+}
+body .machine-launch kbd, body .pet-chip kbd, body .furn-chip kbd {
+  border: 2px solid var(--brick-ink);
+  border-radius: 6px;
+  background: #fff;
+  box-shadow: inset 0 -2px 0 #d6d6cc;
+}
+
+body .pet-panel, body .furn-panel {
+  background: #fff;
+  border: 4px solid var(--brick-ink);
+  border-radius: 18px;
+  box-shadow: inset 0 5px 0 rgba(255, 255, 255, 0.9), inset 0 -7px 0 rgba(0, 0, 0, 0.06), 0 8px 0 var(--brick-ink), 0 18px 30px rgba(0, 0, 0, 0.22);
+  color: var(--brick-ink);
+  animation: gm-pop 0.14s ease-out;
+}
+body .furn-panel { overflow: hidden; }
+body .pet-panel-title, body .furn-panel-title { font-size: 19px; font-weight: 400; }
+body .pet-panel-sub, body .furn-panel-sub {
+  padding: 2px 9px;
+  border: 2px solid var(--brick-ink);
+  border-radius: 999px;
+  background: #e9f7d9;
+  font: 800 11px/1.4 system-ui, sans-serif;
+  opacity: 1;
+}
+
+body .pet-card, body .furn-card {
+  background: var(--card, #fff);
+  border: 3px solid var(--brick-ink);
+  border-radius: 12px;
+  box-shadow: inset 0 -4px 0 rgba(0, 0, 0, 0.1), 0 4px 0 var(--brick-ink);
+  transition: transform 0.08s, box-shadow 0.08s, background 0.12s;
+}
+body .pet-card:hover, body .furn-card:hover {
+  background: var(--card-hover, #fff6c9);
+  transform: translateY(-1px);
+  box-shadow: inset 0 -4px 0 rgba(0, 0, 0, 0.1), 0 5px 0 var(--brick-ink);
+}
+/* the chosen one is pressed in, coloured, and says so */
+body .pet-card.adopted, body .furn-card.active {
+  background: var(--card-on, #ffd21c);
+  transform: translateY(3px);
+  box-shadow: inset 0 -2px 0 rgba(0, 0, 0, 0.12), 0 1px 0 var(--brick-ink);
+}
+body .furn-card.active { --card-on: #9fd8ff; }
+body .pet-card-badge {
+  border-radius: 6px;
+  background: #fff;
+  box-shadow: inset 0 -2px 0 #d6d6cc;
+  font: 800 11px/1.4 system-ui, sans-serif;
+}
+body .pet-card-trait { font: 12px/1.35 system-ui, sans-serif; opacity: 0.75; }
+body .furn-back {
+  border: 3px solid var(--brick-ink);
+  border-radius: 12px;
+  background: #ffd21c;
+  box-shadow: var(--brick-edge), var(--brick-lift);
+}
+body .furn-back:active { transform: translateY(3px); box-shadow: 0 1px 0 var(--brick-ink); }

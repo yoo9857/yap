@@ -2,6 +2,16 @@ import { CATEGORIES, furnitureDef, inCategory, searchCatalog, variantCount } fro
 import type { CategoryKey, FurnitureDef } from "./types.js";
 import "./shop.css";
 import { t } from "../../ui/i18n.js";
+import { keyBarHtml, type KeyHelp } from "../../ui/gameMenu.js";
+
+/** The keys that work while a piece is in hand — shown on the bar and in the panel. */
+const FURNITURE_KEYS = (): KeyHelp[] => [
+  { keys: [t("우클릭", "Right click")], label: t("놓기", "Place") },
+  { keys: [t("좌클릭 꾹", "Hold left")], label: t("치우기", "Put away") },
+  { keys: ["R"], label: t("돌리기", "Turn") },
+  { keys: ["X"], label: t("색 바꾸기", "Colour") },
+  { keys: ["G"], label: t("블록으로", "Blocks") },
+];
 
 /**
  * The furniture DOM: a crayon chip (under the adoption chip) that opens the
@@ -66,9 +76,11 @@ export class FurnitureShop {
     this.panel.dataset.id = "furniture-panel";
     this.panel.innerHTML = `
       <div class="furn-panel-head">
-        <span class="furn-panel-title">${t("가구 꾸미기", "Furnish")}</span>
-        <span class="furn-panel-sub">${t("몇 개든 무료로 놓아요", "Free — place as many as you like")}</span>
+        <span class="furn-panel-title">🛋️ ${t("가구 꾸미기", "Furnish")}</span>
+        <span class="furn-panel-sub">${t("무료 · 몇 개든", "Free · unlimited")}</span>
+        <button type="button" class="furn-close" data-id="furniture-close" aria-label="${t("닫기", "Close")}">✕</button>
       </div>`;
+    this.panel.querySelector('[data-id="furniture-close"]')?.addEventListener("click", () => this.setOpen(false));
 
     this.search = document.createElement("input");
     this.search.className = "furn-search";
@@ -101,9 +113,10 @@ export class FurnitureShop {
     this.grid.dataset.id = "furniture-grid";
     this.panel.appendChild(this.grid);
 
-    const help = document.createElement("div");
+    // the bar under the crosshair already shows the keys; the full list is behind H
+    const help = document.createElement("p");
     help.className = "furn-panel-help";
-    help.textContent = t("G 가구 모드 · Q/E 종류 · 1~9 고르기 · X 색 · R 돌리기 · 오른쪽 클릭 놓기 · 왼쪽 꾹 치우기 · 문/커튼에 오른쪽 클릭 열고 닫기 · 휠 클릭 같은 가구 고르기", "G furniture mode · Q/E category · 1–9 pick · X colour · R turn · right click place · hold left click to put away · right click a door/curtain to open or close · middle click picks the same piece");
+    help.textContent = t("가구를 고르면 아래에 키 안내가 나와요 · H 전체 조작법", "Pick a piece and its keys appear at the bottom · H for all controls");
     this.panel.appendChild(help);
 
     this.backButton = document.createElement("button");
@@ -135,7 +148,10 @@ export class FurnitureShop {
     // Same slot styling as the block hotbar, so the swap reads as "the hotbar
     // changed", not as a new widget appearing.
     this.barSlots.className = "craft-hotbar furn-bar-slots";
-    this.bar.append(this.barLabel, this.barSlots);
+    const keys = document.createElement("div");
+    keys.className = "craft-help gm-keybar furn-keys";
+    keys.innerHTML = keyBarHtml(FURNITURE_KEYS());
+    this.bar.append(keys, this.barLabel, this.barSlots);
     parent.appendChild(this.bar);
 
     this.renderGrid();

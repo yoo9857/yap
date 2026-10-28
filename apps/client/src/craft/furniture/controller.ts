@@ -145,7 +145,7 @@ export class FurnitureController {
     this.shop.setCurrent(kind, this.variant);
     this.host.hud.setHotbarVisible(kind === null);
     // Once on the way in; switching pieces is already shown by the bar.
-    if (entering) this.host.hud.toast(t("🛋️ 가구 모드 — Q/E 종류 · 1~9 고르기 · X 색 · R 돌리기 · G 블록으로", "🛋️ Furniture mode — Q/E category · 1–9 pick · X colour · R turn · G back to blocks"));
+    if (entering) this.host.hud.toast(t("🛋️ 가구 모드 — 아래 키 안내를 보세요 · G로 블록 돌아가기", "🛋️ Furniture mode — keys are shown at the bottom · G back to blocks"));
   }
 
   /**

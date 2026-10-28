@@ -41,7 +41,9 @@ const lobby = await page.$$eval("[data-go]", (els) => els.map((e) => e.dataset.g
 check("education lobby offers teacher / student / solo", lobby === "teacher,student,solo", lobby);
 await page.click('[data-go="solo"]');
 await page.waitForFunction(() => !!globalThis.__roboCraft, { timeout: 15000 });
-await new Promise((r) => setTimeout(r, 2500));
+// the hooks exist from construction; physics starts after the graphics warmup
+await page.waitForFunction(() => globalThis.__roboCraft.snapshot().grounded, { timeout: 20000 }).catch(() => {});
+await new Promise((r) => setTimeout(r, 500));
 const s0 = await page.evaluate(() => globalThis.__roboCraft.snapshot());
 check("field spawns grounded on the flat top", s0.grounded && s0.pos[1] === 4, JSON.stringify(s0.pos));
 check("starter blocks are stocked", s0.inventory["stone-bricks"] === 999);
