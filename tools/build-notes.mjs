@@ -121,7 +121,7 @@ const blogRef = { "@id": `${ORIGIN}/note/#blog` };
 
 // Grouped by month, newest first, so the log reads as a timeline rather than one long column.
 function indexPage() {
-  const card = (n) => `          <li><article class="note-card"><a href="/note/${n.slug}/"><p class="note-date">${dateLine(n)}</p><h3>${esc(n.title)}</h3><p>${esc(n.summary)}</p>${tagList(n.tags)}<span class="note-more">읽어 보기 <span aria-hidden="true">→</span></span></a></article></li>`;
+  const card = (n) => `          <li><article class="note-card"><a href="/note/${n.slug}/"><p class="note-date">${dateLine(n)}</p><h3>${esc(n.title)}</h3><p>${esc(n.summary)}</p>${chipRow(layout(n.html).chips, false) || tagList(n.tags)}<span class="note-more">읽어 보기 <span aria-hidden="true">→</span></span></a></article></li>`;
   const months = new Map();
   for (const n of notes) months.set(n.date.slice(0, 7), [...(months.get(n.date.slice(0, 7)) ?? []), n]);
   const items = notes.length
@@ -168,7 +168,58 @@ ${items}`,
   });
 }
 
+// Patch-note sections by heading. Known headings get a colour, a badge and an item
+// count so a reader can scan what changed; any other heading stays a plain section.
+const SECTIONS = {
+  "한눈에 보기": { kind: "summary", badge: "요약" },
+  "새로 추가": { kind: "new", badge: "NEW", chip: "신규" },
+  "개선": { kind: "up", badge: "UP", chip: "개선" },
+  "버그 수정": { kind: "fix", badge: "FIX", chip: "수정" },
+  "알려진 문제": { kind: "known", badge: "!", chip: "알려진 문제" },
+};
+
+// Items in the section's own lists, not in lists nested inside an item.
+function topLevelItems(html) {
+  let depth = 0, count = 0;
+  for (const [, close, tag] of html.matchAll(/<(\/?)(ul|ol|li)\b/g)) {
+    if (tag === "li") { if (!close && depth === 1) count++; } else depth += close ? -1 : 1;
+  }
+  return count;
+}
+
+function layout(html) {
+  // "**Title** — description" items put the title on its own line.
+  html = html.replace(/<li><strong>([^<]+)<\/strong> — /g, '<li><strong class="item-title">$1</strong>');
+  const chips = [];
+  const parts = html.split(/(?=<h2>)/).map((part, i) => {
+    const m = /^<h2>(.*?)<\/h2>\n?([\s\S]*)$/.exec(part);
+    if (!m) return part;
+    const sec = SECTIONS[m[1]];
+    if (!sec) return `<section class="note-sec">\n<h2>${m[1]}</h2>\n${m[2]}</section>\n`;
+    const count = topLevelItems(m[2]);
+    if (sec.chip && count) chips.push({ ...sec, count });
+    const id = sec.kind === "summary" ? `s${i}` : sec.kind;
+    return `<section class="note-sec note-sec--${sec.kind}" id="${id}" aria-labelledby="${id}-h">
+<h2 id="${id}-h"><span class="note-badge" aria-hidden="true">${sec.badge}</span>${m[1]}${sec.chip && count ? ` <small>${count}</small>` : ""}</h2>
+<div class="note-sec-body">
+${m[2]}</div>
+</section>\n`;
+  });
+  return { body: parts.join("").trim(), chips };
+}
+
+// Change counts as links to the sections (post header) or as plain labels (inside an index card's link).
+function chipRow(chips, linked) {
+  if (!chips.length) return "";
+  const row = chips.map((c) => linked
+    ? `<a class="note-chip note-chip--${c.kind}" href="#${c.kind}">${c.chip} <b>${c.count}</b></a>`
+    : `<span class="note-chip note-chip--${c.kind}">${c.chip} <b>${c.count}</b></span>`).join("");
+  return linked ? `<nav class="note-chips" aria-label="이번 노트의 변경 사항">${row}</nav>` : `<span class="note-chips">${row}</span>`;
+}
+
 function postPage(n, i) {
+  const { body, chips: found } = layout(n.html);
+  const chips = chipRow(found, true);
   const newer = notes[i - 1];
   const older = notes[i + 1];
   const pager = [
@@ -215,9 +266,10 @@ function postPage(n, i) {
           <h1 id="post-title">${esc(n.title)}</h1>
           <p class="note-summary">${esc(n.summary)}</p>
           ${tagList(n.tags)}
+          ${chips}
         </header>
         <div class="note-body">
-${n.html.trim()}
+${body}
         </div>
       </article>
       <nav class="note-pager" aria-label="다른 노트">${pager}</nav>`,

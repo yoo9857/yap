@@ -12,7 +12,7 @@
     <link rel="alternate" type="application/atom+xml" title="크래프트얍 개발 노트" href="/note/feed.xml" />
     <link rel="icon" type="image/png" href="/craftyap-logo.png" />
     <link rel="stylesheet" href="/guide/guide.css?v=0995aa1ed0" />
-    <link rel="stylesheet" href="/note/note.css?v=721a140bcb" />
+    <link rel="stylesheet" href="/note/note.css?v=e5352788b0" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Jua&family=Noto+Sans+KR:wght@400;700;900&display=swap" rel="stylesheet" />
@@ -101,36 +101,53 @@
           <h1 id="post-title">7월 19일 패치 노트 — 모든 모드를 같은 장난감 블록으로</h1>
           <p class="note-summary">섬과 배틀 모드의 블록을 점프 타워와 같은 장난감 블록으로 통일하고, 블록 모양 팔레트와 거대한 성을 추가했습니다. 움직이는 발판 위에서 걷지 못하던 문제도 고쳤습니다.</p>
           <ul class="note-tags" aria-label="태그"><li>패치 노트</li><li>그래픽</li><li>버그 수정</li></ul>
+          <nav class="note-chips" aria-label="이번 노트의 변경 사항"><a class="note-chip note-chip--new" href="#new">신규 <b>4</b></a><a class="note-chip note-chip--up" href="#up">개선 <b>3</b></a><a class="note-chip note-chip--fix" href="#fix">수정 <b>5</b></a></nav>
         </header>
         <div class="note-body">
 <blockquote>
 <p>날짜는 이 업데이트의 개발을 마친 날입니다. 당시 자동 배포가 멈춰 있어서, 서버에 실제로 반영된 날은 이보다 늦을 수 있습니다(늦어도 10월 22일 반영).</p>
 </blockquote>
-<h2>한눈에 보기</h2>
+<section class="note-sec note-sec--summary" id="s1" aria-labelledby="s1-h">
+<h2 id="s1-h"><span class="note-badge" aria-hidden="true">요약</span>한눈에 보기</h2>
+<div class="note-sec-body">
 <p>오픈 다음 날은 &quot;모드마다 다른 게임처럼 보인다&quot;는 문제에 집중했습니다. 이제 섬, 배틀, 타워의
 블록이 같은 재질과 같은 돌기를 가진 장난감 블록으로 보입니다. 타워에서 가장 답답했던
 움직이는 발판 문제도 고쳤습니다.</p>
-<h2>새로 추가</h2>
+</div>
+</section>
+<section class="note-sec note-sec--new" id="new" aria-labelledby="new-h">
+<h2 id="new-h"><span class="note-badge" aria-hidden="true">NEW</span>새로 추가 <small>4</small></h2>
+<div class="note-sec-body">
 <ul>
-<li><strong>블록 모양 팔레트 (Craft Island)</strong> — 1칸, 막대(1×2, 1×3), L자, 2×2 판, 원기둥, 경사 블록을 놓을 수 있습니다. <kbd>F</kbd>로 모양을 바꾸고 <kbd>R</kbd>로 돌리고 <kbd>T</kbd>로 기울입니다. 놓기 전에 미리보기가 보입니다.</li>
-<li><strong>거대한 성</strong> — 섬 한가운데의 성이 더 크고 높아졌습니다. 세상의 높이 한도도 함께 늘었습니다.</li>
-<li><strong>배경 음악</strong> — 모든 모드에서 여러 곡이 섞여 재생됩니다.</li>
-<li><strong>새 배너 그림</strong> — 크레용 그림체의 새 배너로 바꿨습니다.</li>
+<li><strong class="item-title">블록 모양 팔레트 (Craft Island)</strong>1칸, 막대(1×2, 1×3), L자, 2×2 판, 원기둥, 경사 블록을 놓을 수 있습니다. <kbd>F</kbd>로 모양을 바꾸고 <kbd>R</kbd>로 돌리고 <kbd>T</kbd>로 기울입니다. 놓기 전에 미리보기가 보입니다.</li>
+<li><strong class="item-title">거대한 성</strong>섬 한가운데의 성이 더 크고 높아졌습니다. 세상의 높이 한도도 함께 늘었습니다.</li>
+<li><strong class="item-title">배경 음악</strong>모든 모드에서 여러 곡이 섞여 재생됩니다.</li>
+<li><strong class="item-title">새 배너 그림</strong>크레용 그림체의 새 배너로 바꿨습니다.</li>
 </ul>
-<h2>개선</h2>
+</div>
+</section>
+<section class="note-sec note-sec--up" id="up" aria-labelledby="up-h">
+<h2 id="up-h"><span class="note-badge" aria-hidden="true">UP</span>개선 <small>3</small></h2>
+<div class="note-sec-body">
 <ul>
 <li>섬과 배틀의 블록이 타워 블록과 같은 재질, 같은 크레용 무늬, 블록마다 2×2 돌기를 쓰도록 맞췄습니다.</li>
 <li>섬의 3인칭 카메라를 타워와 같은 거리로 물려, 캐릭터와 블록이 지나치게 커 보이지 않습니다.</li>
 <li>Craft Island의 시작 위치를 성 남쪽 잔디밭으로 옮겨 성 전체가 한눈에 보입니다.</li>
 </ul>
-<h2>버그 수정</h2>
+</div>
+</section>
+<section class="note-sec note-sec--fix" id="fix" aria-labelledby="fix-h">
+<h2 id="fix-h"><span class="note-badge" aria-hidden="true">FIX</span>버그 수정 <small>5</small></h2>
+<div class="note-sec-body">
 <ul>
-<li><strong>움직이는 발판 위에서 걷지 못하던 문제</strong> — 발판이 움직이는 반대 방향으로 걸으려 하면 조작이 먹히지 않고 끌려가기만 하던 문제를 고쳤습니다. 가만히 서 있으면 발판에 딱 붙어 함께 움직입니다.</li>
+<li><strong class="item-title">움직이는 발판 위에서 걷지 못하던 문제</strong>발판이 움직이는 반대 방향으로 걸으려 하면 조작이 먹히지 않고 끌려가기만 하던 문제를 고쳤습니다. 가만히 서 있으면 발판에 딱 붙어 함께 움직입니다.</li>
 <li>서버 시계가 흔들릴 때 움직이는 발판이 떨리던 현상을 고쳤습니다.</li>
 <li>마우스 입력이 순간적으로 튀면 카메라가 확 돌아가던 문제를 고쳤습니다.</li>
 <li>배틀에서 커진 성 지붕 위에 착지하던 문제를 고쳤습니다. 이제 모두 성 바깥 땅에서 시작합니다.</li>
 <li>카카오톡·트위터 등에 링크를 공유할 때 미리보기 이미지가 나오지 않던 문제를 고쳤습니다.</li>
 </ul>
+</div>
+</section>
         </div>
       </article>
       <nav class="note-pager" aria-label="다른 노트"><a class="note-prev" href="/note/patch-2026-07-18/"><small>이전 노트</small>7월 18일 패치 노트 — 크래프트얍 첫 공개</a><a class="note-next" href="/note/patch-2026-07-22/"><small>다음 노트</small>7월 22일 패치 노트 — 방송 후원과 연동되는 Robo Builder</a></nav>

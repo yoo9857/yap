@@ -12,7 +12,7 @@
     <link rel="alternate" type="application/atom+xml" title="크래프트얍 개발 노트" href="/note/feed.xml" />
     <link rel="icon" type="image/png" href="/craftyap-logo.png" />
     <link rel="stylesheet" href="/guide/guide.css?v=0995aa1ed0" />
-    <link rel="stylesheet" href="/note/note.css?v=721a140bcb" />
+    <link rel="stylesheet" href="/note/note.css?v=e5352788b0" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Jua&family=Noto+Sans+KR:wght@400;700;900&display=swap" rel="stylesheet" />
@@ -101,41 +101,62 @@
           <h1 id="post-title">10월 26일 패치 노트 — 물이 흐릅니다</h1>
           <p class="note-summary">양동이로 물을 붓고, 흘러내리는 물에서 헤엄칠 수 있습니다. 교실에서는 모두가 같은 물을 봅니다. 저장 안정성과 교실 입장도 함께 개선했습니다.</p>
           <ul class="note-tags" aria-label="태그"><li>패치 노트</li><li>대형 업데이트</li><li>물</li><li>교실</li><li>안정화</li></ul>
+          <nav class="note-chips" aria-label="이번 노트의 변경 사항"><a class="note-chip note-chip--new" href="#new">신규 <b>6</b></a><a class="note-chip note-chip--up" href="#up">개선 <b>4</b></a><a class="note-chip note-chip--fix" href="#fix">수정 <b>4</b></a><a class="note-chip note-chip--known" href="#known">알려진 문제 <b>2</b></a></nav>
         </header>
         <div class="note-body">
-<h2>한눈에 보기</h2>
+<section class="note-sec note-sec--summary" id="s0" aria-labelledby="s0-h">
+<h2 id="s0-h"><span class="note-badge" aria-hidden="true">요약</span>한눈에 보기</h2>
+<div class="note-sec-body">
 <p>블록 세상에 <strong>흐르는 물</strong>이 들어왔습니다. 웅덩이를 파고 물을 부으면 퍼지고, 낮은 곳으로
 흘러내리고, 막힌 곳에 고입니다. 폭포도 만들 수 있습니다. 물은 계산이 많은 기능이라
 이번 업데이트의 절반은 물이 많아져도 게임과 교실이 버티게 하는 작업이었습니다.</p>
-<h2>새로 추가</h2>
+</div>
+</section>
+<section class="note-sec note-sec--new" id="new" aria-labelledby="new-h">
+<h2 id="new-h"><span class="note-badge" aria-hidden="true">NEW</span>새로 추가 <small>6</small></h2>
+<div class="note-sec-body">
 <h3>물</h3>
 <ul>
-<li><strong>양동이</strong> — 단축칸 0번에 무한 양동이가 있습니다. 물을 붓거나 다시 퍼 담을 수 있습니다.</li>
-<li><strong>흐름</strong> — 물은 옆으로 퍼지고 아래로 떨어지며, 막힌 웅덩이에는 고입니다. 아래쪽에 구멍이 나면 고인 물이 빠져나갑니다.</li>
-<li><strong>헤엄</strong> — 물속에서 헤엄치고, 얕은 물은 걸어서 지나가고, 물가로 기어 올라올 수 있습니다. <kbd>Space</kbd>로 위로 올라갑니다.</li>
+<li><strong class="item-title">양동이</strong>단축칸 0번에 무한 양동이가 있습니다. 물을 붓거나 다시 퍼 담을 수 있습니다.</li>
+<li><strong class="item-title">흐름</strong>물은 옆으로 퍼지고 아래로 떨어지며, 막힌 웅덩이에는 고입니다. 아래쪽에 구멍이 나면 고인 물이 빠져나갑니다.</li>
+<li><strong class="item-title">헤엄</strong>물속에서 헤엄치고, 얕은 물은 걸어서 지나가고, 물가로 기어 올라올 수 있습니다. <kbd>Space</kbd>로 위로 올라갑니다.</li>
 <li>물속에서는 시야가 물빛으로 바뀌고, 붓는 소리와 첨벙 소리가 납니다.</li>
 <li>수면은 하나로 이어진 매끈한 물로 그려지고, 물살과 떨어지는 곳의 물보라가 보입니다.</li>
-<li><strong>교실</strong> — 서버가 물의 흐름을 계산해 반 전체가 같은 물을 봅니다.</li>
+<li><strong class="item-title">교실</strong>서버가 물의 흐름을 계산해 반 전체가 같은 물을 봅니다.</li>
 </ul>
-<h2>개선</h2>
+</div>
+</section>
+<section class="note-sec note-sec--up" id="up" aria-labelledby="up-h">
+<h2 id="up-h"><span class="note-badge" aria-hidden="true">UP</span>개선 <small>4</small></h2>
+<div class="note-sec-body">
 <ul>
-<li><strong>교실 입장</strong> — 이미 많이 지어진 교실에 늦게 들어와도 들판을 나눠 받아서, 다른 사람의 화면이 느려지지 않습니다. 재접속하면 들판과 내 위치가 정확히 복구됩니다.</li>
-<li><strong>자동 저장</strong> — 저장에 실패하면 경고를 띄우고 다시 시도합니다. 복구되면 알려 줍니다.</li>
+<li><strong class="item-title">교실 입장</strong>이미 많이 지어진 교실에 늦게 들어와도 들판을 나눠 받아서, 다른 사람의 화면이 느려지지 않습니다. 재접속하면 들판과 내 위치가 정확히 복구됩니다.</li>
+<li><strong class="item-title">자동 저장</strong>저장에 실패하면 경고를 띄우고 다시 시도합니다. 복구되면 알려 줍니다.</li>
 <li>누군가 교실이나 타워에 접속해 있으면 서버 업데이트가 끼어들지 않습니다. 접속이 2분 넘게 이어지면 그 업데이트는 다음으로 미룹니다.</li>
 <li>물이 아주 많아져도 흐름이 조금 느려질 뿐 화면은 끊기지 않도록 계산량에 상한을 두었습니다.</li>
 </ul>
-<h2>버그 수정</h2>
+</div>
+</section>
+<section class="note-sec note-sec--fix" id="fix" aria-labelledby="fix-h">
+<h2 id="fix-h"><span class="note-badge" aria-hidden="true">FIX</span>버그 수정 <small>4</small></h2>
+<div class="note-sec-body">
 <ul>
 <li>크게 지은 섬(수정한 칸 20만 개 이상)을 다시 불러오면 섬이 초기화되던 문제를 고쳤습니다.</li>
 <li>들판을 오가다 돌아오면 저장된 물이 멈춰 있던 문제를 고쳤습니다.</li>
 <li>교실 서버 저장이 잠깐 실패하면 그 변경이 저장되지 않던 문제를 고쳤습니다. 다음 저장 때 다시 저장합니다.</li>
 <li>모드를 오가면 소리, 입력, 그래픽 자원이 남아 쌓이던 문제를 고쳤습니다.</li>
 </ul>
-<h2>알려진 문제</h2>
+</div>
+</section>
+<section class="note-sec note-sec--known" id="known" aria-labelledby="known-h">
+<h2 id="known-h"><span class="note-badge" aria-hidden="true">!</span>알려진 문제 <small>2</small></h2>
+<div class="note-sec-body">
 <ul>
 <li>바다나 호수가 처음부터 있는 지형은 아직 없습니다. 지금은 플레이어가 부은 물만 흐릅니다.</li>
 <li>물은 게임용으로 단순하게 계산하기 때문에 실제 물처럼 양이 정확히 보존되지는 않습니다.</li>
 </ul>
+</div>
+</section>
         </div>
       </article>
       <nav class="note-pager" aria-label="다른 노트"><a class="note-prev" href="/note/patch-2026-10-23/"><small>이전 노트</small>10월 23일 패치 노트 — 반려동물, 가구, 반 이름 교실</a><a class="note-next" href="/note/hello-dev-notes/"><small>다음 노트</small>개발 노트를 시작합니다</a></nav>

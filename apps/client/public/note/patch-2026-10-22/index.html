@@ -12,7 +12,7 @@
     <link rel="alternate" type="application/atom+xml" title="크래프트얍 개발 노트" href="/note/feed.xml" />
     <link rel="icon" type="image/png" href="/craftyap-logo.png" />
     <link rel="stylesheet" href="/guide/guide.css?v=0995aa1ed0" />
-    <link rel="stylesheet" href="/note/note.css?v=721a140bcb" />
+    <link rel="stylesheet" href="/note/note.css?v=e5352788b0" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Jua&family=Noto+Sans+KR:wght@400;700;900&display=swap" rel="stylesheet" />
@@ -101,13 +101,20 @@
           <h1 id="post-title">10월 22일 패치 노트 — 교육 모드와 함께 만드는 교실</h1>
           <p class="note-summary">끝없는 들판에서 마음껏 짓는 교육 모드와, 선생님과 학생이 한 들판에서 함께 만드는 실시간 교실을 열었습니다. 블록 세상을 그리는 방식도 바꿔 훨씬 가벼워졌습니다.</p>
           <ul class="note-tags" aria-label="태그"><li>패치 노트</li><li>대형 업데이트</li><li>교육 모드</li><li>교실</li></ul>
+          <nav class="note-chips" aria-label="이번 노트의 변경 사항"><a class="note-chip note-chip--new" href="#new">신규 <b>7</b></a><a class="note-chip note-chip--up" href="#up">개선 <b>3</b></a></nav>
         </header>
         <div class="note-body">
-<h2>한눈에 보기</h2>
+<section class="note-sec note-sec--summary" id="s0" aria-labelledby="s0-h">
+<h2 id="s0-h"><span class="note-badge" aria-hidden="true">요약</span>한눈에 보기</h2>
+<div class="note-sec-body">
 <p>크래프트얍의 두 번째 큰 축이 생겼습니다. 이제 시작 화면에서 <strong>교육 모드</strong>와 <strong>게임 모드</strong>를
 먼저 고릅니다. 교육 모드는 수업 시간에 반 전체가 같은 세상에 들어와 함께 만드는 것을
 목표로 합니다. 수업이 끝나도 교실은 서버에 저장됩니다.</p>
-<h2>새로 추가</h2>
+</div>
+</section>
+<section class="note-sec note-sec--new" id="new" aria-labelledby="new-h">
+<h2 id="new-h"><span class="note-badge" aria-hidden="true">NEW</span>새로 추가 <small>7</small></h2>
+<div class="note-sec-body">
 <h3>교육 모드 — 끝없는 들판</h3>
 <ul>
 <li>끝이 없는 평평한 들판에서 모든 블록을 999개씩 들고 시작합니다.</li>
@@ -116,17 +123,23 @@
 </ul>
 <h3>함께 만드는 교실</h3>
 <ul>
-<li><strong>선생님</strong> — 반을 만들고 비밀번호를 정합니다. 학생 모으기, 건축·채팅 잠그기, 내보내기, 들판 비우기, 수업 종료를 할 수 있습니다.</li>
-<li><strong>학생</strong> — 선생님 이름과 내 이름으로 들어갑니다. 서로의 로봇과 이름표가 보이고 채팅할 수 있습니다.</li>
-<li><strong>저장</strong> — 교실에서 지은 것은 서버에 저장됩니다. 다음 수업에 같은 브라우저에서, 또는 다른 PC에서도 비밀번호로 다시 열 수 있습니다. 새로고침하거나 연결이 끊겨도 같은 자리로 돌아옵니다.</li>
-<li><strong>혼자 하기</strong> — 교실 없이 혼자 들판에서 만들 수도 있습니다.</li>
+<li><strong class="item-title">선생님</strong>반을 만들고 비밀번호를 정합니다. 학생 모으기, 건축·채팅 잠그기, 내보내기, 들판 비우기, 수업 종료를 할 수 있습니다.</li>
+<li><strong class="item-title">학생</strong>선생님 이름과 내 이름으로 들어갑니다. 서로의 로봇과 이름표가 보이고 채팅할 수 있습니다.</li>
+<li><strong class="item-title">저장</strong>교실에서 지은 것은 서버에 저장됩니다. 다음 수업에 같은 브라우저에서, 또는 다른 PC에서도 비밀번호로 다시 열 수 있습니다. 새로고침하거나 연결이 끊겨도 같은 자리로 돌아옵니다.</li>
+<li><strong class="item-title">혼자 하기</strong>교실 없이 혼자 들판에서 만들 수도 있습니다.</li>
 </ul>
-<h2>개선</h2>
+</div>
+</section>
+<section class="note-sec note-sec--up" id="up" aria-labelledby="up-h">
+<h2 id="up-h"><span class="note-badge" aria-hidden="true">UP</span>개선 <small>3</small></h2>
+<div class="note-sec-body">
 <ul>
 <li>세상을 16×16 구역 단위로 그리도록 바꿨습니다. 블록 하나를 놓거나 캐도 그 구역만 다시 그립니다.</li>
 <li>먼 구역은 단순한 모양으로 바꿔 그려, 넓은 세상도 가볍게 보입니다.</li>
 <li>몇 초마다 화면이 살짝 멈칫하던 자동 저장을, 바뀐 것이 있을 때만 하도록 바꿨습니다.</li>
 </ul>
+</div>
+</section>
         </div>
       </article>
       <nav class="note-pager" aria-label="다른 노트"><a class="note-prev" href="/note/network-2026-10-22/"><small>이전 노트</small>실시간 교실 네트워크 오픈 안내</a><a class="note-next" href="/note/patch-2026-10-23/"><small>다음 노트</small>10월 23일 패치 노트 — 반려동물, 가구, 반 이름 교실</a></nav>

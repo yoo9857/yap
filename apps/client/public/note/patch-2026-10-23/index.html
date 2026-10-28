@@ -12,7 +12,7 @@
     <link rel="alternate" type="application/atom+xml" title="크래프트얍 개발 노트" href="/note/feed.xml" />
     <link rel="icon" type="image/png" href="/craftyap-logo.png" />
     <link rel="stylesheet" href="/guide/guide.css?v=0995aa1ed0" />
-    <link rel="stylesheet" href="/note/note.css?v=721a140bcb" />
+    <link rel="stylesheet" href="/note/note.css?v=e5352788b0" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Jua&family=Noto+Sans+KR:wght@400;700;900&display=swap" rel="stylesheet" />
@@ -101,13 +101,20 @@
           <h1 id="post-title">10월 23일 패치 노트 — 반려동물, 가구, 반 이름 교실</h1>
           <p class="note-summary">따라다니는 반려동물 다섯 종과 가구 50여 종을 추가했습니다. 교실은 반 이름으로 열고 들어가도록 바꿨고, 가구도 교실에서 함께 씁니다. 카메라가 끊기던 현상도 고쳤습니다.</p>
           <ul class="note-tags" aria-label="태그"><li>패치 노트</li><li>대형 업데이트</li><li>반려동물</li><li>가구</li><li>교실</li></ul>
+          <nav class="note-chips" aria-label="이번 노트의 변경 사항"><a class="note-chip note-chip--new" href="#new">신규 <b>12</b></a><a class="note-chip note-chip--up" href="#up">개선 <b>4</b></a><a class="note-chip note-chip--fix" href="#fix">수정 <b>5</b></a></nav>
         </header>
         <div class="note-body">
-<h2>한눈에 보기</h2>
+<section class="note-sec note-sec--summary" id="s0" aria-labelledby="s0-h">
+<h2 id="s0-h"><span class="note-badge" aria-hidden="true">요약</span>한눈에 보기</h2>
+<div class="note-sec-body">
 <p>블록 세상이 <strong>살 만한 곳</strong>이 되는 날입니다. 나를 따라다니는 반려동물이 생기고, 지은 집을
 가구로 채울 수 있습니다. 교실은 실제 학교에서 쓰기 편하도록 반 이름 중심으로 바꿨습니다.
 화면이 끊긴다는 문제도 원인을 하나씩 찾아 고쳤습니다.</p>
-<h2>새로 추가</h2>
+</div>
+</section>
+<section class="note-sec note-sec--new" id="new" aria-labelledby="new-h">
+<h2 id="new-h"><span class="note-badge" aria-hidden="true">NEW</span>새로 추가 <small>12</small></h2>
+<div class="note-sec-body">
 <h3>반려동물</h3>
 <ul>
 <li>강아지, 고양이, 아기 코끼리, 아기 기린, 판다 중에서 입양할 수 있습니다. 고른 반려동물은 저장됩니다.</li>
@@ -125,25 +132,35 @@
 </ul>
 <h3>교실</h3>
 <ul>
-<li><strong>반 이름으로 열고 들어가기</strong> — 선생님은 반 이름과 내 이름으로 반을 엽니다. 학생은 반 이름을 입력하면 누구 선생님의 반인지 확인한 뒤 들어갑니다. 반 이름을 잘못 쳐서 엉뚱한 수업에 들어가는 일이 없고, 이름이 같은 선생님도 각자 반을 열 수 있습니다.</li>
+<li><strong class="item-title">반 이름으로 열고 들어가기</strong>선생님은 반 이름과 내 이름으로 반을 엽니다. 학생은 반 이름을 입력하면 누구 선생님의 반인지 확인한 뒤 들어갑니다. 반 이름을 잘못 쳐서 엉뚱한 수업에 들어가는 일이 없고, 이름이 같은 선생님도 각자 반을 열 수 있습니다.</li>
 <li>예전에 선생님 이름으로 만든 반은 그 이름을 반 이름으로 입력하면 그대로 열립니다.</li>
 <li>교실에서 가구를 함께 놓을 수 있고, 놓은 가구도 저장됩니다.</li>
 </ul>
-<h2>개선</h2>
+</div>
+</section>
+<section class="note-sec note-sec--up" id="up" aria-labelledby="up-h">
+<h2 id="up-h"><span class="note-badge" aria-hidden="true">UP</span>개선 <small>4</small></h2>
+<div class="note-sec-body">
 <ul>
-<li><strong>로봇이 걷는 방향을 봅니다</strong> — 예전에는 늘 등만 보였습니다. 이제 걷는 쪽으로 몸을 돌리고, 블록을 캐거나 놓을 때는 조준점 쪽을 봅니다. 교실 친구들의 로봇도 부드럽게 방향을 바꿉니다.</li>
-<li><strong>외곽선 정리</strong> — 캐릭터와 동물마다 몸 전체를 감싸는 외곽선 하나만 그립니다. 목이나 꼬리에 띠처럼 생기던 선이 사라졌습니다.</li>
+<li><strong class="item-title">로봇이 걷는 방향을 봅니다</strong>예전에는 늘 등만 보였습니다. 이제 걷는 쪽으로 몸을 돌리고, 블록을 캐거나 놓을 때는 조준점 쪽을 봅니다. 교실 친구들의 로봇도 부드럽게 방향을 바꿉니다.</li>
+<li><strong class="item-title">외곽선 정리</strong>캐릭터와 동물마다 몸 전체를 감싸는 외곽선 하나만 그립니다. 목이나 꼬리에 띠처럼 생기던 선이 사라졌습니다.</li>
 <li>가구를 가볍게 만들고, 처음 놓을 때의 멈칫거림을 없앴습니다.</li>
 <li>서버를 업데이트하기 전에 교실 데이터를 자동으로 백업합니다. 백업이 실패하면 업데이트를 멈춥니다.</li>
 </ul>
-<h2>버그 수정</h2>
+</div>
+</section>
+<section class="note-sec note-sec--fix" id="fix" aria-labelledby="fix-h">
+<h2 id="fix-h"><span class="note-badge" aria-hidden="true">FIX</span>버그 수정 <small>5</small></h2>
+<div class="note-sec-body">
 <ul>
-<li><strong>카메라를 돌릴 때 끊기던 현상</strong> — 원인 세 가지를 찾아 고쳤습니다. 매 프레임 그래픽 설정이 다시 계산되던 문제, 캐릭터가 60Hz 계단식으로 움직이던 문제, 플레이 중에 그래픽을 준비하던 문제입니다.</li>
+<li><strong class="item-title">카메라를 돌릴 때 끊기던 현상</strong>원인 세 가지를 찾아 고쳤습니다. 매 프레임 그래픽 설정이 다시 계산되던 문제, 캐릭터가 60Hz 계단식으로 움직이던 문제, 플레이 중에 그래픽을 준비하던 문제입니다.</li>
 <li>반려동물이 땅에서 살짝 떠 있던 문제를 고쳤습니다(판다는 20cm나 떠 있었습니다).</li>
 <li>높이 놓인 가구를 뚫고 블록을 놓을 수 있던 문제와 기계가 소파를 뚫고 지나가던 문제를 고쳤습니다.</li>
 <li>손상된 저장 데이터 때문에 섬 전체가 지워질 수 있던 문제를 막았습니다.</li>
 <li>들판에서 판 구덩이를 먼 땅이 덮어 버리던 문제를 고쳤습니다.</li>
 </ul>
+</div>
+</section>
         </div>
       </article>
       <nav class="note-pager" aria-label="다른 노트"><a class="note-prev" href="/note/patch-2026-10-22/"><small>이전 노트</small>10월 22일 패치 노트 — 교육 모드와 함께 만드는 교실</a><a class="note-next" href="/note/patch-2026-10-26/"><small>다음 노트</small>10월 26일 패치 노트 — 물이 흐릅니다</a></nav>
