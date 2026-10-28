@@ -5,6 +5,7 @@
  * on a fatal overlay with a retry button — a game never half-starts.
  */
 import { selectMode } from "./app/modeSelect.js";
+import { t } from "./ui/i18n.js";
 import type { ClassEntry } from "./app/classLobby.js";
 
 const overlay = document.getElementById("boot-overlay");
@@ -41,7 +42,7 @@ async function withTimeout<T>(promise: Promise<T>, ms: number, what: string): Pr
 
 async function bootTower(mount: HTMLElement): Promise<void> {
   overlay?.classList.remove("hidden");
-  setBootMessage("Loading physics engine…");
+  setBootMessage(t("물리 엔진 불러오는 중…", "Loading physics engine…"));
   const rapier = await withTimeout(
     import("@dimforge/rapier3d-compat"),
     10_000,
@@ -49,7 +50,7 @@ async function bootTower(mount: HTMLElement): Promise<void> {
   );
   await withTimeout(rapier.init(), 10_000, "physics init");
 
-  setBootMessage("Building the world…");
+  setBootMessage(t("세상을 만드는 중…", "Building the world…"));
   const { Game } = await import("./app/game.js");
   const game = new Game(rapier, mount);
   // asset preload + GPU warmup happen behind the overlay so gameplay never
@@ -69,7 +70,7 @@ async function bootBuilder(mount: HTMLElement): Promise<void> {
 
 async function bootCraft(mount: HTMLElement, field = false, classroom: ClassEntry | null = null): Promise<void> {
   overlay?.classList.remove("hidden");
-  setBootMessage("Building the world…");
+  setBootMessage(t("세상을 만드는 중…", "Building the world…"));
   const { CraftGame } = await import("./craft/craftGame.js");
   const game = new CraftGame(mount, { field, classroom: classroom ?? undefined });
   // shaders and uploads behind the overlay, so play never opens slow and
@@ -81,7 +82,7 @@ async function bootCraft(mount: HTMLElement, field = false, classroom: ClassEntr
 
 async function bootBattle(mount: HTMLElement): Promise<void> {
   overlay?.classList.remove("hidden");
-  setBootMessage("Building the island…");
+  setBootMessage(t("섬을 만드는 중…", "Building the island…"));
   const { BattleGame } = await import("./battle/battleGame.js");
   const game = new BattleGame(mount);
   await withTimeout(game.prepare(setBootMessage), 20_000, "graphics warmup").catch(() => {});
@@ -113,15 +114,27 @@ async function boot(): Promise<void> {
   }
 
   const mode = await selectMode(document.body);
+  // Start the HOME character download now, in the background: it overlaps the
+  // class lobby instead of covering it. Every mode waits for it below, before
+  // any rig is built (a failed download falls back to the built-in mascot).
+  const characters = import("./player/rig.js")
+    .then(({ preloadCharacter }) => withTimeout(preloadCharacter(), 12_000, "character assets"))
+    .catch(() => {});
+  let classroom: ClassEntry | null = null;
+  if (mode === "field") {
+    // a deep link plays solo unless it names a class (?host= / ?teacher=&student=);
+    // from the menu, education mode asks: teacher, student or solo
+    const { chooseClass, classFromUrl } = await import("./app/classLobby.js");
+    classroom = params.get("mode") === "field" ? await classFromUrl() : await chooseClass(document.body);
+  }
+  overlay?.classList.remove("hidden");
+  setBootMessage(t("캐릭터 불러오는 중…", "Loading characters…"));
+  await characters;
   if (mode === "tower") {
     await bootTower(mount);
   } else if (mode === "craft") {
     await bootCraft(mount);
   } else if (mode === "field") {
-    // a deep link plays solo unless it names a class (?host= / ?teacher=&student=);
-    // from the menu, education mode asks: teacher, student or solo
-    const { chooseClass, classFromUrl } = await import("./app/classLobby.js");
-    const classroom = params.get("mode") === "field" ? await classFromUrl() : await chooseClass(document.body);
     await bootCraft(mount, true, classroom);
   } else if (mode === "battle") {
     await bootBattle(mount);
@@ -134,5 +147,5 @@ async function boot(): Promise<void> {
 
 boot().catch((err: unknown) => {
   console.error("boot failed", err);
-  showFatal("Couldn't start the game. Check your connection and try again.");
+  showFatal(t("게임을 시작하지 못했어요. 인터넷 연결을 확인하고 다시 시도해 주세요.", "Couldn't start the game. Check your connection and try again."));
 });

@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import type { AnimState } from "@robo/shared";
+import { createHomeRig, disposeHomeRig, preloadHomeCharacter, type HomeRig } from "./homeRig.js";
 import { loadTexture } from "../render/textures.js";
 import { box, bodyMat, crayonGrain, outline, part, stud } from "./blockParts.js";
 
@@ -21,7 +22,7 @@ export type CharacterVariant = "mascot" | "blue" | "purple";
 /** Cycle for giving crowds (bots, remote players, builder crew) some variety. */
 export const VARIANT_CYCLE: CharacterVariant[] = ["mascot", "blue", "purple"];
 
-type Anim = AnimState | "carry" | "place" | "sit";
+type Anim = AnimState | "carry" | "place" | "sit" | "wave";
 type Expr = "happy" | "blink" | "oh" | "dead";
 
 interface VariantSpec {
@@ -88,10 +89,10 @@ export function preloadCharacter(): Promise<void> {
   const urls = new Set<string>();
   for (const v of Object.values(VARIANTS))
     for (const e of ["happy", "blink", "oh", "dead"] as Expr[]) urls.add(faceUrl(v.faceBase, e));
-  return Promise.all([...urls].map((u) => loadTexture(u).catch(() => null))).then(() => undefined);
+  return Promise.all([preloadHomeCharacter(), ...[...urls].map((u) => loadTexture(u).catch(() => null))]).then(() => undefined);
 }
 
-export class CharacterRig {
+class ProceduralCharacterRig {
   readonly root = new THREE.Group();
   /** Everything lives under this inner group — callers own root's transform
    *  (position/yaw are overwritten every frame), so squash & the dead-topple
@@ -213,7 +214,7 @@ export class CharacterRig {
   private stepSquash(dt: number): void {
     const h = Math.min(dt, 1 / 30);
     this.squashVel +=
-      (-CharacterRig.SQUASH_STIFF * this.squash - CharacterRig.SQUASH_DAMP * this.squashVel) * h;
+      (-ProceduralCharacterRig.SQUASH_STIFF * this.squash - ProceduralCharacterRig.SQUASH_DAMP * this.squashVel) * h;
     this.squash += this.squashVel * h;
     this.squash = Math.max(-0.42, Math.min(0.55, this.squash));
     const sy = 1 + this.squash;
@@ -300,8 +301,21 @@ export class CharacterRig {
   }
 }
 
+/** The approved HOME mesh is used after boot preload; the built-in rig remains an asset-failure fallback. */
+export class CharacterRig {
+  readonly root: THREE.Group;
+  private readonly implementation: HomeRig | ProceduralCharacterRig;
+  constructor(variant: CharacterVariant = "mascot") {
+    this.implementation = createHomeRig(variant) ?? new ProceduralCharacterRig(variant);
+    this.root = this.implementation.root;
+  }
+  update(anim: Anim, planarSpeed: number, dt: number): void { this.implementation.update(anim, planarSpeed, dt); }
+  pop(impulse: number): void { this.implementation.pop(impulse); }
+}
+
 /** Frees per-instance extras (name-label sprites). Shared geo/materials stay. */
 export function disposeRig(root: THREE.Object3D): void {
+  disposeHomeRig(root);
   root.traverse((o) => {
     if (o instanceof THREE.Sprite) {
       o.material.map?.dispose();
