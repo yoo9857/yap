@@ -1,0 +1,21 @@
+# 크래프트얍 (CraftYap)
+
+> 크래프트얍(CraftYap)은 https://craftyap.com/ 에서 설치 없이 즐기는 무료 3D 웹 블록 게임입니다.
+
+## Official sources
+
+- [게임 시작 / Play](https://craftyap.com/): Official game homepage. Korean name: 크래프트얍. English name: CraftYap.
+- [게임 소개·조작법·교실 이용 안내](https://craftyap.com/guide/): Game modes, desktop controls, classroom participation, local and server saves, and frequently asked questions. Includes an English overview.
+
+## Game facts
+
+- Free to play in a browser, with JavaScript and WebGL. No separate game installation or account registration.
+- Craft Island: single-player voxel sandbox, mining, building, furniture, pets, and a machine workshop for cars and aircraft.
+- Education mode: an endless building field, solo or shared through named classrooms. Teachers create a class; students join using its class name.
+- Daily Tower: multiplayer obstacle tower with a new layout each day at midnight Korea Standard Time.
+- Robo Builder: idle landmark construction.
+- Blast Royale: single-player battle royale against seven robot bots.
+- Block building and the machine workshop require a desktop keyboard and mouse. Daily Tower has mobile controls; mobile support does not apply to every mode.
+- Solo sandbox and builder saves are stored in the current browser; shared classroom worlds are saved on the server. Browser saves do not automatically sync across devices.
+
+The full public guide is the source of truth for details. This file is a navigation aid for automated readers, not a guarantee of search visibility or AI citation.

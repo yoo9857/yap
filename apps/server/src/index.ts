@@ -1,6 +1,6 @@
 import { createServer } from "node:http";
 import { existsSync, createReadStream, statSync } from "node:fs";
-import { extname, join, normalize, resolve, dirname } from "node:path";
+import { extname, join, normalize, resolve, dirname, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { loadConfig } from "./config.js";
 import { log } from "./log.js";
@@ -61,19 +61,47 @@ const httpServer = createServer((req, res) => {
     return;
   }
   try {
+    const url = new URL(req.url ?? "/", "http://localhost");
+    // Retire the unrelated editorial URLs without discarding game/class links.
+    let redirect = false;
+    if (url.pathname === "/") {
+      for (const key of ["read", "article", "about"]) {
+        if (url.searchParams.has(key)) {
+          url.searchParams.delete(key);
+          redirect = true;
+        }
+      }
+    }
+    if (url.pathname.endsWith("/index.html")) {
+      url.pathname = url.pathname.slice(0, -"index.html".length);
+      redirect = true;
+    }
+    if (redirect) {
+      res.writeHead(301, { location: url.pathname + url.search, "cache-control": "no-cache" }).end();
+      return;
+    }
     // sanitize: resolve inside the static root only
-    const rawPath = (req.url ?? "/").split("?")[0] ?? "/";
+    const rawPath = url.pathname;
     const safe = normalize(rawPath).replace(/^(\.\.[/\\])+/, "");
     let filePath = join(staticRoot, safe);
-    if (!filePath.startsWith(staticRoot)) {
+    if (filePath !== staticRoot && !filePath.startsWith(staticRoot + sep)) {
       res.writeHead(403).end();
       return;
     }
-    if (!existsSync(filePath) || statSync(filePath).isDirectory()) {
-      filePath = join(staticRoot, "index.html"); // SPA fallback
+    if (existsSync(filePath) && statSync(filePath).isDirectory()) {
+      if (!rawPath.endsWith("/")) {
+        res.writeHead(301, { location: rawPath + "/" + url.search, "cache-control": "no-cache" }).end();
+        return;
+      }
+      filePath = join(filePath, "index.html");
     }
     if (!existsSync(filePath)) {
-      res.writeHead(404).end("client build not found — run pnpm build");
+      // Missing URLs must not masquerade as the homepage (soft 404s).
+      res.writeHead(404, {
+        "content-type": "text/plain; charset=utf-8",
+        "x-robots-tag": "noindex",
+        "cache-control": "no-cache",
+      }).end("페이지를 찾을 수 없습니다. 크래프트얍: https://craftyap.com/");
       return;
     }
     res.writeHead(200, {

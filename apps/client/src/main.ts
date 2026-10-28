@@ -6,11 +6,6 @@
  */
 import { selectMode } from "./app/modeSelect.js";
 import type { ClassEntry } from "./app/classLobby.js";
-import { showHome } from "./home/home.js";
-import { showArticle } from "./home/article.js";
-import { showTeam } from "./home/team.js";
-import "./styles/tokens.css";
-import "./styles/editorial.css";
 
 const overlay = document.getElementById("boot-overlay");
 const messageEl = document.getElementById("boot-message");
@@ -107,23 +102,11 @@ async function boot(): Promise<void> {
   hideOverlay();
 
   const params = new URLSearchParams(location.search);
-  if (params.get("article") === "ai-automation") {
-    showArticle(mount);
-    return;
-  }
-  if (params.get("about") === "team") {
-    showTeam(mount);
-    return;
-  }
-  // The games are the front door. The editorial desk is still published and
-  // still indexed, it just lives one click away at ?read=1 instead of taking
-  // the first screen from the thing people come here to play.
-  if (params.get("read") === "1") {
-    showHome(mount);
-    return;
-  }
+  // Retired editorial URLs also open the games. They share the homepage's
+  // canonical URL and must not serve unrelated income guides to crawlers.
 
   if (new URLSearchParams(location.search).get("preview") === "char") {
+    document.getElementById("mode-select")?.remove();
     const { bootCharPreview } = await import("./app/charPreview.js");
     await bootCharPreview(mount);
     return;

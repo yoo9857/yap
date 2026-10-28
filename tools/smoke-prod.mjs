@@ -25,13 +25,18 @@ try {
   check("healthz returns ok", false, String(e));
 }
 
-// 2) HTML shell + no-cache + English title
+// 2) HTML shell + no-cache + Korean game identity (not the retired income blog)
 try {
   const r = await head("/");
   const html = await r.body.text();
   check("index.html served", r.status === 200 && r.type.includes("text/html"));
   check("index.html is no-cache", r.cache.includes("no-cache"), r.cache);
-  check("English brand title present", html.includes("<title>CraftYap"), "");
+  const title = html.match(/<title>(.*?)<\/title>/)?.[1] ?? "";
+  check("Korean block-game title present", title.includes("크래프트얍") && title.includes("CraftYap") && title.includes("블록 게임"), title);
+  check("homepage declares Korean", /<html\b[^>]*lang="ko"/.test(html));
+  check("income-blog metadata removed", !/make money|side hustles|passive income|affiliate marketing/i.test(html));
+  const schema = JSON.parse(html.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/)?.[1] ?? "{}");
+  check("game and website structured data present", schema["@graph"]?.some((item) => item["@type"] === "VideoGame") && schema["@graph"]?.some((item) => item["@type"] === "WebSite"));
   check("OG image points at craftyap.com", html.includes("craftyap.com/craftyap-banner.jpg"));
 } catch (e) {
   check("index.html served", false, String(e));
@@ -43,6 +48,8 @@ for (const [path, wantType] of [
   ["/audio/bgm-tower.mp3", "audio/mpeg"],
   ["/textures/blocks/water.png", "image/png"],
   ["/robots.txt", "text/plain"],
+  ["/llms.txt", "text/plain"],
+  ["/guide/guide.css", "text/css"],
 ]) {
   try {
     const r = await head(path);
@@ -50,6 +57,28 @@ for (const [path, wantType] of [
   } catch (e) {
     check(`asset ${path}`, false, String(e));
   }
+}
+
+// Crawlable Korean guide, sitemap discovery and canonical/404 routing.
+try {
+  const r = await head("/guide/");
+  const html = await r.body.text();
+  check("Korean guide is a real HTML page", r.status === 200 && r.type.includes("text/html") && html.includes("<h1>") && html.includes("크래프트얍") && html.includes('href="https://craftyap.com/guide/"'));
+  const sitemap = await fetch(base + "/sitemap.xml");
+  const xml = await sitemap.text();
+  check("sitemap discovers game and guide", sitemap.status === 200 && xml.includes("<loc>https://craftyap.com/</loc>") && xml.includes("<loc>https://craftyap.com/guide/</loc>"));
+  const robots = await (await fetch(base + "/robots.txt")).text();
+  check("robots allows crawling and points to sitemap", robots.includes("Allow: /") && robots.includes("Sitemap: https://craftyap.com/sitemap.xml"));
+  for (const [from, to] of [["/guide", "/guide/"], ["/guide/index.html", "/guide/"], ["/index.html", "/"], ["/?read=1", "/"], ["/?article=ai-automation", "/"], ["/?about=team&mode=craft", "/?mode=craft"]]) {
+    const redirect = await fetch(base + from, { redirect: "manual" });
+    check(`canonical redirect ${from}`, redirect.status === 301 && redirect.headers.get("location") === to);
+    await redirect.body?.cancel();
+  }
+  const missing = await fetch(base + "/does-not-exist-seo-check", { redirect: "manual" });
+  check("unknown page returns a real 404", missing.status === 404 && missing.headers.get("x-robots-tag") === "noindex");
+  await missing.body?.cancel();
+} catch (e) {
+  check("crawlable guide and canonical routing", false, String(e));
 }
 
 // 4) WebSocket handshake at /ws (protocol hello → welcome)
@@ -71,4 +100,5 @@ await new Promise((resolve) => {
 
 const passed = results.filter(Boolean).length;
 console.log(`\n${passed}/${results.length} checks passed`);
-process.exit(passed === results.length ? 0 : 1);
+// Let the WebSocket close handshake finish before Node tears down its handles.
+process.exitCode = passed === results.length ? 0 : 1;
