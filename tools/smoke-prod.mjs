@@ -57,6 +57,8 @@ for (const [path, wantType] of [
   ["/guide/assets/tower.webp", "image/webp"],
   ["/guide/assets/builder.webp", "image/webp"],
   ["/guide/assets/battle.webp", "image/webp"],
+  ["/note/note.css", "text/css"],
+  ["/note/feed.xml", "application/xml"],
 ]) {
   try {
     // Inspect headers without starting and cancelling an audio/image stream.
@@ -76,6 +78,10 @@ try {
   const sitemap = await fetch(base + "/sitemap.xml");
   const xml = await sitemap.text();
   check("sitemap discovers game and guide", sitemap.status === 200 && xml.includes("<loc>https://craftyap.com/</loc>") && xml.includes("<loc>https://craftyap.com/guide/</loc>"));
+  const notes = await head("/note/");
+  const notesHtml = await notes.body.text();
+  check("dev notes index is a real HTML page", notes.status === 200 && notes.type.includes("text/html") && /<h1\b[^>]*>/i.test(notesHtml) && notesHtml.includes('href="https://craftyap.com/note/"'));
+  check("sitemap discovers dev notes", xml.includes("<loc>https://craftyap.com/note/</loc>"));
   const robots = await (await fetch(base + "/robots.txt")).text();
   check("robots allows crawling and points to sitemap", robots.includes("Allow: /") && robots.includes("Sitemap: https://craftyap.com/sitemap.xml"));
   for (const path of ["/?mode=field&room=seo-test&student=seo-test", "/?mode=field&host=seo-test&pass=seo-test", "/?preview=char"]) {

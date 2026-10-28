@@ -20,6 +20,7 @@ pnpm install                 # pnpm 10 workspace; esbuild/better-sqlite3 builds 
 pnpm dev                     # server :8081 (tsx watch) + client :5173 (vite, /ws proxy) via concurrently
 pnpm typecheck && pnpm lint && pnpm test   # static gates + all unit tests
 pnpm build                   # vite build (client) + tsup (server)
+pnpm notes                   # notes/*.md → /note/ dev log pages + sitemap (commit the output; CI runs notes:check)
 SERVE_STATIC=1 node apps/server/dist/index.js   # single-port production (static + WS on :8081)
 ```
 
@@ -199,6 +200,10 @@ Live multiplayer for the education field, deliberately separate from the tower p
 - **Reuse GPU resources, don't copy them**: one material per source when cloning (e.g. the robot fade clones per *material*, not per mesh), one cached geometry per shape, shared attributes for recoloured copies, one grain texture (`blockParts.crayonGrain`). Audit with `__roboCraft.scene()`: group materials/geometries/textures by content and look for copies.
 - **The robot's body is not glued to the camera** (`CraftGame.updateFacing`, `turnToward` in `smoothing.ts`): walking, it turns toward the camera-relative key direction (S walks it face-first toward the camera); mining/placing turn it back to the crosshair for `ACTION_FACE_TIME`; seated = seat yaw; first person = view. The classroom sends this body heading, not the camera yaw.
 - Landing assets are size-capped: banner/paper are WebP, logo is a resized PNG; renderer caps `pixelRatio` at 1.5.
+
+### Dev notes (`/note/`)
+
+Public dev log. Posts are `notes/<slug>.md` (front matter: title/date/summary, optional tags/updated/draft — see `notes/README.md`). `tools/build-notes.mjs` renders them into `apps/client/public/note/` plus the sitemap's `notes:start…end` block; the output is **committed** like the machine GLB, so the server and nginx need nothing and IndexNow's changed-only mapping (`public<path>index.html`) sees each post. CI fails on stale output (`pnpm notes:check`). Pages reuse `guide/guide.css` + `guide.js` for header/footer, with `note/note.css` on top; asset links carry content hashes, so editing either stylesheet means re-running `pnpm notes`.
 
 ### Deployment
 

@@ -6,6 +6,7 @@
 
 - [게임 시작 / Play](https://craftyap.com/): Official game homepage. Korean name: 크래프트얍. English name: CraftYap.
 - [게임 소개·조작법·교실 이용 안내](https://craftyap.com/guide/): Game modes, desktop controls, classroom participation, local and server saves, and frequently asked questions. Includes an English overview.
+- [개발 노트 / Dev notes](https://craftyap.com/note/): Dated development log of what changed in the game and why. Feed: https://craftyap.com/note/feed.xml
 
 ## Game facts
 

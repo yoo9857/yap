@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom" xml:lang="ko">
+  <title>크래프트얍 개발 노트</title>
+  <link href="https://craftyap.com/note/" />
+  <link rel="self" href="https://craftyap.com/note/feed.xml" />
+  <id>https://craftyap.com/note/</id>
+  <updated>2026-10-28T00:00:00+09:00</updated>
+  <author><name>크래프트얍(CraftYap)</name></author>
+  <entry>
+    <title>개발 노트를 시작합니다</title>
+    <link href="https://craftyap.com/note/hello-dev-notes/" />
+    <id>https://craftyap.com/note/hello-dev-notes/</id>
+    <published>2026-10-28T00:00:00+09:00</published>
+    <updated>2026-10-28T00:00:00+09:00</updated>
+    <summary>크래프트얍을 만들며 무엇을 바꿨고 왜 그렇게 했는지 이곳에 남기려고 합니다. 첫 글로 10월에 바뀐 것들을 정리했습니다.</summary>
+    <content type="html">&lt;p&gt;크래프트얍은 브라우저에서 설치 없이 바로 하는 블록 게임입니다. 기능이 하나 늘 때마다
+그 뒤에는 &amp;quot;왜 이렇게 만들었나&amp;quot;라는 결정이 하나씩 있는데, 지금까지는 그 이야기가 코드와
+커밋 메시지 속에만 있었습니다. 앞으로는 이 개발 노트에 적어 두려고 합니다.&lt;/p&gt;
+&lt;h2&gt;10월에 바뀐 것들&lt;/h2&gt;
+&lt;h3&gt;기계 작업실 (10월 14–15일)&lt;/h3&gt;
+&lt;p&gt;Craft Island에서 &lt;kbd&gt;B&lt;/kbd&gt;를 누르면 기계 작업실이 열립니다. 부품을 붙여 자동차나
+비행기를 만들고 바로 시험 운전할 수 있습니다. 처음 비행해 보는 사람도 띄울 수 있도록
+조종 보조(오토파일럿)를 기본으로 켜 두었습니다. 다만 보조 기능은 기계 자체의 자이로와
+추진기만 조절할 뿐 힘을 새로 만들어 내지는 않습니다. 무게를 감당하지 못하는 기계는
+보조를 켜도 가라앉습니다.&lt;/p&gt;
+&lt;h3&gt;교육 모드와 함께 만드는 교실 (10월 22–23일)&lt;/h3&gt;
+&lt;p&gt;끝없이 펼쳐진 빈 들판에서 블록을 마음껏 쓸 수 있는 교육 모드를 추가했습니다.
+선생님이 &lt;strong&gt;반 이름&lt;/strong&gt;으로 교실을 열고 학생들이 같은 반 이름으로 들어오면 한 들판에서
+함께 짓습니다. 처음에는 선생님 이름으로 교실을 구분했는데, 이름이 같은 선생님이
+다른 반을 열 수 있도록 반 이름 기준으로 바꿨습니다. 교실에서 지은 것은 서버에 저장되어
+다음 수업에서 이어서 쓸 수 있습니다.&lt;/p&gt;
+&lt;h3&gt;반려동물과 가구 (10월 23일)&lt;/h3&gt;
+&lt;p&gt;섬에 반려동물이 생겼습니다. 강아지, 고양이, 코끼리, 기린, 판다 가운데 하나를 고를 수
+있습니다. 가구도 50여 종을 넣었습니다. 러그 위에 소파를 놓고, 탁자 위에 꽃병을 올리고,
+침대 위 벽에 시계를 걸 수 있습니다.&lt;/p&gt;
+&lt;h3&gt;물 (10월 23–26일)&lt;/h3&gt;
+&lt;p&gt;블록 세상에 흐르는 물이 들어왔습니다. 물은 퍼지고 흘러내리고, 그 안에서 헤엄칠 수
+있습니다. 교실에서는 모두가 같은 물을 보도록 서버가 흐름을 계산합니다.&lt;/p&gt;
+&lt;h3&gt;게임 안내 페이지 (10월 28일)&lt;/h3&gt;
+&lt;p&gt;&lt;a href=&quot;/guide/&quot;&gt;게임 안내&lt;/a&gt; 페이지를 실제 게임 화면으로 다시 만들었습니다. 페이지에 쓴 사진은
+모두 게임을 직접 실행해서 찍은 장면입니다.&lt;/p&gt;
+&lt;h2&gt;앞으로&lt;/h2&gt;
+&lt;p&gt;큰 기능이 들어가거나 무언가를 크게 고칠 때마다 이곳에 짧게라도 남기겠습니다.
+최신 소식은 &lt;a href=&quot;/note/feed.xml&quot;&gt;RSS 피드&lt;/a&gt;로도 받아 볼 수 있습니다.&lt;/p&gt;
+</content>
+  </entry>
+</feed>
