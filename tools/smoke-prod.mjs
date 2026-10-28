@@ -13,7 +13,7 @@ const check = (name, ok, detail = "") => {
 };
 
 async function head(path) {
-  const r = await fetch(base + path);
+  const r = await fetch(base + path, { signal: AbortSignal.timeout(15000) });
   return { status: r.status, type: r.headers.get("content-type") ?? "", cache: r.headers.get("cache-control") ?? "", body: r };
 }
 
@@ -49,11 +49,13 @@ for (const [path, wantType] of [
   ["/textures/blocks/water.png", "image/png"],
   ["/robots.txt", "text/plain"],
   ["/llms.txt", "text/plain"],
+  ["/indexnow-key.txt", "text/plain"],
   ["/guide/guide.css", "text/css"],
 ]) {
   try {
     const r = await head(path);
-    check(`asset ${path}`, r.status === 200 && r.type.includes(wantType.split("/")[0]), `${r.status} ${r.type}`);
+    check(`asset ${path}`, r.status === 200 && r.type.split(";")[0].trim() === wantType, `${r.status} ${r.type}`);
+    await r.body.body?.cancel();
   } catch (e) {
     check(`asset ${path}`, false, String(e));
   }
@@ -69,6 +71,14 @@ try {
   check("sitemap discovers game and guide", sitemap.status === 200 && xml.includes("<loc>https://craftyap.com/</loc>") && xml.includes("<loc>https://craftyap.com/guide/</loc>"));
   const robots = await (await fetch(base + "/robots.txt")).text();
   check("robots allows crawling and points to sitemap", robots.includes("Allow: /") && robots.includes("Sitemap: https://craftyap.com/sitemap.xml"));
+  for (const path of ["/?mode=field&room=seo-test&student=seo-test", "/?mode=field&host=seo-test&pass=seo-test", "/?preview=char"]) {
+    const session = await fetch(base + path);
+    check(`session page excluded from search ${path}`, session.status === 200 && session.headers.get("x-robots-tag") === "noindex, nofollow" && session.headers.get("cache-control") === "no-store");
+    await session.body?.cancel();
+  }
+  const publicGame = await fetch(base + "/?mode=craft");
+  check("ordinary game links remain crawlable", publicGame.status === 200 && !publicGame.headers.get("x-robots-tag")?.includes("noindex"));
+  await publicGame.body?.cancel();
   for (const [from, to] of [["/guide", "/guide/"], ["/guide/index.html", "/guide/"], ["/index.html", "/"], ["/?read=1", "/"], ["/?article=ai-automation", "/"], ["/?about=team&mode=craft", "/?mode=craft"]]) {
     const redirect = await fetch(base + from, { redirect: "manual" });
     check(`canonical redirect ${from}`, redirect.status === 301 && redirect.headers.get("location") === to);
@@ -81,7 +91,7 @@ try {
   check("crawlable guide and canonical routing", false, String(e));
 }
 
-// 4) WebSocket handshake at /ws (protocol hello → welcome)
+// 4) WebSocket upgrade at /ws, without joining a live classroom or game.
 await new Promise((resolve) => {
   const wsUrl = base.replace(/^http/, "ws") + "/ws";
   let done = false;

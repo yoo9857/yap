@@ -104,9 +104,13 @@ const httpServer = createServer((req, res) => {
       }).end("페이지를 찾을 수 없습니다. 크래프트얍: https://craftyap.com/");
       return;
     }
+    const sessionPage = extname(filePath) === ".html" &&
+      ["room", "host", "teacher", "student", "pass", "preview"].some((key) => url.searchParams.has(key));
     res.writeHead(200, {
       "content-type": MIME[extname(filePath)] ?? "application/octet-stream",
-      "cache-control": cacheControlFor(rawPath, filePath),
+      "cache-control": sessionPage ? "no-store" : cacheControlFor(rawPath, filePath),
+      // Class/player links and internal previews are not public search pages.
+      ...(sessionPage ? { "x-robots-tag": "noindex, nofollow" } : {}),
     });
     const stream = createReadStream(filePath);
     stream.on("error", (err) => {

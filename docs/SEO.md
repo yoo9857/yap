@@ -16,6 +16,8 @@ title/description/Blog 스키마에서 나온 것이었다.
 - `/robots.txt`: 모든 수집기를 허용하며 사이트맵 주소를 안내한다.
 - `/llms.txt`: 공식 페이지를 찾기 위한 보조 안내. 표준 검색 등록 수단이나 AI
   인용 보장 수단으로 취급하지 않는다. 실제 공개 안내 페이지가 정보의 기준이다.
+- `/indexnow-key.txt`: IndexNow가 도메인 소유 여부를 확인하는 공개 검증 파일.
+  로그인/API 비밀키가 아니며 파일의 값과 제출 스크립트의 검증 값이 같아야 한다.
 
 홈페이지의 `WebSite`/`WebPage`/`VideoGame`은 같은 `@id`를 참조한다. 안내 페이지의
 FAQ 구조화 데이터는 눈에 보이는 질문·답변과 일치해야 한다. 평점·사용자 수·수상
@@ -25,6 +27,30 @@ FAQ 구조화 데이터는 눈에 보이는 질문·답변과 일치해야 한�
 과거 `?read=`, `?article=`, `?about=` 주소는 서버에서 301로 정리한다. 이때
 `mode` 등의 게임 매개변수는 보존한다. `/guide`, `/guide/index.html`은 `/guide/`로,
 `/index.html`은 `/`로 통합한다. 없는 페이지와 정적 파일은 실제 404를 반환한다.
+교실·참여자·비밀번호 매개변수(`room`, `host`, `teacher`, `student`, `pass`) 또는
+`preview`가 있는 HTML은 `X-Robots-Tag: noindex, nofollow`와 `Cache-Control: no-store`로
+응답한다. 일반 게임 링크(`?mode=craft` 등)의 수집은 유지한다. 검색 제외는 접근
+권한이나 인증을 대신하지 않는다. robots.txt로 해당 URL의 수집을 막으면 수집기가
+noindex 헤더를 읽지 못하므로 robots.txt는 그대로 허용한다.
+
+## 배포·변경 알림 자동화
+
+GitHub Actions는 타입·린트·단위 테스트·빌드를 통과한 뒤, 빌드한 사이트를
+임시 서버로 띄워 스모크 검사를 수행한다. 배포는 검사한 `github.sha`에 고정한다.
+운영 배포 직후에도 공개 도메인에서 검색 메타데이터·MIME·URL·세션 검색 제외와
+WebSocket을 재검사한다. 헬스체크만 성공하고 본문이 잘못된 배포를 통과시키지 않는다.
+
+공개 페이지를 고친 배포는 `tools/notify-indexnow.mjs --changed-only`로
+IndexNow에 변경을 알린다. 사이트맵의 같은 도메인 대표 URL만 허용하고, 개인 교실
+쿼리·다른 호스트는 제출하지 않는다. 알림 전에 공개된 키 파일의 응답과 값을 검사한다.
+일반 게임 코드만 바뀐 배포에서는 알림을 생략한다. HTTP 200은 접수, 202는 키 검증
+대기이며 실제 색인·검색 노출 완료를 뜻하지 않는다. 외부 API 실패는 Actions에 경고로
+남기며 정상 배포를 되돌리지 않는다. Google Search Console 요청은 별도로 진행한다.
+
+```powershell
+node tools/notify-indexnow.mjs --dry-run  # URL 검증·미리보기, 외부 제출 없음
+node tools/notify-indexnow.mjs            # 공개 배포 확인 후 필요할 때 수동 알림
+```
 
 ## 배포 후 확인
 
@@ -64,3 +90,4 @@ OAI-SearchBot으로 요청해도 같은 게임 설명을 읽을 수 있어야 �
 - [Google 사이트 이름](https://developers.google.com/search/docs/appearance/site-names)
 - [Google 재수집 요청](https://developers.google.com/search/docs/crawling-indexing/ask-google-to-recrawl)
 - [네이버 검색엔진 최적화의 목적](https://searchadvisor.naver.com/guide/seo-basic-intro)
+- [IndexNow 공식 프로토콜](https://www.indexnow.org/documentation)

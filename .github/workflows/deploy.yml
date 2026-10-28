@@ -22,7 +22,19 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm typecheck
+      - run: pnpm lint
       - run: pnpm test
+      - run: pnpm build
+      - name: Verify built site, search metadata and game socket
+        run: |
+          PORT=8095 SERVE_STATIC=1 node apps/server/dist/index.js &
+          site_pid=$!
+          trap 'kill "$site_pid" 2>/dev/null || true' EXIT
+          for attempt in $(seq 1 10); do
+            if curl -fsS -o /dev/null http://127.0.0.1:8095/healthz; then break; fi
+            sleep 1
+          done
+          node tools/smoke-prod.mjs http://127.0.0.1:8095
 
   deploy:
     needs: test
@@ -32,6 +44,12 @@ jobs:
     #   DEPLOY_SSH_KEY - private key authorized for root@172.236.235.9
     #   (the matching server-side entry is labelled github-actions-deploy)
     steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
       - name: Set up SSH
         run: |
           mkdir -p ~/.ssh
@@ -66,9 +84,10 @@ jobs:
             set -euo pipefail
             cd /srv/craftyap/app
 
-            # pull the pushed commit
+            # Deploy the exact commit that passed this run's checks. The main
+            # branch can advance while a build waits for the running game.
             git fetch origin
-            git reset --hard origin/main
+            git reset --hard ${{ github.sha }}
 
             # snapshot the live DB BEFORE anything restarts — the rollback point
             # for saved classrooms and the leaderboard. Aborts the deploy if the
@@ -99,3 +118,14 @@ jobs:
             [ -n "$ok" ] || { echo "health check failed"; docker compose logs --tail=40 app; exit 1; }
             echo "deploy complete: $(git rev-parse --short HEAD)"
           '
+
+      - name: Verify the public site after deployment
+        run: node tools/smoke-prod.mjs https://craftyap.com
+
+      # A search engine outage must not undo a healthy game deployment. The
+      # warning remains visible in Actions; receipt is not proof of indexing.
+      - name: Notify participating search engines of changed public pages
+        continue-on-error: true
+        env:
+          INDEXNOW_BASE_SHA: ${{ github.event.before }}
+        run: node tools/notify-indexnow.mjs --changed-only
