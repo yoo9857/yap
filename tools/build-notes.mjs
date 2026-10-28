@@ -119,10 +119,19 @@ const tagList = (tags) => (tags.length ? `<ul class="note-tags" aria-label="태�
 const dateLine = (n) => `<time datetime="${n.date}">${dot(n.date)}</time>${n.updated !== n.date ? ` · <span>${dot(n.updated)} 수정</span>` : ""}`;
 const blogRef = { "@id": `${ORIGIN}/note/#blog` };
 
+// Grouped by month, newest first, so the log reads as a timeline rather than one long column.
 function indexPage() {
+  const card = (n) => `          <li><article class="note-card"><a href="/note/${n.slug}/"><p class="note-date">${dateLine(n)}</p><h3>${esc(n.title)}</h3><p>${esc(n.summary)}</p>${tagList(n.tags)}<span class="note-more">읽어 보기 <span aria-hidden="true">→</span></span></a></article></li>`;
+  const months = new Map();
+  for (const n of notes) months.set(n.date.slice(0, 7), [...(months.get(n.date.slice(0, 7)) ?? []), n]);
   const items = notes.length
-    ? notes.map((n) => `        <li><article class="note-card"><a href="/note/${n.slug}/"><p class="note-date">${dateLine(n)}</p><h2>${esc(n.title)}</h2><p>${esc(n.summary)}</p>${tagList(n.tags)}<span class="note-more">읽어 보기 <span aria-hidden="true">→</span></span></a></article></li>`).join("\n")
-    : `        <li class="note-empty">아직 올라온 노트가 없어요.</li>`;
+    ? [...months].map(([key, list]) => `      <section class="note-month" aria-labelledby="m-${key}">
+        <h2 id="m-${key}">${key.slice(0, 4)}년 ${Number(key.slice(5))}월 <small>${list.length}편</small></h2>
+        <ol class="note-list">
+${list.map(card).join("\n")}
+        </ol>
+      </section>`).join("\n")
+    : `      <p class="note-empty">아직 올라온 노트가 없어요.</p>`;
   return page({
     title: "개발 노트 | 크래프트얍 CraftYap",
     description: "크래프트얍(CraftYap)을 만들면서 무엇을 바꿨고 왜 그렇게 만들었는지 기록하는 개발 노트입니다.",
@@ -153,11 +162,9 @@ function indexPage() {
     body: `      <section class="note-hero" aria-labelledby="note-title">
         <p class="eyebrow">DEV NOTES</p>
         <h1 id="note-title">개발 노트</h1>
-        <p>크래프트얍을 만들면서 무엇을 바꿨고, 왜 그렇게 만들었는지 적어 둡니다.</p>
+        <p>크래프트얍의 날짜별 패치 노트와 개발 이야기. 무엇을 바꿨고, 왜 그렇게 만들었는지 적어 둡니다.</p>
       </section>
-      <ol class="note-list" reversed>
-${items}
-      </ol>`,
+${items}`,
   });
 }
 

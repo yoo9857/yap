@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>10월 15일 패치 노트 — 처음 타는 사람도 날 수 있게 | 크래프트얍 개발 노트</title>
+    <meta name="description" content="기계 작업실에 버튼 하나로 바로 몰아 보는 빠른 시작과 비행 보조를 넣었습니다. 넓어진 섬에서 떨어졌던 프레임도 크게 회복했습니다." />
+    <meta name="robots" content="index, follow, max-image-preview:large" />
+    <meta name="theme-color" content="#ffd21c" />
+    <meta name="generator" content="tools/build-notes.mjs" />
+    <link rel="canonical" href="https://craftyap.com/note/patch-2026-10-15/" />
+    <link rel="alternate" type="application/atom+xml" title="크래프트얍 개발 노트" href="/note/feed.xml" />
+    <link rel="icon" type="image/png" href="/craftyap-logo.png" />
+    <link rel="stylesheet" href="/guide/guide.css?v=0995aa1ed0" />
+    <link rel="stylesheet" href="/note/note.css?v=721a140bcb" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Jua&family=Noto+Sans+KR:wght@400;700;900&display=swap" rel="stylesheet" />
+    <meta property="og:type" content="article" />
+    <meta property="og:locale" content="ko_KR" />
+    <meta property="og:site_name" content="크래프트얍(CraftYap)" />
+    <meta property="og:title" content="10월 15일 패치 노트 — 처음 타는 사람도 날 수 있게 | 크래프트얍 개발 노트" />
+    <meta property="og:description" content="기계 작업실에 버튼 하나로 바로 몰아 보는 빠른 시작과 비행 보조를 넣었습니다. 넓어진 섬에서 떨어졌던 프레임도 크게 회복했습니다." />
+    <meta property="og:url" content="https://craftyap.com/note/patch-2026-10-15/" />
+    <meta property="og:image" content="https://craftyap.com/craftyap-banner.jpg" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="675" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="10월 15일 패치 노트 — 처음 타는 사람도 날 수 있게 | 크래프트얍 개발 노트" />
+    <meta name="twitter:description" content="기계 작업실에 버튼 하나로 바로 몰아 보는 빠른 시작과 비행 보조를 넣었습니다. 넓어진 섬에서 떨어졌던 프레임도 크게 회복했습니다." />
+    <meta name="twitter:image" content="https://craftyap.com/craftyap-banner.jpg" />
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "BlogPosting",
+      "@id": "https://craftyap.com/note/patch-2026-10-15/#post",
+      "url": "https://craftyap.com/note/patch-2026-10-15/",
+      "headline": "10월 15일 패치 노트 — 처음 타는 사람도 날 수 있게",
+      "description": "기계 작업실에 버튼 하나로 바로 몰아 보는 빠른 시작과 비행 보조를 넣었습니다. 넓어진 섬에서 떨어졌던 프레임도 크게 회복했습니다.",
+      "datePublished": "2026-10-15",
+      "dateModified": "2026-10-15",
+      "inLanguage": "ko",
+      "keywords": "패치 노트, 기계 작업실, 성능",
+      "image": "https://craftyap.com/craftyap-banner.jpg",
+      "isPartOf": {
+        "@id": "https://craftyap.com/note/#blog"
+      },
+      "author": {
+        "@type": "Organization",
+        "name": "크래프트얍(CraftYap)",
+        "url": "https://craftyap.com/"
+      },
+      "about": {
+        "@id": "https://craftyap.com/#game"
+      }
+    },
+    {
+      "@type": "BreadcrumbList",
+      "itemListElement": [
+        {
+          "@type": "ListItem",
+          "position": 1,
+          "name": "크래프트얍",
+          "item": "https://craftyap.com/"
+        },
+        {
+          "@type": "ListItem",
+          "position": 2,
+          "name": "개발 노트",
+          "item": "https://craftyap.com/note/"
+        },
+        {
+          "@type": "ListItem",
+          "position": 3,
+          "name": "10월 15일 패치 노트 — 처음 타는 사람도 날 수 있게",
+          "item": "https://craftyap.com/note/patch-2026-10-15/"
+        }
+      ]
+    }
+  ]
+}
+    </script>
+    <script src="/guide/guide.js?v=b6f46abba1" defer></script>
+  </head>
+
+  <body>
+    <a class="skip-link" href="#content">본문으로 이동</a>
+    <header class="site-header"><div class="header-inner">
+      <a class="brand" href="/" aria-label="크래프트얍 게임 홈"><img src="/craftyap-logo.png" width="64" height="64" alt="" /><span>크래프트얍<small>CRAFTYAP</small></span></a>
+      <nav class="header-nav" id="site-nav" aria-label="주요 메뉴"><a href="/note/">개발 노트</a><a href="/guide/">게임 안내</a><a href="/guide/#controls">조작법</a><a href="/guide/#faq">FAQ</a></nav>
+      <a class="button button-dark header-play" href="/">지금 플레이 <span aria-hidden="true">↗</span></a>
+      <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="site-nav" aria-label="메뉴 열기" hidden><span></span><span></span></button>
+    </div></header>
+    <main id="content" class="note-main section-shell">
+      <article class="note-article" aria-labelledby="post-title">
+        <nav class="note-crumb" aria-label="현재 위치"><a href="/note/">← 개발 노트</a></nav>
+        <header class="note-head">
+          <p class="note-date"><time datetime="2026-10-15">2026.10.15</time></p>
+          <h1 id="post-title">10월 15일 패치 노트 — 처음 타는 사람도 날 수 있게</h1>
+          <p class="note-summary">기계 작업실에 버튼 하나로 바로 몰아 보는 빠른 시작과 비행 보조를 넣었습니다. 넓어진 섬에서 떨어졌던 프레임도 크게 회복했습니다.</p>
+          <ul class="note-tags" aria-label="태그"><li>패치 노트</li><li>기계 작업실</li><li>성능</li></ul>
+        </header>
+        <div class="note-body">
+<blockquote>
+<p>날짜는 이 업데이트의 개발을 마친 날입니다. 당시 자동 배포가 멈춰 있어서, 서버에 실제로 반영된 날은 이보다 늦을 수 있습니다(늦어도 10월 22일 반영).</p>
+</blockquote>
+<h2>한눈에 보기</h2>
+<p>어제 연 기계 작업실은 깊이는 있었지만 어려웠습니다. 조작을 알려면 먼저 기계를 만들어야 했고,
+한번 기울어진 비행기는 땅에 박힐 때까지 미끄러졌습니다. 오늘은 <strong>처음 온 사람이 바로
+날아 보는 것</strong>을 목표로 고쳤습니다. 섬이 넓어지며 무거워진 화면도 함께 손봤습니다.</p>
+<h2>새로 추가</h2>
+<ul>
+<li><strong>빠른 시작</strong> — 버튼 하나로 예제 자동차나 비행기를 불러와 곧바로 시험 운전을 시작합니다.</li>
+<li><strong>비행 보조</strong> (<kbd>G</kbd>로 켜고 끄기, 기본 켜짐) — 기울어진 기체를 수평으로 되돌리고 고도를 유지해 줍니다.<ul>
+<li>보조는 기계에 달린 자이로와 추진기를 대신 조종할 뿐, 없는 힘을 만들어 내지 않습니다. 무게를 못 버티는 기계는 보조를 켜도 가라앉습니다.</li>
+<li>35도 기울어진 기체가 손을 떼고 약 2초 만에 수평을 찾습니다.</li>
+</ul>
+</li>
+</ul>
+<h2>개선</h2>
+<ul>
+<li>첫 화면이 다시 <strong>게임 선택 화면</strong>이 되었습니다. 기계 작업실이 생긴 Craft Island가 맨 앞에 옵니다.</li>
+<li>운전 화면은 그 기계가 실제로 반응하는 키와 계기만 보여 줍니다. 바퀴 없는 비행기에 바퀴 계기가 뜨지 않습니다.</li>
+<li>부품 패널을 줄여 작은 화면(세로 800px)에서도 부품 8개가 스크롤 없이 보입니다.</li>
+<li><strong>프레임 회복</strong> — 화면 밖이나 등 뒤의 섬은 그리지 않도록 바꿨습니다. 가장 무거운 프레임이 Craft Island 18.1ms → 6.2ms, Blast Royale 12.2ms → 6.2ms로 줄었습니다.</li>
+<li>기계 작업실 데이터(약 1.2MB)는 작업실을 처음 열 때만 불러옵니다. 섬 입장이 그만큼 가벼워졌습니다.</li>
+</ul>
+        </div>
+      </article>
+      <nav class="note-pager" aria-label="다른 노트"><a class="note-prev" href="/note/patch-2026-10-14/"><small>이전 노트</small>10월 14일 패치 노트 — 기계 작업실 오픈, 섬이 네 배로</a><a class="note-next" href="/note/network-2026-10-22/"><small>다음 노트</small>실시간 교실 네트워크 오픈 안내</a></nav>
+    </main>
+    <footer class="site-footer section-shell"><div><a class="footer-brand" href="/">크래프트얍 <span>CraftYap</span></a><p>블록 하나에서 시작되는, 네가 만드는 세상.</p></div><nav aria-label="하단 메뉴"><a href="/">게임 홈</a><a href="/note/">개발 노트</a><a href="/guide/">게임 안내</a><a href="/note/feed.xml">RSS</a><a href="#content">맨 위로 ↑</a></nav><small>크래프트얍 개발 노트 · <time datetime="2026-10-28">2026.10.28 업데이트</time></small></footer>
+  </body>
+</html>
