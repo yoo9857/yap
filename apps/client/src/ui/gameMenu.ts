@@ -129,8 +129,13 @@ export class GameMenu {
     for (const ev of ["mousedown", "mouseup", "pointerdown", "wheel", "contextmenu"] as const) {
       this.el.addEventListener(ev, (e) => e.stopPropagation(), { signal });
     }
+    // the track fills up to the thumb (CSS reads --p)
+    const fill = (input: HTMLInputElement) =>
+      input.style.setProperty("--p", `${((Number(input.value) - Number(input.min)) / (Number(input.max) - Number(input.min))) * 100}%`);
     this.el.querySelectorAll<HTMLInputElement>("input[data-set]").forEach((input) => {
+      fill(input);
       input.addEventListener("input", () => {
+        fill(input);
         const key = input.dataset.set as "sensitivity" | "music" | "sfx";
         const value = Number(input.value);
         updateSettings({ [key]: value });

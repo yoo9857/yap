@@ -110,8 +110,6 @@ export class CraftHud {
     // current LEGO piece indicator (top-center)
     this.pieceChip = document.createElement("div");
     this.pieceChip.className = "craft-piece";
-    this.pieceChip.style.cssText =
-      "position:fixed;top:14px;left:50%;transform:translateX(-50%);background:rgba(20,22,28,.72);color:#fff;font:600 14px/1.2 system-ui,sans-serif;padding:6px 12px;border-radius:10px;z-index:30;pointer-events:none";
     parent.appendChild(this.pieceChip);
     this.root
       .querySelectorAll<HTMLElement>(".craft-slot")
