@@ -16,13 +16,14 @@ import {
   type InclineConditions,
 } from "./experimentModels.js";
 import "./scienceLab.css";
+import { t } from "../../ui/i18n.js";
 
 type Experiment = "incline" | "dust" | "energy" | "ascent";
 const TITLES: Record<Experiment, string> = {
-  incline: "왜 언덕을 못 오를까?",
-  dust: "옮기는 것과 모으는 것",
-  energy: "에너지는 어떤 길로 갈까?",
-  ascent: "내가 만든 우주선에 탑승",
+  incline: t("왜 언덕을 못 오를까?", "Why can't it climb the hill?"),
+  dust: t("옮기는 것과 모으는 것", "Moving it vs. catching it"),
+  energy: t("에너지는 어떤 길로 갈까?", "Which way does the energy go?"),
+  ascent: t("내가 만든 우주선에 탑승", "Board the ship you built"),
 };
 const NOTES_KEY = "craftyap-science-notes-v1";
 const CONNECTION_COLORS = {
@@ -82,11 +83,11 @@ export class ScienceLab {
     this.root.className = "science-lab";
     this.root.hidden = true;
     this.root.innerHTML = `<header class="lab-header"><div class="lab-brand">Craftyap <small>MAKE / OBSERVE / EXPLAIN</small></div>
-      <nav class="lab-tabs" aria-label="과학 실험 선택">${(["incline", "dust", "energy", "ascent"] as Experiment[]).map((m, i) => `<button data-mode="${m}" aria-selected="false">0${i + 1} · ${["언덕과 기어", "팬과 필터", "에너지 경로", "탑승과 상승"][i]}</button>`).join("")}</nav><button data-id="close">제작실로 돌아가기</button></header>
+      <nav class="lab-tabs" aria-label="${t("과학 실험 선택", "Pick an experiment")}">${(["incline", "dust", "energy", "ascent"] as Experiment[]).map((m, i) => `<button data-mode="${m}" aria-selected="false">0${i + 1} · ${[t("언덕과 기어", "Hills & gears"), t("팬과 필터", "Fans & filters"), t("에너지 경로", "Energy paths"), t("탑승과 상승", "Boarding & launch")][i]}</button>`).join("")}</nav><button data-id="close">${t("제작실로 돌아가기", "Back to the workshop")}</button></header>
       <div class="lab-body"><aside class="lab-side"></aside></div>
-      <footer class="lab-footer"><label>① 예상하기<textarea data-id="prediction" maxlength="1000" placeholder="어떤 조건이 결과를 바꿀까요?"></textarea></label>
-      <label>③ 설명하기<textarea data-id="explanation" maxlength="1000" placeholder="관찰한 결과와 이유를 연결해 보세요."></textarea></label>
-      <div class="lab-actions"><button class="lab-run" data-id="run">실험 시작</button><button data-id="reset">다시 준비</button><button data-id="export">기록 내려받기</button><span class="lab-error" role="status"></span></div></footer>`;
+      <footer class="lab-footer"><label>${t("① 예상하기", "① Predict")}<textarea data-id="prediction" maxlength="1000" placeholder="${t("어떤 조건이 결과를 바꿀까요?", "Which condition will change the result?")}"></textarea></label>
+      <label>${t("③ 설명하기", "③ Explain")}<textarea data-id="explanation" maxlength="1000" placeholder="${t("관찰한 결과와 이유를 연결해 보세요.", "Connect what you saw to why it happened.")}"></textarea></label>
+      <div class="lab-actions"><button class="lab-run" data-id="run">${t("실험 시작", "Start experiment")}</button><button data-id="reset">${t("다시 준비", "Reset")}</button><button data-id="export">${t("기록 내려받기", "Download notes")}</button><span class="lab-error" role="status"></span></div></footer>`;
     this.stage.className = "lab-stage";
     this.results.className = "lab-results";
     this.stage.append(this.renderer.domElement, this.results);
@@ -225,16 +226,16 @@ export class ScienceLab {
     const side = this.root.querySelector<HTMLElement>(".lab-side")!;
     let content = `<div class="lab-kicker">EXPERIMENT / ${this.mode.toUpperCase()}</div><h2>${TITLES[this.mode]}</h2>`;
     if (this.mode === "incline") {
-      content += `<p>같은 자동차, 같은 언덕, 같은 시간. 기어비만 바꾸어 비교합니다.</p>
-      <label>A 기어비<input data-field="a" type="number" min="0.5" max="8" step="0.1" value="${this.ratios[0]}"></label><label>B 기어비<input data-field="b" type="number" min="0.5" max="8" step="0.1" value="${this.ratios[1]}"></label>
-      <details open><summary>두 실험에 공통인 조건</summary>${(
+      content += `<p>${t("같은 자동차, 같은 언덕, 같은 시간. 기어비만 바꾸어 비교합니다.", "Same car, same hill, same time. Only the gear ratio changes.")}</p>
+      <label>A ${t("기어비", "gear ratio")}<input data-field="a" type="number" min="0.5" max="8" step="0.1" value="${this.ratios[0]}"></label><label>B ${t("기어비", "gear ratio")}<input data-field="b" type="number" min="0.5" max="8" step="0.1" value="${this.ratios[1]}"></label>
+      <details open><summary>${t("두 실험에 공통인 조건", "Conditions shared by both runs")}</summary>${(
         [
-          ["mass", "질량 (kg)", 5, 500, 1],
-          ["radius", "반지름 (m)", 0.1, 2, 0.05],
-          ["slopeDegrees", "경사 (°)", 0, 35, 1],
-          ["torque", "토크 (N·m)", 0, 200, 1],
-          ["resistance", "주행 저항 (N)", 0, 100, 0.1],
-          ["seconds", "시험 시간 (s)", 1, 20, 1],
+          ["mass", t("질량 (kg)", "Mass (kg)"), 5, 500, 1],
+          ["radius", t("반지름 (m)", "Wheel radius (m)"), 0.1, 2, 0.05],
+          ["slopeDegrees", t("경사 (°)", "Slope (°)"), 0, 35, 1],
+          ["torque", t("토크 (N·m)", "Torque (N·m)"), 0, 200, 1],
+          ["resistance", t("주행 저항 (N)", "Rolling resistance (N)"), 0, 100, 0.1],
+          ["seconds", t("시험 시간 (s)", "Test time (s)"), 1, 20, 1],
         ] as const
       )
         .map(
@@ -242,11 +243,11 @@ export class ScienceLab {
             `<label>${label}<input data-field="${key}" type="number" min="${min}" max="${max}" step="${step}" value="${this.conditions[key]}"></label>`,
         )
         .join("")}</details>
-      <p class="equation">F = τ × 기어비 / r<br>a = max(0, (F − mg sinθ − 저항) / m)<br>s = ½at²</p><p class="assumption">단순 힘 모델 · 효율 100%, 일정 토크, 접지계수 0.9. 미끄럼 한계로 구동력을 제한하며 역주행 방지 브레이크를 가정합니다. 공기 저항·회전 관성은 생략합니다. PDF에 없는 저항은 6.9N으로 명시했습니다.</p>`;
+      <p class="equation">F = τ × ${t("기어비", "gear ratio")} / r<br>a = max(0, (F − mg sinθ − ${t("저항", "resistance")}) / m)<br>s = ½at²</p><p class="assumption">${t("단순 힘 모델 · 효율 100%, 일정 토크, 접지계수 0.9. 미끄럼 한계로 구동력을 제한하며 역주행 방지 브레이크를 가정합니다. 공기 저항·회전 관성은 생략합니다. PDF에 없는 저항은 6.9N으로 명시했습니다.", "Simple force model · 100% efficiency, constant torque, grip coefficient 0.9. Drive force is capped by the slip limit and a roll-back brake is assumed. Air drag and rotational inertia are left out. The resistance missing from the worksheet is set to 6.9 N.")}</p>`;
     } else if (this.mode === "dust")
-      content += `<p>바람은 먼지를 이동시킵니다. 필터가 없으면 이동한 먼지는 어디로 갈까요?</p><label>팬 세기<input data-field="fan" type="range" min="0" max="3" step="0.25" value="${this.fan}"></label><label>필터 연결<input data-field="filter" type="checkbox" ${this.filter ? "checked" : ""}></label><p class="assumption">고정 시드 42 · 모의 입자 240개 · 필터 포집 확률 85% · 관찰 10초. 실제 미세먼지·유체 해석이나 공기청정기 성능 인증 모델이 아닙니다. 팬이 0이면 먼지는 옆으로 이동하지 않습니다.</p>`;
+      content += `<p>${t("바람은 먼지를 이동시킵니다. 필터가 없으면 이동한 먼지는 어디로 갈까요?", "Wind moves dust. Without a filter, where does the moved dust end up?")}</p><label>${t("팬 세기", "Fan strength")}<input data-field="fan" type="range" min="0" max="3" step="0.25" value="${this.fan}"></label><label>${t("필터 연결", "Filter on")}<input data-field="filter" type="checkbox" ${this.filter ? "checked" : ""}></label><p class="assumption">${t("고정 시드 42 · 모의 입자 240개 · 필터 포집 확률 85% · 관찰 10초. 실제 미세먼지·유체 해석이나 공기청정기 성능 인증 모델이 아닙니다. 팬이 0이면 먼지는 옆으로 이동하지 않습니다.", "Fixed seed 42 · 240 simulated particles · 85% filter capture chance · 10 s of observation. This is not a real fine-dust or fluid analysis, nor an air-purifier rating. With the fan at 0 the dust does not drift sideways.")}</p>`;
     else if (this.mode === "energy")
-      content += `<p>선택한 에너지원에 필요한 장치와 연결만 표시합니다.</p><label>에너지원<select data-field="source">${Object.entries(
+      content += `<p>${t("선택한 에너지원에 필요한 장치와 연결만 표시합니다.", "Shows only the devices and links the chosen energy source needs.")}</p><label>${t("에너지원", "Energy source")}<select data-field="source">${Object.entries(
         ENERGY_PATHS,
       )
         .map(
@@ -255,9 +256,9 @@ export class ScienceLab {
         )
         .join(
           "",
-        )}</select></label><label>입력 (W)<input data-field="power" type="number" min="0" max="10000" step="10" value="${this.inputPower}"></label><div class="lab-path">${ENERGY_PATHS[this.source].stages.map((s) => `<span>${s}</span>`).join("")}</div><p>${ENERGY_PATHS[this.source].note}</p><p class="assumption">민트: 전기 · 파랑: 수소 가스 · 황금: 기계적 전달 · 주황: 연료. 효율은 수업용 예시이며 실제 제품의 효율·친환경 순위를 나타내지 않습니다.</p>`;
+        )}</select></label><label>${t("입력 (W)", "Input (W)")}<input data-field="power" type="number" min="0" max="10000" step="10" value="${this.inputPower}"></label><div class="lab-path">${ENERGY_PATHS[this.source].stages.map((s) => `<span>${s}</span>`).join("")}</div><p>${ENERGY_PATHS[this.source].note}</p><p class="assumption">${t("민트: 전기 · 파랑: 수소 가스 · 황금: 기계적 전달 · 주황: 연료. 효율은 수업용 예시이며 실제 제품의 효율·친환경 순위를 나타내지 않습니다.", "Mint: electricity · blue: hydrogen gas · gold: mechanical drive · orange: fuel. Efficiencies are classroom examples, not real products' efficiency or green ranking.")}</p>`;
     else
-      content += `<p>지상에서 캐릭터가 탑승하고, 추진기 점화와 함께 상승합니다. 카메라가 따라가며 하늘이 바뀝니다.</p><p class="assumption">이 장면은 10초 탑승·상승 시퀀스입니다. 표시 고도는 연출 좌표이며 실제 대기권 고도·중력·연료·궤도 해석이 아닙니다. 부품 배치에 따른 실제 강체 비행은 제작실의 비행체 시험에서 할 수 있습니다.</p>`;
+      content += `<p>${t("지상에서 캐릭터가 탑승하고, 추진기 점화와 함께 상승합니다. 카메라가 따라가며 하늘이 바뀝니다.", "The character boards on the ground and rises as the thrusters fire. The camera follows and the sky changes.")}</p><p class="assumption">${t("이 장면은 10초 탑승·상승 시퀀스입니다. 표시 고도는 연출 좌표이며 실제 대기권 고도·중력·연료·궤도 해석이 아닙니다. 부품 배치에 따른 실제 강체 비행은 제작실의 비행체 시험에서 할 수 있습니다.", "This is a 10-second boarding and launch sequence. The altitude shown is a staging coordinate, not real atmosphere, gravity, fuel or orbit analysis. Real rigid-body flight from your part layout happens in the workshop's test drive.")}</p>`;
     side.innerHTML = content;
     side.querySelectorAll("input,select").forEach((el) =>
       el.addEventListener(
@@ -292,7 +293,7 @@ export class ScienceLab {
       localStorage.setItem(NOTES_KEY, JSON.stringify(this.notes));
     } catch {
       this.error(
-        "학습 기록을 저장하지 못했습니다. 기록 내려받기를 사용하세요.",
+        t("학습 기록을 저장하지 못했습니다. 기록 내려받기를 사용하세요.", "Couldn't save your notes. Use Download notes instead."),
       );
     }
   }
@@ -302,7 +303,7 @@ export class ScienceLab {
     this.root.classList.remove("is-running", "has-result");
     this.error("");
     this.root.querySelector('[data-id="run"]')!.textContent =
-      this.mode === "incline" ? "같은 조건으로 동시 출발" : "실험 시작";
+      this.mode === "incline" ? t("같은 조건으로 동시 출발", "Start both together") : t("실험 시작", "Start experiment");
     this.controls();
     this.clearScene();
     this.root.querySelector<HTMLTextAreaElement>(
@@ -328,7 +329,7 @@ export class ScienceLab {
       this.running = false;
       this.root.classList.remove("is-running");
       this.root.querySelector('[data-id="run"]')!.textContent =
-        "처음부터 다시 실험";
+        t("처음부터 다시 실험", "Run again from the start");
       return;
     }
     try {
@@ -338,7 +339,7 @@ export class ScienceLab {
       this.running = true;
       this.root.classList.add("is-running");
       this.root.querySelector('[data-id="run"]')!.textContent =
-        "관찰 중 · 정지";
+        t("관찰 중 · 정지", "Observing · stop");
       this.measure();
     } catch (e) {
       this.error(e instanceof Error ? e.message : String(e));
@@ -626,7 +627,7 @@ export class ScienceLab {
       this.root.classList.remove("is-running");
       this.root.classList.add("has-result");
       this.root.querySelector('[data-id="run"]')!.textContent =
-        "같은 조건으로 다시 실험";
+        t("같은 조건으로 다시 실험", "Run again with the same conditions");
       this.measure();
     }
   }
@@ -659,9 +660,9 @@ export class ScienceLab {
         });
         v.flushWheels();
         this.results.querySelector(`[data-result="${i}"]`)!.innerHTML =
-          `${i === 0 ? "A" : "B"} · 기어비 ${this.ratios[i]!.toFixed(1)} : 1<b>${sample.distance.toFixed(2)} m</b><small>바퀴 구동력 ${sample.wheelForce.toFixed(2)} N · ${sample.speed.toFixed(2)} m/s</small><small>${sample.slipping ? "접지 한계 · 미끄럼 발생" : `경사 저항 ${(sample.gravityForce + sample.resistance).toFixed(2)} N`}</small>`;
+          `${i === 0 ? "A" : "B"} · ${t("기어비", "gear ratio")} ${this.ratios[i]!.toFixed(1)} : 1<b>${sample.distance.toFixed(2)} m</b><small>${t("바퀴 구동력", "Wheel force")} ${sample.wheelForce.toFixed(2)} N · ${sample.speed.toFixed(2)} m/s</small><small>${sample.slipping ? t("접지 한계 · 미끄럼 발생", "Grip limit · wheels slipping") : `${t("경사 저항", "Slope resistance")} ${(sample.gravityForce + sample.resistance).toFixed(2)} N`}</small>`;
       });
-      label.textContent = `동일 카메라 · 동시점 ${this.elapsed.toFixed(2)} / ${this.conditions.seconds.toFixed(2)}초 · 실제 계산 결과 / 단순 힘 모델`;
+      label.textContent = t(`동일 카메라 · 동시점 ${this.elapsed.toFixed(2)} / ${this.conditions.seconds.toFixed(2)}초 · 실제 계산 결과 / 단순 힘 모델`, `Same camera · same moment ${this.elapsed.toFixed(2)} / ${this.conditions.seconds.toFixed(2)} s · computed result / simple force model`);
     } else if (this.mode === "dust" && this.dust) {
       let moving = 0,
         collected = 0;
@@ -681,8 +682,8 @@ export class ScienceLab {
       if (this.fanRotor)
         this.fanRotor.rotation.x = this.elapsed * this.fan * 10;
       const c = this.dust.counts();
-      this.results.innerHTML = `<article>팬 ${this.fan.toFixed(2)} · 필터 ${this.filter ? "연결" : "해제"}<b>${c.captured} / ${c.total}</b><small>포집된 입자</small><small>이동 ${c.moving} · 유출 ${c.escaped} · 침강 ${c.settled}</small></article>`;
-      label.textContent = `고정 시드 · ${this.elapsed.toFixed(1)} / 10초 · 모의 입자 이동과 포집`;
+      this.results.innerHTML = `<article>${t("팬", "Fan")} ${this.fan.toFixed(2)} · ${t("필터", "filter")} ${this.filter ? t("연결", "on") : t("해제", "off")}<b>${c.captured} / ${c.total}</b><small>${t("포집된 입자", "particles caught")}</small><small>${t("이동", "moving")} ${c.moving} · ${t("유출", "escaped")} ${c.escaped} · ${t("침강", "settled")} ${c.settled}</small></article>`;
+      label.textContent = t(`고정 시드 · ${this.elapsed.toFixed(1)} / 10초 · 모의 입자 이동과 포집`, `Fixed seed · ${this.elapsed.toFixed(1)} / 10 s · simulated particle drift and capture`);
     } else if (this.mode === "energy") {
       const flow = energyFlow(this.source, this.inputPower);
       this.powerMarkers.forEach((m, i) => {
@@ -698,8 +699,8 @@ export class ScienceLab {
         });
         v.flushWheels();
       });
-      this.results.innerHTML = `<article>${ENERGY_PATHS[this.source].name} 전환 경로<b>${flow.outputWatts.toFixed(1)} W</b><small>바퀴에 전달되는 기계적 출력</small><small>입력 ${flow.inputWatts.toFixed(1)} W = 출력 ${flow.outputWatts.toFixed(1)} + 손실 ${flow.lossWatts.toFixed(1)} W</small></article>`;
-      label.textContent = `${ENERGY_PATHS[this.source].stages.join(" → ")} · 설명용 효율 가정`;
+      this.results.innerHTML = `<article>${ENERGY_PATHS[this.source].name} ${t("전환 경로", "conversion path")}<b>${flow.outputWatts.toFixed(1)} W</b><small>${t("바퀴에 전달되는 기계적 출력", "mechanical power reaching the wheels")}</small><small>${t("입력", "input")} ${flow.inputWatts.toFixed(1)} W = ${t("출력", "output")} ${flow.outputWatts.toFixed(1)} + ${t("손실", "loss")} ${flow.lossWatts.toFixed(1)} W</small></article>`;
+      label.textContent = `${ENERGY_PATHS[this.source].stages.join(" → ")} · ${t("설명용 효율 가정", "illustrative efficiencies")}`;
     } else if (this.mode === "ascent") {
       const state = ascentSequence(this.elapsed),
         ship = this.visuals[0]!;
@@ -730,9 +731,9 @@ export class ScienceLab {
       }
       if (this.planet) this.planet.visible = state.altitude > 15;
       this.setCamera(12, 8 + state.altitude, 14, 0, 2 + state.altitude, 0);
-      this.results.innerHTML = `<article>${state.phase === "boarding" ? "탑승 중" : "추진기 점화 · 상승"}<b>${state.altitude.toFixed(1)} m</b><small>연출상 상승 높이 · ${this.elapsed.toFixed(1)} / 10초</small><small>캐릭터 동반 · 카메라 추적 · 하늘 전환</small></article>`;
+      this.results.innerHTML = `<article>${state.phase === "boarding" ? t("탑승 중", "Boarding") : t("추진기 점화 · 상승", "Thrusters lit · rising")}<b>${state.altitude.toFixed(1)} m</b><small>${t("연출상 상승 높이", "staged height")} · ${this.elapsed.toFixed(1)} / 10${t("초", " s")}</small><small>${t("캐릭터 동반 · 카메라 추적 · 하늘 전환", "character aboard · camera follows · sky changes")}</small></article>`;
       label.textContent =
-        "실제 실행 화면 · 탑승·상승 시퀀스 / 궤도·연료 시뮬레이션 아님";
+        t("실제 실행 화면 · 탑승·상승 시퀀스 / 궤도·연료 시뮬레이션 아님", "Live view · boarding and launch sequence / not an orbit or fuel simulation");
     }
   }
   render(dt: number): void {

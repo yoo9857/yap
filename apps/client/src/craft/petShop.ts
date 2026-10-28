@@ -1,4 +1,5 @@
 import { PET_SPECIES, SPECIES, type PetSpecies } from "../player/creatureRig.js";
+import { t } from "../ui/i18n.js";
 import "./petShop.css";
 
 /**
@@ -43,8 +44,8 @@ export class PetShop {
     this.panel.dataset.id = "pet-panel";
     this.panel.innerHTML = `
       <div class="pet-panel-head">
-        <span class="pet-panel-title">입양하기</span>
-        <span class="pet-panel-sub">한 마리만 데려갈 수 있어요</span>
+        <span class="pet-panel-title">${t("입양하기", "Adopt a pet")}</span>
+        <span class="pet-panel-sub">${t("한 마리만 데려갈 수 있어요", "You can take one home at a time")}</span>
       </div>`;
     for (const key of PET_SPECIES) {
       const info = SPECIES[key];
@@ -56,10 +57,10 @@ export class PetShop {
       card.innerHTML = `
         <span class="pet-card-emoji">${info.emoji}</span>
         <span class="pet-card-text">
-          <span class="pet-card-name">${info.name}</span>
-          <span class="pet-card-trait">${info.trait}</span>
+          <span class="pet-card-name">${t(info.name, info.nameEn)}</span>
+          <span class="pet-card-trait">${t(info.trait, info.traitEn)}</span>
         </span>
-        <span class="pet-card-badge">함께 있음</span>`;
+        <span class="pet-card-badge">${t("함께 있음", "With you")}</span>`;
       card.addEventListener("click", () => this.pick(key));
       this.panel.appendChild(card);
       this.cards.set(key, card);
@@ -101,7 +102,7 @@ export class PetShop {
   private refresh(): void {
     for (const [key, card] of this.cards) card.classList.toggle("adopted", key === this.current);
     const label = this.chip.querySelector<HTMLElement>('[data-id="pet-chip-label"]');
-    if (label) label.textContent = `입양 · ${SPECIES[this.current].name}`;
+    if (label) label.textContent = `${t("입양", "Adopt")} · ${t(SPECIES[this.current].name, SPECIES[this.current].nameEn)}`;
   }
 
   setVisible(visible: boolean): void {

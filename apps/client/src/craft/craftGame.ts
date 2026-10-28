@@ -295,10 +295,10 @@ export class CraftGame {
    * real frames through the whole pipeline. See `warmupGpuAsync`.
    */
   async prepare(setMessage: (text: string) => void = () => {}): Promise<void> {
-    setMessage("Loading textures…");
+    setMessage(t("텍스처 불러오는 중…", "Loading textures…"));
     await texturesReady();
     if (this.disposed) return;
-    setMessage("Preparing graphics…");
+    setMessage(t("그래픽 준비하는 중…", "Preparing graphics…"));
     this.furniture.setWarm(true);
     this.view.setWarm(true); // the water shader, too
     this.warming = true;
@@ -641,7 +641,7 @@ export class CraftGame {
     this.body.vx = this.body.vy = this.body.vz = 0;
     this.wishX = this.wishZ = 0;
     this.sfx.play("sit");
-    this.hud.toast("🪑 앉았어요 — 움직이면 일어나요");
+    this.hud.toast(t("🪑 앉았어요 — 움직이면 일어나요", "🪑 Sitting down — move to stand up"));
     return true;
   }
 
@@ -689,11 +689,11 @@ export class CraftGame {
     this.mining = false;
     this.miningFrac = null;
     if (!this.canBuild()) {
-      this.hud.toast("🧱 지금은 건축이 잠겨 있어요");
+      this.hud.toast(t("🧱 지금은 건축이 잠겨 있어요", "🧱 Building is locked right now"));
       return;
     }
     if (id !== WATER && id !== WATER_SETTLED) {
-      this.hud.toast("💧 흐르는 물이에요 — 물이 시작된 곳(원천)을 떠야 없어져요");
+      this.hud.toast(t("💧 흐르는 물이에요 — 물이 시작된 곳(원천)을 떠야 없어져요", "💧 That water is flowing — scoop up its source to clear it"));
       return;
     }
     this.writeCell(x, y, z, AIR, 0);
@@ -743,7 +743,7 @@ export class CraftGame {
     if (this.aimFurniture && !this.furniture.active && this.trySit(this.aimFurniture)) return;
     if (!this.aim) return;
     if (!this.canBuild()) {
-      this.hud.toast("🧱 지금은 건축이 잠겨 있어요");
+      this.hud.toast(t("🧱 지금은 건축이 잠겨 있어요", "🧱 Building is locked right now"));
       return;
     }
     if (this.furniture.active) {
@@ -897,7 +897,7 @@ export class CraftGame {
     this.state.pet = species;
     this.petShop.setCurrent(species);
     const info = SPECIES[species];
-    this.hud.toast(`${info.emoji} ${withObjectParticle(info.name)} 입양했어요`);
+    this.hud.toast(t(`${info.emoji} ${withObjectParticle(info.name)} 입양했어요`, `${info.emoji} You adopted the ${info.nameEn.toLowerCase()}!`));
     this.persist();
   }
 
@@ -937,9 +937,9 @@ export class CraftGame {
     } catch { /* access to localStorage itself can be disabled by the browser */ }
     if (saved) {
       this.lastSaveSignature = signature;
-      if (this.saveFailed) this.hud.toast("💾 자동 저장이 다시 정상 작동해요");
+      if (this.saveFailed) this.hud.toast(t("💾 자동 저장이 다시 정상 작동해요", "💾 Autosave is working again"));
     } else if (!this.saveFailed) {
-      this.hud.toast("💾 자동 저장에 실패했어요. 최근 변경사항이 저장되지 않았으니 이 탭을 닫지 마세요");
+      this.hud.toast(t("💾 자동 저장에 실패했어요. 최근 변경사항이 저장되지 않았으니 이 탭을 닫지 마세요", "💾 Autosave failed. Recent changes are not saved yet — please keep this tab open"));
     }
     this.saveFailed = !saved;
   }

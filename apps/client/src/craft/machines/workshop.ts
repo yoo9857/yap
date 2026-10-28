@@ -190,7 +190,7 @@ export class MachineWorkshop {
         quickStart: (kind) => void this.quickStart(kind),
         toggleAssist: () => this.setAssist(!this.assist),
         rename: (name) => {
-          this.blueprint.name = name.trim().slice(0, 48) || "나의 기계";
+          this.blueprint.name = name.trim().slice(0, 48) || t("나의 기계", "My machine");
           this.commit(false);
         },
         undo: () => this.undo(),
@@ -199,8 +199,8 @@ export class MachineWorkshop {
           this.mirror = !this.mirror;
           this.say(
             this.mirror
-              ? "좌우 대칭 켜짐 · 반대쪽에도 똑같이 붙습니다."
-              : "좌우 대칭 꺼짐",
+              ? t("좌우 대칭 켜짐 · 반대쪽에도 똑같이 붙습니다.", "Mirror on · parts are copied to the other side.")
+              : t("좌우 대칭 꺼짐", "Mirror off"),
             "info",
           );
         },
@@ -388,7 +388,7 @@ export class MachineWorkshop {
     const added = cells.filter((part) => addPart(next, part)).length;
     if (!added) {
       this.say(
-        `여기에는 붙일 수 없습니다. 부품 ${this.blueprint.parts.length}/128, 중심에서 12칸까지입니다.`,
+        t(`여기에는 붙일 수 없습니다. 부품 ${this.blueprint.parts.length}/128, 중심에서 12칸까지입니다.`, `Can't attach here. Parts ${this.blueprint.parts.length}/128, up to 12 cells from the centre.`),
         "bad",
       );
       return;
@@ -427,7 +427,7 @@ export class MachineWorkshop {
       parts: [cockpit ?? { kind: "cockpit", cell: [0, 0, 0], direction: 0 }],
     };
     this.commit();
-    this.say("조종석만 남겼습니다. 여기서 다시 시작해 보세요.", "info");
+    this.say(t("조종석만 남겼습니다. 여기서 다시 시작해 보세요.", "Only the cockpit is left. Start again from here."), "info");
   }
 
   /** Skip the workbench entirely: load an example and drive it right away. */
@@ -445,7 +445,7 @@ export class MachineWorkshop {
       /* storage unavailable */
     }
     this.toasts.show(
-      on ? "조작 보조 켜짐 · 저절로 수평을 잡아요" : "조작 보조 꺼짐 · 물리 그대로",
+      on ? t("조작 보조 켜짐 · 저절로 수평을 잡아요", "Pilot assist on · levels itself") : t("조작 보조 꺼짐 · 물리 그대로", "Pilot assist off · raw physics"),
       "good",
       on ? "🛟" : "🎛️",
     );
@@ -457,7 +457,7 @@ export class MachineWorkshop {
     this.blueprint = preset(kind);
     this.commit();
     this.frameCamera();
-    this.say(`${this.blueprint.name} 예제를 불러왔습니다.`, "good");
+    this.say(t(`${this.blueprint.name} 예제를 불러왔습니다.`, `Loaded the ${this.blueprint.name} example.`), "good");
   }
 
   private commit(rebuild = true): void {
@@ -477,14 +477,14 @@ export class MachineWorkshop {
 
   private saveSlot(): void {
     this.entries = this.store.put(
-      this.blueprint.name || "이름 없는 기계",
+      this.blueprint.name || t("이름 없는 기계", "Unnamed machine"),
       this.blueprint,
       Date.now(),
     );
     this.say(
       this.store.failed
-        ? "저장 공간에 접근할 수 없어 보관하지 못했습니다."
-        : `'${this.blueprint.name}'을(를) 보관함에 넣었습니다.`,
+        ? t("저장 공간에 접근할 수 없어 보관하지 못했습니다.", "Couldn't save: browser storage is unavailable.")
+        : t(`'${this.blueprint.name}'을(를) 보관함에 넣었습니다.`, `Saved '${this.blueprint.name}' to your blueprints.`),
       this.store.failed ? "bad" : "good",
     );
     this.refresh();
@@ -497,20 +497,20 @@ export class MachineWorkshop {
     this.blueprint = cloneBlueprint(entry.blueprint);
     this.commit();
     this.frameCamera();
-    this.say(`'${entry.blueprint.name}'을(를) 불러왔습니다.`, "good");
+    this.say(t(`'${entry.blueprint.name}'을(를) 불러왔습니다.`, `Loaded '${entry.blueprint.name}'.`), "good");
   }
 
   private importShare(code: string): void {
     const loaded = decodeShare(code);
     if (!loaded) {
-      this.say("공유 코드를 읽지 못했습니다. CYM1… 전체를 붙여넣어 주세요.", "bad");
+      this.say(t("공유 코드를 읽지 못했습니다. CYM1… 전체를 붙여넣어 주세요.", "Couldn't read that share code. Paste the whole CYM1… code."), "bad");
       return;
     }
     this.remember();
     this.blueprint = loaded;
     this.commit();
     this.frameCamera();
-    this.say(`'${loaded.name}'을(를) 코드에서 불러왔습니다.`, "good");
+    this.say(t(`'${loaded.name}'을(를) 코드에서 불러왔습니다.`, `Loaded '${loaded.name}' from the code.`), "good");
   }
 
   private say(text: string, tone: MessageTone = "info"): void {
@@ -562,7 +562,7 @@ export class MachineWorkshop {
     }
     if (driving) {
       if (event.code === "KeyC") this.cycleCamera();
-      if (event.code === "KeyR") this.respawn("제자리로 돌아왔습니다.");
+      if (event.code === "KeyR") this.respawn(t("제자리로 돌아왔습니다.", "Back at the start."));
       return;
     }
     const slot = Number(event.key);
@@ -579,7 +579,7 @@ export class MachineWorkshop {
         break;
       case "KeyM":
         this.mirror = !this.mirror;
-        this.say(this.mirror ? "좌우 대칭 켜짐" : "좌우 대칭 꺼짐", "info");
+        this.say(this.mirror ? t("좌우 대칭 켜짐", "Mirror on") : t("좌우 대칭 꺼짐", "Mirror off"), "info");
         break;
       case "KeyX":
         this.erase = !this.erase;
@@ -650,7 +650,7 @@ export class MachineWorkshop {
       })
       .catch(() => {
         this.assetFailure =
-          "기계 에셋을 불러오지 못했습니다. 새로고침해 주세요.";
+          t("기계 에셋을 불러오지 못했습니다. 새로고침해 주세요.", "Couldn't load the machine parts. Please refresh.");
         if (!this.disposed) this.say(this.assetFailure, "bad");
       });
   }
@@ -713,7 +713,7 @@ export class MachineWorkshop {
     if (this.assetFailure) return this.assetFailure;
     const error = blueprintError(this.blueprint);
     if (error) return error;
-    if (this.saveFailed) return "설계도 저장에 실패했습니다.";
+    if (this.saveFailed) return t("설계도 저장에 실패했습니다.", "Saving the blueprint failed.");
     // Nothing to report is its own answer: the hint block collapses rather
     // than holding 50px of panel open to repeat itself.
     return this.message;
@@ -819,13 +819,13 @@ export class MachineWorkshop {
       this.camera.clearViewOffset();
       this.message = "";
     } catch (error) {
-      failure = `시험을 시작하지 못했습니다: ${error instanceof Error ? error.message : String(error)}`;
+      failure = t(`시험을 시작하지 못했습니다: ${error instanceof Error ? error.message : String(error)}`, `Couldn't start the test: ${error instanceof Error ? error.message : String(error)}`);
     } finally {
       if (generation === this.generation) {
         this.loading = false;
         if (failure) {
           this.say(failure, "bad");
-          this.toasts.show("물리 엔진을 불러오지 못했습니다.", "bad");
+          this.toasts.show(t("물리 엔진을 불러오지 못했습니다.", "Couldn't load the physics engine."), "bad");
         } else this.refresh();
       }
     }
@@ -901,7 +901,7 @@ export class MachineWorkshop {
       this.say(
         error instanceof Error
           ? error.message
-          : "시험 중 오류가 발생해 제작대로 돌아왔습니다.",
+          : t("시험 중 오류가 발생해 제작대로 돌아왔습니다.", "Something went wrong during the test — back to the workbench."),
         "bad",
       );
       return;
@@ -911,7 +911,7 @@ export class MachineWorkshop {
     for (const id of cleared) {
       const mission = MISSIONS.find((m) => m.id === id);
       if (!mission) continue;
-      this.toasts.show(`임무 완료 · ${mission.name}`, "good");
+      this.toasts.show(`${t("임무 완료", "Mission complete")} · ${t(mission.name, mission.en.name)}`, "good");
       this.audio.fanfare();
     }
     // Landing thump: the vertical speed that vanished in this one step.
@@ -930,7 +930,7 @@ export class MachineWorkshop {
       p.x > BOUNDS.maxX ||
       p.z > BOUNDS.maxZ
     )
-      this.respawn("시험 구역을 벗어나 출발점으로 되돌렸습니다.");
+      this.respawn(t("시험 구역을 벗어나 출발점으로 되돌렸습니다.", "You left the test area — back to the start."));
   }
 
   // -------------------------------------------------------------- render
@@ -1193,7 +1193,7 @@ export class MachineWorkshop {
       this.say(
         error instanceof Error
           ? error.message
-          : "과학 실험실을 열지 못했습니다.",
+          : t("과학 실험실을 열지 못했습니다.", "Couldn't open the science lab."),
         "bad",
       );
     }

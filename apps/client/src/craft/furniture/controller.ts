@@ -1,6 +1,7 @@
 import type { ClassFurniture } from "@robo/shared";
 import type * as THREE from "three";
 import { withObjectParticle } from "../korean.js";
+import { t } from "../../ui/i18n.js";
 import { overlapsVoxel, unstick, type Body } from "../voxelBody.js";
 import type { RayHit, VoxelWorld } from "../voxelWorld.js";
 import { CATALOG, CATEGORIES, furnitureDef, inCategory, isFurnitureKind, variantCount } from "./catalog/index.js";
@@ -62,13 +63,13 @@ interface Candidate {
 
 /** What a refused right click says. `invalid` never reaches a player. */
 const REFUSAL: Record<Exclude<PlaceVerdict, "ok" | "invalid">, string> = {
-  limit: "🛋️ 가구를 더 놓을 수 없어요 (최대 개수)",
-  occupied: "🛋️ 이미 다른 가구가 있는 자리예요",
-  blocked: "🧱 블록이 있는 자리에는 놓을 수 없어요",
-  body: "🙂 내가 서 있는 자리예요 — 한 걸음 비켜 주세요",
-  floating: "⬇️ 바닥(블록) 위에 놓아야 해요",
-  "no-wall": "🖼️ 블록 벽에 대고 걸어야 해요",
-  "no-top": "🍽️ 그 가구 위에는 올릴 수 없어요 — 탁자나 선반을 노려 보세요",
+  limit: t("🛋️ 가구를 더 놓을 수 없어요 (최대 개수)", "🛋️ No room for more furniture (limit reached)"),
+  occupied: t("🛋️ 이미 다른 가구가 있는 자리예요", "🛋️ Another piece is already there"),
+  blocked: t("🧱 블록이 있는 자리에는 놓을 수 없어요", "🧱 Can't place it where a block is"),
+  body: t("🙂 내가 서 있는 자리예요 — 한 걸음 비켜 주세요", "🙂 You're standing there — step aside"),
+  floating: t("⬇️ 바닥(블록) 위에 놓아야 해요", "⬇️ It needs a floor (a block) under it"),
+  "no-wall": t("🖼️ 블록 벽에 대고 걸어야 해요", "🖼️ Hang it against a block wall"),
+  "no-top": t("🍽️ 그 가구 위에는 올릴 수 없어요 — 탁자나 선반을 노려 보세요", "🍽️ It can't go on that — aim at a table or shelf"),
 };
 
 export class FurnitureController {
@@ -144,7 +145,7 @@ export class FurnitureController {
     this.shop.setCurrent(kind, this.variant);
     this.host.hud.setHotbarVisible(kind === null);
     // Once on the way in; switching pieces is already shown by the bar.
-    if (entering) this.host.hud.toast("🛋️ 가구 모드 — Q/E 종류 · 1~9 고르기 · X 색 · R 돌리기 · G 블록으로");
+    if (entering) this.host.hud.toast(t("🛋️ 가구 모드 — Q/E 종류 · 1~9 고르기 · X 색 · R 돌리기 · G 블록으로", "🛋️ Furniture mode — Q/E category · 1–9 pick · X colour · R turn · G back to blocks"));
   }
 
   /**
@@ -309,7 +310,7 @@ export class FurnitureController {
   place(hit: RayHit | null, yaw: number): boolean {
     if (!hit) return false;
     if (!this.host.canBuild()) {
-      this.host.hud.toast("🧱 지금은 건축이 잠겨 있어요");
+      this.host.hud.toast(t("🧱 지금은 건축이 잠겨 있어요", "🧱 Building is locked right now"));
       return false;
     }
     const c = this.candidate(hit, yaw);
@@ -335,13 +336,13 @@ export class FurnitureController {
     const def = furnitureDef(item.kind);
     if (!def.openParts) return false;
     if (!this.host.canBuild()) {
-      this.host.hud.toast("🧱 지금은 건축이 잠겨 있어요");
+      this.host.hud.toast(t("🧱 지금은 건축이 잠겨 있어요", "🧱 Building is locked right now"));
       return true;
     }
     const before = { ...item };
     const result = this.host.layout.toggle(item, this.placementWorld);
     if (result === "body") {
-      this.host.hud.toast(`🚪 ${def.name} 자리에 서 있어서 닫을 수 없어요`);
+      this.host.hud.toast(t(`🚪 ${def.name} 자리에 서 있어서 닫을 수 없어요`, `🚪 You're standing in the doorway (${def.name}) — can't close it`));
       return true;
     }
     if (result === "ok") this.changed([item], [before]);
@@ -387,7 +388,7 @@ export class FurnitureController {
     if (!this.enabled) return;
     this.select(item.kind, item.variant);
     const def = furnitureDef(item.kind);
-    this.host.hud.toast(`${def.emoji} ${def.name} 골랐어요`);
+    this.host.hud.toast(t(`${def.emoji} ${def.name} 골랐어요`, `${def.emoji} Picked ${def.name}`));
   }
 
   // ------------------------------------------------------------ undo
@@ -442,11 +443,11 @@ export class FurnitureController {
     if (!this.host.canBuild()) return;
     if (!this.enabled) return;
     const step = this.undoStack.pop();
-    if (!step) return this.host.hud.toast("↩️ 되돌릴 가구 작업이 없어요");
-    if (!this.apply(step, true)) return this.host.hud.toast("↩️ 그 자리가 막혀 있어서 되돌릴 수 없어요");
+    if (!step) return this.host.hud.toast(t("↩️ 되돌릴 가구 작업이 없어요", "↩️ Nothing to undo"));
+    if (!this.apply(step, true)) return this.host.hud.toast(t("↩️ 그 자리가 막혀 있어서 되돌릴 수 없어요", "↩️ Can't undo — that spot is blocked"));
     this.redoStack.push(step);
     this.host.sfx.play("undo");
-    this.host.hud.toast("↩️ 되돌렸어요 (Ctrl+Y 다시)");
+    this.host.hud.toast(t("↩️ 되돌렸어요 (Ctrl+Y 다시)", "↩️ Undone (Ctrl+Y to redo)"));
   }
 
   redo(): void {
@@ -454,10 +455,10 @@ export class FurnitureController {
     if (!this.enabled) return;
     const step = this.redoStack.pop();
     if (!step) return;
-    if (!this.apply(step, false)) return this.host.hud.toast("↪️ 그 자리가 막혀 있어서 다시 할 수 없어요");
+    if (!this.apply(step, false)) return this.host.hud.toast(t("↪️ 그 자리가 막혀 있어서 다시 할 수 없어요", "↪️ Can't redo — that spot is blocked"));
     this.undoStack.push(step);
     this.host.sfx.play("undo");
-    this.host.hud.toast("↪️ 다시 했어요");
+    this.host.hud.toast(t("↪️ 다시 했어요", "↪️ Redone"));
   }
 
   /** Put a piece away (and whatever stood on it). It is free, so nothing is
@@ -469,8 +470,8 @@ export class FurnitureController {
     this.record({ placed: [], removed });
     this.host.sfx.play("pickup");
     const def = furnitureDef(item.kind);
-    const extra = removed.length > 1 ? ` (위에 있던 ${removed.length - 1}개도)` : "";
-    this.host.hud.toast(`${def.emoji} ${withObjectParticle(def.name)} 치웠어요${extra}`);
+    const extra = removed.length > 1 ? t(` (위에 있던 ${removed.length - 1}개도)`, ` (and ${removed.length - 1} on top of it)`) : "";
+    this.host.hud.toast(t(`${def.emoji} ${withObjectParticle(def.name)} 치웠어요${extra}`, `${def.emoji} Put away ${def.name}${extra}`));
   }
 
   /** A block was removed at this grid cell: put away what it was holding. */
@@ -479,7 +480,7 @@ export class FurnitureController {
     const removed = this.host.layout.afterBlockRemoved(ax, y, az, this.placementWorld);
     if (removed.length === 0) return;
     const def = furnitureDef(removed[0]!.kind);
-    this.host.hud.toast(`${def.emoji} 받침이 없어져서 ${withObjectParticle(def.name)} 치웠어요`);
+    this.host.hud.toast(t(`${def.emoji} 받침이 없어져서 ${withObjectParticle(def.name)} 치웠어요`, `${def.emoji} ${def.name} lost its support and was put away`));
   }
 
   // ------------------------------------------------------------ frame

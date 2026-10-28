@@ -21,6 +21,8 @@ export interface Mission {
   hint: string;
   /** Headline target, formatted for the checklist. */
   target: string;
+  /** The same three lines in English. */
+  en: { name: string; hint: string; target: string };
 }
 
 export const MISSIONS: readonly Mission[] = [
@@ -29,36 +31,42 @@ export const MISSIONS: readonly Mission[] = [
     name: "첫 주행",
     hint: "출발점에서 40 m 떨어진 곳까지 가 보세요.",
     target: "40 m 이동",
+    en: { name: "First drive", hint: "Get 40 m away from the start.", target: "Travel 40 m" },
   },
   {
     id: "speed-run",
     name: "속도 돌파",
     hint: "바퀴를 늘리거나 추진기를 뒤로 달아 가속해 보세요.",
     target: "55 km/h",
+    en: { name: "Speed run", hint: "Add wheels or point a thruster backwards to speed up.", target: "55 km/h" },
   },
   {
     id: "hill-climb",
     name: "언덕 등반",
     hint: "출발 지점보다 10 m 높은 땅에 바퀴를 디디세요.",
     target: "고도 +10 m 접지",
+    en: { name: "Hill climb", hint: "Put your wheels down on ground 10 m above the start.", target: "Touch down +10 m up" },
   },
   {
     id: "hover",
     name: "공중 정지",
     hint: "상승 추력과 중량의 비가 1을 넘으면 뜹니다.",
     target: "20 m에서 3초",
+    en: { name: "Hover", hint: "It lifts off once lift thrust outweighs the machine.", target: "3 s at 20 m" },
   },
   {
     id: "soft-landing",
     name: "안전 착륙",
     hint: "15 m 이상 올라갔다가 천천히 내려와 땅에 닿으세요.",
     target: "2.5 m/s 이하 접지",
+    en: { name: "Soft landing", hint: "Climb above 15 m, then come down slowly and touch the ground.", target: "Land at ≤ 2.5 m/s" },
   },
   {
     id: "long-haul",
     name: "장거리 원정",
     hint: "한 번의 시험 운전에서 누적 300 m를 달리거나 날아가세요.",
     target: "누적 300 m",
+    en: { name: "Long haul", hint: "Drive or fly 300 m in total in one test run.", target: "300 m in total" },
   },
 ];
 

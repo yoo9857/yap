@@ -8,6 +8,7 @@ import { turnToward } from "./smoothing.js";
 import { SOLID_ID } from "./blocks.js";
 import type { FieldWindow } from "./fieldWorld.js";
 import type { VoxelView } from "./voxelView.js";
+import { t } from "../ui/i18n.js";
 
 const MOVE_HZ = 10;
 /** Sent edits are remembered this long, so a refusal can be undone locally. */
@@ -101,7 +102,7 @@ export class ClassSync {
       kick: (m) => client.send({ t: "k-kick", playerId: m.id }),
       gather: () => {
         client.send({ t: "k-gather" });
-        hooks.toast("📣 학생들을 불렀어요");
+        hooks.toast(t("📣 학생들을 불렀어요", "📣 You called everyone over"));
       },
       settings: (next) => client.send({ t: "k-settings", ...next }),
       end: () => client.send({ t: "k-end" }),
@@ -122,7 +123,7 @@ export class ClassSync {
     client.onEdit = (edits) => this.applyEdits(edits);
     client.onFurniture = (items, rejected) => {
       furniture.load(items, true);
-      if (rejected) hooks.toast("🛋️ 다른 변경이나 건축 잠금 때문에 가구 작업을 적용하지 못했어요");
+      if (rejected) hooks.toast(t("🛋️ 다른 변경이나 건축 잠금 때문에 가구 작업을 적용하지 못했어요", "🛋️ That furniture change didn't go through (someone else changed it, or building is locked)"));
     };
     client.onReject = (edits, authoritative) => this.undo(edits, authoritative);
     client.onChat = (msg) => this.hud.chat(msg.name, msg.role, msg.text, msg.system);
@@ -132,9 +133,9 @@ export class ClassSync {
       this.hud.setSettings(settings);
       if (this.session.role === "student") {
         if (settings.buildLocked !== was.buildLocked)
-          hooks.toast(settings.buildLocked ? "🧱 선생님이 건축을 잠갔어요" : "🧱 다시 건축할 수 있어요");
+          hooks.toast(settings.buildLocked ? t("🧱 선생님이 건축을 잠갔어요", "🧱 The teacher locked building") : t("🧱 다시 건축할 수 있어요", "🧱 You can build again"));
         if (settings.chatLocked !== was.chatLocked)
-          hooks.toast(settings.chatLocked ? "💬 선생님이 채팅을 잠갔어요" : "💬 다시 채팅할 수 있어요");
+          hooks.toast(settings.chatLocked ? t("💬 선생님이 채팅을 잠갔어요", "💬 The teacher locked the chat") : t("💬 다시 채팅할 수 있어요", "💬 You can chat again"));
       }
     };
     client.onGather = ([ax, y, az]) => {
@@ -142,7 +143,7 @@ export class ClassSync {
       // fan out around the teacher instead of stacking in one cell
       const angle = Math.random() * Math.PI * 2;
       hooks.teleport(x + Math.cos(angle) * 2.5, y + 0.5, z + Math.sin(angle) * 2.5);
-      hooks.toast("📣 선생님이 불렀어요!");
+      hooks.toast(t("📣 선생님이 불렀어요!", "📣 The teacher called you over!"));
     };
     client.onWorldReset = () => {
       field.replaceAll([]);
@@ -151,7 +152,7 @@ export class ClassSync {
       this.outbox.length = 0;
       view.markDirty();
       hooks.worldChanged?.();
-      hooks.toast("🧹 들판이 새로 비워졌어요");
+      hooks.toast(t("🧹 들판이 새로 비워졌어요", "🧹 The field has been cleared"));
     };
     client.onConnection = (online) => {
       this.online = online;
@@ -164,7 +165,7 @@ export class ClassSync {
       for (const id of [...this.remotes.keys()]) this.dropRemote(id);
       // the server restarted and the class was opened afresh: say so instead
       // of silently swapping everyone's buildings for an empty field
-      if (fresh.edits.length === 0 && field.hasEdits()) hooks.toast("⚠️ 서버가 다시 시작되어 반이 새로 열렸어요");
+      if (fresh.edits.length === 0 && field.hasEdits()) hooks.toast(t("⚠️ 서버가 다시 시작되어 반이 새로 열렸어요", "⚠️ The server restarted, so the class was opened fresh"));
       // the server's field wins: anything sent while offline never landed
       field.replaceAll(fresh.edits);
       furniture.load(fresh.furniture, true);
@@ -183,14 +184,14 @@ export class ClassSync {
       hooks.clearKeys();
       this.hud.showEnded(
         reason === "kicked"
-          ? "선생님이 수업에서 내보냈어요."
+          ? t("선생님이 수업에서 내보냈어요.", "The teacher removed you from the class.")
           : reason === "closed"
             ? this.session.role === "teacher"
-              ? "수업을 마쳤어요. 모든 학생의 연결이 끝났어요."
-              : "선생님이 수업을 마쳤어요. 수고했어요!"
+              ? t("수업을 마쳤어요. 모든 학생의 연결이 끝났어요.", "Class ended. Every student has been disconnected.")
+              : t("선생님이 수업을 마쳤어요. 수고했어요!", "The teacher ended the class. Great work!")
             : reason === "no-class"
-              ? "서버가 다시 시작되어 수업이 끝났어요. 선생님이 반을 다시 열면 참여해 주세요."
-            : "연결이 끝났어요. 다시 참여해 주세요.",
+              ? t("서버가 다시 시작되어 수업이 끝났어요. 선생님이 반을 다시 열면 참여해 주세요.", "The server restarted and the class ended. Join again once the teacher reopens it.")
+            : t("연결이 끝났어요. 다시 참여해 주세요.", "You were disconnected. Please join again."),
       );
     };
     client.activate(); // replay reliable edits that arrived during world/graphics setup
@@ -312,7 +313,7 @@ export class ClassSync {
       const cell = this.field.applyRemote(ax, y, az, authoritative ? block : p!.prev[0], authoritative ? shape : p!.prev[1]);
       if (cell) { this.view.markCellDirty(cell[0], cell[1], cell[2]); this.view.markWaterDirty(cell[0], cell[1], cell[2]); }
     }
-    if (this.session.role === "student" && this.settings.buildLocked) this.hooks.toast("🧱 지금은 건축이 잠겨 있어요");
+    if (this.session.role === "student" && this.settings.buildLocked) this.hooks.toast(t("🧱 지금은 건축이 잠겨 있어요", "🧱 Building is locked right now"));
   }
 
   private dropRemote(id: string): void {

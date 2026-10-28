@@ -11,6 +11,7 @@ import {
 } from "./blueprint.js";
 import type { LibraryEntry, MissionRecord } from "./library.js";
 import { MISSIONS, type MissionProgress } from "./missions.js";
+import { t } from "../../ui/i18n.js";
 
 /**
  * All machine-lab DOM. The workshop owns state and 3D; this file owns pixels,
@@ -20,11 +21,14 @@ import { MISSIONS, type MissionProgress } from "./missions.js";
  */
 
 export type MessageTone = "info" | "bad" | "good";
+
+/** Palette group headings (the group values themselves are keys). */
+const GROUP_EN: Record<string, string> = { 구조: "Structure", 구동: "Drive", 비행: "Flight" };
 export type CameraMode = "chase" | "orbit" | "cockpit";
 export const CAMERA_LABEL: Record<CameraMode, string> = {
-  chase: "추적 시점",
-  orbit: "자유 시점",
-  cockpit: "조종석 시점",
+  chase: t("추적 시점", "Chase view"),
+  orbit: t("자유 시점", "Orbit view"),
+  cockpit: t("조종석 시점", "Cockpit view"),
 };
 
 export interface BuildView {
@@ -205,7 +209,7 @@ ${part.detail}`)}">
               <b>${part.name}</b></button>`;
           })
           .join("");
-        return `<div class="mw-group">${group}</div><div class="mw-parts">${tiles}</div>`;
+        return `<div class="mw-group">${t(group, GROUP_EN[group] ?? group)}</div><div class="mw-parts">${tiles}</div>`;
       })
       .join("");
     const dirs = DIRECTIONS.map(
@@ -219,26 +223,26 @@ ${part.detail}`)}">
     const missions = MISSIONS.map(
       (m) => `<div class="mw-mission" data-mission="${m.id}">
         <span class="mw-check">·</span>
-        <div><b>${m.name}</b> <em>${m.target}</em><small>${m.hint}</small>
+        <div><b>${t(m.name, m.en.name)}</b> <em>${t(m.target, m.en.target)}</em><small>${t(m.hint, m.en.hint)}</small>
         <div class="mw-track"><div class="mw-fill" data-fill="${m.id}"></div></div></div></div>`,
     ).join("");
     const keys = [
-      ["부품 붙이기 / 떼기", "클릭 / 우클릭"],
-      ["부품 고르기", "1 ~ 8"],
-      ["방향 돌리기", "R"],
-      ["좌우 대칭", "M"],
-      ["지우개", "X"],
-      ["실행 취소 / 다시", "Ctrl+Z / Ctrl+Y"],
-      ["화면에 맞추기", "F"],
-      ["시점 회전 / 확대", "드래그 / 휠"],
-      ["주행 · 조향", "W S · A D"],
-      ["상승 · 하강", "Space · Ctrl"],
-      ["방향 추진", "Shift"],
-      ["조작 보조 켜고 끄기", "G"],
-      ["기울기 · 롤", "↑ ↓ · Q E"],
-      ["브레이크 · 제자리로", "X · R"],
-      ["카메라 바꾸기", "C"],
-      ["시험 운전 / 정지", "Enter"],
+      [t("부품 붙이기 / 떼기", "Attach / remove a part"), t("클릭 / 우클릭", "Click / right click")],
+      [t("부품 고르기", "Pick a part"), "1 ~ 8"],
+      [t("방향 돌리기", "Turn direction"), "R"],
+      [t("좌우 대칭", "Mirror left/right"), "M"],
+      [t("지우개", "Eraser"), "X"],
+      [t("실행 취소 / 다시", "Undo / redo"), "Ctrl+Z / Ctrl+Y"],
+      [t("화면에 맞추기", "Fit to screen"), "F"],
+      [t("시점 회전 / 확대", "Orbit / zoom"), t("드래그 / 휠", "Drag / wheel")],
+      [t("주행 · 조향", "Drive · steer"), "W S · A D"],
+      [t("상승 · 하강", "Climb · descend"), "Space · Ctrl"],
+      [t("방향 추진", "Directional thrust"), "Shift"],
+      [t("조작 보조 켜고 끄기", "Pilot assist on/off"), "G"],
+      [t("기울기 · 롤", "Pitch · roll"), "↑ ↓ · Q E"],
+      [t("브레이크 · 제자리로", "Brake · respawn"), "X · R"],
+      [t("카메라 바꾸기", "Switch camera"), "C"],
+      [t("시험 운전 / 정지", "Test drive / stop"), "Enter"],
     ]
       .map(([label, key]) => `<div><span>${label}</span><kbd>${key}</kbd></div>`)
       .join("");
@@ -246,86 +250,86 @@ ${part.detail}`)}">
       <div class="mw-head">
         <div class="mw-mark">🔧</div>
         <div class="mw-headtext">
-          <div class="mw-eyebrow">기계 작업실</div>
-          <input class="mw-name" data-id="name" maxlength="48" aria-label="설계도 이름" />
+          <div class="mw-eyebrow">${t("기계 작업실", "Machine lab")}</div>
+          <input class="mw-name" data-id="name" maxlength="48" aria-label="${t("설계도 이름", "Blueprint name")}" />
         </div>
       </div>
       <div class="mw-quick">
         <div class="mw-quickrow">
-          <button class="mw-btn" data-quick="rover" title="예제 자동차를 바로 몰아봅니다"><span>🚗</span><b>자동차 타기</b></button>
-          <button class="mw-btn" data-quick="plane" title="예제 비행기를 바로 띄워봅니다"><span>✈️</span><b>비행기 타기</b></button>
+          <button class="mw-btn" data-quick="rover" title="${t("예제 자동차를 바로 몰아봅니다", "Drive the example car right away")}"><span>🚗</span><b>${t("자동차 타기", "Drive a car")}</b></button>
+          <button class="mw-btn" data-quick="plane" title="${t("예제 비행기를 바로 띄워봅니다", "Fly the example plane right away")}"><span>✈️</span><b>${t("비행기 타기", "Fly a plane")}</b></button>
         </div>
       </div>
       <div class="mw-tabs">
-        <button class="mw-btn" data-tab="parts" aria-pressed="true">부품</button>
-        <button class="mw-btn" data-tab="library" aria-pressed="false">설계도</button>
-        <button class="mw-btn" data-tab="missions" aria-pressed="false">임무</button>
+        <button class="mw-btn" data-tab="parts" aria-pressed="true">${t("부품", "Parts")}</button>
+        <button class="mw-btn" data-tab="library" aria-pressed="false">${t("설계도", "Blueprints")}</button>
+        <button class="mw-btn" data-tab="missions" aria-pressed="false">${t("임무", "Missions")}</button>
       </div>
       <div class="mw-body">
         <div class="mw-pane" data-pane="parts">${palette}</div>
         <div class="mw-pane" data-pane="library" hidden>
-          <div class="mw-group">예제로 시작하기</div>
+          <div class="mw-group">${t("예제로 시작하기", "Start from an example")}</div>
           <div class="mw-tools">${presets}</div>
-          <div class="mw-group">내 설계도 보관함</div>
-          <button class="mw-btn mw-ghost" data-id="save" style="width:100%">＋ 지금 설계도를 보관함에 넣기</button>
+          <div class="mw-group">${t("내 설계도 보관함", "My blueprints")}</div>
+          <button class="mw-btn mw-ghost" data-id="save" style="width:100%">＋ ${t("지금 설계도를 보관함에 넣기", "Save this blueprint")}</button>
           <div class="mw-slots" data-id="slots"></div>
-          <div class="mw-group">공유 코드</div>
-          <textarea class="mw-share" data-id="share" spellcheck="false" aria-label="공유 코드"></textarea>
+          <div class="mw-group">${t("공유 코드", "Share code")}</div>
+          <textarea class="mw-share" data-id="share" spellcheck="false" aria-label="${t("공유 코드", "Share code")}"></textarea>
           <div class="mw-tools" style="margin-top:6px">
-            <button class="mw-btn" data-id="copy">코드 복사</button>
-            <button class="mw-btn" data-id="import">코드 불러오기</button>
+            <button class="mw-btn" data-id="copy">${t("코드 복사", "Copy code")}</button>
+            <button class="mw-btn" data-id="import">${t("코드 불러오기", "Load code")}</button>
           </div>
-          <div class="mw-group">정리</div>
-          <button class="mw-btn mw-ghost" data-id="clear" style="width:100%">조종석만 남기고 비우기</button>
+          <div class="mw-group">${t("정리", "Tidy up")}</div>
+          <button class="mw-btn mw-ghost" data-id="clear" style="width:100%">${t("조종석만 남기고 비우기", "Clear all but the cockpit")}</button>
         </div>
         <div class="mw-pane" data-pane="missions" hidden>
-          <div class="mw-group">시험 운전 임무</div>
+          <div class="mw-group">${t("시험 운전 임무", "Test-drive missions")}</div>
           ${missions}
           <div class="mw-records">
-            <div class="mw-figure"><b data-id="rec-speed">0</b><span>최고 km/h</span></div>
-            <div class="mw-figure"><b data-id="rec-alt">0</b><span>최고 고도 m</span></div>
-            <div class="mw-figure"><b data-id="rec-dist">0</b><span>최장 거리 m</span></div>
+            <div class="mw-figure"><b data-id="rec-speed">0</b><span>${t("최고 km/h", "Top km/h")}</span></div>
+            <div class="mw-figure"><b data-id="rec-alt">0</b><span>${t("최고 고도 m", "Best altitude m")}</span></div>
+            <div class="mw-figure"><b data-id="rec-dist">0</b><span>${t("최장 거리 m", "Longest run m")}</span></div>
           </div>
-          <div class="mw-group">조작법</div>
+          <div class="mw-group">${t("조작법", "Controls")}</div>
           <div class="mw-keys">${keys}</div>
         </div>
       </div>
       <div class="mw-pinned" data-id="pinned">
         <p class="mw-detail" data-id="detail"></p>
         <div class="mw-dirpad" data-id="dirpad">
-          <div class="mw-group"><span>향하는 방향</span><kbd class="mw-kbd">R</kbd></div>
+          <div class="mw-group"><span>${t("향하는 방향", "Facing")}</span><kbd class="mw-kbd">R</kbd></div>
           <div class="mw-dirgrid">${dirs}</div>
         </div>
       </div>
       <div class="mw-tools" data-id="toolrow">
-        <button class="mw-btn" data-id="undo">${strokeIcon(ICONS.undo)}실행취소</button>
-        <button class="mw-btn" data-id="redo">${strokeIcon(ICONS.redo)}다시실행</button>
-        <button class="mw-btn" data-id="mirror" aria-pressed="false">${strokeIcon(ICONS.mirror)}대칭</button>
-        <button class="mw-btn" data-id="erase" aria-pressed="false">${strokeIcon(ICONS.erase)}지우개</button>
-        <button class="mw-btn" data-id="frame">${strokeIcon(ICONS.frame)}맞추기</button>
+        <button class="mw-btn" data-id="undo">${strokeIcon(ICONS.undo)}${t("실행취소", "Undo")}</button>
+        <button class="mw-btn" data-id="redo">${strokeIcon(ICONS.redo)}${t("다시실행", "Redo")}</button>
+        <button class="mw-btn" data-id="mirror" aria-pressed="false">${strokeIcon(ICONS.mirror)}${t("대칭", "Mirror")}</button>
+        <button class="mw-btn" data-id="erase" aria-pressed="false">${strokeIcon(ICONS.erase)}${t("지우개", "Eraser")}</button>
+        <button class="mw-btn" data-id="frame">${strokeIcon(ICONS.frame)}${t("맞추기", "Fit")}</button>
       </div>
       <div class="mw-stats">
         <div class="mw-figures">
-          <div class="mw-figure"><b data-id="fig-parts">0</b><span>부품</span></div>
+          <div class="mw-figure"><b data-id="fig-parts">0</b><span>${t("부품", "Parts")}</span></div>
           <div class="mw-figure"><b data-id="fig-mass">0</b><span>kg</span></div>
-          <div class="mw-figure"><b data-id="fig-wheels">0</b><span>바퀴</span></div>
-          <div class="mw-figure"><b data-id="fig-wing">0</b><span>날개 m²</span></div>
+          <div class="mw-figure"><b data-id="fig-wheels">0</b><span>${t("바퀴", "Wheels")}</span></div>
+          <div class="mw-figure"><b data-id="fig-wing">0</b><span>${t("날개 m²", "Wing m²")}</span></div>
         </div>
         <div class="mw-meterrow">
-          <div class="mw-meter"><span>상승력</span><div class="mw-track"><div class="mw-fill" data-id="lift-fill"></div></div><b data-id="lift-text">0.00</b></div>
-          <div class="mw-meter"><span>안정성</span><div class="mw-track"><div class="mw-fill" data-id="stance-fill"></div></div><b data-id="stance-text">–</b></div>
+          <div class="mw-meter"><span>${t("상승력", "Lift")}</span><div class="mw-track"><div class="mw-fill" data-id="lift-fill"></div></div><b data-id="lift-text">0.00</b></div>
+          <div class="mw-meter"><span>${t("안정성", "Stability")}</span><div class="mw-track"><div class="mw-fill" data-id="stance-fill"></div></div><b data-id="stance-text">–</b></div>
         </div>
       </div>
       <p class="mw-message" data-id="message" aria-live="polite"></p>
-      <div class="mw-runline" data-id="runline"><span data-id="run-time">0.0초</span><span data-id="run-dist">0 m</span><span data-id="run-top">0 km/h</span></div>
+      <div class="mw-runline" data-id="runline"><span data-id="run-time">0.0${t("초", "s")}</span><span data-id="run-dist">0 m</span><span data-id="run-top">0 km/h</span></div>
       <div class="mw-foot">
         <button class="mw-btn mw-assist" data-id="assist" aria-pressed="true">
-          <span class="mw-dot"></span><b>조작 보조</b><small data-id="assist-note">자동 수평 · 고도 유지</small>
+          <span class="mw-dot"></span><b>${t("조작 보조", "Pilot assist")}</b><small data-id="assist-note">${t("자동 수평 · 고도 유지", "Auto-level · hold altitude")}</small>
         </button>
-        <button class="mw-btn mw-go" data-id="run">▶ 시험 운전 · Enter</button>
+        <button class="mw-btn mw-go" data-id="run">▶ ${t("시험 운전", "Test drive")} · Enter</button>
         <div class="mw-tools">
-          <button class="mw-btn" data-id="science">🧪 과학 실험실</button>
-          <button class="mw-btn" data-id="close">↩ 아일랜드로</button>
+          <button class="mw-btn" data-id="science">🧪 ${t("과학 실험실", "Science lab")}</button>
+          <button class="mw-btn" data-id="close">↩ ${t("아일랜드로", "Back to the world")}</button>
         </div>
       </div>`;
   }
@@ -371,7 +375,7 @@ ${part.detail}`)}">
     );
     this.text(
       "stance-text",
-      stance ? `${stats.stanceMargin.toFixed(1)}칸` : "–",
+      stance ? `${stats.stanceMargin.toFixed(1)}${t("칸", " cells")}` : "–",
     );
     this.text(
       "detail",
@@ -403,7 +407,7 @@ ${part.detail}`)}">
     this.q('[data-id="assist"]').setAttribute("aria-pressed", String(view.assist));
     this.text(
       "assist-note",
-      view.assist ? "자동 수평 · 고도 유지" : "꺼짐 · 물리 그대로",
+      view.assist ? t("자동 수평 · 고도 유지", "Auto-level · hold altitude") : t("꺼짐 · 물리 그대로", "Off · raw physics"),
     );
     this.q<HTMLButtonElement>('[data-id="undo"]').disabled =
       running || !view.canUndo;
@@ -426,10 +430,10 @@ ${part.detail}`)}">
         .forEach((button) => (button.disabled = running));
     this.runButton.disabled = view.loading;
     this.runButton.textContent = view.loading
-      ? "물리 엔진 준비 중…"
+      ? t("물리 엔진 준비 중…", "Loading physics…")
       : view.running
-        ? "■ 정지하고 수정 · Enter"
-        : "▶ 시험 운전 · Enter";
+        ? t("■ 정지하고 수정 · Enter", "■ Stop and edit · Enter")
+        : t("▶ 시험 운전 · Enter", "▶ Test drive · Enter");
     this.runButton.classList.toggle("mw-stop", view.running);
     this.runButton.classList.toggle("mw-go", !view.running);
     const message = this.q('[data-id="message"]');
@@ -439,7 +443,7 @@ ${part.detail}`)}">
     this.renderSlots(view.entries);
     this.renderMissions(view.record);
     if (!this.shareField.matches(":focus"))
-      this.shareField.placeholder = "CYM1… 코드를 붙여넣고 불러오기";
+      this.shareField.placeholder = t("CYM1… 코드를 붙여넣고 불러오기", "Paste a CYM1… code and load it");
   }
 
   private renderSlots(entries: LibraryEntry[]): void {
@@ -453,12 +457,12 @@ ${part.detail}`)}">
       ? entries
           .map(
             (e) => `<div class="mw-slot">
-              <button class="mw-btn" data-slot="${escapeHtml(e.id)}" data-action="load">${escapeHtml(e.blueprint.name)}<br><small>${e.blueprint.parts.length} 부품</small></button>
-              <button class="mw-btn mw-icon" data-slot="${escapeHtml(e.id)}" data-action="delete" aria-label="삭제">${strokeIcon(ICONS.trash)}</button>
+              <button class="mw-btn" data-slot="${escapeHtml(e.id)}" data-action="load">${escapeHtml(e.blueprint.name)}<br><small>${e.blueprint.parts.length} ${t("부품", "parts")}</small></button>
+              <button class="mw-btn mw-icon" data-slot="${escapeHtml(e.id)}" data-action="delete" aria-label="${t("삭제", "Delete")}">${strokeIcon(ICONS.trash)}</button>
             </div>`,
           )
           .join("")
-      : `<p class="mw-detail">아직 보관한 설계도가 없습니다. 마음에 드는 기계를 만들면 위 버튼으로 넣어 두세요.</p>`;
+      : `<p class="mw-detail">${t("아직 보관한 설계도가 없습니다. 마음에 드는 기계를 만들면 위 버튼으로 넣어 두세요.", "No saved blueprints yet. Build a machine you like and save it with the button above.")}</p>`;
   }
 
   private renderMissions(record: MissionRecord): void {
@@ -481,7 +485,7 @@ ${part.detail}`)}">
 
   /** Live counters shown on the collapsed card during a test drive. */
   setRunLine(seconds: number, distance: number, topSpeed: number): void {
-    this.text("run-time", `${seconds.toFixed(1)}초`);
+    this.text("run-time", `${seconds.toFixed(1)}${t("초", "s")}`);
     this.text("run-dist", `${distance.toFixed(0)} m`);
     this.text("run-top", `${(topSpeed * 3.6).toFixed(0)} km/h`);
   }
@@ -553,9 +557,9 @@ export class DriveHud {
     this.element.hidden = true;
     this.element.innerHTML = `
       <div class="mw-card mw-bars">
-        <div class="mw-bar" data-row="throttle"><span>추진</span><div class="mw-track"><div class="mw-fill" data-id="throttle"></div></div></div>
-        <div class="mw-bar" data-row="lift"><span>상승</span><div class="mw-track"><div class="mw-fill" data-id="lift"></div></div></div>
-        <div class="mw-bar" data-row="boost"><span>부스터</span><div class="mw-track"><div class="mw-fill" data-id="boost"></div></div></div>
+        <div class="mw-bar" data-row="throttle"><span>${t("추진", "Thrust")}</span><div class="mw-track"><div class="mw-fill" data-id="throttle"></div></div></div>
+        <div class="mw-bar" data-row="lift"><span>${t("상승", "Lift")}</span><div class="mw-track"><div class="mw-fill" data-id="lift"></div></div></div>
+        <div class="mw-bar" data-row="boost"><span>${t("부스터", "Boost")}</span><div class="mw-track"><div class="mw-fill" data-id="boost"></div></div></div>
       </div>
       <div class="mw-card mw-dial">
         <svg viewBox="0 0 144 86" aria-hidden="true">
@@ -567,10 +571,10 @@ export class DriveHud {
         <div class="mw-unit">KM / H</div>
       </div>
       <div class="mw-card mw-gauges">
-        <div class="mw-gauge"><b data-id="alt">0</b><span>고도 m</span></div>
-        <div class="mw-gauge"><b data-id="pitchtext">0°</b><span>기울기</span></div>
-        <div class="mw-gauge"><b data-id="camera">추적</b><span>시점 · C</span></div>
-        <div class="mw-gauge" data-row="grip" style="grid-column:1/-1"><div class="mw-pips" data-id="pips"></div><span>바퀴 접지</span></div>
+        <div class="mw-gauge"><b data-id="alt">0</b><span>${t("고도 m", "Alt m")}</span></div>
+        <div class="mw-gauge"><b data-id="pitchtext">0°</b><span>${t("기울기", "Pitch")}</span></div>
+        <div class="mw-gauge"><b data-id="camera">${t("추적", "Chase")}</b><span>${t("시점", "View")} · C</span></div>
+        <div class="mw-gauge" data-row="grip" style="grid-column:1/-1"><div class="mw-pips" data-id="pips"></div><span>${t("바퀴 접지", "Wheels down")}</span></div>
       </div>
       <div class="mw-horizon"><i data-id="horizon"></i><u>✛</u></div>`;
     this.chips.className = "machine-ui machine-chips";
@@ -609,17 +613,17 @@ export class DriveHud {
     this.element.querySelector('[data-id="pitchtext"]')!.textContent =
       `${((readout.pitch * 180) / Math.PI).toFixed(0)}°`;
     this.element.querySelector('[data-id="camera"]')!.textContent =
-      CAMERA_LABEL[readout.camera].replace(" 시점", "");
+      CAMERA_LABEL[readout.camera].replace(" 시점", "").replace(" view", "");
     this.horizonBar.style.transform = `translateY(${Math.max(-60, Math.min(60, (readout.pitch * 180) / Math.PI)) * 0.7}px) rotate(${(-readout.roll * 180) / Math.PI}deg)`;
     const hint = [
-      readout.wheels ? "W/S 주행 · A/D 조향" : null,
+      readout.wheels ? t("W/S 주행 · A/D 조향", "W/S drive · A/D steer") : null,
       readout.canHover
         ? readout.assist
-          ? "Space 상승 · Ctrl 하강"
-          : "Space 상승 추진"
+          ? t("Space 상승 · Ctrl 하강", "Space climb · Ctrl descend")
+          : t("Space 상승 추진", "Space lift thrust")
         : null,
-      readout.hasWings ? "속도가 붙으면 날개가 떠받칩니다" : null,
-      "C 시점 · R 제자리 · Enter 정지",
+      readout.hasWings ? t("속도가 붙으면 날개가 떠받칩니다", "Wings carry you once you have speed") : null,
+      t("C 시점 · R 제자리 · Enter 정지", "C view · R respawn · Enter stop"),
     ]
       .filter(Boolean)
       .join("  ·  ");
@@ -633,8 +637,8 @@ export class DriveHud {
       this.chips.querySelector('[data-id="hint"]')!.textContent = hint;
       const chip = this.chips.querySelector('[data-id="assistchip"]')!;
       chip.textContent = readout.assist
-        ? "🛟 조작 보조 켜짐 · G로 끄기"
-        : "🎛️ 조작 보조 꺼짐 · G로 켜기";
+        ? t("🛟 조작 보조 켜짐 · G로 끄기", "🛟 Pilot assist on · G to turn off")
+        : t("🎛️ 조작 보조 꺼짐 · G로 켜기", "🎛️ Pilot assist off · G to turn on");
       chip.classList.toggle("off", !readout.assist);
     }
     this.bar("throttle", Math.abs(readout.throttle));
@@ -662,7 +666,7 @@ export class DriveHud {
       )!.style.width = `${ratio * 100}%`;
       this.chips.querySelector<HTMLElement>(
         `[data-live-value="${mission.id}"]`,
-      )!.textContent = done ? "완료" : `${Math.round(ratio * 100)}%`;
+      )!.textContent = done ? t("완료", "Done") : `${Math.round(ratio * 100)}%`;
     }
   }
 
@@ -715,11 +719,11 @@ export class Coach {
   readonly element = document.createElement("div");
   private step = 0;
   private readonly steps = [
-    "먼저 <b>바로 타기</b>로 자동차나 비행기를 몰아보세요. 만들지 않아도 바로 탈 수 있어요.",
-    "부품을 고르고 기계의 <b>면을 클릭</b>하면 그 자리에 붙습니다. 우클릭은 떼어내기예요.",
-    "<b>M</b>을 누르면 좌우 대칭으로 한 번에 두 개씩 붙습니다. 차를 만들 때 훨씬 편해요.",
-    "<b>조작 보조</b>가 켜져 있으면 저절로 수평을 잡고 고도를 유지해요. <b>G</b>로 끄면 원래 물리 그대로입니다.",
-    "준비되면 <b>Enter</b>로 시험 운전! 임무 탭의 목표를 하나씩 깨 보세요.",
+    t("먼저 <b>바로 타기</b>로 자동차나 비행기를 몰아보세요. 만들지 않아도 바로 탈 수 있어요.", "Start with the <b>quick-play</b> buttons to drive a car or fly a plane — no building needed."),
+    t("부품을 고르고 기계의 <b>면을 클릭</b>하면 그 자리에 붙습니다. 우클릭은 떼어내기예요.", "Pick a part and <b>click a face</b> of the machine to attach it there. Right click removes one."),
+    t("<b>M</b>을 누르면 좌우 대칭으로 한 번에 두 개씩 붙습니다. 차를 만들 때 훨씬 편해요.", "Press <b>M</b> to mirror: parts go on in pairs, left and right. Much easier for cars."),
+    t("<b>조작 보조</b>가 켜져 있으면 저절로 수평을 잡고 고도를 유지해요. <b>G</b>로 끄면 원래 물리 그대로입니다.", "With <b>pilot assist</b> on, the machine levels itself and holds altitude. Press <b>G</b> for raw physics."),
+    t("준비되면 <b>Enter</b>로 시험 운전! 임무 탭의 목표를 하나씩 깨 보세요.", "Ready? <b>Enter</b> starts a test drive! Then try the goals on the Missions tab."),
   ];
 
   constructor(
@@ -729,8 +733,8 @@ export class Coach {
     this.element.className = "machine-ui machine-coach mw-card";
     this.element.hidden = true;
     this.element.innerHTML = `<div><div class="mw-step"></div><p></p></div>
-      <button class="mw-btn" data-id="next">다음</button>
-      <button class="mw-btn mw-ghost" data-id="skip">건너뛰기</button>`;
+      <button class="mw-btn" data-id="next">${t("다음", "Next")}</button>
+      <button class="mw-btn mw-ghost" data-id="skip">${t("건너뛰기", "Skip")}</button>`;
     this.element
       .querySelector('[data-id="next"]')!
       .addEventListener("click", () => this.advance(), { signal });
@@ -757,6 +761,6 @@ export class Coach {
       `${this.step + 1} / ${this.steps.length}`;
     this.element.querySelector("p")!.innerHTML = this.steps[this.step]!;
     this.element.querySelector('[data-id="next"]')!.textContent =
-      this.step === this.steps.length - 1 ? "시작하기" : "다음";
+      this.step === this.steps.length - 1 ? t("시작하기", "Let's go") : t("다음", "Next");
   }
 }

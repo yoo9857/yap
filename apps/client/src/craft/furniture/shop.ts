@@ -1,6 +1,7 @@
 import { CATEGORIES, furnitureDef, inCategory, searchCatalog, variantCount } from "./catalog/index.js";
 import type { CategoryKey, FurnitureDef } from "./types.js";
 import "./shop.css";
+import { t } from "../../ui/i18n.js";
 
 /**
  * The furniture DOM: a crayon chip (under the adoption chip) that opens the
@@ -56,7 +57,7 @@ export class FurnitureShop {
     this.chip.className = "furn-chip";
     this.chip.type = "button";
     this.chip.dataset.id = "furniture-chip";
-    this.chip.innerHTML = `<span class="furn-chip-emoji">🛋️</span><span data-id="furniture-chip-label">가구</span><kbd class="furn-kbd">G</kbd>`;
+    this.chip.innerHTML = `<span class="furn-chip-emoji">🛋️</span><span data-id="furniture-chip-label">${t("가구", "Furniture")}</span><kbd class="furn-kbd">G</kbd>`;
     this.chip.addEventListener("click", () => this.toggle());
     parent.appendChild(this.chip);
 
@@ -65,14 +66,14 @@ export class FurnitureShop {
     this.panel.dataset.id = "furniture-panel";
     this.panel.innerHTML = `
       <div class="furn-panel-head">
-        <span class="furn-panel-title">가구 꾸미기</span>
-        <span class="furn-panel-sub">몇 개든 무료로 놓아요</span>
+        <span class="furn-panel-title">${t("가구 꾸미기", "Furnish")}</span>
+        <span class="furn-panel-sub">${t("몇 개든 무료로 놓아요", "Free — place as many as you like")}</span>
       </div>`;
 
     this.search = document.createElement("input");
     this.search.className = "furn-search";
     this.search.type = "search";
-    this.search.placeholder = "🔍 가구 찾기 (예: 의자)";
+    this.search.placeholder = t("🔍 가구 찾기 (예: 의자)", "🔍 Find furniture (e.g. 의자 = chair)");
     this.search.dataset.id = "furniture-search";
     this.search.addEventListener("input", () => this.renderGrid());
     this.panel.appendChild(this.search);
@@ -102,14 +103,14 @@ export class FurnitureShop {
 
     const help = document.createElement("div");
     help.className = "furn-panel-help";
-    help.textContent = "G 가구 모드 · Q/E 종류 · 1~9 고르기 · X 색 · R 돌리기 · 오른쪽 클릭 놓기 · 왼쪽 꾹 치우기 · 문/커튼에 오른쪽 클릭 열고 닫기 · 휠 클릭 같은 가구 고르기";
+    help.textContent = t("G 가구 모드 · Q/E 종류 · 1~9 고르기 · X 색 · R 돌리기 · 오른쪽 클릭 놓기 · 왼쪽 꾹 치우기 · 문/커튼에 오른쪽 클릭 열고 닫기 · 휠 클릭 같은 가구 고르기", "G furniture mode · Q/E category · 1–9 pick · X colour · R turn · right click place · hold left click to put away · right click a door/curtain to open or close · middle click picks the same piece");
     this.panel.appendChild(help);
 
     this.backButton = document.createElement("button");
     this.backButton.className = "furn-back";
     this.backButton.type = "button";
     this.backButton.dataset.id = "furniture-back";
-    this.backButton.textContent = "🧱 블록 쌓기로 돌아가기";
+    this.backButton.textContent = t("🧱 블록 쌓기로 돌아가기", "🧱 Back to building blocks");
     this.backButton.addEventListener("click", () => {
       this.events.onPick(null);
       this.setOpen(false);
@@ -184,7 +185,7 @@ export class FurnitureShop {
     if (defs.length === 0) {
       const empty = document.createElement("div");
       empty.className = "furn-empty";
-      empty.textContent = "찾는 가구가 없어요";
+      empty.textContent = t("찾는 가구가 없어요", "No furniture matches that");
       this.grid.appendChild(empty);
     }
   }
@@ -204,11 +205,11 @@ export class FurnitureShop {
     card.dataset.id = `furniture-card-${def.key}`;
     card.dataset.furniture = def.key;
     const { w, d, h } = def.size;
-    const where = { floor: "", rug: " · 바닥에 깔기", surface: " · 위에 올리기", wall: " · 벽에 걸기" }[def.placement];
+    const where = { floor: "", rug: t(" · 바닥에 깔기", " · lies on the floor"), surface: t(" · 위에 올리기", " · goes on top"), wall: t(" · 벽에 걸기", " · hangs on a wall") }[def.placement];
     card.innerHTML = `
       <span class="furn-card-emoji">${def.emoji}</span>
       <span class="furn-card-name">${def.name}</span>
-      <span class="furn-card-size">${w}×${d}칸${h > 1 ? ` · 높이 ${h}` : ""}${where}</span>`;
+      <span class="furn-card-size">${w}×${d}${t("칸", "")}${h > 1 ? ` · ${t("높이", "height")} ${h}` : ""}${where}</span>`;
     card.addEventListener("click", () => this.choose(def.key));
     const variants = variantCount(def);
     if (variants > 1) {
@@ -234,7 +235,7 @@ export class FurnitureShop {
   private refresh(): void {
     this.backButton.style.display = this.current ? "" : "none";
     const label = this.chip.querySelector<HTMLElement>('[data-id="furniture-chip-label"]');
-    if (label) label.textContent = this.current ? `가구 · ${furnitureDef(this.current).name}` : "가구";
+    if (label) label.textContent = this.current ? `${t("가구", "Furniture")} · ${furnitureDef(this.current).name}` : t("가구", "Furniture");
     this.bar.classList.toggle("hidden", !this.current || !this.visible);
     if (!this.current) return;
 

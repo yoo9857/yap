@@ -58,11 +58,14 @@ export const PET_SPECIES: PetSpecies[] = ["dog", "cat", "elephant", "giraffe", "
 
 export interface SpeciesInfo {
   key: PetSpecies;
-  /** Panel label. */
+  /** Panel label (Korean, the default UI language). */
   name: string;
+  /** The same label in English. */
+  nameEn: string;
   emoji: string;
   /** One line of character for the adoption card. */
   trait: string;
+  traitEn: string;
   /** Voxel-grid collider (see voxelBody's `Body.w/h`). */
   bodyWidth: number;
   bodyHeight: number;
@@ -79,8 +82,10 @@ export const SPECIES: Record<PetSpecies, SpeciesInfo> = {
   dog: {
     key: "dog",
     name: "시바견",
+    nameEn: "Shiba",
     emoji: "🐕",
     trait: "제일 빨리 달려와요",
+    traitEn: "Always first to come running",
     bodyWidth: 0.5,
     bodyHeight: 1.0,
     jumpSpeed: 7.6,
@@ -89,8 +94,10 @@ export const SPECIES: Record<PetSpecies, SpeciesInfo> = {
   cat: {
     key: "cat",
     name: "하얀 고양이",
+    nameEn: "White cat",
     emoji: "🐈",
     trait: "가볍고 높이 뜁니다",
+    traitEn: "Light on its feet, jumps high",
     bodyWidth: 0.42,
     bodyHeight: 0.85,
     jumpSpeed: 8.6,
@@ -99,8 +106,10 @@ export const SPECIES: Record<PetSpecies, SpeciesInfo> = {
   elephant: {
     key: "elephant",
     name: "아기 코끼리",
+    nameEn: "Baby elephant",
     emoji: "🐘",
     trait: "코를 흔들며 느긋하게",
+    traitEn: "Swings its trunk, takes its time",
     bodyWidth: 0.95,
     bodyHeight: 1.75,
     jumpSpeed: 7.2,
@@ -109,8 +118,10 @@ export const SPECIES: Record<PetSpecies, SpeciesInfo> = {
   giraffe: {
     key: "giraffe",
     name: "아기 기린",
+    nameEn: "Baby giraffe",
     emoji: "🦒",
     trait: "목이 담장 너머까지",
+    traitEn: "Can see over the fence",
     bodyWidth: 0.7,
     bodyHeight: 2.45,
     jumpSpeed: 7.4,
@@ -119,8 +130,10 @@ export const SPECIES: Record<PetSpecies, SpeciesInfo> = {
   panda: {
     key: "panda",
     name: "판다",
+    nameEn: "Panda",
     emoji: "🐼",
     trait: "둥글고 느릿느릿",
+    traitEn: "Round and in no hurry",
     bodyWidth: 0.72,
     bodyHeight: 1.15,
     jumpSpeed: 7.2,

@@ -1,5 +1,6 @@
 import { CLASS_ERROR_TEXT, ClassClient, peekClass, type ClassJoin, type ClassSession } from "../net/classClient.js";
 import "../craft/classroom.css";
+import { t } from "../ui/i18n.js";
 
 export interface ClassEntry {
   client: ClassClient;
@@ -85,54 +86,54 @@ export function chooseClass(parent: HTMLElement): Promise<ClassEntry | null> {
       <div class="screen-card">
         <img class="brand-logo" src="/craftyap-logo.png" alt="CraftYap" />
         <div class="mode-step" data-step="pick">
-          <h1>교육 모드</h1>
+          <h1>${t("교육 모드", "Education mode")}</h1>
           <button class="mode-btn" data-go="teacher">
             <span class="mode-emoji">👩‍🏫</span>
-            <span class="mode-text"><b>선생님 · 반 만들기</b><small>반 이름을 정해서 열면 학생들이 들어와요</small></span>
+            <span class="mode-text"><b>${t("선생님 · 반 만들기", "Teacher · open a class")}</b><small>${t("반 이름을 정해서 열면 학생들이 들어와요", "Pick a class name and open it; students join with it")}</small></span>
           </button>
           <button class="mode-btn" data-go="student">
             <span class="mode-emoji">🧒</span>
-            <span class="mode-text"><b>학생 · 반 참여하기</b><small>반 이름과 내 이름을 입력해요</small></span>
+            <span class="mode-text"><b>${t("학생 · 반 참여하기", "Student · join a class")}</b><small>${t("반 이름과 내 이름을 입력해요", "Enter the class name and your name")}</small></span>
           </button>
           <button class="mode-btn" data-go="solo">
             <span class="mode-emoji">🌱</span>
-            <span class="mode-text"><b>혼자 하기</b><small>끝없는 들판에서 혼자 만들고 실험해요</small></span>
+            <span class="mode-text"><b>${t("혼자 하기", "Play solo")}</b><small>${t("끝없는 들판에서 혼자 만들고 실험해요", "Build and experiment on an endless field")}</small></span>
           </button>
-          <a class="desk-link" href="/">&larr; 처음으로</a>
+          <a class="desk-link" href="/">&larr; ${t("처음으로", "Home")}</a>
         </div>
         <form class="mode-step class-form-step" data-step="teacher" hidden>
-          <h1>반 만들기</h1>
+          <h1>${t("반 만들기", "Open a class")}</h1>
           <div class="class-form">
-            <label for="cl-host-room">반 이름</label>
-            <input id="cl-host-room" name="room" maxlength="20" autocomplete="off" required placeholder="예: 햇살반, 3학년 2반" />
-            <label for="cl-host">선생님 이름</label>
-            <input id="cl-host" name="teacher" maxlength="16" autocomplete="off" required placeholder="예: 김선생" />
-            <label for="cl-pass">반 비밀번호</label>
-            <input id="cl-pass" name="password" type="password" minlength="4" maxlength="32" autocomplete="off" placeholder="4자 이상 · 다른 컴퓨터에서 반을 다시 열 때 필요해요" />
+            <label for="cl-host-room">${t("반 이름", "Class name")}</label>
+            <input id="cl-host-room" name="room" maxlength="20" autocomplete="off" required placeholder="${t("예: 햇살반, 3학년 2반", "e.g. Sunshine, Class 3-2")}" />
+            <label for="cl-host">${t("선생님 이름", "Teacher name")}</label>
+            <input id="cl-host" name="teacher" maxlength="16" autocomplete="off" required placeholder="${t("예: 김선생", "e.g. Ms. Kim")}" />
+            <label for="cl-pass">${t("반 비밀번호", "Class password")}</label>
+            <input id="cl-pass" name="password" type="password" minlength="4" maxlength="32" autocomplete="off" placeholder="${t("4자 이상 · 다른 컴퓨터에서 반을 다시 열 때 필요해요", "4+ characters · needed to reopen the class on another computer")}" />
           </div>
-          <p class="class-note">학생들에게는 <b>반 이름</b>을 알려주세요. 반에서 만든 것은 서버에 저장돼서, 다음 수업에 같은 반 이름으로 열면 이어서 할 수 있어요.</p>
+          <p class="class-note">${t("학생들에게는 <b>반 이름</b>을 알려주세요. 반에서 만든 것은 서버에 저장돼서, 다음 수업에 같은 반 이름으로 열면 이어서 할 수 있어요.", "Give your students the <b>class name</b>. What the class builds is saved on the server, so opening the same class name next lesson picks up where you left off.")}</p>
           <p class="class-error" data-id="error"></p>
-          <button class="mode-btn" type="submit"><span class="mode-text"><b>반 열기</b><small>학생들은 반 이름으로 들어와요</small></span></button>
-          <button class="desk-link mode-back" type="button">&larr; 뒤로</button>
+          <button class="mode-btn" type="submit"><span class="mode-text"><b>${t("반 열기", "Open class")}</b><small>${t("학생들은 반 이름으로 들어와요", "Students join with the class name")}</small></span></button>
+          <button class="desk-link mode-back" type="button">&larr; ${t("뒤로", "Back")}</button>
         </form>
         <form class="mode-step class-form-step" data-step="student" hidden>
-          <h1>반 참여하기</h1>
+          <h1>${t("반 참여하기", "Join a class")}</h1>
           <div class="class-form">
-            <label for="cl-room">반 이름</label>
-            <input id="cl-room" name="room" maxlength="20" autocomplete="off" required placeholder="선생님이 알려준 반 이름" />
-            <label for="cl-student">내 이름</label>
-            <input id="cl-student" name="student" maxlength="16" autocomplete="off" required placeholder="예: 민지" />
+            <label for="cl-room">${t("반 이름", "Class name")}</label>
+            <input id="cl-room" name="room" maxlength="20" autocomplete="off" required placeholder="${t("선생님이 알려준 반 이름", "The class name your teacher gave you")}" />
+            <label for="cl-student">${t("내 이름", "Your name")}</label>
+            <input id="cl-student" name="student" maxlength="16" autocomplete="off" required placeholder="${t("예: 민지", "e.g. Minji")}" />
           </div>
           <p class="class-error" data-id="error"></p>
-          <button class="mode-btn" type="submit"><span class="mode-text"><b>다음</b><small>어느 선생님 반인지 확인해요</small></span></button>
-          <button class="desk-link mode-back" type="button">&larr; 뒤로</button>
+          <button class="mode-btn" type="submit"><span class="mode-text"><b>${t("다음", "Next")}</b><small>${t("어느 선생님 반인지 확인해요", "Check whose class it is")}</small></span></button>
+          <button class="desk-link mode-back" type="button">&larr; ${t("뒤로", "Back")}</button>
         </form>
         <div class="mode-step class-form-step" data-step="confirm" hidden>
-          <h1>이 반이 맞나요?</h1>
+          <h1>${t("이 반이 맞나요?", "Is this your class?")}</h1>
           <div class="class-confirm" data-id="confirm-card"></div>
           <p class="class-error" data-id="error"></p>
-          <button class="mode-btn" type="button" data-id="confirm-yes"><span class="mode-text"><b>네, 들어갈래요</b><small>같은 반 친구들과 함께 만들어요</small></span></button>
-          <button class="desk-link" type="button" data-id="confirm-no">&larr; 아니에요, 다시 입력할게요</button>
+          <button class="mode-btn" type="button" data-id="confirm-yes"><span class="mode-text"><b>${t("네, 들어갈래요", "Yes, let me in")}</b><small>${t("같은 반 친구들과 함께 만들어요", "Build together with your classmates")}</small></span></button>
+          <button class="desk-link" type="button" data-id="confirm-no">&larr; ${t("아니에요, 다시 입력할게요", "No, let me re-enter")}</button>
         </div>
       </div>`;
     parent.appendChild(screen);
@@ -166,7 +167,7 @@ export function chooseClass(parent: HTMLElement): Promise<ClassEntry | null> {
     const connect = async (step: HTMLElement, join: ClassJoin) => {
       const error = step.querySelector<HTMLElement>('[data-id="error"]')!;
       const button = step.querySelector<HTMLButtonElement>('button[type="submit"], [data-id="confirm-yes"]')!;
-      error.textContent = "연결하는 중…";
+      error.textContent = t("연결하는 중…", "Connecting…");
       button.disabled = true;
       const client = new ClassClient(join);
       try {
@@ -174,7 +175,7 @@ export function chooseClass(parent: HTMLElement): Promise<ClassEntry | null> {
         remember(join);
         done({ client, session });
       } catch (code) {
-        error.textContent = CLASS_ERROR_TEXT[code as keyof typeof CLASS_ERROR_TEXT] ?? "연결하지 못했어요.";
+        error.textContent = CLASS_ERROR_TEXT[code as keyof typeof CLASS_ERROR_TEXT] ?? t("연결하지 못했어요.", "Couldn't connect.");
         button.disabled = false;
       }
     };
@@ -209,31 +210,31 @@ export function chooseClass(parent: HTMLElement): Promise<ClassEntry | null> {
         error.textContent = CLASS_ERROR_TEXT["bad-name"];
         return;
       }
-      error.textContent = "반을 찾는 중…";
+      error.textContent = t("반을 찾는 중…", "Looking for the class…");
       button.disabled = true;
       void peekClass(join.room)
         .then((info) => {
           button.disabled = false;
           if (!info.exists) {
-            error.textContent = `'${join.room}' 반을 찾을 수 없어요. 반 이름을 다시 확인해주세요.`;
+            error.textContent = t(`'${join.room}' 반을 찾을 수 없어요. 반 이름을 다시 확인해주세요.`, `There is no class called '${join.room}'. Please check the class name.`);
             return;
           }
           if (!info.open) {
-            error.textContent = `${info.teacher ?? ""} 선생님의 '${info.room}' 반이 아직 열리지 않았어요. 선생님이 반을 열면 들어갈 수 있어요.`;
+            error.textContent = t(`${info.teacher ?? ""} 선생님의 '${info.room}' 반이 아직 열리지 않았어요. 선생님이 반을 열면 들어갈 수 있어요.`, `${info.teacher ?? ""}'s class '${info.room}' isn't open yet. You can join once the teacher opens it.`);
             return;
           }
           error.textContent = "";
           pending = { ...join, room: info.room };
           confirmStep.querySelector<HTMLElement>('[data-id="confirm-card"]')!.innerHTML = `
             <div class="class-confirm-room">🏫 ${escapeHtml(info.room)}</div>
-            <div class="class-confirm-teacher">👩‍🏫 <b>${escapeHtml(info.teacher ?? "")}</b> 선생님 반</div>
-            <div class="class-confirm-me">🧒 나는 <b>${escapeHtml(join.student)}</b> (으)로 들어가요</div>`;
+            <div class="class-confirm-teacher">👩‍🏫 ${t(`<b>${escapeHtml(info.teacher ?? "")}</b> 선생님 반`, `<b>${escapeHtml(info.teacher ?? "")}</b>'s class`)}</div>
+            <div class="class-confirm-me">🧒 ${t(`나는 <b>${escapeHtml(join.student)}</b> (으)로 들어가요`, `Joining as <b>${escapeHtml(join.student)}</b>`)}</div>`;
           confirmStep.querySelector<HTMLElement>('[data-id="error"]')!.textContent = "";
           show("confirm");
         })
         .catch((code: unknown) => {
           button.disabled = false;
-          error.textContent = CLASS_ERROR_TEXT[code as keyof typeof CLASS_ERROR_TEXT] ?? "연결하지 못했어요.";
+          error.textContent = CLASS_ERROR_TEXT[code as keyof typeof CLASS_ERROR_TEXT] ?? t("연결하지 못했어요.", "Couldn't connect.");
         });
     });
     confirmStep.querySelector<HTMLButtonElement>('[data-id="confirm-yes"]')!.addEventListener("click", () => {
