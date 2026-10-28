@@ -13,6 +13,11 @@ export function selectMode(parent: HTMLElement): Promise<GameMode> {
   const el = document.getElementById("mode-select");
   if (!el) throw new Error("missing #mode-select menu");
   const param = new URLSearchParams(location.search).get("mode");
+  // Guide buttons can open classroom choices directly without a second menu.
+  if (param === "education") {
+    el.remove();
+    return Promise.resolve("field");
+  }
   if (MODES.includes(param as GameMode)) {
     el.remove();
     return Promise.resolve(param as GameMode);

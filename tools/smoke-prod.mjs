@@ -51,6 +51,12 @@ for (const [path, wantType] of [
   ["/llms.txt", "text/plain"],
   ["/indexnow-key.txt", "text/plain"],
   ["/guide/guide.css", "text/css"],
+  ["/guide/guide.js", "text/javascript"],
+  ["/guide/assets/island.webp", "image/webp"],
+  ["/guide/assets/workshop.webp", "image/webp"],
+  ["/guide/assets/tower.webp", "image/webp"],
+  ["/guide/assets/builder.webp", "image/webp"],
+  ["/guide/assets/battle.webp", "image/webp"],
 ]) {
   try {
     const r = await head(path);
@@ -65,7 +71,7 @@ for (const [path, wantType] of [
 try {
   const r = await head("/guide/");
   const html = await r.body.text();
-  check("Korean guide is a real HTML page", r.status === 200 && r.type.includes("text/html") && html.includes("<h1>") && html.includes("크래프트얍") && html.includes('href="https://craftyap.com/guide/"'));
+  check("Korean guide is a real HTML page", r.status === 200 && r.type.includes("text/html") && /<h1\b[^>]*>/i.test(html) && html.includes("크래프트얍") && html.includes('href="https://craftyap.com/guide/"'));
   const sitemap = await fetch(base + "/sitemap.xml");
   const xml = await sitemap.text();
   check("sitemap discovers game and guide", sitemap.status === 200 && xml.includes("<loc>https://craftyap.com/</loc>") && xml.includes("<loc>https://craftyap.com/guide/</loc>"));

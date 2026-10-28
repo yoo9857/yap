@@ -24,6 +24,10 @@ export default tseslint.config(
     ...tseslint.configs.disableTypeChecked,
   },
   {
+    files: ["apps/client/public/guide/**/*.js"],
+    languageOptions: { globals: { document: "readonly" } },
+  },
+  {
     // dev/e2e scripts: node + puppeteer-evaluated browser code in one file,
     // exercised by running them — static no-undef only produces noise here
     files: ["tools/**/*.mjs"],
