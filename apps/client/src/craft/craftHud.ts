@@ -49,6 +49,7 @@ function helpGroups(furniture: boolean): HelpGroup[] {
       items: [
         ...(furniture ? [{ keys: ["G"], label: t("가구 모드", "Furniture mode") }] : []),
         { keys: ["B"], label: t("기계 작업실 (자동차·비행기)", "Machine lab (cars, planes)") },
+        { keys: ["Y"], label: t("반려동물 입양하기", "Adopt a pet") },
         { keys: ["P"], label: t("반려동물 앉아 / 따라와", "Pet: stay / follow") },
         { keys: ["Ctrl", "Z"], label: t("되돌리기 (가구)", "Undo (furniture)") },
       ],

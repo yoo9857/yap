@@ -38,7 +38,7 @@
 .cc kbd{margin:0}
 .cc-space{min-width:150px;padding:8px 0 10px;font-size:18px;text-align:center}
 .cc-keys{display:inline-flex;align-items:center;gap:6px;font-size:13px;color:var(--muted);white-space:nowrap}
-.control-cards-small{grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-top:16px}
+.control-cards-small{grid-template-columns:repeat(5,minmax(0,1fr));gap:12px;margin-top:16px}
 .cc-small{flex-direction:row;justify-content:center;gap:10px;padding:13px 12px;box-shadow:3px 3px 0 var(--ink)}
 .cc-small span{font-size:13px;font-weight:700}
 .controls-board .controls-note{margin-top:20px;text-align:center}

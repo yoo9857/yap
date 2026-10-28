@@ -35,7 +35,7 @@ export class PetShop {
     this.chip.className = "pet-chip";
     this.chip.type = "button";
     this.chip.dataset.id = "pet-chip";
-    this.chip.innerHTML = `<span class="pet-chip-emoji">🐾</span><span data-id="pet-chip-label"></span>`;
+    this.chip.innerHTML = `<span class="pet-chip-emoji">🐾</span><span data-id="pet-chip-label"></span><kbd class="furn-kbd">Y</kbd>`;
     this.chip.addEventListener("click", () => this.toggle());
     parent.appendChild(this.chip);
 
@@ -46,7 +46,9 @@ export class PetShop {
       <div class="pet-panel-head">
         <span class="pet-panel-title">${t("입양하기", "Adopt a pet")}</span>
         <span class="pet-panel-sub">${t("한 마리만 데려갈 수 있어요", "You can take one home at a time")}</span>
+        <button type="button" class="furn-close pet-close" data-id="pet-close" aria-label="${t("닫기", "Close")}">✕</button>
       </div>`;
+    this.panel.querySelector('[data-id="pet-close"]')?.addEventListener("click", () => this.setOpen(false));
     for (const key of PET_SPECIES) {
       const info = SPECIES[key];
       const card = document.createElement("button");

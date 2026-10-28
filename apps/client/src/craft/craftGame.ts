@@ -447,6 +447,8 @@ export class CraftGame {
       if (key === "p" && !e.repeat) {
         this.hud.toast(this.pet.toggleMode() === "stay" ? t("🐶 앉아! 여기서 기다려요", "🐶 Buddy: stay") : t("🐶 따라와! 다시 따라와요", "🐶 Buddy: follow"));
       }
+      // Y opens and closes the adoption panel (Ctrl+Y, handled above, is redo)
+      if (key === "y" && !e.repeat) this.petShop.toggle();
       if (key === "o") {
         const next = (this.viewPreset + 1) % VIEW_NAMES.length;
         this.applyViewDistance(next);
