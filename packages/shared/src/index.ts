@@ -9,3 +9,5 @@ export * from "./protocol/index.js";
 export * from "./stream.js";
 export * from "./fluid.js";
 export * from "./voxelKey.js";
+
+export * from "./character.js";

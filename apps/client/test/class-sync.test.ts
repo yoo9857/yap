@@ -10,7 +10,7 @@ vi.mock("../src/craft/classHud.js", () => ({ ClassHud: class {
 } }));
 vi.mock("../src/player/rig.js", async () => {
   const THREE = await import("three");
-  return { CharacterRig: class { root = new THREE.Group(); update() {} }, disposeRig: (root: THREE.Object3D) => {
+  return { CharacterRig: class { root = new THREE.Group(); update() {} setCharacter(id: string) { this.root.userData.characterId=id; } setEmote(id: string,seq: number) { this.root.userData.emote=id; this.root.userData.emoteSeq=seq; } }, disposeRig: (root: THREE.Object3D) => {
     root.traverse((o) => { if (o instanceof THREE.Sprite) { o.material.map?.dispose(); o.material.dispose(); } });
   } };
 });

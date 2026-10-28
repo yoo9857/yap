@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { playerNameSchema } from "./messages.js";
+import { characterIdSchema, emoteIdSchema } from "../character.js";
 
 /**
  * Classroom protocol — the education field's live multiplayer. A teacher
@@ -14,8 +15,8 @@ import { playerNameSchema } from "./messages.js";
  * selected with `?mode=class`.
  */
 
-/** 3: named classrooms. 4: water. 5: paced live-world streaming + reliable replay. */
-export const CLASS_PROTOCOL_VERSION = 5;
+/** 3: named classrooms. 4: water. 5: paced live-world streaming + reliable replay. 6: character emotes and low postures. */
+export const CLASS_PROTOCOL_VERSION = 6;
 /** Highest block layer of the field grid (WORLD_Y - 1). */
 export const CLASS_MAX_Y = 55;
 /** Field coordinates are bounded so a hostile client can't grow the store
@@ -40,7 +41,9 @@ const vec3Schema = z.tuple([
 
 export const classRoleSchema = z.enum(["teacher", "student"]);
 export type ClassRole = z.infer<typeof classRoleSchema>;
-export const classAnimSchema = z.enum(["idle", "run", "jump"]);
+export const classAnimSchema = z.enum(["idle", "run", "jump", "fall", "sit", "lie", "crawl"]);
+export type ClassAnim = z.infer<typeof classAnimSchema>;
+const presentationShape = { character: characterIdSchema.optional(), emote: emoteIdSchema.optional(), emoteSeq: z.number().int().min(0).max(1_000_000_000).optional() };
 
 /** One block write: absolute x/z, y, block id (0 = air), brick shape. */
 export const classEditSchema = z.tuple([
@@ -89,7 +92,7 @@ export const classClientSchema = z.discriminatedUnion("t", [
   /** "Whose class is this?" — answered with s-k-room, then the socket closes.
    *  Lets a student confirm the teacher's name before joining. */
   z.object({ t: z.literal("k-peek"), v: z.number().int(), room: classRoomNameSchema }),
-  z.object({ t: z.literal("k-move"), pos: vec3Schema, yaw: z.number().finite(), anim: classAnimSchema }),
+  z.object({ t: z.literal("k-move"), pos: vec3Schema, yaw: z.number().finite(), anim: classAnimSchema, ...presentationShape }),
   /** Up to one placed piece (4 cells) per message. */
   z.object({ t: z.literal("k-edit"), edits: z.array(classEditSchema).min(1).max(8) }),
   z.object({
@@ -168,7 +171,7 @@ export const classServerSchema = z.discriminatedUnion("t", [
   z.object({ t: z.literal("s-k-members"), members: z.array(classMemberSchema) }),
   z.object({
     t: z.literal("s-k-snap"),
-    players: z.array(z.object({ id: z.string(), pos: vec3Schema, yaw: z.number(), anim: classAnimSchema })),
+    players: z.array(z.object({ id: z.string(), pos: vec3Schema, yaw: z.number(), anim: classAnimSchema, ...presentationShape })),
   }),
   z.object({ t: z.literal("s-k-edit"), by: z.string(), edits: z.array(classEditSchema) }),
   z.object({

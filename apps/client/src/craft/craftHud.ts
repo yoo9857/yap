@@ -30,6 +30,8 @@ function helpGroups(furniture: boolean): HelpGroup[] {
         { keys: [MOUSE_MOVE], label: t("둘러보기", "Look around") },
         { keys: ["V"], label: t("1인칭 / 3인칭 시점", "First / third person") },
         { keys: ["O"], label: t("시야 거리 바꾸기", "View distance") },
+        { keys: ["C"], label: t("감정표현 · 캐릭터 · 눕기", "Emotes · character · lie down") },
+        { keys: ["Z"], label: t("기어가기 / 일어나기", "Crawl / stand up") },
       ],
     },
     {
@@ -41,7 +43,7 @@ function helpGroups(furniture: boolean): HelpGroup[] {
         { keys: ["0"], label: t("물 양동이", "Water bucket") },
         { keys: ["F"], label: t("블록 모양 바꾸기", "Change brick shape") },
         { keys: ["R", "T"], label: t("돌리기 · 기울이기", "Rotate · tilt") },
-        { keys: ["C"], label: t("재료로 블록 만들기(조합)", "Crafting recipes") },
+        { keys: ["I"], label: t("재료로 블록 만들기(조합)", "Crafting recipes") },
         { keys: ["Q"], label: t("빈손 ↔ 블록 쌓기 (빈손은 캐기만, 놓지 않아요)", "Empty hands ↔ building (empty hands mine but never place)") },
       ],
     },
@@ -81,7 +83,7 @@ function helpGroups(furniture: boolean): HelpGroup[] {
 
 /**
  * Craft-mode DOM UI: crosshair, 10-slot hotbar with the selected block's name,
- * a short key strip, the recipe panel (C) and the start/pause menu. Pure
+ * a short key strip, the recipe panel (I) and the start/pause menu. Pure
  * rendering — all rules live in inventory.ts.
  */
 export class CraftHud {
@@ -118,7 +120,7 @@ export class CraftHud {
       <div class="craft-mine-bar hidden"><div class="craft-mine-fill" data-id="mine-fill"></div></div>
       <div class="craft-slot-label" data-id="slot-label"></div>
       <div class="craft-hotbar" data-id="hotbar">${slots}</div>
-      <div class="craft-help gm-keybar">${keyBarHtml([...ESSENTIALS(), { keys: ["Q"], label: t("빈손", "Empty hands") }])}</div>
+      <div class="craft-help gm-keybar">${keyBarHtml([...ESSENTIALS(), { keys: ["C"], label: t("감정표현", "Emotes") }, { keys: ["Z"], label: t("기어가기", "Crawl") }, { keys: ["Q"], label: t("빈손", "Empty hands") }])}</div>
     `;
     parent.appendChild(this.root);
     this.slotLabel = this.root.querySelector<HTMLElement>('[data-id="slot-label"]')!;

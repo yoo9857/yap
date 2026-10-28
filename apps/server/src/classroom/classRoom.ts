@@ -20,6 +20,9 @@ import {
   type ClassRole,
   type ClassServerMessage,
   type ClassSettings,
+  type ClassAnim,
+  type CharacterId,
+  type EmoteId,
 } from "@robo/shared";
 import { checkPassword, type SavedClass } from "./classStore.js";
 
@@ -49,7 +52,10 @@ interface Member {
   peer: ClassPeer | null;
   pos: [number, number, number] | null;
   yaw: number;
-  anim: "idle" | "run" | "jump";
+  anim: ClassAnim;
+  character?: CharacterId;
+  emote?: EmoteId;
+  emoteSeq?: number;
 }
 
 /**
@@ -331,6 +337,9 @@ export class ClassRoom {
         me.pos = msg.pos;
         me.yaw = msg.yaw;
         me.anim = msg.anim;
+        me.character = msg.character ?? "mascot";
+        me.emote = msg.emote ?? "none";
+        me.emoteSeq = msg.emoteSeq ?? 0;
         return;
       case "k-edit":
         this.applyEdits(me, peer, msg.edits);
@@ -480,7 +489,7 @@ export class ClassRoom {
   snapshot(): void {
     const players = [];
     for (const m of this.byPeer.values()) {
-      if (m.pos) players.push({ id: m.id, pos: m.pos, yaw: m.yaw, anim: m.anim });
+      if (m.pos) players.push({ id: m.id, pos: m.pos, yaw: m.yaw, anim: m.anim, character: m.character ?? "mascot", emote: m.emote ?? "none", emoteSeq: m.emoteSeq ?? 0 });
     }
     if (players.length < 2) return; // nobody to show anybody
     this.broadcast({ t: "s-k-snap", players });

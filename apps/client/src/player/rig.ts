@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import type { AnimState } from "@robo/shared";
+import type { AnimState, EmoteId } from "@robo/shared";
 import { createHomeRig, disposeHomeRig, preloadHomeCharacter, type HomeRig } from "./homeRig.js";
 import { loadTexture } from "../render/textures.js";
 import { box, bodyMat, crayonGrain, outline, part, stud } from "./blockParts.js";
@@ -17,7 +17,7 @@ import { box, bodyMat, crayonGrain, outline, part, stud } from "./blockParts.js"
  * planarSpeed, dt)`, `pop()` for the squash spring, free `disposeRig(root)`.
  */
 
-export type CharacterVariant = "mascot" | "blue" | "purple";
+export type CharacterVariant = "mascot" | "blue" | "purple" | "tt";
 
 /** Cycle for giving crowds (bots, remote players, builder crew) some variety. */
 export const VARIANT_CYCLE: CharacterVariant[] = ["mascot", "blue", "purple"];
@@ -34,7 +34,7 @@ interface VariantSpec {
   topB: number;
 }
 
-const VARIANTS: Record<CharacterVariant, VariantSpec> = {
+const VARIANTS: Record<Exclude<CharacterVariant, "tt">, VariantSpec> = {
   mascot: { body: 0xf9d71c, limb: 0xeec21a, faceBase: "mascot", topper: "cap", topA: 0x2f6fd6, topB: 0xffd21c },
   blue: { body: 0x37a6ea, limb: 0x2f95d6, faceBase: "blue", topper: "sprout", topA: 0x3fa93d, topB: 0x7bd85f },
   purple: { body: 0x8a5cd0, limb: 0x7c50be, faceBase: "purple", topper: "sprout", topA: 0x3fa93d, topB: 0x7bd85f },
@@ -115,7 +115,7 @@ class ProceduralCharacterRig {
   private static readonly SQUASH_STIFF = 190;
   private static readonly SQUASH_DAMP = 15;
 
-  constructor(variant: CharacterVariant = "mascot") {
+  constructor(variant: Exclude<CharacterVariant, "tt"> = "mascot") {
     const v = VARIANTS[variant] ?? VARIANTS.mascot;
     this.faceBase = v.faceBase;
     this.root.add(this.toy);
@@ -301,21 +301,46 @@ class ProceduralCharacterRig {
   }
 }
 
-/** The approved HOME mesh is used after boot preload; the built-in rig remains an asset-failure fallback. */
+const characterDisposers = new WeakMap<THREE.Object3D, () => void>();
+/** Stable outer root: switching HOME / TT preserves camera, labels and world position. */
 export class CharacterRig {
-  readonly root: THREE.Group;
-  private readonly implementation: HomeRig | ProceduralCharacterRig;
-  constructor(variant: CharacterVariant = "mascot") {
-    this.implementation = createHomeRig(variant) ?? new ProceduralCharacterRig(variant);
-    this.root = this.implementation.root;
+  readonly root = new THREE.Group();
+  private implementation: HomeRig | ProceduralCharacterRig | undefined;
+  private variant: CharacterVariant | undefined;
+  constructor(variant: CharacterVariant = "mascot") { this.setCharacter(variant); characterDisposers.set(this.root, () => this.dispose()); }
+  setCharacter(variant: CharacterVariant): void {
+    if (this.variant === variant && this.implementation) return;
+    if (this.implementation) { disposeHomeRig(this.implementation.root); this.root.remove(this.implementation.root); }
+    this.variant = variant;
+    this.implementation = createHomeRig(variant) ?? new ProceduralCharacterRig(variant === "tt" ? "purple" : variant);
+    this.root.add(this.implementation.root);
+    Object.assign(this.root.userData, this.implementation.root.userData, {characterId:variant === "tt" ? "tt" : "mascot"});
   }
-  update(anim: Anim, planarSpeed: number, dt: number): void { this.implementation.update(anim, planarSpeed, dt); }
-  pop(impulse: number): void { this.implementation.pop(impulse); }
+  setEmote(id: EmoteId, seq: number): void {
+    if (this.implementation && "setEmote" in this.implementation) this.implementation.setEmote(id,seq);
+    this.root.userData.emote=id; this.root.userData.emoteSeq=seq;
+  }
+  update(anim: Anim | "lie" | "crawl", speed: number, dt: number): void {
+    const impl = this.implementation;
+    if (!impl) return;
+    if ("setEmote" in impl) impl.update(anim,speed,dt);
+    else {
+      impl.update(anim === "lie" ? "sit" : anim === "crawl" ? (speed > .1 ? "run" : "sit") : anim,speed,dt);
+      const low = anim === "lie" || anim === "crawl";
+      impl.root.rotation.x = THREE.MathUtils.damp(impl.root.rotation.x,anim === "lie" ? -Math.PI/2 : anim === "crawl" ? .35 : 0,10,dt);
+      impl.root.position.y = low ? (anim === "lie" ? .5 : -.2) : 0;
+    }
+    const motion: unknown = impl.root.userData.homeMotion;
+    if (typeof motion === "string") this.root.userData.homeMotion = motion;
+  }
+  pop(impulse: number): void { this.implementation?.pop(impulse); }
+  private dispose(): void { if(this.implementation)disposeHomeRig(this.implementation.root); characterDisposers.delete(this.root); }
 }
 
 /** Frees per-instance extras (name-label sprites). Shared geo/materials stay. */
 export function disposeRig(root: THREE.Object3D): void {
-  disposeHomeRig(root);
+  const own = characterDisposers.get(root);
+  if (own) own(); else disposeHomeRig(root);
   root.traverse((o) => {
     if (o instanceof THREE.Sprite) {
       o.material.map?.dispose();
@@ -323,3 +348,5 @@ export function disposeRig(root: THREE.Object3D): void {
     }
   });
 }
+
+

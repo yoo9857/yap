@@ -27,7 +27,9 @@ import { ClassSync } from "./classSync.js";
 import type { ClassClient, ClassSession } from "../net/classClient.js";
 import { SWIM_DEPTH, pointInWater, stepBody, overlapsVoxel, unstick, wishFromInput, type Body } from "./voxelBody.js";
 import { WaterSim } from "./waterSim.js";
-import { WATER, WATER_SETTLED, isWater } from "@robo/shared";
+import { WATER, WATER_SETTLED, isWater, emoteDef, type EmoteId, type CharacterId, type ClassAnim } from "@robo/shared";
+import { EmoteMenu } from "./emoteMenu.js";
+import { adoptPosture, CRAWL_SPEED_RATIO, POSTURE_EYE, type Posture } from "./posture.js";
 import { CRAFT_SPAWN, surfaceY, type RayHit } from "./voxelWorld.js";
 import { PIECES, pieceCells } from "./pieces.js";
 import { CUBE, ROUND, slopeShape } from "./shapes.js";
@@ -107,6 +109,13 @@ export class CraftGame {
   private yaw = Math.PI;
   private pitch = -0.25;
   private readonly keys = new Set<string>();
+  private readonly emoteMenu: EmoteMenu;
+  private character: CharacterId = "mascot";
+  private emote: EmoteId = "none";
+  private emoteSeq = 0;
+  private emoteLeft = 0;
+  private posture: Posture = "stand";
+  private postureDelay = 0;
   private mining = false;
   private placing = false;
   private miningTarget: [number, number, number] | null = null;
@@ -158,6 +167,9 @@ export class CraftGame {
       onRecipesClose: () => this.resumePlay(),
     });
 
+    this.emoteMenu = new EmoteMenu(document.body, id => this.chooseEmote(id), id => this.chooseCharacter(id), () => this.resumePlay());
+    try { if (localStorage.getItem("craftyap-character-v1") === "tt") this.character = "tt"; } catch { /* optional preference */ }
+    this.rig.setCharacter(this.character); this.emoteMenu.setCharacter(this.character);
     const reset = new URLSearchParams(location.search).has("reset");
     if (opts.classroom) {
       // a class field belongs to the server: no local save is read or written
@@ -351,6 +363,7 @@ export class CraftGame {
     this.loop.dispose();
     this.persist();
     this.events.abort();
+    this.emoteMenu.dispose();
     if (document.pointerLockElement === this.renderer.renderer.domElement) document.exitPointerLock();
     const globals = window as unknown as Record<string, unknown>;
     if (globals.__roboCraft === this.debugHooks) delete globals.__roboCraft;
@@ -389,7 +402,7 @@ export class CraftGame {
     const on = <K extends keyof DocumentEventMap>(name: K, handler: (event: DocumentEventMap[K]) => void) =>
       document.addEventListener(name, handler, { signal: this.events.signal });
     mount.addEventListener("click", () => {
-      if (!this.locked && !this.hud.recipesOpen && !this.workshop.active) {
+      if (!this.locked && !this.hud.recipesOpen && !this.workshop.active && !this.emoteMenu.open) {
         void Promise.resolve(mount.querySelector("canvas")?.requestPointerLock()).catch(() => {}); // refused during the browser's re-lock cooldown: the next click retries
       }
     }, { signal: this.events.signal });
@@ -438,7 +451,14 @@ export class CraftGame {
     });
     on("keydown", (e) => {
       if (e.target instanceof HTMLElement && (/INPUT|SELECT|TEXTAREA/.test(e.target.tagName) || e.target.isContentEditable)) return;
+      if (this.emoteMenu.handleKey(e)) return;
       const key = e.key.toLowerCase();
+      if (e.code === "KeyC" && !e.ctrlKey && !e.metaKey && !this.workshop.active) {
+        e.preventDefault(); if (e.repeat) return;
+        this.hud.hideRecipes(); this.petShop.setOpen(false); this.furniture.closePanel();
+        this.keys.clear(); this.mining = this.placing = false;
+        this.emoteMenu.setOpen(true); document.exitPointerLock(); return;
+      }
       if (key === "b" && !e.repeat) { this.workshop.toggle(); return; }
       if (this.workshop.active) return;
       this.keys.add(e.code);
@@ -448,6 +468,10 @@ export class CraftGame {
         if (key === "y" || e.shiftKey) this.furniture.redo();
         else this.furniture.undo();
         return;
+      }
+      if (e.code === "KeyZ" && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        e.preventDefault(); if (e.repeat) return;
+        this.changePosture(this.posture === "stand" || this.posture === "sit" ? "crawl" : "stand"); return;
       }
       // furniture's keys first: in furniture mode 1-9, Q/E, X and R are its own
       if (this.furniture.handleKey(key, e.repeat)) return;
@@ -461,7 +485,7 @@ export class CraftGame {
           ? t("✋ 빈손 — 캐기만 해요, 놓지 않아요 · Q로 다시 들기", "✋ Empty hands — mine only, nothing is placed · Q to pick blocks back up")
           : t("🧱 블록 쌓기 — 다시 놓을 수 있어요", "🧱 Building — placing again"));
       }
-      if (key === "c") {
+      if (key === "i" && !e.repeat) {
         this.hud.toggleRecipes();
         if (this.hud.recipesOpen) document.exitPointerLock();
         else this.resumePlay();
@@ -502,11 +526,16 @@ export class CraftGame {
     // where the body was before this tick: render() blends prev → current
     this.prevBody.set(this.body.x, this.body.y, this.body.z);
     if (this.sync) {
-      const planar = Math.hypot(this.body.vx, this.body.vz);
-      this.sync.tick(1 / 60, this.body, this.facing, !this.body.grounded ? "jump" : planar > 0.5 ? "run" : "idle");
+      this.sync.tick(1 / 60, this.body, this.facing, this.characterAnimation(), {character:this.character, emote:this.emote, emoteSeq:this.emoteSeq});
     }
     if (this.workshop.active) { this.workshop.fixedUpdate(); return; }
     const dt = 1 / 60;
+    this.postureDelay = Math.max(0, this.postureDelay-dt);
+    if (this.emoteLeft > 0) { this.emoteLeft -= dt; if (this.emoteLeft <= 0) this.clearEmote(); }
+    const movement = this.locked && ["KeyW","KeyA","KeyS","KeyD"].some(k=>this.keys.has(k));
+    if (this.locked && this.keys.has("Space") && this.posture !== "stand") this.changePosture("stand",false);
+    else if (movement && this.posture === "lie") this.changePosture("crawl",false);
+    else if (movement && this.posture === "sit") this.changePosture("stand",false);
     if (this.seated && this.stepSeated()) {
       this.perf.time("pet", () => this.pet.fixedUpdate(this.state.world, dt, this.body));
       this.perf.time("aim", () => this.updateAim());
@@ -519,7 +548,7 @@ export class CraftGame {
     }
     let fwd = 0;
     let strafe = 0;
-    if (this.locked) {
+    if (this.locked && this.posture !== "lie" && this.postureDelay <= 0 && !this.emoteMenu.open) {
       if (this.keys.has("KeyW")) fwd += 1;
       if (this.keys.has("KeyS")) fwd -= 1;
       if (this.keys.has("KeyA")) strafe -= 1;
@@ -537,10 +566,11 @@ export class CraftGame {
     this.wishX += (rawX - this.wishX) * k;
     this.wishZ += (rawZ - this.wishZ) * k;
     if (Math.abs(this.wishX) < 1e-3 && Math.abs(this.wishZ) < 1e-3) this.wishX = this.wishZ = 0;
-    const wishX = this.wishX;
-    const wishZ = this.wishZ;
+    const speedRatio = this.posture === "crawl" ? CRAWL_SPEED_RATIO : 1;
+    const wishX = this.wishX * speedRatio;
+    const wishZ = this.wishZ * speedRatio;
     this.prevVy = this.body.vy;
-    this.perf.time("physics", () => stepBody(this.state.world, this.body, dt, wishX, wishZ, this.locked && this.keys.has("Space")));
+    this.perf.time("physics", () => stepBody(this.state.world, this.body, dt, wishX, wishZ, this.locked && this.posture === "stand" && this.postureDelay <= 0 && this.keys.has("Space")));
     // hard landings thump the camera a little
     if (this.body.grounded && this.prevVy < -11) {
       this.camera.addShake(Math.min(0.11, -this.prevVy * 0.006));
@@ -598,7 +628,7 @@ export class CraftGame {
   }
 
   private updateAim(): void {
-    const eyeY = this.body.y + EYE_HEIGHT;
+    const eyeY = this.body.y + POSTURE_EYE[this.posture];
     const dx = Math.sin(this.yaw) * Math.cos(this.pitch);
     const dy = Math.sin(this.pitch);
     const dz = Math.cos(this.yaw) * Math.cos(this.pitch);
@@ -654,6 +684,43 @@ export class CraftGame {
       this.sfx.play("crumble");
       this.camera.addShake(0.04);
     }
+  }
+
+  private characterAnimation(): ClassAnim {
+    if (this.seated || this.posture === "sit") return "sit";
+    if (this.posture === "lie") return "lie";
+    if (this.posture === "crawl") return "crawl";
+    if (!this.body.grounded && (this.body.wet ?? 0) < SWIM_DEPTH) return this.body.vy > .1 ? "jump" : "fall";
+    return Math.hypot(this.body.vx,this.body.vz) > .5 ? "run" : "idle";
+  }
+  private clearEmote(): void { this.emote="none"; this.emoteLeft=0; this.emoteSeq=(this.emoteSeq+1)%1_000_000_000; }
+  private changePosture(next: Posture, announce=true): boolean {
+    if (this.seated) this.standUp();
+    if (next === this.posture) return true;
+    if (!adoptPosture(this.state.world,this.body,next)) {
+      if (announce) this.hud.toast(t("바닥과 머리 위 공간을 확인해 주세요", "Check the ground and space above you"));
+      return false;
+    }
+    const old=this.posture; this.posture=next; this.wishX=this.wishZ=0;
+    this.postureDelay=next === "stand" ? (old === "lie" ? .8 : .65) : next === "lie" ? .9 : .65;
+    this.clearEmote();
+    if (announce) this.hud.toast(next === "crawl" ? t("Z 기어가기 · WASD 이동 · Z/Space 일어나기", "Crawling · WASD move · Z/Space stand") : next === "lie" ? t("누웠어요 · WASD 기어가기 · Z/Space 일어나기", "Lying down · WASD crawl · Z/Space stand") : t("자세를 바꿨어요", "Posture changed"));
+    return true;
+  }
+  private chooseEmote(id: EmoteId): void {
+    const def=emoteDef(id); if (!def) return;
+    if (def.posture && !this.changePosture(def.posture)) return;
+    if (def.posture === "stand") { this.clearEmote(); this.rig.setEmote("none",this.emoteSeq); return; }
+    this.emote=id; this.emoteSeq=(this.emoteSeq+1)%1_000_000_000;
+    this.emoteLeft=def.posture ? Infinity : def.seconds;
+    this.rig.setEmote(this.emote,this.emoteSeq);
+  }
+  private chooseCharacter(id: CharacterId): void {
+    this.character=id; this.rig.setCharacter(id);
+    this.rig.setEmote(this.emote,this.emoteSeq);
+    for (const material of this.robotMaterials ?? []) material.dispose();
+    this.robotMaterials=null; this.robotOpacity=1;
+    try { localStorage.setItem("craftyap-character-v1",id); } catch { /* optional preference */ }
   }
 
   // ------------------------------------------------------------ sitting
@@ -1011,7 +1078,7 @@ export class CraftGame {
    */
   private smoothEyeY = Number.NaN;
   private smoothedEyeY(bodyY: number, dt: number): number {
-    const target = bodyY + EYE_HEIGHT;
+    const target = bodyY + POSTURE_EYE[this.posture];
     if (!Number.isFinite(this.smoothEyeY) || Math.abs(target - this.smoothEyeY) > 1.6) {
       this.smoothEyeY = target;
     } else {
@@ -1091,6 +1158,7 @@ export class CraftGame {
       this.furniture.closePanel();
       this.petShop.setOpen(false);
       this.hud.hideRecipes();
+      this.emoteMenu.setOpen(false);
     } else {
       this.mining = false;
       this.placing = false;
@@ -1100,7 +1168,7 @@ export class CraftGame {
   private render(alpha: number, frameDt: number): void {
     this.syncLock();
     const drawn = this.interpolatedBody(alpha);
-    this.hud.syncMenu(this.workshop.active || this.furniture.panelOpen || this.petShop.open
+    this.hud.syncMenu(this.workshop.active || this.furniture.panelOpen || this.petShop.open || this.emoteMenu.open
       || performance.now() < this.resumeUntil || document.querySelector(".class-ended") !== null);
     this.sky.update(this.renderer.camera);
     this.sync?.render(frameDt);
@@ -1143,8 +1211,8 @@ export class CraftGame {
     this.rig.root.rotation.y = this.facing;
     const planar = Math.hypot(this.body.vx, this.body.vz);
     // swimming is paddling (run) or treading water (idle) — not a jump pose
-    const swimming = (this.body.wet ?? 0) >= SWIM_DEPTH;
-    const anim = this.seated ? "sit" : !this.body.grounded && !swimming ? "jump" : planar > 0.5 ? "run" : "idle";
+    const anim = this.characterAnimation();
+    this.rig.setEmote(this.emote, this.emoteSeq);
     this.rig.update(anim, planar, frameDt);
 
     const eye = this.tmpEye.set(drawn.x, this.smoothedEyeY(drawn.y, frameDt), drawn.z);
@@ -1211,7 +1279,8 @@ export class CraftGame {
       this.facing = this.viewYaw;
       return;
     }
-    const target = this.actionHold > 0 ? this.yaw : this.moveYaw;
+    const emoting = this.emote !== "none" && this.posture === "stand" && this.moveYaw === null;
+    const target = this.actionHold > 0 ? this.yaw : emoting ? this.viewYaw + Math.PI : this.moveYaw;
     if (target !== null) this.facing = turnToward(this.facing, target, frameDt);
   }
 
@@ -1409,3 +1478,5 @@ export class CraftGame {
     (window as unknown as Record<string, unknown>).__roboCraft = hooks;
   }
 }
+
+

@@ -10,9 +10,18 @@ interface GltfDocument {
   samplers?: unknown[];
   materials?: { pbrMetallicRoughness?: { baseColorTexture?: unknown; metallicRoughnessTexture?: unknown }; normalTexture?: unknown; occlusionTexture?: unknown; emissiveTexture?: unknown }[];
 }
+vi.mock("../src/player/faceCanvas.js", async () => {
+  const T = await import("three");
+  return { faceBitmap: vi.fn(), FaceCanvas: class {
+    readonly texture = new T.Texture();
+    set(face: string): void { this.texture.userData.face = face; }
+    play(name: string, end = "neutral"): void { this.texture.userData.face = end; this.texture.userData.sequence = name; }
+    update(): void {} dispose(): void { this.texture.dispose(); }
+  }};
+});
 let assets: HomeAssets;
 beforeAll(async () => {
-  const raw = await readFile(new URL("../public/models/home/home-v4.glb", import.meta.url));
+  const raw = await readFile(new URL("../public/models/characters/HOME/HOME.glb", import.meta.url));
   const oldLength = raw.readUInt32LE(12);
   const doc = JSON.parse(raw.subarray(20, 20 + oldLength).toString()) as GltfDocument;
   // Keep the shipped geometry/skin/clips; image decoding needs a browser and is tested in the live game.
@@ -29,19 +38,17 @@ beforeAll(async () => {
   result.write(json, 20); body.copy(result, 20 + Buffer.byteLength(json));
   const buffer = new ArrayBuffer(result.length); new Uint8Array(buffer).set(result);
   const gltf = await new GLTFLoader().parseAsync(buffer, "");
-  const faces = new Map<string, THREE.Texture>();
-  for (const variant of ["mascot", "blue", "purple"]) for (const face of ["neutral", "blink", "happy", "hurt", "oh", "dead"]) faces.set(`${variant}/${face}`, new THREE.Texture());
-  assets = { scene: gltf.scene, animations: gltf.animations, faces };
+  assets = { scene: gltf.scene, animations: gltf.animations, character: "HOME", faces: {sequences:{}} };
 });
 function solid(rig: HomeRig): THREE.SkinnedMesh {
-  const mesh = rig.root.getObjectsByProperty("type", "SkinnedMesh").find((node) => node.name !== "HOME XR outline");
+  const mesh = rig.root.getObjectsByProperty("type", "SkinnedMesh").find((node) => node.name !== "Character XR outline");
   if (!(mesh instanceof THREE.SkinnedMesh)) throw new Error("Missing HOME skin");
   return mesh as THREE.SkinnedMesh;
 }
 
 describe("shipped HOME character", () => {
   it("contains every gameplay clip and a small valid skin", () => {
-    expect(new Set(assets.animations.map((clip) => clip.name))).toEqual(new Set(["Idle", "IdleShift", "IdleLook", "Walk", "Run", "Wave", "Jump", "Fall", "Land", "Carry", "Hold", "Place", "Sit"].map((name) => `HOME_${name}`)));
+    expect(new Set(assets.animations.map((clip) => clip.name))).toEqual(new Set(["Idle", "IdleShift", "IdleLook", "Walk", "Run", "Wave", "Jump", "Fall", "Land", "Carry", "Hold", "Place", "Sit", "Hop", "Cheer", "Interact", "Hit", "Sleep", "Dead", "LieDown", "Lie", "StandUp", "CrawlEnter", "CrawlIdle", "Crawl", "CrawlExit"]));
     const rig = new HomeRig(assets, "mascot"); const mesh = solid(rig);
     expect(mesh.geometry.index!.count / 3).toBeLessThan(3000);
     expect(mesh.geometry.getAttribute("skinWeight").count).toBe(mesh.geometry.getAttribute("position").count);
@@ -57,7 +64,7 @@ describe("shipped HOME character", () => {
     expect(am.material).not.toBe(bm.material);
     const faded = (am.material as THREE.MeshStandardMaterial).clone(); faded.opacity = 0.25; faded.transparent = true; am.material = faded;
     a.update("dead", 0, 1 / 60); b.update("idle", 0, 1 / 60);
-    expect(faded.map).toBe(assets.faces.get("mascot/dead")); expect(faded.opacity).toBe(0.25);
+    expect(faded.map?.userData.face).toBe("dead"); expect(faded.opacity).toBe(0.25);
     expect((bm.material as THREE.MeshStandardMaterial).map).not.toBe(faded.map);
     const freeSharedGeometry = vi.fn(); am.geometry.addEventListener("dispose", freeSharedGeometry);
     disposeHomeRig(a.root); expect(freeSharedGeometry).not.toHaveBeenCalled();
@@ -67,7 +74,7 @@ describe("shipped HOME character", () => {
 
   it("preserves caller-owned position/yaw through every game state and malformed frame input", () => {
     const rig = new HomeRig(assets, "purple"); rig.root.position.set(8, 3, -4); rig.root.rotation.y = 1.2;
-    const states: HomeAnim[] = ["idle", "run", "carry", "place", "sit", "jump", "fall", "idle", "wave", "dead", "idle"];
+    const states: HomeAnim[] = ["idle", "run", "carry", "place", "sit", "jump", "fall", "idle", "wave", "dead", "idle", "lie", "idle", "crawl", "run"];
     for (const state of states) for (let i = 0; i < 30; i++) {
       rig.update(state, state === "run" || state === "carry" ? 4.6 : 0, 1 / 60);
       rig.root.updateMatrixWorld(true);
@@ -102,5 +109,24 @@ describe("shipped HOME character", () => {
     for (let i = 0; i < 20; i++) rig.update("run", 4.6, 1 / 60);
     expect(rig.root.userData.homeMotion).toBe("Run");
     disposeHomeRig(rig.root);
+  });
+});
+
+describe("posture and emote playback", () => {
+  it("finishes entering crawl, alternates limbs while moving, and stands up with an exit clip", () => {
+    const rig = new HomeRig(assets,"mascot");
+    rig.update("crawl",0,1/60);expect(rig.root.userData.homeMotion).toBe("CrawlEnter");
+    for(let i=0;i<45;i++)rig.update("crawl",0,1/60);
+    expect(rig.root.userData.homeMotion).toBe("CrawlIdle");
+    rig.update("crawl",1.25,1/60);expect(rig.root.userData.homeMotion).toBe("Crawl");
+    rig.update("idle",0,1/60);expect(rig.root.userData.homeMotion).toBe("CrawlExit");
+    for(let i=0;i<45;i++)rig.update("idle",0,1/60);
+    expect(rig.root.userData.homeMotion).toBe("Idle");disposeHomeRig(rig.root);
+  });
+  it("does not restart a repeated network emote, and new sequence numbers replay it", () => {
+    const rig = new HomeRig(assets,"mascot");rig.setEmote("wave",10);rig.update("idle",0,1/60);
+    const spy = vi.spyOn(THREE.AnimationAction.prototype,"reset");spy.mockClear();
+    rig.setEmote("wave",10);expect(spy).not.toHaveBeenCalled();
+    rig.setEmote("wave",11);expect(spy).toHaveBeenCalled();spy.mockRestore();disposeHomeRig(rig.root);
   });
 });

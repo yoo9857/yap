@@ -1,0 +1,157 @@
+{
+  "version": "1.1.0",
+  "emotions": [
+    {
+      "id": "neutral",
+      "label": "기본",
+      "file": "textures/face-neutral.png"
+    },
+    {
+      "id": "blink",
+      "label": "눈 감기",
+      "file": "textures/face-blink.png"
+    },
+    {
+      "id": "smile",
+      "label": "살짝 미소",
+      "file": "textures/face-smile.png"
+    },
+    {
+      "id": "happy",
+      "label": "기쁨",
+      "file": "textures/face-happy.png"
+    },
+    {
+      "id": "laugh",
+      "label": "활짝 웃음",
+      "file": "textures/face-laugh.png"
+    },
+    {
+      "id": "wink",
+      "label": "윙크",
+      "file": "textures/face-wink.png"
+    },
+    {
+      "id": "love",
+      "label": "사랑",
+      "file": "textures/face-love.png"
+    },
+    {
+      "id": "excited",
+      "label": "신남",
+      "file": "textures/face-excited.png"
+    },
+    {
+      "id": "smug",
+      "label": "장난스러운 미소",
+      "file": "textures/face-smug.png"
+    },
+    {
+      "id": "curious",
+      "label": "궁금함",
+      "file": "textures/face-curious.png"
+    },
+    {
+      "id": "oh",
+      "label": "놀람",
+      "file": "textures/face-oh.png"
+    },
+    {
+      "id": "worried",
+      "label": "걱정",
+      "file": "textures/face-worried.png"
+    },
+    {
+      "id": "sad",
+      "label": "시무룩",
+      "file": "textures/face-sad.png"
+    },
+    {
+      "id": "cry",
+      "label": "울음",
+      "file": "textures/face-cry.png"
+    },
+    {
+      "id": "angry",
+      "label": "화남",
+      "file": "textures/face-angry.png"
+    },
+    {
+      "id": "hurt",
+      "label": "아픔",
+      "file": "textures/face-hurt.png"
+    },
+    {
+      "id": "dizzy",
+      "label": "어지러움",
+      "file": "textures/face-dizzy.png"
+    },
+    {
+      "id": "tired",
+      "label": "졸림",
+      "file": "textures/face-tired.png"
+    },
+    {
+      "id": "sleep",
+      "label": "잠자기",
+      "file": "textures/face-sleep.png"
+    },
+    {
+      "id": "dead",
+      "label": "기절",
+      "file": "textures/face-dead.png"
+    }
+  ],
+  "visemes": [
+    {
+      "id": "a",
+      "file": "visemes/face-a.png"
+    },
+    {
+      "id": "e",
+      "file": "visemes/face-e.png"
+    },
+    {
+      "id": "o",
+      "file": "visemes/face-o.png"
+    },
+    {
+      "id": "m",
+      "file": "visemes/face-m.png"
+    }
+  ],
+  "characters": {
+    "HOME": {
+      "size": [
+        1024,
+        1024
+      ],
+      "animatedSize": [
+        512,
+        512
+      ],
+      "faceRegion": [
+        0,
+        0,
+        1,
+        1
+      ]
+    },
+    "TT": {
+      "size": [
+        2048,
+        1024
+      ],
+      "animatedSize": [
+        1024,
+        512
+      ],
+      "faceRegion": [
+        0,
+        0,
+        0.75,
+        1
+      ]
+    }
+  }
+}

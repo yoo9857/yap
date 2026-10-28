@@ -132,6 +132,12 @@ export function unstick(world: VoxelWorld, body: Body): Body {
 
 const WORLD_UNSTICK_LIMIT = 120;
 
+/** Test a new posture height without pushing the player through a ceiling. */
+export function canOccupy(world: VoxelWorld, body: Body, height: number): boolean {
+  return Number.isFinite(height) && height > 0 && !collides(world, { ...body, h: height });
+}
+
+
 /** Would a block placed at this voxel overlap the body? (deny self-burial) */
 export function overlapsVoxel(body: Body, vx: number, vy: number, vz: number): boolean {
   const half = halfOf(body);

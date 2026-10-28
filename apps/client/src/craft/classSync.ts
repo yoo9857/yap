@@ -1,6 +1,6 @@
 import type { FurnitureLayout } from "./furniture/layout.js";
 import * as THREE from "three";
-import type { ClassEdit, ClassMember, ClassSettings } from "@robo/shared";
+import type { ClassEdit, ClassMember, ClassSettings, ClassAnim, ClassServerMessage, CharacterPresentation } from "@robo/shared";
 import { CharacterRig, disposeRig } from "../player/rig.js";
 import type { ClassClient, ClassSession } from "../net/classClient.js";
 import { ClassHud } from "./classHud.js";
@@ -24,7 +24,7 @@ interface Remote {
   yaw: number;
   /** Drawn heading, turning toward `yaw` (reports arrive at only 20 Hz). */
   drawnYaw: number;
-  anim: "idle" | "run" | "jump";
+  anim: ClassAnim;
   speed: number;
   seenAt: number;
 }
@@ -222,7 +222,7 @@ export class ClassSync {
   }
 
   /** Per fixed tick: flush edits, report position, glide remote robots. */
-  tick(dt: number, body: { x: number; y: number; z: number }, yaw: number, anim: "idle" | "run" | "jump"): void {
+  tick(dt: number, body: { x: number; y: number; z: number }, yaw: number, anim: ClassAnim, presentation?: CharacterPresentation): void {
     this.flushEdits();
     const now = performance.now();
     for (const [key, p] of this.pending) if (now - p.at > PENDING_MS) this.pending.delete(key);
@@ -231,7 +231,7 @@ export class ClassSync {
     if (this.moveTimer >= 1 / MOVE_HZ) {
       this.moveTimer = 0;
       const [ax, az] = this.field.toAbsolute(body.x, body.z);
-      this.client.send({ t: "k-move", pos: [ax, body.y, az], yaw, anim });
+      this.client.send({ t: "k-move", pos: [ax, body.y, az], yaw, anim, ...presentation });
     }
   }
 
@@ -262,7 +262,7 @@ export class ClassSync {
     }
   }
 
-  private applySnap(players: { id: string; pos: [number, number, number]; yaw: number; anim: "idle" | "run" | "jump" }[]): void {
+  private applySnap(players: Extract<ClassServerMessage, {t: "s-k-snap"}>["players"]): void {
     const now = performance.now();
     for (const p of players) {
       if (p.id === this.session.you) continue;
@@ -285,6 +285,8 @@ export class ClassSync {
         };
         this.remotes.set(p.id, r);
       }
+      r.rig.setCharacter(p.character ?? "mascot");
+      r.rig.setEmote(p.emote ?? "none", p.emoteSeq ?? 0);
       r.target.set(...p.pos);
       r.yaw = p.yaw;
       r.anim = p.anim;
