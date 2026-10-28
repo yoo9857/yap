@@ -27,3 +27,50 @@
 @media(max-width:360px){.section-shell{width:calc(100% - 32px)}.hero h1{font-size:37px}.brand>span{font-size:17px}.header-play{font-size:9px;padding:8px 10px;gap:8px}.brand img{width:43px;height:43px}.game-card h3{font-size:20px}.game-card-copy{padding:13px 10px}.game-card-copy>p:not(.game-type){font-size:9px}.hero-actions{gap:15px}.hero .button{font-size:11px;padding:12px 14px}.mobile-play>span{font-size:9px}.mobile-play>a{padding:9px 12px}}
 @media(max-width:700px){.floating-note{top:77px;bottom:auto}.game-card-copy>p:not(.game-type){font-size:11px;min-height:90px}.game-type{font-size:9px}.game-category{font-size:8px}.card-play{font-size:10px}.device-note{font-size:10px}}
 @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}*,*:before,*:after{transition:none!important;animation:none!important}}
+/* Controls as a centred card grid: keys and mouse drawn as they look (same shapes as the game's ui/inputGlyphs.ts). */
+.controls-board{border-top:1px solid #cdd4c2;padding-top:28px}
+.controls-board-title{font-size:13px;font-weight:800;letter-spacing:-.01em;margin-bottom:16px;color:var(--muted)}
+.control-cards{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}
+.cc{display:flex;flex-direction:column;align-items:center;text-align:center;padding:20px 16px 18px;background:#fff;border:2px solid var(--ink);border-radius:16px;box-shadow:4px 5px 0 var(--ink)}
+.cc-pic{display:flex;align-items:center;justify-content:center;gap:8px;height:104px;margin-bottom:12px}
+.cc h3{font-family:var(--display);font-weight:400;font-size:21px;margin-bottom:4px}
+.cc p{font-size:13px;line-height:1.6}
+.cc kbd{margin:0}
+.cc-space{min-width:150px;padding:8px 0 10px;font-size:18px;text-align:center}
+.cc-keys{display:inline-flex;align-items:center;gap:6px;font-size:13px;color:var(--muted);white-space:nowrap}
+.control-cards-small{grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-top:16px}
+.cc-small{flex-direction:row;justify-content:center;gap:10px;padding:13px 12px;box-shadow:3px 3px 0 var(--ink)}
+.cc-small span{font-size:13px;font-weight:700}
+.controls-board .controls-note{margin-top:20px;text-align:center}
+.g-glyph{display:inline-flex;flex-direction:column;align-items:center;gap:4px;vertical-align:middle}
+.g-glyph small{font:800 11px/1 var(--body);color:var(--muted)}
+.g-mouse{height:70px;width:auto;overflow:visible}
+.m-body,.m-off{fill:#fff}
+.m-on{fill:var(--yellow)}
+.m-line{fill:none;stroke:var(--ink);stroke-width:1.6}
+.m-wheel{stroke:var(--ink);stroke-width:1.4}
+.m-outline{fill:none;stroke:var(--ink);stroke-width:2.2}
+.m-arrow{fill:none;stroke:var(--ink);stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+.g-wasd{display:inline-grid;grid-template-columns:repeat(3,auto);grid-template-areas:". w ." "a s d";gap:5px}
+.g-wasd kbd{display:inline-flex;flex-direction:column;align-items:center;justify-content:center;min-width:52px;height:46px;margin:0;padding:2px 6px 4px;font-size:16px;line-height:1.15}
+.g-wasd i{font:800 10px/1.2 var(--body);font-style:normal;opacity:.75}
+.g-wasd .k-w{grid-area:w}.g-wasd .k-a{grid-area:a}.g-wasd .k-s{grid-area:s}.g-wasd .k-d{grid-area:d}
+@media(max-width:900px){
+.control-cards{grid-template-columns:repeat(2,minmax(0,1fr))}
+.control-cards-small{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media(max-width:520px){
+.control-cards{gap:12px}
+.cc{padding:16px 10px 14px}
+.cc-pic{height:88px}
+.cc h3{font-size:18px}
+.cc p{font-size:12px}
+.cc-space{min-width:110px;font-size:14px}
+.g-wasd kbd{min-width:46px;height:40px;font-size:13px;padding:2px 2px 3px}
+.g-wasd i{font-size:7.5px;white-space:nowrap}
+.cc-pic{gap:4px}
+.cc-keys{gap:3px;font-size:11px}
+.cc-keys kbd{padding:0 5px}
+.g-mouse{height:56px}
+.cc-small{flex-direction:column;gap:6px}
+}

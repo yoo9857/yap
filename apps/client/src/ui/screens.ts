@@ -2,6 +2,7 @@ import type { DailyBoardEntry } from "@robo/shared";
 import { formatTime } from "./hud.js";
 import { keyBarHtml } from "./gameMenu.js";
 import { t } from "./i18n.js";
+import { KEY_WASD, MOUSE_DRAG } from "./inputGlyphs.js";
 
 /**
  * Title & clear overlays (DOM). The game supplies callbacks; screens never
@@ -34,9 +35,9 @@ export class Screens {
         <button class="primary" data-id="start">▶ ${t("플레이", "Play")}</button>
         <div class="board" data-id="board"></div>
         <p class="help gm-keybar">${keyBarHtml([
-          { keys: ["W A S D"], label: t("이동", "Move") },
+          { keys: [KEY_WASD], label: t("이동", "Move") },
           { keys: ["Space"], label: t("점프", "Jump") },
-          { keys: [t("드래그", "Drag")], label: t("카메라", "Camera") },
+          { keys: [MOUSE_DRAG], label: t("카메라", "Camera") },
           { keys: ["R"], label: t("다시 시작", "Respawn") },
         ])}</p>
         <p><a class="desk-link" href="/">${t("← 다른 게임 고르기", "← Choose another game")}</a></p>

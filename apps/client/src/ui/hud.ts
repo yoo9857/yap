@@ -1,10 +1,11 @@
 import { GameMenu, type KeyHelp } from "./gameMenu.js";
 import { t } from "./i18n.js";
+import { KEY_WASD, MOUSE_DRAG } from "./inputGlyphs.js";
 
 const TOWER_KEYS = (): KeyHelp[] => [
-  { keys: ["W A S D"], label: t("이동", "Move") },
+  { keys: [KEY_WASD], label: t("이동", "Move") },
   { keys: ["Space"], label: t("점프", "Jump") },
-  { keys: [t("드래그", "Drag")], label: t("카메라", "Camera") },
+  { keys: [MOUSE_DRAG], label: t("카메라", "Camera") },
   { keys: ["R"], label: t("다시 시작", "Respawn") },
 ];
 
@@ -80,9 +81,9 @@ export class Hud {
       essentials: TOWER_KEYS(),
       help: [
         { title: t("움직이기", "Moving"), items: [
-          { keys: ["W A S D"], label: t("이동 (모바일: 왼쪽 조이스틱)", "Move (mobile: left joystick)") },
+          { keys: [KEY_WASD], label: t("이동 (모바일: 왼쪽 조이스틱)", "Move (mobile: left joystick)") },
           { keys: ["Space"], label: t("점프 (모바일: 점프 버튼)", "Jump (mobile: jump button)") },
-          { keys: [t("드래그", "Drag")], label: t("카메라 돌리기", "Turn the camera") },
+          { keys: [MOUSE_DRAG], label: t("카메라 돌리기", "Turn the camera") },
           { keys: ["R"], label: t("체크포인트에서 다시 시작", "Respawn at checkpoint") },
         ] },
         { title: t("규칙", "Rules"), items: [

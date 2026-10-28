@@ -209,19 +209,23 @@
 .craft-hud .craft-slot img { border-radius: 7px; }
 .furn-bar .craft-slot { background: #fff; }
 .craft-hud .craft-slot.selected, .furn-bar .craft-slot.selected {
-  border-color: var(--brick-ink);
-  transform: translateY(-7px);
-  box-shadow: 0 0 0 3px #ffd21c, 0 5px 0 3px var(--brick-ink);
+  border-color: #ffd21c;
+  transform: translateY(-1px) scale(1.05);
+  box-shadow: 0 0 0 2px var(--brick-ink), 0 0 14px 2px rgba(255, 210, 28, 0.75);
+  z-index: 1;
 }
-/* the picked brick shows its studs */
+/* The picked slot is marked inside the tray (a yellow bar under it), so
+   nothing pokes out over the tray's edge. */
 .craft-hud .craft-slot.selected::after, .furn-bar .craft-slot.selected::after {
   content: "";
   position: absolute;
-  left: 8px;
-  right: 8px;
-  top: -14px;
-  height: 9px;
-  background: radial-gradient(circle at 50% 100%, #ffd21c 0 6px, var(--brick-ink) 6px 8.5px, transparent 9px) center bottom / 20px 9px repeat-x;
+  left: 28%;
+  right: 28%;
+  bottom: -10px;
+  height: 4px;
+  border-radius: 2px;
+  background: #ffd21c;
+  box-shadow: 0 0 0 1.5px var(--brick-ink);
 }
 .craft-hud .craft-slot-num, .furn-bar .craft-slot-num { top: 2px; left: 5px; font: 800 10px/1 system-ui, sans-serif; opacity: 0.8; text-shadow: 0 0 2px #fff; }
 .craft-hud .craft-slot b { font: 800 13px/1 system-ui, sans-serif; }
@@ -415,3 +419,80 @@ body .furn-back {
   box-shadow: var(--brick-edge), var(--brick-lift);
 }
 body .furn-back:active { transform: translateY(3px); box-shadow: 0 1px 0 var(--brick-ink); }
+
+/* ---- input glyphs (ui/inputGlyphs.ts): keys and mouse drawn as they look -- */
+.gm-wasd {
+  display: inline-grid;
+  grid-template-columns: repeat(3, auto);
+  grid-template-areas: ". w ." "a s d";
+  gap: 2px;
+  margin-right: 5px;
+  vertical-align: middle;
+}
+.gm-wasd kbd {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-width: 25px;
+  margin: 0 !important;
+  padding: 1px 4px 3px;
+  line-height: 1.05;
+}
+.gm-wasd i { font-style: normal; font-size: 9px; font-weight: 800; color: #6a6f66; }
+.gm-wasd .k-w { grid-area: w; }
+.gm-wasd .k-a { grid-area: a; }
+.gm-wasd .k-s { grid-area: s; }
+.gm-wasd .k-d { grid-area: d; }
+.gm-glyph { display: inline-flex; flex-direction: column; align-items: center; gap: 1px; margin-right: 5px; vertical-align: middle; }
+.gm-glyph small { font: 800 10px/1 system-ui, sans-serif; color: #5f645c; white-space: nowrap; }
+.gm-mouse { height: 46px; width: auto; overflow: visible; }
+.gm-m-body { fill: #fff; }
+.gm-m-off { fill: #fff; }
+.gm-m-on { fill: #ffd21c; }
+.gm-m-line { fill: none; stroke: var(--brick-ink); stroke-width: 1.6; }
+.gm-m-wheel { stroke: var(--brick-ink); stroke-width: 1.4; }
+.gm-m-outline { fill: none; stroke: var(--brick-ink); stroke-width: 2.2; }
+.gm-m-arrow { fill: none; stroke: var(--brick-ink); stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+/* in the help list the mouse sits beside its row, a touch smaller */
+.gm-group .gm-mouse { height: 40px; }
+/* the always-on strip: a compact cluster, no arrows, white strokes on the dark chip */
+.gm-kb .gm-wasd { gap: 1px; margin-right: 2px; }
+.gm-kb .gm-wasd kbd { min-width: 14px; padding: 0 2px 1px; font-size: 8.5px; }
+.gm-kb .gm-wasd i { display: none; }
+.gm-kb .gm-mouse { height: 24px; }
+.gm-kb .gm-glyph small { display: none; }
+.gm-kb .gm-glyph { margin-right: 0; }
+.gm-kb .gm-m-arrow { stroke: #fff; }
+.screen-card .gm-kb .gm-m-arrow { stroke: var(--brick-ink); }
+
+/* ---- essentials as equal tiles: picture on top, caption on one baseline -- */
+.gm-keys { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; padding: 12px 10px; }
+.gm-keys li {
+  flex-direction: column;
+  justify-content: flex-start;
+  gap: 6px;
+  padding: 8px 4px 9px;
+  border: 2px solid rgba(31, 31, 31, 0.14);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.85);
+  white-space: normal;
+  text-align: center;
+}
+.gm-pic { display: flex; align-items: flex-end; justify-content: center; gap: 4px; min-height: 60px; }
+.gm-pic > * { margin-right: 0 !important; }
+.gm-cap { font-size: 14px; line-height: 1.25; }
+/* help rows: a fixed picture column, pictures centred in it */
+.gm-group dl > div { grid-template-columns: 124px 1fr; }
+.gm-group dt .gm-pic { min-height: 0; align-items: center; }
+.gm-group dt { display: flex; justify-content: center; }
+@media (max-width: 520px) {
+  .gm-keys { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .gm-group dl > div { grid-template-columns: 1fr; }
+  .gm-group dt { justify-content: flex-start; }
+}
+/* the WASD tile is the one wide picture: give it room instead of letting it spill */
+.gm-keys { grid-template-columns: 1.45fr 1fr 1fr 1fr; }
+.gm-keys .gm-wasd kbd { min-width: 22px; padding: 1px 3px 2px; font-size: 12px; }
+.gm-keys .gm-wasd i { font-size: 8px; }
+@media (max-width: 520px) { .gm-keys { grid-template-columns: repeat(2, minmax(0, 1fr)); } }

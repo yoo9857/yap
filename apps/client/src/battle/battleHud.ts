@@ -1,11 +1,12 @@
 import { MAX_HP } from "./combat.js";
 import { GameMenu, keyBarHtml, type KeyHelp } from "../ui/gameMenu.js";
 import { t } from "../ui/i18n.js";
+import { KEY_WASD, MOUSE_LEFT, MOUSE_MOVE } from "../ui/inputGlyphs.js";
 
 const ESSENTIALS = (): KeyHelp[] => [
-  { keys: ["W A S D"], label: t("이동", "Move") },
+  { keys: [KEY_WASD], label: t("이동", "Move") },
   { keys: ["Space"], label: t("점프", "Jump") },
-  { keys: [t("좌클릭", "Left click")], label: t("꾹 눌러 발사", "Hold to fire") },
+  { keys: [MOUSE_LEFT], label: t("꾹 눌러 발사", "Hold to fire") },
   { keys: ["V"], label: t("시점 전환", "Switch view") },
 ];
 
@@ -72,16 +73,16 @@ export class BattleHud {
         {
           title: t("움직이기", "Moving"),
           items: [
-            { keys: ["W A S D"], label: t("이동", "Move") },
+            { keys: [KEY_WASD], label: t("이동", "Move") },
             { keys: ["Space"], label: t("점프", "Jump") },
-            { keys: [t("마우스", "Mouse")], label: t("조준하기", "Aim") },
+            { keys: [MOUSE_MOVE], label: t("조준하기", "Aim") },
             { keys: ["V"], label: t("1인칭 / 3인칭 시점", "First / third person") },
           ],
         },
         {
           title: t("전투", "Fighting"),
           items: [
-            { keys: [t("좌클릭", "Left click")], label: t("꾹 눌러 블래스터 발사", "Hold to fire the blaster") },
+            { keys: [MOUSE_LEFT], label: t("꾹 눌러 블래스터 발사", "Hold to fire the blaster") },
             { keys: ["❤️"], label: t("세 번 맞으면 탈락", "Three hits and you're out") },
             { keys: ["🌀"], label: t("폭풍 밖에 있으면 체력이 줄어요", "The storm hurts outside the safe zone") },
           ],

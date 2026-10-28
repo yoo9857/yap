@@ -1,4 +1,5 @@
 import { t } from "./i18n.js";
+import { keyGlyphs } from "./inputGlyphs.js";
 import { SENSITIVITY_RANGE, settings, updateSettings, type Lang } from "./settings.js";
 import "./gameMenu.css";
 
@@ -32,7 +33,7 @@ export interface GameMenuOptions {
 type View = "main" | "help" | "settings";
 
 const esc = (s: string): string => s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]!);
-const kbd = (keys: string[]): string => keys.map((k) => `<kbd>${esc(k)}</kbd>`).join("");
+const kbd = keyGlyphs;
 
 /** The always-on key strip under the hotbar: a few essentials and the way to the rest. */
 export function keyBarHtml(items: KeyHelp[]): string {
@@ -70,7 +71,7 @@ export class GameMenu {
     const o = this.opts;
     const groups = o.help.map((g) => `
       <div class="gm-group"><h3>${esc(g.title)}</h3>
-        <dl>${g.items.map((i) => `<div><dt>${kbd(i.keys)}</dt><dd>${esc(i.label)}</dd></div>`).join("")}</dl>
+        <dl>${g.items.map((i) => `<div><dt><span class="gm-pic">${kbd(i.keys)}</span></dt><dd>${esc(i.label)}</dd></div>`).join("")}</dl>
       </div>`).join("");
     const pct = (v: number) => Math.round(v * 100);
     const lang = (code: Lang, label: string) =>
@@ -80,7 +81,7 @@ export class GameMenu {
         <section data-view="main">
           <p class="gm-kicker">${esc(o.mode)}</p>
           <h2 id="gm-title" data-id="gm-title"></h2>
-          <ul class="gm-keys">${o.essentials.map((i) => `<li>${kbd(i.keys)}<span>${esc(i.label)}</span></li>`).join("")}</ul>
+          <ul class="gm-keys">${o.essentials.map((i) => `<li><span class="gm-pic">${kbd(i.keys)}</span><span class="gm-cap">${esc(i.label)}</span></li>`).join("")}</ul>
           <button type="button" class="gm-play" data-id="gm-play">▶ ${o.selfManaged ? t("계속하기", "Resume") : t("플레이", "Play")}</button>
           <div class="gm-row">
             <button type="button" data-go="help" data-id="gm-help">⌨️ ${t("조작법", "Controls")}</button>

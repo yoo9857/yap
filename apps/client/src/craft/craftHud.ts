@@ -9,14 +9,15 @@ import {
 } from "./inventory.js";
 import { GameMenu, keyBarHtml, type HelpGroup, type KeyHelp } from "../ui/gameMenu.js";
 import { isEnglish, t } from "../ui/i18n.js";
+import { KEY_WASD, MOUSE_LEFT, MOUSE_MIDDLE, MOUSE_MOVE, MOUSE_RIGHT, MOUSE_WHEEL } from "../ui/inputGlyphs.js";
 
 const blockName = (def: BlockDef | undefined): string => (def ? (isEnglish() ? def.name : def.ko) : "");
 
 const ESSENTIALS = (): KeyHelp[] => [
-  { keys: ["W A S D"], label: t("이동", "Move") },
+  { keys: [KEY_WASD], label: t("이동", "Move") },
   { keys: ["Space"], label: t("점프", "Jump") },
-  { keys: [t("좌클릭", "Left click")], label: t("꾹 눌러 캐기", "Hold to mine") },
-  { keys: [t("우클릭", "Right click")], label: t("블록 놓기", "Place block") },
+  { keys: [MOUSE_LEFT], label: t("꾹 눌러 캐기", "Hold to mine") },
+  { keys: [MOUSE_RIGHT], label: t("블록 놓기", "Place block") },
 ];
 
 function helpGroups(furniture: boolean): HelpGroup[] {
@@ -24,9 +25,9 @@ function helpGroups(furniture: boolean): HelpGroup[] {
     {
       title: t("움직이기", "Moving"),
       items: [
-        { keys: ["W A S D"], label: t("이동", "Move") },
+        { keys: [KEY_WASD], label: t("이동", "Move") },
         { keys: ["Space"], label: t("점프 · 물속에서 위로", "Jump · swim up") },
-        { keys: [t("마우스", "Mouse")], label: t("둘러보기", "Look around") },
+        { keys: [MOUSE_MOVE], label: t("둘러보기", "Look around") },
         { keys: ["V"], label: t("1인칭 / 3인칭 시점", "First / third person") },
         { keys: ["O"], label: t("시야 거리 바꾸기", "View distance") },
       ],
@@ -34,9 +35,9 @@ function helpGroups(furniture: boolean): HelpGroup[] {
     {
       title: t("블록 쌓기", "Building"),
       items: [
-        { keys: [t("좌클릭", "Left click")], label: t("꾹 눌러 블록 캐기", "Hold to mine a block") },
-        { keys: [t("우클릭", "Right click")], label: t("블록 놓기", "Place a block") },
-        { keys: ["1–9", t("휠", "Wheel")], label: t("블록 고르기", "Pick a block") },
+        { keys: [MOUSE_LEFT], label: t("꾹 눌러 블록 캐기", "Hold to mine a block") },
+        { keys: [MOUSE_RIGHT], label: t("블록 놓기", "Place a block") },
+        { keys: ["1–9", MOUSE_WHEEL], label: t("블록 고르기", "Pick a block") },
         { keys: ["0"], label: t("물 양동이", "Water bucket") },
         { keys: ["F"], label: t("블록 모양 바꾸기", "Change brick shape") },
         { keys: ["R", "T"], label: t("돌리기 · 기울이기", "Rotate · tilt") },
@@ -56,12 +57,12 @@ function helpGroups(furniture: boolean): HelpGroup[] {
       title: t("가구 모드 (G)", "Furniture mode (G)"),
       items: [
         { keys: ["Q", "E"], label: t("가구 종류 바꾸기", "Change category") },
-        { keys: ["1–9", t("휠", "Wheel")], label: t("가구 고르기", "Pick a piece") },
-        { keys: [t("우클릭", "Right click")], label: t("놓기 · 문 열기 · 앉기", "Place · open doors · sit") },
-        { keys: [t("좌클릭 꾹", "Hold left")], label: t("가구 치우기", "Put a piece away") },
+        { keys: ["1–9", MOUSE_WHEEL], label: t("가구 고르기", "Pick a piece") },
+        { keys: [MOUSE_RIGHT], label: t("놓기 · 문 열기 · 앉기", "Place · open doors · sit") },
+        { keys: [MOUSE_LEFT], label: t("꾹 눌러 가구 치우기", "Hold to put a piece away") },
         { keys: ["R"], label: t("돌리기", "Turn") },
         { keys: ["X"], label: t("색 바꾸기", "Change colour") },
-        { keys: [t("휠 클릭", "Middle click")], label: t("보고 있는 가구 그대로 고르기", "Pick the piece you aim at") },
+        { keys: [MOUSE_MIDDLE], label: t("보고 있는 가구 그대로 고르기", "Pick the piece you aim at") },
         { keys: ["Ctrl", "Y"], label: t("다시 하기", "Redo") },
       ],
     }] : []),

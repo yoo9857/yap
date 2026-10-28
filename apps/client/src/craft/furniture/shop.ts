@@ -3,11 +3,12 @@ import type { CategoryKey, FurnitureDef } from "./types.js";
 import "./shop.css";
 import { t } from "../../ui/i18n.js";
 import { keyBarHtml, type KeyHelp } from "../../ui/gameMenu.js";
+import { MOUSE_LEFT, MOUSE_RIGHT } from "../../ui/inputGlyphs.js";
 
 /** The keys that work while a piece is in hand — shown on the bar and in the panel. */
 const FURNITURE_KEYS = (): KeyHelp[] => [
-  { keys: [t("우클릭", "Right click")], label: t("놓기", "Place") },
-  { keys: [t("좌클릭 꾹", "Hold left")], label: t("치우기", "Put away") },
+  { keys: [MOUSE_RIGHT], label: t("놓기", "Place") },
+  { keys: [MOUSE_LEFT], label: t("꾹 눌러 치우기", "Hold to put away") },
   { keys: ["R"], label: t("돌리기", "Turn") },
   { keys: ["X"], label: t("색 바꾸기", "Colour") },
   { keys: ["G"], label: t("블록으로", "Blocks") },
