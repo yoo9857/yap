@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import { clamp } from "@robo/shared";
 import type { PhysicsWorld, RapierCollider } from "../physics/physics.js";
+import { settings } from "../ui/settings.js";
 
 const MIN_DIST = 3;
 const MAX_DIST = 16;
@@ -39,8 +40,9 @@ export class FollowCamera {
       // camera around in one frame
       const dx = clamp(e.clientX - this.lastX, -180, 180);
       const dy = clamp(e.clientY - this.lastY, -180, 180);
-      this.yaw -= dx * 0.005;
-      this.pitch = clamp(this.pitch + dy * 0.005, MIN_PITCH, MAX_PITCH);
+      const look = 0.005 * settings.sensitivity;
+      this.yaw -= dx * look;
+      this.pitch = clamp(this.pitch + dy * look, MIN_PITCH, MAX_PITCH);
       this.lastX = e.clientX;
       this.lastY = e.clientY;
     });

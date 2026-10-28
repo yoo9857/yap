@@ -6,6 +6,8 @@ import { CharacterRig, VARIANT_CYCLE } from "../player/rig.js";
 import { Sfx } from "../audio/sfx.js";
 import { Bgm, BGM_PLAYLIST } from "../audio/bgm.js";
 import { PerfMonitor } from "../ui/perf.js";
+import { t } from "../ui/i18n.js";
+import { settings } from "../ui/settings.js";
 import { Effects } from "../render/effects.js";
 import { generateIsland, surfaceY, CASTLE_CENTER } from "../craft/voxelWorld.js";
 import { stepBody, unstick, wishFromInput, type Body } from "../craft/voxelBody.js";
@@ -53,6 +55,10 @@ export class BattleGame {
   private playerHp = MAX_HP;
 
   private phase: Phase = "live";
+  /** The match only runs while the player is in control: it waits for the
+   *  first click and freezes on Esc (a real pause — this is single-player).
+   *  Test harnesses without pointer lock set this to run it anyway. */
+  private runUnlocked = false;
   private elapsed = 0;
   private yaw = 0;
   private pitch = -0.15;
@@ -76,7 +82,9 @@ export class BattleGame {
     this.view = new VoxelView(this.renderer.scene);
     this.view.markDirty();
     this.effects = new Effects(this.renderer.scene);
-    this.hud = new BattleHud(document.body);
+    this.hud = new BattleHud(document.body, () => {
+      void Promise.resolve(this.renderer.renderer.domElement.requestPointerLock()).catch(() => {});
+    });
 
     // everyone drops on a ring around the island edge; slot 0 is the player
     const spawns: [number, number][] = [];
@@ -154,9 +162,9 @@ export class BattleGame {
   /** Textures, shaders and two real frames, behind the boot overlay — so the
    *  match never opens slow and catches up (see `warmupGpuAsync`). */
   async prepare(setMessage: (text: string) => void = () => {}): Promise<void> {
-    setMessage("Loading textures…");
+    setMessage(t("텍스처 불러오는 중…", "Loading textures…"));
     await texturesReady();
-    setMessage("Preparing graphics…");
+    setMessage(t("그래픽 준비하는 중…", "Preparing graphics…"));
     await warmupGpuAsync(this.renderer.renderer, this.renderer.scene, this.renderer.camera, () => this.renderer.render());
     this.warmed = true;
   }
@@ -183,7 +191,6 @@ export class BattleGame {
     });
     document.addEventListener("pointerlockchange", () => {
       this.locked = document.pointerLockElement !== null;
-      this.hud.setPointerLocked(this.locked || this.phase !== "live");
       if (!this.locked) this.firing = false;
     });
     document.addEventListener("mousemove", (e) => {
@@ -192,8 +199,9 @@ export class BattleGame {
       // spurious movementX/Y (browser/OS spike) that whips the aim/camera around
       const dx = Math.max(-180, Math.min(180, e.movementX));
       const dy = Math.max(-180, Math.min(180, e.movementY));
-      this.yaw -= dx * 0.0026;
-      this.pitch = Math.min(1.35, Math.max(-1.25, this.pitch - dy * 0.0026));
+      const look = 0.0026 * settings.sensitivity;
+      this.yaw -= dx * look;
+      this.pitch = Math.min(1.35, Math.max(-1.25, this.pitch - dy * look));
     });
     document.addEventListener("mousedown", (e) => {
       if (this.locked && e.button === 0) this.firing = true;
@@ -220,6 +228,7 @@ export class BattleGame {
   }
 
   private fixedUpdate(): void {
+    if (!this.locked && !this.runUnlocked && this.phase === "live") return;
     const dt = 1 / 60;
     if (this.phase === "live") this.elapsed += dt;
     const radius = zoneRadiusAt(this.elapsed);
@@ -238,13 +247,13 @@ export class BattleGame {
     stepBody(this.world, this.player, dt, wishX, wishZ, this.locked && this.keys.has("Space"));
     if (this.player.y < -12) {
       // fell off the island — the storm doesn't forgive that either
-      this.hurtPlayer(this.playerHp, "The void");
+      this.hurtPlayer(this.playerHp, t("낭떠러지", "The void"));
     }
 
     const weaponsFree = this.elapsed >= GRACE_SECONDS;
     if (weaponsFree && !this.fightAnnounced) {
       this.fightAnnounced = true;
-      this.hud.addFeed("⚔️ FIGHT!");
+      this.hud.addFeed(t("⚔️ 전투 시작!", "⚔️ FIGHT!"));
       this.sfx.play("checkpoint");
       // stagger the opening shots — without this every bot in range unloads
       // on the same frame the grace ends
@@ -272,7 +281,7 @@ export class BattleGame {
       // bot never takes storm damage and "last robot standing" never resolves
       if (bot.hp > 0 && bot.body.y < -12) {
         bot.hp = 0;
-        this.onBotDown(bot, "The void");
+        this.onBotDown(bot, t("낭떠러지", "The void"));
       }
     }
 
@@ -280,12 +289,12 @@ export class BattleGame {
     const ticks = zoneTicksBetween(prevElapsed, this.elapsed);
     if (ticks > 0 && this.phase === "live") {
       if (this.playerHp > 0 && !insideZone(this.player.x, this.player.z, ZONE_CX, ZONE_CZ, radius)) {
-        this.hurtPlayer(ticks, "The storm");
+        this.hurtPlayer(ticks, t("폭풍", "The storm"));
       }
       for (const bot of this.bots) {
         if (bot.hp > 0 && !insideZone(bot.body.x, bot.body.z, ZONE_CX, ZONE_CZ, radius)) {
           bot.hp -= ticks;
-          if (bot.hp <= 0) this.onBotDown(bot, "The storm");
+          if (bot.hp <= 0) this.onBotDown(bot, t("폭풍", "The storm"));
         }
       }
     }
@@ -322,7 +331,7 @@ export class BattleGame {
       const down = bot.hp <= 0;
       this.hud.hitMarker(down);
       this.sfx.play(down ? "checkpoint" : "land");
-      if (down) this.onBotDown(bot, "You");
+      if (down) this.onBotDown(bot, t("나", "You"));
     }
   }
 
@@ -334,11 +343,11 @@ export class BattleGame {
     this.spawnTracer(ox, oy - 0.18, oz, dx, dy, dz, hit.dist);
     if (hit.kind !== "fighter") return;
     if (hit.index === 0) {
-      this.hurtPlayer(1, `Bot ${bot.index}`);
+      this.hurtPlayer(1, `${t("로봇", "Bot")} ${bot.index}`);
     } else {
       const other = this.bots[hit.index - 1]!;
       other.hp -= 1;
-      if (other.hp <= 0) this.onBotDown(other, `Bot ${bot.index}`);
+      if (other.hp <= 0) this.onBotDown(other, `${t("로봇", "Bot")} ${bot.index}`);
     }
   }
 
@@ -351,11 +360,11 @@ export class BattleGame {
     this.hud.damageFlash();
     this.camera.addShake(0.06);
     this.sfx.play("oof");
-    if (this.playerHp <= 0) this.hud.addFeed(`${from} ⚡ You`);
+    if (this.playerHp <= 0) this.hud.addFeed(`${from} ⚡ ${t("나", "You")}`);
   }
 
   private onBotDown(bot: Bot, by: string): void {
-    this.hud.addFeed(`${by} ⚡ Bot ${bot.index}`);
+    this.hud.addFeed(`${by} ⚡ ${t("로봇", "Bot")} ${bot.index}`);
     const rig = this.botRigs[bot.index - 1]!;
     rig.root.visible = false;
     this.effects.deathBurst(
@@ -435,11 +444,12 @@ export class BattleGame {
     const next = zoneNextEventIn(this.elapsed);
     const zoneLabel = next
       ? next.label === "shrinking"
-        ? `🌀 shrinking ${Math.ceil(next.seconds)}s`
-        : `🌀 closes in ${Math.ceil(next.seconds)}s`
-      : "🌀 closed";
+        ? t(`🌀 안전 구역 줄어드는 중 · ${Math.ceil(next.seconds)}초`, `🌀 Safe zone shrinking · ${Math.ceil(next.seconds)}s`)
+        : t(`🌀 ${Math.ceil(next.seconds)}초 뒤 안전 구역이 줄어요`, `🌀 Safe zone shrinks in ${Math.ceil(next.seconds)}s`)
+      : t("🌀 안전 구역 최소", "🌀 Safe zone at its smallest");
     const outside = !insideZone(this.player.x, this.player.z, ZONE_CX, ZONE_CZ, radius);
     this.hud.update(this.playerHp, this.bots.filter((b) => b.hp > 0).length, zoneLabel, outside);
+    this.hud.syncMenu(this.locked, this.phase === "live");
 
     this.renderer.render();
     this.perf.update(this.renderer.renderer, frameDt);
@@ -483,6 +493,8 @@ export class BattleGame {
 
   private installDebugHooks(): void {
     (window as unknown as Record<string, unknown>).__roboBattle = {
+      /** Run the match without pointer lock (headless tests). */
+      start: () => { this.runUnlocked = true; },
       snapshot: () => ({
         phase: this.phase,
         hp: this.playerHp,

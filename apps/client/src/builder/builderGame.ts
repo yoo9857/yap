@@ -21,12 +21,13 @@ import {
 } from "./state.js";
 import { tick } from "./sim.js";
 import { goalAt, tryCompleteGoal } from "./goals.js";
+import { t } from "../ui/i18n.js";
 import { LANDMARKS, landmarkAt, type Landmark } from "./landmarks.js";
 import { clearSave, load, save } from "./save.js";
 import { LandmarkView } from "./landmarkView.js";
 import { WorkersView } from "./workersView.js";
 import { BlockFlights } from "./blockFlights.js";
-import { BuilderHud } from "./hud.js";
+import { BuilderHud, goalTitle, landmarkName } from "./hud.js";
 import { PerfMonitor } from "../ui/perf.js";
 import { BuilderEnvironment } from "./environment.js";
 import { CameraDirector, type ShotName } from "./cameraDirector.js";
@@ -565,7 +566,7 @@ export class BuilderGame {
           break;
         case "landmark": {
           this.sfx.play("clear");
-          this.hud.goalToast(`${e.landmark.emoji} ${e.landmark.name} complete!`, e.bonus);
+          this.hud.goalToast(t(`${e.landmark.emoji} ${landmarkName(e.landmark)} 완성!`, `${e.landmark.emoji} ${e.landmark.name} complete!`), e.bonus);
           const top = new THREE.Vector3(0, e.landmark.heightM + 1, 0);
           this.effects.goalConfetti(top);
           this.effects.goalConfetti(top.clone().setY(e.landmark.heightM * 0.5));
@@ -585,7 +586,7 @@ export class BuilderGame {
     if (lastCompleted) {
       this.sfx.play("clear");
       this.hud.goalToast(
-        completedCount > 1 ? `${completedCount} goals completed in a row!` : lastCompleted.title,
+        completedCount > 1 ? t(`목표 ${completedCount}개를 한꺼번에 달성했어요!`, `${completedCount} goals completed in a row!`) : goalTitle(lastCompleted),
         lastCompleted.reward,
       );
     }

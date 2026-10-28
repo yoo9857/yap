@@ -9,6 +9,41 @@ import {
 import { goalAt, goalProgress } from "./goals.js";
 import { LANDMARKS, landmarkAt, tourOf } from "./landmarks.js";
 import type { OfflineGains } from "./sim.js";
+import type { Goal } from "./goals.js";
+import type { Landmark } from "./landmarks.js";
+import { GameMenu } from "../ui/gameMenu.js";
+import { isEnglish, t } from "../ui/i18n.js";
+
+/** Korean landmark names and countries, by landmark id (the data stays English). */
+const LANDMARK_KO: Record<string, [string, string]> = {
+  pyramid: ["기자의 대피라미드", "이집트"],
+  bigben: ["빅 벤", "영국"],
+  pisa: ["피사의 사탑", "이탈리아"],
+  eiffel: ["에펠탑", "프랑스"],
+  colosseum: ["콜로세움", "이탈리아"],
+  namsan: ["N서울타워", "대한민국"],
+  liberty: ["자유의 여신상", "미국"],
+};
+export const landmarkName = (lm: Landmark): string => (isEnglish() ? lm.name : (LANDMARK_KO[lm.id]?.[0] ?? lm.name));
+
+/** A goal's line in the player's language. Goals are data (and unit-tested in
+ *  English), so Korean is derived from the kind and target, not stored. */
+export function goalTitle(goal: Goal): string {
+  if (isEnglish()) return goal.title;
+  switch (goal.kind) {
+    case "blocks": return `블록 ${goal.target}개 놓기`;
+    case "workers": return `일꾼 ${goal.target}명 모으기`;
+    case "valueLevel": return `블록 가치 Lv ${goal.target}까지 올리기`;
+    case "speedLevel": return `신발 Lv ${goal.target}까지 올리기`;
+    case "crane": return "🏗️ 크레인 설치하기";
+    case "landmark": {
+      const index = goal.target - 1;
+      const lm = landmarkAt(index);
+      const tour = tourOf(index);
+      return `${lm.emoji} ${landmarkName(lm)} 완성하기${tour > 0 ? ` (${tour + 1}바퀴째)` : ` (${LANDMARK_KO[lm.id]?.[1] ?? lm.country})`}`;
+    }
+  }
+}
 
 /** What the camera is actually showing (lags the sim during the parade). */
 export interface HudView {
@@ -23,11 +58,11 @@ function fmt(n: number): string {
   return String(Math.floor(n));
 }
 
-const SHOP_META: { item: ShopItem; icon: string; label: (s: BuilderState) => string }[] = [
-  { item: "worker", icon: "/ui/icon-worker.png", label: (s) => `Workers ×${s.workers}` },
-  { item: "speed", icon: "/ui/icon-speed.png", label: (s) => `Speed Lv${s.speedLevel}` },
-  { item: "value", icon: "/ui/icon-value.png", label: (s) => `Value Lv${s.valueLevel}` },
-  { item: "crane", icon: "/ui/icon-crane.png", label: (s) => (s.crane ? "Crane ready" : "Crane") },
+const SHOP_META: { item: ShopItem; icon: string; label: (s: BuilderState) => string; tip: () => string }[] = [
+  { item: "worker", icon: "/ui/icon-worker.png", label: (s) => t(`일꾼 ×${s.workers}`, `Workers ×${s.workers}`), tip: () => t("일꾼을 한 명 더 고용해요", "Hire one more worker") },
+  { item: "speed", icon: "/ui/icon-speed.png", label: (s) => t(`신발 Lv${s.speedLevel}`, `Speed Lv${s.speedLevel}`), tip: () => t("일꾼이 더 빨리 걸어요", "Workers walk faster") },
+  { item: "value", icon: "/ui/icon-value.png", label: (s) => t(`블록 가치 Lv${s.valueLevel}`, `Value Lv${s.valueLevel}`), tip: () => t("블록 하나당 골드가 늘어요", "More gold per block") },
+  { item: "crane", icon: "/ui/icon-crane.png", label: (s) => (s.crane ? t("크레인 준비 완료", "Crane ready") : t("크레인", "Crane")), tip: () => t("짐 싣는 속도 2배", "2× loading speed") },
 ];
 
 /** Crane appears in the shop once the quest chain introduces it. */
@@ -50,6 +85,7 @@ export class BuilderHud {
   private readonly shopButtons = new Map<ShopItem, HTMLButtonElement>();
   private pulseTimer: ReturnType<typeof setTimeout> | null = null;
   private lastRender = "";
+  readonly menu: GameMenu;
 
   constructor(
     parent: HTMLElement,
@@ -59,7 +95,7 @@ export class BuilderHud {
     this.root.className = "builder-hud";
     this.root.innerHTML = `
       <div class="b-top">
-        <div class="b-gold"><img class="ui-icon" src="/ui/icon-gold.png" alt="" /><span data-id="gold">0</span> Gold</div>
+        <div class="b-gold"><img class="ui-icon" src="/ui/icon-gold.png" alt="" /><span data-id="gold">0</span> ${t("골드", "Gold")}</div>
         <div class="b-sub"><span data-id="floors"></span></div>
         <div class="b-sub"><span data-id="rate"></span></div>
       </div>
@@ -98,6 +134,46 @@ export class BuilderHud {
       shop.appendChild(btn);
       this.shopButtons.set(meta.item, btn);
     }
+
+    // an idle game has no pointer lock: the menu opens from a button or H
+    this.menu = new GameMenu(parent, {
+      mode: "Robo Builder",
+      selfManaged: true,
+      essentials: [
+        { keys: ["💰"], label: t("골드가 저절로 모여요", "Gold comes in by itself") },
+        { keys: ["👷"], label: t("일꾼을 고용해요", "Hire workers") },
+        { keys: ["⬆️"], label: t("업그레이드로 더 빨리", "Upgrade to build faster") },
+        { keys: ["🏛️"], label: t("랜드마크를 완성해요", "Finish each landmark") },
+      ],
+      help: [
+        { title: t("어떻게 하나요?", "How it works"), items: [
+          { keys: ["💰"], label: t("로봇 일꾼이 블록을 나르면 골드가 들어와요", "Gold arrives as the robots carry blocks") },
+          { keys: ["👷"], label: t("일꾼이 많을수록 빨리 지어요", "More workers build faster") },
+          { keys: ["👟"], label: t("신발: 일꾼이 더 빨리 걸어요", "Shoes: workers walk faster") },
+          { keys: ["💎"], label: t("블록 가치: 블록마다 골드가 늘어요", "Value: more gold per block") },
+          { keys: ["🏗️"], label: t("크레인: 짐 싣는 속도 2배", "Crane: 2× loading speed") },
+        ] },
+        { title: t("알아 두면 좋아요", "Good to know"), items: [
+          { keys: ["🎯"], label: t("위쪽 목표를 끝내면 보너스 골드", "Finish the goal at the top for bonus gold") },
+          { keys: ["💤"], label: t("게임을 꺼 둔 동안에도 일꾼은 계속 지어요", "Your crew keeps building while you're away") },
+          { keys: ["💾"], label: t("진행은 이 브라우저에 자동 저장돼요", "Progress saves in this browser") },
+        ] },
+        { title: t("기타", "Other"), items: [
+          { keys: ["M"], label: t("음악 켜기 / 끄기", "Music on / off") },
+          { keys: ["H"], label: t("도움말 열기", "Open help") },
+          { keys: ["Esc"], label: t("메뉴 닫기", "Close the menu") },
+        ] },
+      ],
+      onResume: () => {},
+    });
+    const menuBtn = document.createElement("button");
+    menuBtn.type = "button";
+    menuBtn.className = "gm-menu-btn b-menu-btn";
+    menuBtn.dataset.id = "menu-button";
+    menuBtn.setAttribute("aria-label", t("메뉴 열기", "Open menu"));
+    menuBtn.textContent = "☰";
+    menuBtn.addEventListener("click", () => this.menu.open());
+    this.root.appendChild(menuBtn);
   }
 
   /** Cheap per-frame refresh — writes DOM only when the summary changes.
@@ -115,14 +191,17 @@ export class BuilderHud {
     const lm = landmarkAt(shownIndex);
     const tour = tourOf(shownIndex);
     const stop = (shownIndex % LANDMARKS.length) + 1;
-    const tourLabel = `🌍 Tour${tour > 0 ? ` ${tour + 1},` : ""} stop ${stop}/${LANDMARKS.length} — ${lm.emoji} ${lm.name} (real ${lm.realHeightM}m)`;
+    const tourLabel = t(
+      `🌍 세계 여행${tour > 0 ? ` ${tour + 1}바퀴째` : ""} ${stop}/${LANDMARKS.length} — ${lm.emoji} ${landmarkName(lm)} (실제 높이 ${lm.realHeightM}m)`,
+      `🌍 Tour${tour > 0 ? ` ${tour + 1},` : ""} stop ${stop}/${LANDMARKS.length} — ${lm.emoji} ${lm.name} (real ${lm.realHeightM}m)`,
+    );
     this.goldEl.textContent = fmt(state.gold);
     this.floorsEl.textContent = parade
-      ? `${tourLabel} ✨ Complete! Admiring…`
+      ? `${tourLabel} ${t("✨ 완성! 감상하는 중…", "✨ Complete! Admiring…")}`
       : `${tourLabel} ${state.placedBlocks.toLocaleString()}/${currentLandmarkTotal(state).toLocaleString()}`;
-    this.rateEl.textContent = `${voxelsPerSecond(state).toFixed(1)} blocks/s`;
+    this.rateEl.textContent = t(`초당 블록 ${voxelsPerSecond(state).toFixed(1)}개`, `${voxelsPerSecond(state).toFixed(1)} blocks/s`);
 
-    this.goalTitleEl.textContent = `Goal: ${goal.title}`;
+    this.goalTitleEl.textContent = `${t("목표", "Goal")}: ${goalTitle(goal)}`;
     this.goalRewardEl.textContent = `+${fmt(goal.reward)}G`;
     this.goalBarEl.style.width = `${Math.min(100, (progress / goal.target) * 100)}%`;
     this.goalCountEl.textContent = `${Math.min(progress, goal.target)} / ${goal.target}`;
@@ -135,17 +214,21 @@ export class BuilderHud {
         btn.style.display = visible ? "" : "none";
         if (state.crane) {
           btn.disabled = true;
-          btn.innerHTML = `<img class="ui-icon" src="${meta.icon}" alt="" /><b>Crane ready</b><small>2× loading speed!</small>`;
+          btn.innerHTML = `<img class="ui-icon" src="${meta.icon}" alt="" /><b>${t("크레인 준비 완료", "Crane ready")}</b><small>${t("짐 싣기 2배!", "2× loading speed!")}</small>`;
           continue;
         }
       }
       const cost = itemCost(state, meta.item);
-      btn.disabled = state.gold < cost;
+      const short = cost - state.gold;
+      btn.disabled = short > 0;
+      btn.title = meta.tip();
       const extra =
         meta.item === "worker" && state.workers >= MAX_VISUAL_WORKERS
-          ? " (12 shown on screen)"
+          ? t(" (화면엔 12명까지)", " (12 shown on screen)")
           : "";
-      btn.innerHTML = `<img class="ui-icon" src="${meta.icon}" alt="" /><b>${meta.label(state)}</b><small>${fmt(cost)}G${extra}</small>`;
+      // a greyed-out button says what it is waiting for, so it never looks broken
+      const price = short > 0 ? t(`💰 ${fmt(short)}G 더 필요`, `💰 ${fmt(short)}G more`) : `${fmt(cost)}G${extra}`;
+      btn.innerHTML = `<img class="ui-icon" src="${meta.icon}" alt="" /><b>${meta.label(state)}</b><small>${price}</small>`;
     }
   }
 
@@ -161,7 +244,7 @@ export class BuilderHud {
   goalToast(title: string, reward: number): void {
     const el = document.createElement("div");
     el.className = "b-toast";
-    el.textContent = `🎉 Goal complete! ${title} (+${fmt(reward)} gold)`;
+    el.textContent = t(`🎉 목표 달성! ${title} (+${fmt(reward)} 골드)`, `🎉 Goal complete! ${title} (+${fmt(reward)} gold)`);
     document.body.appendChild(el);
     setTimeout(() => el.remove(), 4200);
   }
@@ -173,7 +256,7 @@ export class BuilderHud {
       return;
     }
     this.boostEl.hidden = false;
-    this.boostEl.textContent = `⚡ Crew ×${mult.toFixed(1)} · ${Math.ceil(remainingMs / 1000)}s`;
+    this.boostEl.textContent = t(`⚡ 일꾼(Crew) ×${mult.toFixed(1)} · ${Math.ceil(remainingMs / 1000)}초`, `⚡ Crew ×${mult.toFixed(1)} · ${Math.ceil(remainingMs / 1000)}s`);
   }
 
   /** A donation / cheer just arrived — celebrate it on screen. All viewer
@@ -185,7 +268,7 @@ export class BuilderHud {
     head.textContent = display ? `⚡ ${tier} · ${display}` : `⚡ ${tier}`;
     const who = document.createElement("div");
     who.className = "b-donor-who";
-    who.textContent = name || "Someone";
+    who.textContent = name || t("누군가", "Someone");
     el.append(head, who);
     if (message) {
       const msg = document.createElement("div");
@@ -200,19 +283,21 @@ export class BuilderHud {
   showOfflineModal(gains: OfflineGains, onClose: () => void): void {
     const minutes = Math.round(gains.seconds / 60);
     const timeText =
-      minutes >= 60 ? `${Math.floor(minutes / 60)}h ${minutes % 60}m` : `${minutes}m`;
+      minutes >= 60
+        ? t(`${Math.floor(minutes / 60)}시간 ${minutes % 60}분`, `${Math.floor(minutes / 60)}h ${minutes % 60}m`)
+        : t(`${minutes}분`, `${minutes}m`);
     const el = document.createElement("div");
     el.className = "screen";
     el.innerHTML = `
       <div class="screen-card">
-        <h1>👷 Welcome back!</h1>
-        <p class="subtitle">Your crew kept working for the ${timeText} you were away.</p>
+        <h1>👷 ${t("다시 왔군요!", "Welcome back!")}</h1>
+        <p class="subtitle">${t(`자리를 비운 ${timeText} 동안 일꾼들이 계속 일했어요.`, `Your crew kept working for the ${timeText} you were away.`)}</p>
         <div class="b-offline-stats">
-          <div>🧱 Blocks <b>${fmt(gains.blocks)}</b></div>
-          <div>🏛️ Landmarks <b>+${gains.landmarks}</b></div>
-          <div>💰 Gold <b>+${fmt(gains.gold)}</b></div>
+          <div>🧱 ${t("블록", "Blocks")} <b>${fmt(gains.blocks)}</b></div>
+          <div>🏛️ ${t("랜드마크", "Landmarks")} <b>+${gains.landmarks}</b></div>
+          <div>💰 ${t("골드", "Gold")} <b>+${fmt(gains.gold)}</b></div>
         </div>
-        <button class="primary" data-id="ok">Nice!</button>
+        <button class="primary" data-id="ok">${t("좋아요!", "Nice!")}</button>
       </div>`;
     document.body.appendChild(el);
     const close = (): void => {

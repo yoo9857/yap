@@ -24,6 +24,9 @@ export interface GameMenuOptions {
   onResume: () => void;
   /** Title of the very first card, before the player has started. */
   startTitle?: string;
+  /** Modes without pointer lock (the tower): the menu shows and hides itself —
+   *  a menu button / H opens it, Play closes it. */
+  selfManaged?: boolean;
 }
 
 type View = "main" | "help" | "settings";
@@ -78,13 +81,15 @@ export class GameMenu {
           <p class="gm-kicker">${esc(o.mode)}</p>
           <h2 id="gm-title" data-id="gm-title"></h2>
           <ul class="gm-keys">${o.essentials.map((i) => `<li>${kbd(i.keys)}<span>${esc(i.label)}</span></li>`).join("")}</ul>
-          <button type="button" class="gm-play" data-id="gm-play">▶ ${t("플레이", "Play")}</button>
+          <button type="button" class="gm-play" data-id="gm-play">▶ ${o.selfManaged ? t("계속하기", "Resume") : t("플레이", "Play")}</button>
           <div class="gm-row">
             <button type="button" data-go="help" data-id="gm-help">⌨️ ${t("조작법", "Controls")}</button>
             <button type="button" data-go="settings" data-id="gm-settings">⚙️ ${t("설정", "Settings")}</button>
             <a href="/" data-id="gm-home">🏠 ${t("처음으로", "Home")}</a>
           </div>
-          <p class="gm-note">${t("플레이 중에 Esc를 누르면 마우스가 풀리고 이 메뉴가 열려요.", "Press Esc while playing to free the mouse and open this menu.")}</p>
+          <p class="gm-note">${o.selfManaged
+            ? t("☰ 버튼이나 H 키로 언제든 이 메뉴를 열 수 있어요.", "Open this menu any time with ☰ or H.")
+            : t("플레이 중에 Esc를 누르면 마우스가 풀리고 이 메뉴가 열려요.", "Press Esc while playing to free the mouse and open this menu.")}</p>
         </section>
         <section data-view="help" hidden>
           <h2>⌨️ ${t("조작법", "Controls")}</h2>
@@ -124,7 +129,10 @@ export class GameMenu {
         return;
       }
       // "click to start": anywhere on the card that is not one of its controls plays
-      if (target.closest("[data-id=gm-play]") || !target.closest("button, a, input, label, [data-view=help], [data-view=settings]")) this.opts.onResume();
+      if (target.closest("[data-id=gm-play]") || !target.closest("button, a, input, label, [data-view=help], [data-view=settings]")) {
+        if (this.opts.selfManaged) this.close();
+        this.opts.onResume();
+      }
     }, { signal });
     for (const ev of ["mousedown", "mouseup", "pointerdown", "wheel", "contextmenu"] as const) {
       this.el.addEventListener(ev, (e) => e.stopPropagation(), { signal });
@@ -149,6 +157,8 @@ export class GameMenu {
       if (tag === "TEXTAREA") return;
       if (e.key === "Escape" && this.visible && this.view !== "main") {
         this.setView("main");
+      } else if (e.key === "Escape" && this.visible && this.opts.selfManaged) {
+        this.close();
       } else if (e.key.toLowerCase() === "h" && !e.ctrlKey && !e.metaKey && !e.repeat) {
         if (this.visible && this.view === "help") this.setView("main");
         else this.openHelp();
@@ -160,13 +170,30 @@ export class GameMenu {
     this.view = view;
     this.el.querySelectorAll<HTMLElement>("[data-view]").forEach((s) => (s.hidden = s.dataset.view !== view));
     const title = this.el.querySelector('[data-id="gm-title"]');
-    if (title) title.textContent = this.started ? t("일시정지", "Paused") : (this.opts.startTitle ?? t("클릭해서 시작", "Click to start"));
+    const play = this.el.querySelector('[data-id="gm-play"]');
+    if (play && this.started) play.textContent = `▶ ${t("계속하기", "Resume")}`;
+    if (title) title.textContent = this.opts.selfManaged ? t("메뉴", "Menu") : this.started ? t("일시정지", "Paused") : (this.opts.startTitle ?? t("클릭해서 시작", "Click to start"));
   }
 
   /** Show the full control list, freeing the mouse if the player was in play. */
   openHelp(): void {
     this.setView("help");
     if (document.pointerLockElement) document.exitPointerLock();
+    if (this.opts.selfManaged) this.open("help");
+  }
+
+  /** Self-managed modes: show the card (on the main view unless told otherwise). */
+  open(view: View = "main"): void {
+    this.started = true;
+    this.visible = true;
+    this.el.classList.remove("hidden");
+    this.setView(view);
+  }
+
+  close(): void {
+    this.visible = false;
+    this.el.classList.add("hidden");
+    this.setView("main");
   }
 
   /** The game decides when the card may show (not in play, no other panel open). */

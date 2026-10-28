@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { t } from "../ui/i18n.js";
 
 /**
  * Altitude-band atmosphere for the tower: the world's look is a pure function
@@ -33,11 +34,11 @@ const STOPS: ZoneStop[] = [
 ];
 
 /** HUD band names — chosen by fraction, independent of the visual blend. */
-const ZONE_LABELS: { upTo: number; label: string }[] = [
-  { upTo: 0.3, label: "🌱 Ground" },
-  { upTo: 0.6, label: "☁️ Sky" },
-  { upTo: 0.85, label: "🌀 Ozone Layer" },
-  { upTo: Infinity, label: "🌌 Space" },
+const ZONE_LABELS = (): { upTo: number; label: string }[] => [
+  { upTo: 0.3, label: t("🌱 땅", "🌱 Ground") },
+  { upTo: 0.6, label: t("☁️ 하늘", "☁️ Sky") },
+  { upTo: 0.85, label: t("🌀 오존층", "🌀 Ozone Layer") },
+  { upTo: Infinity, label: t("🌌 우주", "🌌 Space") },
 ];
 
 const STAR_COUNT = 900;
@@ -170,8 +171,9 @@ export class Atmosphere {
   /** HUD band label for a given height (meters). */
   zoneLabel(y: number): string {
     const f = y / this.summit;
-    for (const z of ZONE_LABELS) if (f < z.upTo) return z.label;
-    return ZONE_LABELS[ZONE_LABELS.length - 1]!.label;
+    const labels = ZONE_LABELS();
+    for (const z of labels) if (f < z.upTo) return z.label;
+    return labels[labels.length - 1]!.label;
   }
 
   /** Blend the world's look toward the band at view height `y` (meters). */

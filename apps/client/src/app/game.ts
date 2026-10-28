@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { t } from "../ui/i18n.js";
 import {
   SIM_DT,
   createRng,
@@ -104,7 +105,7 @@ export class Game {
   private daily: DailyInfo;
 
   private state: GameState = "title";
-  playerName = "Player";
+  playerName = t("플레이어", "Player");
   runTimeMs = 0;
   private runStartTick: number | null = null;
   private finalTimeMs = 0;
@@ -155,16 +156,16 @@ export class Game {
         if (isLocal) {
           this.screens.updateClearResult(entry.timeMs, this.world.player.falls, entry.rank);
         } else {
-          showNotice(`🏁 ${entry.name} finished at #${entry.rank} today!`);
+          showNotice(t(`🏁 ${entry.name} 님이 오늘 ${entry.rank}등으로 완주했어요!`, `🏁 ${entry.name} finished at #${entry.rank} today!`));
         }
       },
       onRemoteCheckpoint: (playerId, index) => {
         const name = this.net.nameOf(playerId);
-        if (name) showNotice(`🚩 ${name} reached checkpoint ${index + 1}`);
+        if (name) showNotice(t(`🚩 ${name} 님이 체크포인트 ${index + 1}에 도착했어요`, `🚩 ${name} reached checkpoint ${index + 1}`));
       },
       onKicked: (msg) => {
         console.warn("kicked by server:", msg);
-        showNotice(`Disconnected from the server (${msg}) — playing on solo.`);
+        showNotice(t(`서버 연결이 끊겼어요 (${msg}) — 혼자 하기로 계속해요.`, `Disconnected from the server (${msg}) — playing on solo.`));
       },
     });
 
@@ -196,11 +197,11 @@ export class Game {
    * hitches were exactly these costs paid lazily on first sight.
    */
   async prepare(setMessage?: (text: string) => void): Promise<void> {
-    setMessage?.("Loading character…");
+    setMessage?.(t("캐릭터 불러오는 중…", "Loading character…"));
     await preloadCharacter();
-    setMessage?.("Loading textures…");
+    setMessage?.(t("텍스처 불러오는 중…", "Loading textures…"));
     await texturesReady();
-    setMessage?.("Warming up GPU…");
+    setMessage?.(t("그래픽 준비하는 중…", "Warming up GPU…"));
     warmupGpu(this.renderer.renderer, this.renderer.scene, this.renderer.camera);
   }
 
@@ -252,7 +253,7 @@ export class Game {
           const now = performance.now();
           if (now - this.lastGoalBlockedAt > 3000) {
             this.lastGoalBlockedAt = now;
-            showNotice("🚩 Pass every checkpoint before finishing!");
+            showNotice(t("🚩 체크포인트를 모두 지나야 완주할 수 있어요!", "🚩 Pass every checkpoint before finishing!"));
           }
         },
         onRespawn: () => this.net.sendRespawn("death"),

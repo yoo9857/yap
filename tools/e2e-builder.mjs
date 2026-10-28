@@ -38,11 +38,11 @@ const snap = () => page.evaluate(() => globalThis.__roboBuilder.snapshot());
 const goalText = await page.evaluate(
   () => document.querySelector('[data-id="goal-title"]')?.textContent ?? "",
 );
-check("first goal is presented immediately", goalText.includes("15 blocks"), goalText);
+check("first goal is presented immediately", goalText.includes("15 blocks") || goalText.includes("15개"), goalText);
 const hudSub = await page.evaluate(
   () => document.querySelector('[data-id="floors"]')?.textContent ?? "",
 );
-check("world tour HUD shows the first landmark", hudSub.includes("Pyramid"), hudSub);
+check("world tour HUD shows the first landmark", hudSub.includes("Pyramid") || hudSub.includes("피라미드"), hudSub);
 
 // ---- 3. gold flows in by itself (the single worker delivers)
 const g0 = (await snap()).gold;

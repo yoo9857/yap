@@ -1,5 +1,7 @@
 import type { DailyBoardEntry } from "@robo/shared";
 import { formatTime } from "./hud.js";
+import { keyBarHtml } from "./gameMenu.js";
+import { t } from "./i18n.js";
 
 /**
  * Title & clear overlays (DOM). The game supplies callbacks; screens never
@@ -26,12 +28,18 @@ export class Screens {
       <div class="screen-card">
         <img class="brand-logo small" src="/craftyap-logo.png" alt="CraftYap" />
         <h1>Daily Tower</h1>
-        <p class="daily-label"><span data-id="day">Daily Tower</span> · new tower in <span data-id="countdown">--:--:--</span></p>
-        <p class="subtitle">Climb to the gold pad at the top of the tower!</p>
-        <input type="text" maxlength="16" placeholder="Nickname" data-id="name" />
-        <button class="primary" data-id="start">Play</button>
+        <p class="daily-label"><span data-id="day">Daily Tower</span> · ${t("새 타워까지", "new tower in")} <span data-id="countdown">--:--:--</span></p>
+        <p class="subtitle">${t("꼭대기의 금색 발판까지 올라가요!", "Climb to the gold pad at the top of the tower!")}</p>
+        <input type="text" maxlength="16" placeholder="${t("닉네임", "Nickname")}" aria-label="${t("닉네임", "Nickname")}" data-id="name" />
+        <button class="primary" data-id="start">▶ ${t("플레이", "Play")}</button>
         <div class="board" data-id="board"></div>
-        <p class="help">Move W A S D · Jump Space · Respawn R · Music M · Drag to rotate the camera</p>
+        <p class="help gm-keybar">${keyBarHtml([
+          { keys: ["W A S D"], label: t("이동", "Move") },
+          { keys: ["Space"], label: t("점프", "Jump") },
+          { keys: [t("드래그", "Drag")], label: t("카메라", "Camera") },
+          { keys: ["R"], label: t("다시 시작", "Respawn") },
+        ])}</p>
+        <p><a class="desk-link" href="/">${t("← 다른 게임 고르기", "← Choose another game")}</a></p>
       </div>`;
     parent.appendChild(this.titleEl);
 
@@ -39,11 +47,11 @@ export class Screens {
     this.clearEl.className = "screen clear-screen hidden";
     this.clearEl.innerHTML = `
       <div class="screen-card">
-        <h1>🏆 Clear!</h1>
+        <h1>🏆 ${t("완주!", "Clear!")}</h1>
         <p class="subtitle" data-id="stats"></p>
-        <p class="daily-label">Today's ranking · new tower in <span data-id="countdown2">--:--:--</span></p>
+        <p class="daily-label">${t("오늘의 순위", "Today's ranking")} · ${t("새 타워까지", "new tower in")} <span data-id="countdown2">--:--:--</span></p>
         <div class="board" data-id="board"></div>
-        <button class="primary" data-id="restart">Try again</button>
+        <button class="primary" data-id="restart">↻ ${t("다시 도전", "Try again")}</button>
       </div>`;
     parent.appendChild(this.clearEl);
 
@@ -67,7 +75,7 @@ export class Screens {
     }
 
     this.titleEl.querySelector('[data-id="start"]')?.addEventListener("click", () => {
-      const name = this.nameInput.value.trim() || "Player";
+      const name = this.nameInput.value.trim() || t("플레이어", "Player");
       try {
         localStorage.setItem("robo-name", name);
       } catch {
@@ -99,7 +107,7 @@ export class Screens {
   setBoard(entries: DailyBoardEntry[]): void {
     const html =
       entries.length === 0
-        ? `<div class="board-row board-empty">No records yet today — go claim first place!</div>`
+        ? `<div class="board-row board-empty">${t("오늘은 아직 기록이 없어요 — 1등을 차지해 봐요!", "No records yet today — go claim first place!")}</div>`
         : entries
             .slice(0, 8)
             .map(
@@ -131,7 +139,8 @@ export class Screens {
 
   private renderClearStats(timeMs: number, falls: number, rank: number | null): void {
     this.clearStats.textContent =
-      `Time ${formatTime(timeMs)} · ${falls} falls` + (rank ? ` · #${rank} today!` : "");
+      t(`기록 ${formatTime(timeMs)} · ${falls}번 떨어짐`, `Time ${formatTime(timeMs)} · ${falls} falls`) +
+      (rank ? t(` · 오늘 ${rank}등!`, ` · #${rank} today!`) : "");
   }
 
   hideAll(): void {

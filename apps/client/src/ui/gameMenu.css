@@ -273,3 +273,58 @@
   .gm-row { grid-template-columns: 1fr; }
   .gm-group dl > div { grid-template-columns: 1fr; gap: 2px; }
 }
+
+/* ---- HUD chips (tower + battle) as bricks ------------------------------ */
+.hud-chip {
+  border-radius: 12px;
+  box-shadow: inset 0 -4px 0 rgba(0, 0, 0, 0.1), 0 4px 0 var(--brick-ink);
+  font-weight: 700;
+}
+.hud-chip.danger { background: #ff6b5a; color: #fff; }
+
+/* battle: the storm warning, unmissable but out of the crosshair's way */
+.battle-warn {
+  position: absolute;
+  top: 64px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 7px 16px 9px;
+  border: 3px solid var(--brick-ink);
+  border-radius: 12px;
+  background: #ff6b5a;
+  box-shadow: inset 0 -4px 0 rgba(0, 0, 0, 0.18), 0 4px 0 var(--brick-ink);
+  color: #fff;
+  font: 800 15px/1.3 system-ui, sans-serif;
+  white-space: nowrap;
+  animation: gm-blink 1s ease-in-out infinite alternate;
+}
+.battle-warn.hidden { display: none; }
+@keyframes gm-blink { to { transform: translateX(-50%) scale(1.04); } }
+@media (prefers-reduced-motion: reduce) { .battle-warn { animation: none; } }
+.battle-hud .craft-help.gm-keybar { bottom: 18px; }
+
+/* ---- tower: the menu button (no pointer lock, so no pause-on-Esc) ------ */
+.gm-menu-btn {
+  position: fixed;
+  top: 12px;
+  left: 12px;
+  z-index: 40;
+  width: 46px;
+  height: 46px;
+  border: 3px solid var(--brick-ink);
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: var(--brick-edge), var(--brick-lift);
+  color: var(--brick-ink);
+  font: 800 22px/1 system-ui, sans-serif;
+  cursor: pointer;
+}
+.gm-menu-btn:active { transform: translateY(3px); box-shadow: 0 1px 0 var(--brick-ink); }
+.screen-card .help.gm-keybar { justify-content: center; flex-wrap: wrap; margin-top: 12px; color: #1f1f1f; }
+.screen-card .help.gm-keybar .gm-kb { background: #f2f1ea; border-color: #dcdbd2; color: #1f1f1f; }
+/* builder: its gold card owns the top-left, so the menu button sits top-right */
+.gm-menu-btn.b-menu-btn { left: auto; right: 14px; }
+.gm-menu-btn { pointer-events: auto; }
+/* builder: a button you can't afford yet stays readable — it says what it needs */
+.b-shop-btn:disabled { filter: saturate(0.45) drop-shadow(2px 3px 0 rgba(31, 31, 31, 0.4)); opacity: 1; }
+.b-shop-btn:disabled small { color: #fff; font-weight: 700; }

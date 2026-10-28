@@ -21,6 +21,8 @@ page.on("pageerror", (e) => console.log("PAGEERROR:", e.message));
 
 await page.goto("http://localhost:5173/?mode=battle", { waitUntil: "networkidle2", timeout: 30000 });
 await page.waitForFunction(() => !!globalThis.__roboBattle, { timeout: 15000 });
+// the match waits for the player's first click (and pauses on Esc); run it without pointer lock
+await page.evaluate(() => globalThis.__roboBattle.start());
 await sleep(800); // sample well inside the weapons-free grace window
 
 const s0 = await page.evaluate(() => globalThis.__roboBattle.snapshot());
@@ -46,6 +48,7 @@ check("storm shrinks over time", s2.zoneRadius < s0.zoneRadius, `${s0.zoneRadius
 // can eliminate the player before the last kill lands
 await page.goto("http://localhost:5173/?mode=battle", { waitUntil: "networkidle2", timeout: 30000 });
 await page.waitForFunction(() => !!globalThis.__roboBattle, { timeout: 15000 });
+await page.evaluate(() => globalThis.__roboBattle.start());
 await sleep(1200);
 await page.evaluate(() => {
   for (let i = 1; i <= 7; i++) globalThis.__roboBattle.killBot(i);
@@ -59,6 +62,7 @@ check("victory card shown", endText.includes("VICTORY"), endText.slice(0, 40));
 // lose path on a fresh match
 await page.goto("http://localhost:5173/?mode=battle", { waitUntil: "networkidle2", timeout: 30000 });
 await page.waitForFunction(() => !!globalThis.__roboBattle, { timeout: 15000 });
+await page.evaluate(() => globalThis.__roboBattle.start());
 await sleep(1500);
 await page.evaluate(() => globalThis.__roboBattle.damagePlayer(3));
 await sleep(400);
