@@ -72,7 +72,8 @@ function page({ title, description, canonical, type, jsonLd, body }) {
     <meta name="theme-color" content="#ffd21c" />
     ${MARKER}
     <link rel="canonical" href="${canonical}" />
-    <link rel="alternate" type="application/atom+xml" title="크래프트얍 개발 노트" href="/note/feed.xml" />
+    <link rel="alternate" type="application/rss+xml" title="크래프트얍 개발 노트" href="/feed.xml" />
+    <link rel="alternate" type="application/atom+xml" title="크래프트얍 개발 노트 (Atom)" href="/note/feed.xml" />
     <link rel="icon" type="image/png" href="/craftyap-logo.png" />
     <link rel="stylesheet" href="${assets.guideCss}" />
     <link rel="stylesheet" href="${assets.noteCss}" />
@@ -109,7 +110,7 @@ ${json(jsonLd)}
     <main id="content" class="note-main section-shell">
 ${body}
     </main>
-    <footer class="site-footer section-shell"><div><a class="footer-brand" href="/">크래프트얍 <span>CraftYap</span></a><p>블록 하나에서 시작되는, 네가 만드는 세상.</p></div><nav aria-label="하단 메뉴"><a href="/">게임 홈</a><a href="/note/">개발 노트</a><a href="/guide/">게임 안내</a><a href="/note/feed.xml">RSS</a><a href="#content">맨 위로 ↑</a></nav><small>크래프트얍 개발 노트 · <time datetime="${newest}">${dot(newest)} 업데이트</time></small></footer>
+    <footer class="site-footer section-shell"><div><a class="footer-brand" href="/">크래프트얍 <span>CraftYap</span></a><p>블록 하나에서 시작되는, 네가 만드는 세상.</p></div><nav aria-label="하단 메뉴"><a href="/">게임 홈</a><a href="/note/">개발 노트</a><a href="/guide/">게임 안내</a><a href="/feed.xml">RSS</a><a href="#content">맨 위로 ↑</a></nav><small>크래프트얍 개발 노트 · <time datetime="${newest}">${dot(newest)} 업데이트</time></small></footer>
   </body>
 </html>
 `;
@@ -299,6 +300,31 @@ ${entries}
 `;
 }
 
+/** RSS 2.0 at the site root: what Naver Search Advisor and most readers expect. */
+function rss() {
+  const day = (d) => new Date(`${d}T00:00:00+09:00`).toUTCString().replace("GMT", "+0000");
+  const items = notes.slice(0, 20).map((n) => `    <item>
+      <title>${esc(n.title)}</title>
+      <link>${n.url}</link>
+      <guid isPermaLink="true">${n.url}</guid>
+      <pubDate>${day(n.date)}</pubDate>
+      <description>${esc(n.summary)}</description>
+    </item>`).join("\n");
+  return `<?xml version="1.0" encoding="utf-8"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>크래프트얍 개발 노트</title>
+    <link>${ORIGIN}/note/</link>
+    <atom:link href="${ORIGIN}/feed.xml" rel="self" type="application/rss+xml" />
+    <description>크래프트얍(CraftYap) 패치 노트와 개발 이야기</description>
+    <language>ko</language>
+    <lastBuildDate>${day(newest)}</lastBuildDate>
+${items}
+  </channel>
+</rss>
+`;
+}
+
 function sitemap() {
   const path = new URL("sitemap.xml", PUBLIC);
   const xml = readFileSync(path, "utf8").replace(/\r\n/g, "\n");
@@ -314,6 +340,7 @@ function sitemap() {
 const want = new Map([
   ["note/index.html", indexPage()],
   ["note/feed.xml", feed()],
+  ["feed.xml", rss()],
   ["sitemap.xml", sitemap()],
   ...notes.map((n, i) => [`note/${n.slug}/index.html`, postPage(n, i)]),
 ]);

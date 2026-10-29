@@ -68,6 +68,7 @@ for (const [path, wantType] of [
   ["/guide/assets/battle.webp", "image/webp"],
   ["/note/note.css", "text/css"],
   ["/note/feed.xml", "application/xml"],
+  ["/feed.xml", "application/xml"],
 ]) {
   try {
     // Inspect headers without starting and cancelling an audio/image stream.
