@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>10월 29일 패치 노트 (2) — 새 첫 화면 게시판, 교육 모드 화면, 로딩창 | 크래프트얍 개발 노트</title>
+    <meta name="description" content="첫 화면과 교육 모드 화면을 나무 게시판으로 새로 꾸미고, 화면이 바뀔 때 깜빡이던 문제를 고쳤습니다. 로딩창에는 진행 막대와 조작 팁이 생겼습니다." />
+    <meta name="robots" content="index, follow, max-image-preview:large" />
+    <meta name="theme-color" content="#ffd21c" />
+    <meta name="generator" content="tools/build-notes.mjs" />
+    <link rel="canonical" href="https://craftyap.com/note/patch-2026-10-29-2/" />
+    <link rel="alternate" type="application/rss+xml" title="크래프트얍 개발 노트" href="/feed.xml" />
+    <link rel="alternate" type="application/atom+xml" title="크래프트얍 개발 노트 (Atom)" href="/note/feed.xml" />
+    <link rel="icon" type="image/png" href="/craftyap-logo.png" />
+    <link rel="stylesheet" href="/guide/guide.css?v=0f9762e0f8" />
+    <link rel="stylesheet" href="/note/note.css?v=e5352788b0" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Jua&family=Noto+Sans+KR:wght@400;700;900&display=swap" rel="stylesheet" />
+    <meta property="og:type" content="article" />
+    <meta property="og:locale" content="ko_KR" />
+    <meta property="og:site_name" content="크래프트얍(CraftYap)" />
+    <meta property="og:title" content="10월 29일 패치 노트 (2) — 새 첫 화면 게시판, 교육 모드 화면, 로딩창 | 크래프트얍 개발 노트" />
+    <meta property="og:description" content="첫 화면과 교육 모드 화면을 나무 게시판으로 새로 꾸미고, 화면이 바뀔 때 깜빡이던 문제를 고쳤습니다. 로딩창에는 진행 막대와 조작 팁이 생겼습니다." />
+    <meta property="og:url" content="https://craftyap.com/note/patch-2026-10-29-2/" />
+    <meta property="og:image" content="https://craftyap.com/craftyap-banner.jpg" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="675" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="10월 29일 패치 노트 (2) — 새 첫 화면 게시판, 교육 모드 화면, 로딩창 | 크래프트얍 개발 노트" />
+    <meta name="twitter:description" content="첫 화면과 교육 모드 화면을 나무 게시판으로 새로 꾸미고, 화면이 바뀔 때 깜빡이던 문제를 고쳤습니다. 로딩창에는 진행 막대와 조작 팁이 생겼습니다." />
+    <meta name="twitter:image" content="https://craftyap.com/craftyap-banner.jpg" />
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "BlogPosting",
+      "@id": "https://craftyap.com/note/patch-2026-10-29-2/#post",
+      "url": "https://craftyap.com/note/patch-2026-10-29-2/",
+      "headline": "10월 29일 패치 노트 (2) — 새 첫 화면 게시판, 교육 모드 화면, 로딩창",
+      "description": "첫 화면과 교육 모드 화면을 나무 게시판으로 새로 꾸미고, 화면이 바뀔 때 깜빡이던 문제를 고쳤습니다. 로딩창에는 진행 막대와 조작 팁이 생겼습니다.",
+      "datePublished": "2026-10-29",
+      "dateModified": "2026-10-29",
+      "inLanguage": "ko",
+      "keywords": "패치 노트, 첫 화면, 교육 모드",
+      "image": "https://craftyap.com/craftyap-banner.jpg",
+      "isPartOf": {
+        "@id": "https://craftyap.com/note/#blog"
+      },
+      "author": {
+        "@type": "Organization",
+        "name": "크래프트얍(CraftYap)",
+        "url": "https://craftyap.com/"
+      },
+      "about": {
+        "@id": "https://craftyap.com/#game"
+      }
+    },
+    {
+      "@type": "BreadcrumbList",
+      "itemListElement": [
+        {
+          "@type": "ListItem",
+          "position": 1,
+          "name": "크래프트얍",
+          "item": "https://craftyap.com/"
+        },
+        {
+          "@type": "ListItem",
+          "position": 2,
+          "name": "개발 노트",
+          "item": "https://craftyap.com/note/"
+        },
+        {
+          "@type": "ListItem",
+          "position": 3,
+          "name": "10월 29일 패치 노트 (2) — 새 첫 화면 게시판, 교육 모드 화면, 로딩창",
+          "item": "https://craftyap.com/note/patch-2026-10-29-2/"
+        }
+      ]
+    }
+  ]
+}
+    </script>
+    <script src="/guide/guide.js?v=b6f46abba1" defer></script>
+  </head>
+
+  <body>
+    <a class="skip-link" href="#content">본문으로 이동</a>
+    <header class="site-header"><div class="header-inner">
+      <a class="brand" href="/" aria-label="크래프트얍 게임 홈"><img src="/craftyap-logo.png" width="64" height="64" alt="" /><span>크래프트얍<small>CRAFTYAP</small></span></a>
+      <nav class="header-nav" id="site-nav" aria-label="주요 메뉴"><a href="/note/">개발 노트</a><a href="/guide/">게임 안내</a><a href="/guide/#controls">조작법</a><a href="/guide/#faq">FAQ</a></nav>
+      <a class="button button-dark header-play" href="/">지금 플레이 <span aria-hidden="true">↗</span></a>
+      <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="site-nav" aria-label="메뉴 열기" hidden><span></span><span></span></button>
+    </div></header>
+    <main id="content" class="note-main section-shell">
+      <article class="note-article" aria-labelledby="post-title">
+        <nav class="note-crumb" aria-label="현재 위치"><a href="/note/">← 개발 노트</a></nav>
+        <header class="note-head">
+          <p class="note-date"><time datetime="2026-10-29">2026.10.29</time></p>
+          <h1 id="post-title">10월 29일 패치 노트 (2) — 새 첫 화면 게시판, 교육 모드 화면, 로딩창</h1>
+          <p class="note-summary">첫 화면과 교육 모드 화면을 나무 게시판으로 새로 꾸미고, 화면이 바뀔 때 깜빡이던 문제를 고쳤습니다. 로딩창에는 진행 막대와 조작 팁이 생겼습니다.</p>
+          <ul class="note-tags" aria-label="태그"><li>패치 노트</li><li>첫 화면</li><li>교육 모드</li></ul>
+          <nav class="note-chips" aria-label="이번 노트의 변경 사항"><a class="note-chip note-chip--new" href="#new">신규 <b>4</b></a><a class="note-chip note-chip--up" href="#up">개선 <b>5</b></a><a class="note-chip note-chip--fix" href="#fix">수정 <b>3</b></a></nav>
+        </header>
+        <div class="note-body">
+<section class="note-sec note-sec--summary" id="s0" aria-labelledby="s0-h">
+<h2 id="s0-h"><span class="note-badge" aria-hidden="true">요약</span>한눈에 보기</h2>
+<div class="note-sec-body">
+<p>크래프트얍에 들어와서 <strong>게임이 시작될 때까지의 모든 화면</strong>을 새로 꾸몄습니다. 첫 화면, 교육 모드
+화면, 로딩창이 모두 같은 블록 세상의 나무 게시판이 되었고, 화면이 넘어갈 때 잠깐 하늘색으로
+깜빡이던 문제도 사라졌습니다.</p>
+</div>
+</section>
+<section class="note-sec note-sec--new" id="new" aria-labelledby="new-h">
+<h2 id="new-h"><span class="note-badge" aria-hidden="true">NEW</span>새로 추가 <small>4</small></h2>
+<div class="note-sec-body">
+<ul>
+<li><strong class="item-title">나무 게시판 첫 화면</strong>교육 모드와 게임 모드를 압정으로 꽂은 사진 카드로 골라요. 게임 모드를 누르면 Craft Island, Daily Tower, Robo Builder, Blast Royale 네 게임이 각자의 그림 카드로 보여요.</li>
+<li><strong class="item-title">새 소식</strong>게시판 맨 위에 가장 최근 개발 노트가 꽂혀 있어요. 누르면 바로 읽을 수 있어요.</li>
+<li><strong class="item-title">새 교육 모드 화면</strong>선생님 · 반 만들기, 학생 · 반 참여하기, 혼자 하기가 그림 카드로 바뀌었어요. 반 이름과 이름을 적는 칸은 게시판에 꽂은 종이 양식이에요.</li>
+<li><strong class="item-title">로딩 진행 막대와 팁</strong>로딩창에서 노란 블록이 차오르며 지금 무엇을 준비하는지 알려 줘요. 기다리는 동안 Q 빈손, C 감정표현, B 기계 작업실 같은 조작 팁도 하나씩 보여 줘요.</li>
+</ul>
+</div>
+</section>
+<section class="note-sec note-sec--up" id="up" aria-labelledby="up-h">
+<h2 id="up-h"><span class="note-badge" aria-hidden="true">UP</span>개선 <small>5</small></h2>
+<div class="note-sec-body">
+<ul>
+<li>카드 그림, 나무 판자와 코르크판 질감을 모두 새로 그렸어요.</li>
+<li>버튼은 게임 안 블록 버튼처럼 아래 테두리가 있고, 누르면 쏙 들어가요.</li>
+<li>노트북처럼 세로가 짧은 화면에서는 로고와 간판이 옆으로 나란히 서고, 네 게임이 한 줄로 놓여 스크롤 없이 다 보여요.</li>
+<li>휴대폰에서는 카드가 사진 왼쪽, 글 오른쪽으로 바뀌고, 오른쪽 위 &quot;배경 멈추기&quot; 버튼과 겹치지 않아요.</li>
+<li>교육 모드 화면은 첫 화면에 있는 동안 미리 받아 두어서, 누르자마자 열려요.</li>
+</ul>
+</div>
+</section>
+<section class="note-sec note-sec--fix" id="fix" aria-labelledby="fix-h">
+<h2 id="fix-h"><span class="note-badge" aria-hidden="true">FIX</span>버그 수정 <small>3</small></h2>
+<div class="note-sec-body">
+<ul>
+<li><strong class="item-title">화면이 바뀔 때 깜빡이던 문제</strong>교육 모드를 누를 때 잠깐 빈 하늘색 화면이 보이고 배경 영상이 끊기던 문제를 고쳤어요. 이제 게임이 시작될 때까지 배경 그림과 영상이 이어져요.</li>
+<li><strong class="item-title">로딩창에 로고가 두 번 보이던 문제</strong>배경 그림의 로고와 로딩창 로고가 겹치던 것을 정리했어요.</li>
+<li><strong class="item-title">로딩 중 게임 버튼이 비쳐 보이던 문제</strong>로딩창 뒤로 기계 작업실 같은 게임 버튼이 보이던 문제를 고쳤어요.</li>
+</ul>
+</div>
+</section>
+        </div>
+      </article>
+      <nav class="note-pager" aria-label="다른 노트"><a class="note-prev" href="/note/patch-2026-10-29/"><small>이전 노트</small>10월 29일 패치 노트 — 감정표현, 새 캐릭터 TT, 기어가기</a><span></span></nav>
+    </main>
+    <footer class="site-footer section-shell"><div><a class="footer-brand" href="/">크래프트얍 <span>CraftYap</span></a><p>블록 하나에서 시작되는, 네가 만드는 세상.</p></div><nav aria-label="하단 메뉴"><a href="/">게임 홈</a><a href="/note/">개발 노트</a><a href="/guide/">게임 안내</a><a href="/feed.xml">RSS</a><a href="#content">맨 위로 ↑</a></nav><small>크래프트얍 개발 노트 · <time datetime="2026-10-29">2026.10.29 업데이트</time></small></footer>
+  </body>
+</html>

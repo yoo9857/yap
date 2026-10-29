@@ -69,6 +69,9 @@ for (const [path, wantType] of [
   ["/note/note.css", "text/css"],
   ["/note/feed.xml", "application/xml"],
   ["/feed.xml", "application/xml"],
+  ["/note/latest.json", "application/json"],
+  ["/home/education.webp", "image/webp"],
+  ["/home/wood.webp", "image/webp"],
 ]) {
   try {
     // Inspect headers without starting and cancelling an audio/image stream.
