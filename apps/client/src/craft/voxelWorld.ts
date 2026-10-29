@@ -1,3 +1,5 @@
+import { isFullCubeShape, raycastBlockShape } from "./shapes.js";
+import { isBlockShape } from "@robo/shared";
 import { isWater } from "@robo/shared";
 import { AIR, SOLID_ID, blockByKey } from "./blocks.js";
 
@@ -46,9 +48,8 @@ export interface RayHit {
 
 export class VoxelWorld {
   readonly cells = new Uint8Array(WORLD_X * WORLD_Y * WORLD_Z);
-  /** Per-cell brick SHAPE (0 = cube, 1 = round, 2–5 = slope facings). Parallel
-   *  to `cells`; physics ignores it (every solid cell is a full AABB), only the
-   *  renderer reads it. Cleared to 0 whenever a plain cube/air is written. */
+  /** Stable per-cell shape code, shared by rendering, collision, aiming and saves.
+   *  Cleared to 0 whenever a plain cube/air is written. */
   readonly shapes = new Uint8Array(WORLD_X * WORLD_Y * WORLD_Z);
   /** Block id per height for every column OUTSIDE the grid, or null for the
    *  island (outside is open air). The infinite education field sets this so
@@ -92,7 +93,7 @@ export class VoxelWorld {
       // Keep malformed tool/save input from poisoning the parallel shape
       // buffer. Unknown shapes can otherwise produce invalid rotations and
       // undefined geometry in the renderer.
-      this.shapes[i] = Number.isInteger(shape) && shape >= 0 && shape <= 17 ? shape : 0;
+      this.shapes[i] = isBlockShape(shape) ? shape : 0;
       this.version++;
     }
   }
@@ -117,17 +118,14 @@ export class VoxelWorld {
     return this.isSolid(x, y, z) || (this.propSolid !== null && this.propSolid(x, y, z));
   }
 
-  /** A solid cell with at least one air neighbour — the renderable surface. */
+  /** A solid cell whose neighbours do not completely enclose its surface. */
   isExposed(x: number, y: number, z: number): boolean {
     if (!this.isSolid(x, y, z)) return false;
-    return (
-      !this.isSolid(x + 1, y, z) ||
-      !this.isSolid(x - 1, y, z) ||
-      !this.isSolid(x, y + 1, z) ||
-      !this.isSolid(x, y - 1, z) ||
-      !this.isSolid(x, y, z + 1) ||
-      !this.isSolid(x, y, z - 1)
-    );
+    const covers = (nx: number, ny: number, nz: number): boolean =>
+      this.isSolid(nx, ny, nz) && isFullCubeShape(this.getShape(nx, ny, nz));
+    return !covers(x + 1, y, z) || !covers(x - 1, y, z) ||
+      !covers(x, y + 1, z) || !covers(x, y - 1, z) ||
+      !covers(x, y, z + 1) || !covers(x, y, z - 1);
   }
 
   /** Grid-DDA ray march. Origin/dir in world units (1 voxel = 1 m).
@@ -164,8 +162,17 @@ export class VoxelWorld {
     let pz = z;
 
     for (let t = 0; t <= maxDist; ) {
-      if ((props ? this.isBlocked(x, y, z) : this.isSolid(x, y, z)) || (fluids && isWater(this.get(x, y, z)))) {
-        return { voxel: [x, y, z], before: [px, py, pz], dist: t };
+      const id=this.get(x,y,z);
+      if((props&&this.propSolid?.(x,y,z))||(fluids&&isWater(id)))return {voxel:[x,y,z],before:[px,py,pz],dist:t};
+      if(this.isSolid(x,y,z)){
+        const shape=this.getShape(x,y,z);
+        if(isFullCubeShape(shape))return {voxel:[x,y,z],before:[px,py,pz],dist:t};
+        const hit=raycastBlockShape(shape,[ox-x,oy-y,oz-z],[dx,dy,dz],maxDist);
+        if(hit&&hit.distance>=t-1e-6){
+          const n=hit.normal,axis=Math.abs(n[1])>=Math.abs(n[0])&&Math.abs(n[1])>=Math.abs(n[2])?1:Math.abs(n[0])>=Math.abs(n[2])?0:2;
+          const before:[number,number,number]=[x,y,z];before[axis]+=Math.sign(n[axis]);
+          return {voxel:[x,y,z],before,dist:hit.distance};
+        }
       }
       px = x;
       py = y;

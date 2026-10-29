@@ -8,6 +8,10 @@ export * from "./level/analytic.js";
 export * from "./protocol/index.js";
 export * from "./stream.js";
 export * from "./fluid.js";
+export * from "./blocks.js";
 export * from "./voxelKey.js";
 
 export * from "./character.js";
+export * from "./bonk.js";
+
+export * from "./blockShapes.js";

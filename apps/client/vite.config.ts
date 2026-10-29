@@ -19,6 +19,9 @@ export default defineConfig({
     rollupOptions: {
       input: {
         game: fileURLToPath(new URL("./index.html", import.meta.url)),
+        blockReview: fileURLToPath(new URL("./block-preview.html", import.meta.url)),
+        connectionReview:fileURLToPath(new URL("./connection-preview.html",import.meta.url)),
+        miningReview:fileURLToPath(new URL("./mining-preview.html",import.meta.url)),
         homeReview: fileURLToPath(new URL("./home-preview.html", import.meta.url)),
       },
     },
@@ -27,3 +30,4 @@ export default defineConfig({
     sourcemap: false,
   },
 });
+

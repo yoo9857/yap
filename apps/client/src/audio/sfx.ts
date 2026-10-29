@@ -20,7 +20,9 @@ type SfxName =
   | "sit"
   | "undo"
   | "splash"
-  | "pour";
+  | "pour"
+  | "tap"
+  | "bonk";
 
 export class Sfx {
   private readonly events = new AbortController();
@@ -109,6 +111,13 @@ export class Sfx {
       case "pour":
         this.beep(ctx, 540, 0.14, "sine", 0.035, 300);
         this.noise(ctx, 0.16, 0.03);
+        break;
+      case "tap":
+        this.beep(ctx, 880, 0.04, "square", 0.03, 420);
+        break;
+      case "bonk":
+        this.beep(ctx, 520, 0.05, "triangle", 0.055, 160);
+        this.noise(ctx, 0.04, 0.02);
         break;
     }
   }

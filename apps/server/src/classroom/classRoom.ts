@@ -2,12 +2,18 @@ import { FurnitureLayout, type PlacementWorld } from "@robo/shared/furniture/lay
 import type { PlacedFurniture } from "@robo/shared/furniture/types";
 import { randomBytes, randomUUID } from "node:crypto";
 import {
+  BONK_COOLDOWN_MS,
+  BONK_REACH,
+  BONK_SERVER_SLACK,
   CLASS_MAX_STUDENTS,
   CLASS_MAX_COORD,
   CLASS_MAX_Y,
+  bonkBlocked,
+  bonkEye,
+  pickBonk,
   FluidSim,
-  WATER,
   classKey,
+  isPlayerBlock,
   isWater,
   voxelCoordinates,
   voxelKey,
@@ -56,6 +62,12 @@ interface Member {
   character?: CharacterId;
   emote?: EmoteId;
   emoteSeq?: number;
+  action?: "none" | "interact" | "place" | "hit";
+  actionSeq?: number;
+  actionLoop?: boolean;
+  swimming?: boolean;
+  /** Wall-clock ms of the last tap that connected. */
+  bonkAt?: number;
 }
 
 /**
@@ -340,6 +352,7 @@ export class ClassRoom {
         me.character = msg.character ?? "mascot";
         me.emote = msg.emote ?? "none";
         me.emoteSeq = msg.emoteSeq ?? 0;
+        me.action=msg.action??"none";me.actionSeq=msg.actionSeq??0;me.actionLoop=msg.actionLoop??false;me.swimming=msg.swimming??false;
         return;
       case "k-edit":
         this.applyEdits(me, peer, msg.edits);
@@ -350,6 +363,9 @@ export class ClassRoom {
       case "k-chat":
         if (me.role === "student" && this.settings.chatLocked) return;
         this.broadcast({ t: "s-k-chat", from: me.id, name: me.name, role: me.role, text: msg.text });
+        return;
+      case "k-bonk":
+        this.bonk(me, msg);
         return;
     }
     if (me.role !== "teacher") return; // everything below is the teacher's
@@ -377,7 +393,7 @@ export class ClassRoom {
         }
         return;
       case "k-settings":
-        this.settings = { chatLocked: msg.chatLocked, buildLocked: msg.buildLocked };
+        this.settings = { chatLocked: msg.chatLocked, buildLocked: msg.buildLocked, tapsLocked: msg.tapsLocked ?? this.settings.tapsLocked ?? false };
         this.dirty = true;
         this.broadcast({ t: "s-k-settings", settings: this.settings });
         return;
@@ -410,7 +426,9 @@ export class ClassRoom {
       const [x, y, z, block, shape] = edit;
       const cell = voxelKey(x, y, z);
       // bedrock is unbreakable, and a full store takes no NEW cells
-      if (y === 0 || block > WATER || (isWater(block) && shape !== 0) || (block !== 0 && this.furniture.blocksBlock(x, y, z)) || (!this.edits.has(cell) && this.edits.size >= MAX_EDITS)) {
+      // Solids are the shared catalog (ids past the water states included).
+      // Flowing, falling and settled water stay simulation-owned.
+      if (y === 0 || !isPlayerBlock(block) || (isWater(block) && shape !== 0) || (block !== 0 && this.furniture.blocksBlock(x, y, z)) || (!this.edits.has(cell) && this.edits.size >= MAX_EDITS)) {
         refused.push(edit);
         continue;
       }
@@ -485,11 +503,52 @@ export class ClassRoom {
     this.broadcast({ t: "s-k-furniture", furniture: next.toJSON() });
   }
 
+  /** A light tap. Positions already on the wire are the only ones trusted. */
+  private bonk(me: Member, msg: Extract<ClassClientMessage, { t: "k-bonk" }>): void {
+    if (!me.pos || this.settings.tapsLocked) return;
+    const now = Date.now();
+    if (now - (me.bonkAt ?? 0) < BONK_COOLDOWN_MS) return;
+    const others = [];
+    for (const other of this.byPeer.values()) {
+      if (other === me || !other.pos) continue;
+      others.push({ id: other.id, x: other.pos[0], y: other.pos[1], z: other.pos[2] });
+    }
+    const hit = pickBonk(
+      { x: me.pos[0], y: me.pos[1], z: me.pos[2], yaw: msg.yaw, pitch: msg.pitch, eye: bonkEye(me.anim) },
+      others,
+      {
+        reach: BONK_REACH + BONK_SERVER_SLACK,
+        only: msg.target,
+        blocked: (from, to) => bonkBlocked(from, to, (x, y, z) => this.bonkSolid(x, y, z)),
+      },
+    );
+    if (!hit) return;
+    me.bonkAt = now;
+    this.broadcast({
+      t: "s-k-bonk",
+      by: me.id,
+      target: hit.id,
+      seq: msg.seq,
+      vx: hit.vx,
+      vz: hit.vz,
+      vy: hit.vy,
+      at: hit.at,
+    });
+  }
+
+  /** Blocks and solid furniture stop a tap. Water does not. */
+  private bonkSolid(x: number, y: number, z: number): boolean {
+    if (y < 0 || y > CLASS_MAX_Y) return true;
+    if (this.furniture.blocksBlock(x, y, z)) return true;
+    const block = this.edits.get(voxelKey(x, y, z))?.[0] ?? pristine(y);
+    return block !== 0 && !isWater(block);
+  }
+
   /** Positions of everyone connected; sent at the snapshot rate. */
   snapshot(): void {
     const players = [];
     for (const m of this.byPeer.values()) {
-      if (m.pos) players.push({ id: m.id, pos: m.pos, yaw: m.yaw, anim: m.anim, character: m.character ?? "mascot", emote: m.emote ?? "none", emoteSeq: m.emoteSeq ?? 0 });
+      if (m.pos) players.push({ id: m.id, pos: m.pos, yaw: m.yaw, anim: m.anim, character: m.character ?? "mascot", emote: m.emote ?? "none", emoteSeq: m.emoteSeq ?? 0, action:m.action??"none",actionSeq:m.actionSeq??0,actionLoop:m.actionLoop??false,swimming:m.swimming??false });
     }
     if (players.length < 2) return; // nobody to show anybody
     this.broadcast({ t: "s-k-snap", players });

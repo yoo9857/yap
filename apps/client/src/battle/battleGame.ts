@@ -11,7 +11,10 @@ import { settings } from "../ui/settings.js";
 import { lookDelta } from "../input/mouseLook.js";
 import { Effects } from "../render/effects.js";
 import { generateIsland, surfaceY, CASTLE_CENTER } from "../craft/voxelWorld.js";
-import { stepBody, unstick, wishFromInput, type Body } from "../craft/voxelBody.js";
+import { stepBody, SWIM_DEPTH, unstick, wishFromInput, type Body } from "../craft/voxelBody.js";
+import { moveScale } from "../craft/posture.js";
+import { approach } from "../craft/smoothing.js";
+import { gaitBlend } from "../player/motionPolicy.js";
 import { VoxelView } from "../craft/voxelView.js";
 import { CraftCamera } from "../craft/craftCamera.js";
 import { EYE_HEIGHT, FIRE_COOLDOWN, MAX_HP, resolveShot, type Fighter } from "./combat.js";
@@ -66,6 +69,8 @@ export class BattleGame {
   private yaw = 0;
   private pitch = -0.15;
   private readonly keys = new Set<string>();
+  /** 1 is a run. Eases between the walk and the run while Shift is held. */
+  private moveRatio = moveScale("stand", false);
   private firing = false;
   private fireCooldown = 0;
   private locked = false;
@@ -248,7 +253,12 @@ export class BattleGame {
       if (this.keys.has("KeyD")) strafe += 1;
     }
     const [wishX, wishZ] = wishFromInput(this.yaw, fwd, strafe);
-    stepBody(this.world, this.player, dt, wishX, wishZ, this.locked && this.keys.has("Space"));
+    const swimming = (this.player.wet ?? 0) >= SWIM_DEPTH;
+    const sprint = !swimming && (fwd !== 0 || strafe !== 0) && (this.keys.has("ShiftLeft") || this.keys.has("ShiftRight"));
+    const targetRatio = moveScale("stand", sprint, swimming);
+    if (swimming) this.moveRatio = targetRatio;
+    else this.moveRatio += (targetRatio - this.moveRatio) * approach(dt, sprint ? 0.06 : 0.09);
+    stepBody(this.world, this.player, dt, wishX * this.moveRatio, wishZ * this.moveRatio, this.locked && this.keys.has("Space"));
     if (this.player.y < -12) {
       // fell off the island — the storm doesn't forgive that either
       this.hurtPlayer(this.playerHp, t("낭떠러지", "The void"));
@@ -438,7 +448,7 @@ export class BattleGame {
     this.effects.update(frameDt);
 
     const eye = this.tmpEye.set(this.player.x, this.smoothedEyeY(frameDt), this.player.z);
-    const robotOpacity = this.camera.update(this.world, eye, this.yaw, this.pitch, planar > 0.5, frameDt);
+    const robotOpacity = this.camera.update(this.world, eye, this.yaw, this.pitch, planar > 0.8 && gaitBlend(planar) >= 0.5, frameDt);
     this.applyRobotOpacity(robotOpacity, frameDt);
     // the blaster only shows in first person, and only while you're alive
     this.viewModel.setVisible(this.camera.firstPerson && this.playerHp > 0 && this.phase === "live");

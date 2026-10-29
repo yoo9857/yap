@@ -13,6 +13,12 @@ import { HULL_LAYER, InkOutline } from "./inkOutline.js";
  * cannot render through the render targets the pass needs. `?ink=0` forces the
  * fallback for comparison.
  */
+/** Where the sun sits relative to what it follows, and the shadow camera's axes for that direction. */
+const SUN_OFFSET = new THREE.Vector3(18, 35, 14);
+const SUN_Z = SUN_OFFSET.clone().normalize();
+const SUN_X = new THREE.Vector3(0, 1, 0).cross(SUN_Z).normalize();
+const SUN_Y = SUN_Z.clone().cross(SUN_X);
+
 export class GameRenderer {
   readonly renderer: THREE.WebGLRenderer;
   readonly scene: THREE.Scene;
@@ -32,8 +38,14 @@ export class GameRenderer {
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
-    this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    this.renderer.toneMappingExposure = 1.08;
+    // Khronos PBR Neutral: identity below ~0.8, so the crayon colours stay
+    // exactly as painted and only highlights (sun glints, glowstone, metal)
+    // roll off instead of clipping. ACES washed the palette out. The ink
+    // composite applies this same curve (render targets skip tone mapping).
+    this.renderer.toneMapping = THREE.NeutralToneMapping;
+    // a touch over 1: Neutral is identity below ~0.8, so this lifts the
+    // mid-tones the players called dark without clipping the bright planks
+    this.renderer.toneMappingExposure = 1.12;
     mount.appendChild(this.renderer.domElement);
 
     this.scene = new THREE.Scene();
@@ -47,7 +59,10 @@ export class GameRenderer {
       400,
     );
 
-    this.hemi = new THREE.HemisphereLight(0xdff3ff, 0x5a7d54, 0.9);
+    // The fill is what every shaded face lives on. At 0.9 with a GRASS-green
+    // ground bounce, the shaded side of the yellow mascot read olive and the
+    // whole world looked dim; a stronger, neutral warm bounce keeps colours true.
+    this.hemi = new THREE.HemisphereLight(0xdff3ff, 0x8f8a78, 1.5);
     this.hemi.layers.enableAll(); // see inkVisibleLights
     this.scene.add(this.hemi);
 
@@ -108,11 +123,24 @@ export class GameRenderer {
 
   private xrRig: THREE.Group | null = null;
 
-  /** Keep the sun (and its shadow box) centered on the action. */
+  /**
+   * Keep the sun (and its shadow box) centered on the action. The centre is
+   * snapped to whole shadow-map texels in the light's own plane: a box that
+   * slides by fractions of a texel re-rasterises every shadow edge each frame,
+   * which reads as crawling, shimmering outlines whenever the player walks.
+   */
   trackTarget(target: THREE.Vector3): void {
-    this.sun.position.set(target.x + 18, target.y + 35, target.z + 14);
-    this.sun.target.position.copy(target);
+    const cam = this.sun.shadow.camera;
+    const texel = (cam.right - cam.left) / this.sun.shadow.mapSize.x;
+    const a = Math.round(target.dot(SUN_X) / texel) * texel;
+    const b = Math.round(target.dot(SUN_Y) / texel) * texel;
+    const c = target.dot(SUN_Z);
+    const snapped = this.tmpTarget.copy(SUN_X).multiplyScalar(a).addScaledVector(SUN_Y, b).addScaledVector(SUN_Z, c);
+    this.sun.position.copy(snapped).add(SUN_OFFSET);
+    this.sun.target.position.copy(snapped);
   }
+
+  private readonly tmpTarget = new THREE.Vector3();
 
   render(): void {
     // Presenting to a headset means the XR system owns the framebuffer, and a

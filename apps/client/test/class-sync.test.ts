@@ -10,7 +10,7 @@ vi.mock("../src/craft/classHud.js", () => ({ ClassHud: class {
 } }));
 vi.mock("../src/player/rig.js", async () => {
   const THREE = await import("three");
-  return { CharacterRig: class { root = new THREE.Group(); update() {} setCharacter(id: string) { this.root.userData.characterId=id; } setEmote(id: string,seq: number) { this.root.userData.emote=id; this.root.userData.emoteSeq=seq; } }, disposeRig: (root: THREE.Object3D) => {
+  return { CharacterRig: class { root = new THREE.Group(); update() {} flashHit() { this.root.userData.flashed = (Number(this.root.userData.flashed) || 0) + 1; } pop() { this.root.userData.popped = (Number(this.root.userData.popped) || 0) + 1; } performAction(id: string, seq: number) { this.root.userData.action = id; this.root.userData.actionSeq = seq; } setCharacter(id: string) { this.root.userData.characterId=id; } setEmote(id: string,seq: number) { this.root.userData.emote=id; this.root.userData.emoteSeq=seq; } }, disposeRig: (root: THREE.Object3D) => {
     root.traverse((o) => { if (o instanceof THREE.Sprite) { o.material.map?.dispose(); o.material.dispose(); } });
   } };
 });
@@ -23,17 +23,20 @@ function setup() {
   const session: ClassSession = { you: "old", role: "teacher", room: "Test", teacher: "Teacher", members: [member("old", "teacher"), member("other")],
     settings: { buildLocked: false, chatLocked: false }, edits: [], furniture: [] };
   const changed = vi.fn();
+  const bonked = vi.fn();
+  const impact = vi.fn();
   const sync = new ClassSync(client, session, field, { markDirty() {}, markCellDirty() {}, markWaterDirty() {} } as unknown as VoxelView,
-    scene, { teleport() {}, toast() {}, clearKeys() {}, worldChanged: changed }, new FurnitureLayout());
-  return { client, field, scene, session, sync, changed };
+    scene, { teleport() {}, toast() {}, clearKeys() {}, worldChanged: changed, bonked, impact }, new FurnitureLayout());
+  return { client, field, scene, session, sync, changed, bonked, impact };
 }
+const robots = (scene: THREE.Scene) => scene.children.filter((child) => child.name !== "CraftYap bonk");
 describe("classroom player synchronisation", () => {
   it("replaces identity after server restore and never draws its own robot twice", () => {
     const { client, scene, session, sync, changed } = setup();
     client.onSnap!([{ id: "other", pos: [0, 4, 0], yaw: 0, anim: "idle" }]);
     expect(sync.debug().remotes).toHaveLength(1);
     client.onResync!({ ...session, you: "new", members: [member("new", "teacher"), member("fresh")] });
-    expect(scene.children).toHaveLength(0); expect(changed).toHaveBeenCalledOnce();
+    expect(robots(scene)).toHaveLength(0); expect(changed).toHaveBeenCalledOnce();
     client.onSnap!([{ id: "new", pos: [0, 4, 0], yaw: 0, anim: "idle" }, { id: "fresh", pos: [1, 4, 0], yaw: 0, anim: "idle" }]);
     expect(sync.debug().you).toBe("new"); expect(sync.debug().remotes.map((r) => r.id)).toEqual(["fresh"]);
     sync.dispose(); expect(scene.children).toHaveLength(0);
@@ -48,7 +51,20 @@ describe("classroom player synchronisation", () => {
   it("hides disconnected remotes immediately and frees them on class end", () => {
     const { client, scene, sync } = setup();
     client.onSnap!([{ id: "other", pos: [0, 4, 0], yaw: 0, anim: "idle" }]);
-    client.onConnection!(false); sync.render(1 / 60); expect(scene.children[0]!.visible).toBe(false);
-    client.onEnded!("closed"); expect(scene.children).toHaveLength(0); sync.dispose();
+    client.onConnection!(false); sync.render(1 / 60); expect(robots(scene)[0]!.visible).toBe(false);
+    client.onEnded!("closed"); expect(robots(scene)).toHaveLength(0); sync.dispose();
+  });
+  it("shoves the local player and flashes a classmate who was tapped", () => {
+    const { client, scene, sync, bonked, impact } = setup();
+    client.onSnap!([{ id: "other", pos: [2, 4, 0], yaw: 0, anim: "idle" }]);
+    const friend = robots(scene)[0]!;
+    client.onBonk!({ t: "s-k-bonk", by: "other", target: "old", seq: 3, vx: 4, vz: 0, vy: 3, at: [1, 5.05, 0] });
+    expect(bonked).toHaveBeenCalledWith({ vx: 4, vz: 0, vy: 3 });
+    expect(impact).toHaveBeenCalledOnce();
+    client.onBonk!({ t: "s-k-bonk", by: "old", target: "other", seq: 4, vx: -4, vz: 1, vy: 3, at: [2, 5.05, 0] });
+    expect(bonked).toHaveBeenCalledTimes(1);
+    expect(friend.userData).toMatchObject({ flashed: 1, popped: 1, action: "hit", actionSeq: 3 });
+    expect(scene.getObjectByName("CraftYap bonk")!.children.some((chip) => chip.visible)).toBe(true);
+    sync.dispose();
   });
 });

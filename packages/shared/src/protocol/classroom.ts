@@ -1,6 +1,7 @@
+import { MAX_BLOCK_SHAPE } from "../blockShapes.js";
 import { z } from "zod";
 import { playerNameSchema } from "./messages.js";
-import { characterIdSchema, emoteIdSchema } from "../character.js";
+import { characterIdSchema, emoteIdSchema, characterActionSchema } from "../character.js";
 
 /**
  * Classroom protocol — the education field's live multiplayer. A teacher
@@ -15,8 +16,8 @@ import { characterIdSchema, emoteIdSchema } from "../character.js";
  * selected with `?mode=class`.
  */
 
-/** 3: named classrooms. 4: water. 5: paced live-world streaming + reliable replay. 6: character emotes and low postures. */
-export const CLASS_PROTOCOL_VERSION = 6;
+/** 3: named classrooms. 4: water. 5: paced live-world streaming + reliable replay. 6: character emotes and low postures. 7: construction shapes through code 50. 8: light player taps. */
+export const CLASS_PROTOCOL_VERSION = 8;
 /** Highest block layer of the field grid (WORLD_Y - 1). */
 export const CLASS_MAX_Y = 55;
 /** Field coordinates are bounded so a hostile client can't grow the store
@@ -43,7 +44,7 @@ export const classRoleSchema = z.enum(["teacher", "student"]);
 export type ClassRole = z.infer<typeof classRoleSchema>;
 export const classAnimSchema = z.enum(["idle", "run", "jump", "fall", "sit", "lie", "crawl"]);
 export type ClassAnim = z.infer<typeof classAnimSchema>;
-const presentationShape = { character: characterIdSchema.optional(), emote: emoteIdSchema.optional(), emoteSeq: z.number().int().min(0).max(1_000_000_000).optional() };
+const presentationShape = { action:characterActionSchema.optional(), actionSeq:z.number().int().min(0).max(1_000_000_000).optional(), actionLoop:z.boolean().optional(), swimming:z.boolean().optional(), character: characterIdSchema.optional(), emote: emoteIdSchema.optional(), emoteSeq: z.number().int().min(0).max(1_000_000_000).optional() };
 
 /** One block write: absolute x/z, y, block id (0 = air), brick shape. */
 export const classEditSchema = z.tuple([
@@ -51,7 +52,7 @@ export const classEditSchema = z.tuple([
   z.number().int().min(0).max(CLASS_MAX_Y),
   coordSchema,
   z.number().int().min(0).max(255),
-  z.number().int().min(0).max(17),
+  z.number().int().min(0).max(MAX_BLOCK_SHAPE),
 ]);
 export type ClassEdit = z.infer<typeof classEditSchema>;
 
@@ -101,10 +102,19 @@ export const classClientSchema = z.discriminatedUnion("t", [
     removed: z.array(classFurnitureSchema).max(32),
   }),
   z.object({ t: z.literal("k-chat"), text: z.string().trim().min(1).max(CLASS_CHAT_MAX) }),
+  /** A light tap. The server resolves who it hits from the last positions. */
+  z.object({
+    t: z.literal("k-bonk"),
+    /** Who the crosshair was on. The server only checks that one (optional: older builds). */
+    target: z.string().max(64).optional(),
+    yaw: z.number().finite(),
+    pitch: z.number().finite().min(-1.6).max(1.6),
+    seq: z.number().int().min(0).max(1_000_000_000),
+  }),
   // teacher only — the server checks the role
   z.object({ t: z.literal("k-kick"), playerId: z.string().max(32) }),
   z.object({ t: z.literal("k-gather") }),
-  z.object({ t: z.literal("k-settings"), chatLocked: z.boolean(), buildLocked: z.boolean() }),
+  z.object({ t: z.literal("k-settings"), chatLocked: z.boolean(), buildLocked: z.boolean(), tapsLocked: z.boolean().optional() }),
   z.object({ t: z.literal("k-end") }),
   /** Teacher wipes the saved field back to empty grass. */
   z.object({ t: z.literal("k-reset-world") }),
@@ -121,7 +131,8 @@ export const classMemberSchema = z.object({
 });
 export type ClassMember = z.infer<typeof classMemberSchema>;
 
-export const classSettingsSchema = z.object({ chatLocked: z.boolean(), buildLocked: z.boolean() });
+/** `tapsLocked` (teacher turns friend taps off) is optional: classes saved before it read as unlocked. */
+export const classSettingsSchema = z.object({ chatLocked: z.boolean(), buildLocked: z.boolean(), tapsLocked: z.boolean().optional() });
 export type ClassSettings = z.infer<typeof classSettingsSchema>;
 
 export const classErrorCodeSchema = z.enum([
@@ -183,6 +194,21 @@ export const classServerSchema = z.discriminatedUnion("t", [
     system: z.boolean().optional(),
   }),
   z.object({ t: z.literal("s-k-gather"), pos: vec3Schema }),
+  /** A tap connected. `at` is the chest in absolute field coordinates. */
+  z.object({
+    t: z.literal("s-k-bonk"),
+    by: z.string(),
+    target: z.string(),
+    seq: z.number().int().min(0).max(1_000_000_000),
+    vx: z.number().finite(),
+    vz: z.number().finite(),
+    vy: z.number().finite(),
+    at: z.tuple([
+      z.number().finite().min(-COORD).max(COORD),
+      z.number().finite().min(-64).max(260),
+      z.number().finite().min(-COORD).max(COORD),
+    ]),
+  }),
   z.object({ t: z.literal("s-k-settings"), settings: classSettingsSchema }),
   /** Your edit was refused (build lock) — undo it locally. */
   z.object({ t: z.literal("s-k-reject"), edits: z.array(classEditSchema), authoritative: z.boolean().optional() }),

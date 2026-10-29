@@ -46,10 +46,11 @@ const LIMITS: Record<string, { rate: number; burst: number }> = {
   move: { rate: 30, burst: 60 },
   edit: { rate: 40, burst: 80 }, // dragging a tower of bricks is bursty
   chat: { rate: 1, burst: 4 },
+  bonk: { rate: 4, burst: 6 }, // a tap is a click, not a stream
   other: { rate: 5, burst: 10 },
 };
 const familyOf = (t: ClassClientMessage["t"]) =>
-  t === "k-move" ? "move" : t === "k-edit" || t === "k-furniture" ? "edit" : t === "k-chat" ? "chat" : "other";
+  t === "k-move" ? "move" : t === "k-edit" || t === "k-furniture" ? "edit" : t === "k-chat" ? "chat" : t === "k-bonk" ? "bonk" : "other";
 
 /** A WebSocket speaking the classroom protocol. */
 class ClassSocket implements ClassPeer {

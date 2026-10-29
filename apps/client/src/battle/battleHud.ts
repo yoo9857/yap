@@ -4,7 +4,8 @@ import { t } from "../ui/i18n.js";
 import { KEY_WASD, MOUSE_LEFT, MOUSE_MOVE } from "../ui/inputGlyphs.js";
 
 const ESSENTIALS = (): KeyHelp[] => [
-  { keys: [KEY_WASD], label: t("이동", "Move") },
+  { keys: [KEY_WASD], label: t("걷기", "Walk") },
+  { keys: ["Shift"], label: t("달리기", "Run") },
   { keys: ["Space"], label: t("점프", "Jump") },
   { keys: [MOUSE_LEFT], label: t("꾹 눌러 발사", "Hold to fire") },
   { keys: ["V"], label: t("시점 전환", "Switch view") },
@@ -73,7 +74,8 @@ export class BattleHud {
         {
           title: t("움직이기", "Moving"),
           items: [
-            { keys: [KEY_WASD], label: t("이동", "Move") },
+            { keys: [KEY_WASD], label: t("걷기", "Walk") },
+            { keys: ["Shift"], label: t("달리기", "Run") },
             { keys: ["Space"], label: t("점프", "Jump") },
             { keys: [MOUSE_MOVE], label: t("조준하기", "Aim") },
             { keys: ["V"], label: t("1인칭 / 3인칭 시점", "First / third person") },

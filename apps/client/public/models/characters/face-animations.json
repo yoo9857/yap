@@ -1,5 +1,5 @@
 {
-  "version": "1.1.0",
+  "version": "1.2.0",
   "sequences": {
     "blink": {
       "label": "자연스럽게 깜박",
@@ -15,7 +15,35 @@
         "face-animations/blink/05.png",
         "face-animations/blink/06.png",
         "face-animations/blink/07.png"
-      ]
+      ],
+      "sheets": {
+        "HOME": {
+          "file": "face-sheets/blink.png",
+          "columns": 4,
+          "rows": 2,
+          "frameWidth": 384,
+          "frameHeight": 256,
+          "crop": [
+            64,
+            96,
+            384,
+            256
+          ]
+        },
+        "TT": {
+          "file": "face-sheets/blink.png",
+          "columns": 4,
+          "rows": 2,
+          "frameWidth": 576,
+          "frameHeight": 256,
+          "crop": [
+            96,
+            96,
+            576,
+            256
+          ]
+        }
+      }
     },
     "smile": {
       "label": "미소 짓기",
@@ -41,7 +69,35 @@
         "face-animations/smile/15.png",
         "face-animations/smile/16.png",
         "face-animations/smile/17.png"
-      ]
+      ],
+      "sheets": {
+        "HOME": {
+          "file": "face-sheets/smile.png",
+          "columns": 4,
+          "rows": 5,
+          "frameWidth": 384,
+          "frameHeight": 256,
+          "crop": [
+            64,
+            96,
+            384,
+            256
+          ]
+        },
+        "TT": {
+          "file": "face-sheets/smile.png",
+          "columns": 4,
+          "rows": 5,
+          "frameWidth": 576,
+          "frameHeight": 256,
+          "crop": [
+            96,
+            96,
+            576,
+            256
+          ]
+        }
+      }
     },
     "laugh": {
       "label": "웃음 터뜨리기",
@@ -73,7 +129,35 @@
         "face-animations/laugh/21.png",
         "face-animations/laugh/22.png",
         "face-animations/laugh/23.png"
-      ]
+      ],
+      "sheets": {
+        "HOME": {
+          "file": "face-sheets/laugh.png",
+          "columns": 4,
+          "rows": 6,
+          "frameWidth": 384,
+          "frameHeight": 256,
+          "crop": [
+            64,
+            96,
+            384,
+            256
+          ]
+        },
+        "TT": {
+          "file": "face-sheets/laugh.png",
+          "columns": 4,
+          "rows": 6,
+          "frameWidth": 576,
+          "frameHeight": 256,
+          "crop": [
+            96,
+            96,
+            576,
+            256
+          ]
+        }
+      }
     },
     "wink": {
       "label": "장난스러운 윙크",
@@ -97,7 +181,35 @@
         "face-animations/wink/13.png",
         "face-animations/wink/14.png",
         "face-animations/wink/15.png"
-      ]
+      ],
+      "sheets": {
+        "HOME": {
+          "file": "face-sheets/wink.png",
+          "columns": 4,
+          "rows": 4,
+          "frameWidth": 384,
+          "frameHeight": 256,
+          "crop": [
+            64,
+            96,
+            384,
+            256
+          ]
+        },
+        "TT": {
+          "file": "face-sheets/wink.png",
+          "columns": 4,
+          "rows": 4,
+          "frameWidth": 576,
+          "frameHeight": 256,
+          "crop": [
+            96,
+            96,
+            576,
+            256
+          ]
+        }
+      }
     },
     "surprise": {
       "label": "깜짝 놀라기",
@@ -123,7 +235,35 @@
         "face-animations/surprise/15.png",
         "face-animations/surprise/16.png",
         "face-animations/surprise/17.png"
-      ]
+      ],
+      "sheets": {
+        "HOME": {
+          "file": "face-sheets/surprise.png",
+          "columns": 4,
+          "rows": 5,
+          "frameWidth": 384,
+          "frameHeight": 256,
+          "crop": [
+            64,
+            96,
+            384,
+            256
+          ]
+        },
+        "TT": {
+          "file": "face-sheets/surprise.png",
+          "columns": 4,
+          "rows": 5,
+          "frameWidth": 576,
+          "frameHeight": 256,
+          "crop": [
+            96,
+            96,
+            576,
+            256
+          ]
+        }
+      }
     },
     "hurt": {
       "label": "아야, 움찔",
@@ -145,7 +285,35 @@
         "face-animations/hurt/11.png",
         "face-animations/hurt/12.png",
         "face-animations/hurt/13.png"
-      ]
+      ],
+      "sheets": {
+        "HOME": {
+          "file": "face-sheets/hurt.png",
+          "columns": 4,
+          "rows": 4,
+          "frameWidth": 384,
+          "frameHeight": 256,
+          "crop": [
+            64,
+            96,
+            384,
+            256
+          ]
+        },
+        "TT": {
+          "file": "face-sheets/hurt.png",
+          "columns": 4,
+          "rows": 4,
+          "frameWidth": 576,
+          "frameHeight": 256,
+          "crop": [
+            96,
+            96,
+            576,
+            256
+          ]
+        }
+      }
     },
     "sleepy": {
       "label": "스르르 잠들기",
@@ -185,7 +353,35 @@
         "face-animations/sleepy/29.png",
         "face-animations/sleepy/30.png",
         "face-animations/sleepy/31.png"
-      ]
+      ],
+      "sheets": {
+        "HOME": {
+          "file": "face-sheets/sleepy.png",
+          "columns": 4,
+          "rows": 8,
+          "frameWidth": 384,
+          "frameHeight": 256,
+          "crop": [
+            64,
+            96,
+            384,
+            256
+          ]
+        },
+        "TT": {
+          "file": "face-sheets/sleepy.png",
+          "columns": 4,
+          "rows": 8,
+          "frameWidth": 576,
+          "frameHeight": 256,
+          "crop": [
+            96,
+            96,
+            576,
+            256
+          ]
+        }
+      }
     },
     "talk": {
       "label": "말하기 · 입모양 변화",
@@ -213,7 +409,35 @@
         "face-animations/talk/17.png",
         "face-animations/talk/18.png",
         "face-animations/talk/19.png"
-      ]
+      ],
+      "sheets": {
+        "HOME": {
+          "file": "face-sheets/talk.png",
+          "columns": 4,
+          "rows": 5,
+          "frameWidth": 384,
+          "frameHeight": 256,
+          "crop": [
+            64,
+            96,
+            384,
+            256
+          ]
+        },
+        "TT": {
+          "file": "face-sheets/talk.png",
+          "columns": 4,
+          "rows": 5,
+          "frameWidth": 576,
+          "frameHeight": 256,
+          "crop": [
+            96,
+            96,
+            576,
+            256
+          ]
+        }
+      }
     }
   }
 }

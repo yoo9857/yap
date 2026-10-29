@@ -66,6 +66,8 @@ export const INK_LAYER = 7;
  * of the CPU profile, the moment the first sofa was placed.
  */
 export const INK_INSTANCED_LAYER = 8;
+/** The same again for SKINNED meshes (the HOME/TT characters), for the same reason. */
+export const INK_SKINNED_LAYER = 9;
 /** Per-brick inverted-hull shells — the fallback, hidden when ink is on. */
 export const HULL_LAYER = 6;
 
@@ -156,7 +158,11 @@ void main() {
   float dist = -perspectiveDepthToViewZ(charDepth, cameraNear, cameraFar);
   float fade = mix(1.0, fadeFloor, smoothstep(fadeRange.x, fadeRange.y, dist));
 
-  gl_FragColor = vec4(toSRGB(mix(scene, inkColor, edge * best * fade * visible)), 1.0);
+  gl_FragColor = vec4(mix(scene, inkColor, edge * best * fade * visible), 1.0);
+  // The scene was drawn into a render target, where three skips tone mapping;
+  // apply the renderer's curve here so this path matches the canvas/XR one.
+  #include <tonemapping_fragment>
+  gl_FragColor.rgb = toSRGB(gl_FragColor.rgb);
 }
 `;
 
@@ -175,6 +181,8 @@ export class InkOutline {
     color: new THREE.Color().setRGB(INK_WEIGHT_INSTANCED, INK_WEIGHT_INSTANCED, INK_WEIGHT_INSTANCED, THREE.LinearSRGBColorSpace),
     fog: false,
   });
+  /** Skinned characters: a third program, so neither of the others flips. */
+  private readonly maskMaterialSkinned = new THREE.MeshBasicMaterial({ color: 0xffffff, fog: false });
   /** Reused so a per-frame camera clone never hits the allocator. */
   private readonly maskCamera = new THREE.PerspectiveCamera();
   private width = 1;
@@ -270,6 +278,9 @@ export class InkOutline {
     this.maskCamera.layers.set(INK_INSTANCED_LAYER);
     scene.overrideMaterial = this.maskMaterialInstanced;
     renderer.render(scene, this.maskCamera);
+    this.maskCamera.layers.set(INK_SKINNED_LAYER);
+    scene.overrideMaterial = this.maskMaterialSkinned;
+    renderer.render(scene, this.maskCamera);
     renderer.autoClear = prevAutoClear;
     scene.overrideMaterial = prevOverride;
     scene.background = prevBackground;
@@ -288,6 +299,7 @@ export class InkOutline {
     this.composite.dispose();
     this.maskMaterial.dispose();
     this.maskMaterialInstanced.dispose();
+    this.maskMaterialSkinned.dispose();
     this.quadGeometry.dispose();
   }
 }

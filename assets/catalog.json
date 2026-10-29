@@ -1,0 +1,176 @@
+{
+  "schemaVersion": 1,
+  "entries": [
+    {
+      "id": "character-home",
+      "category": "characters",
+      "workflow": "runtime GLB with archived editable source",
+      "files": [
+        {
+          "path": "assets/characters/home-tt/source/Characters.blend",
+          "role": "archived-reference"
+        },
+        {
+          "path": "apps/client/public/models/characters/HOME/HOME.glb",
+          "role": "runtime"
+        },
+        {
+          "path": "apps/client/public/models/characters/HOME/textures",
+          "role": "textures"
+        },
+        {
+          "path": "assets/characters/home-tt/LICENSE_Kenney.txt",
+          "role": "license"
+        }
+      ]
+    },
+    {
+      "id": "character-tt",
+      "category": "characters",
+      "workflow": "runtime GLB with archived editable source",
+      "files": [
+        {
+          "path": "assets/characters/home-tt/source/Characters.blend",
+          "role": "archived-reference"
+        },
+        {
+          "path": "apps/client/public/models/characters/TT/TT.glb",
+          "role": "runtime"
+        },
+        {
+          "path": "apps/client/public/models/characters/TT/textures",
+          "role": "textures"
+        }
+      ]
+    },
+    {
+      "id": "terrain-blocks",
+      "category": "blocks",
+      "workflow": "procedural code is authoritative",
+      "files": [
+        {
+          "path": "apps/client/src/craft/kitGeometry.ts",
+          "role": "source"
+        },
+        {
+          "path": "apps/client/src/craft/blockMaterials.ts",
+          "role": "source"
+        },
+        {
+          "path": "apps/client/src/craft/miningFracture.ts",
+          "role": "source"
+        },
+        {
+          "path": "apps/client/src/craft/fractureVariation.ts",
+          "role": "source"
+        }
+      ]
+    },
+    {
+      "id": "block-textures-v3",
+      "category": "materials",
+      "workflow": "image inputs for generated-material review mode",
+      "files": [
+        {
+          "path": "apps/client/src/assets/block-materials-v3",
+          "role": "textures"
+        },
+        {
+          "path": "apps/client/src/craft/generatedBlockTextures.ts",
+          "role": "registry"
+        }
+      ]
+    },
+    {
+      "id": "machine-kit",
+      "category": "machines",
+      "workflow": "generated from repository script",
+      "files": [
+        {
+          "path": "tools/generate-machine-assets.mjs",
+          "role": "source"
+        },
+        {
+          "path": "apps/client/public/models/machines/machine-kit.glb",
+          "role": "runtime"
+        },
+        {
+          "path": "apps/client/public/models/machines/machine-kit-lod1.glb",
+          "role": "runtime"
+        },
+        {
+          "path": "apps/client/public/models/machines/manifest.json",
+          "role": "manifest"
+        }
+      ]
+    },
+    {
+      "id": "home-ui-art",
+      "category": "ui",
+      "workflow": "runtime art remains in existing URL folders",
+      "files": [
+        {
+          "path": "apps/client/public/home",
+          "role": "runtime"
+        }
+      ]
+    },
+    {
+      "id": "game-audio",
+      "category": "audio",
+      "workflow": "runtime audio remains in existing URL folders",
+      "files": [
+        {
+          "path": "apps/client/public/audio",
+          "role": "runtime"
+        }
+      ]
+    },
+    {
+      "id": "pickaxe-basic",
+      "category": "items/tools",
+      "version": "1.0.0",
+      "workflow": "Blender source -> checked export -> runtime copy",
+      "files": [
+        {
+          "path": "assets/items/tools/pickaxe-basic/source/PickaxeBasic.blend",
+          "role": "source"
+        },
+        {
+          "path": "assets/items/tools/pickaxe-basic/source/build_pickaxe.py",
+          "role": "generator"
+        },
+        {
+          "path": "assets/items/tools/pickaxe-basic/textures",
+          "role": "textures"
+        },
+        {
+          "path": "assets/items/tools/pickaxe-basic/previews",
+          "role": "previews"
+        },
+        {
+          "path": "assets/items/tools/pickaxe-basic/item.json",
+          "role": "definition"
+        },
+        {
+          "path": "assets/items/tools/pickaxe-basic/runtime/pickaxe-basic.glb",
+          "role": "export"
+        },
+        {
+          "path": "apps/client/public/models/items/tools/pickaxe-basic/pickaxe-basic.glb",
+          "role": "runtime"
+        },
+        {
+          "path": "apps/client/public/models/items/tools/pickaxe-basic/icon.png",
+          "role": "icon"
+        }
+      ],
+      "mirrors": [
+        {
+          "source": "assets/items/tools/pickaxe-basic/runtime/pickaxe-basic.glb",
+          "runtime": "apps/client/public/models/items/tools/pickaxe-basic/pickaxe-basic.glb"
+        }
+      ]
+    }
+  ]
+}

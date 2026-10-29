@@ -9,37 +9,51 @@ import { PerfMonitor } from "../ui/perf.js";
 import { t } from "../ui/i18n.js";
 import { settings } from "../ui/settings.js";
 import { lookDelta } from "../input/mouseLook.js";
-import { AIR, SOLID_ID, blockById, blockByKey, dropOf, textureUrl } from "./blocks.js";
+import { AIR, BLOCKS, SOLID_ID, blockById, blockByKey, dropOf, isPlaceableItem, textureUrl } from "./blocks.js";
 import { loadTexture } from "../render/textures.js";
 import {
+  CLASS_HOTBAR_KEY,
   CRAFT_RECIPES,
-  HOTBAR,
+  WATER_SLOT,
   addItem,
+  assignHotbar,
+  clearHotbarSlot,
   countOf,
+  craftBatch,
   craftRecipe,
+  ensureFieldStacks,
+  fieldStarterHotbar,
+  readStoredHotbar,
   removeItem,
   type CraftRecipe,
 } from "./inventory.js";
 import { clearCraftSave, loadCraft, saveCraft, type CraftGameState } from "./craftSave.js";
 import { FIELD_MAX_VIEW, FieldWindow, clearFieldSave, fieldStarterInventory } from "./fieldWorld.js";
 import { SkyDome } from "./skyDome.js";
+import { createSkyEnvironment } from "../render/skyEnvironment.js";
 import { ClassSync } from "./classSync.js";
 import type { ClassClient, ClassSession } from "../net/classClient.js";
-import { SWIM_DEPTH, pointInWater, stepBody, overlapsVoxel, unstick, wishFromInput, type Body } from "./voxelBody.js";
+import { SWIM_DEPTH, pointInWater, stepBody, unstick, overlapsShapedVoxel, wishFromInput, type Body } from "./voxelBody.js";
+import {SandSim} from "./sandSim.js";
 import { WaterSim } from "./waterSim.js";
-import { WATER, WATER_SETTLED, isWater, emoteDef, type EmoteId, type CharacterId, type ClassAnim } from "@robo/shared";
+import { WATER, WATER_SETTLED, isWater, emoteDef, lookDirection, pickBonk, bonkBlocked, BONK_COOLDOWN_MS, BONK_DECAY, BONK_PUSH_CAP, type EmoteId, type CharacterId, type ClassAnim, type CharacterAction, type CharacterPresentation, postureTransition } from "@robo/shared";
 import { EmoteMenu } from "./emoteMenu.js";
-import { adoptPosture, CRAWL_SPEED_RATIO, POSTURE_EYE, type Posture } from "./posture.js";
+import { adoptPosture, moveScale, POSTURE_EYE, type Posture } from "./posture.js";
+import { gaitBlend } from "../player/motionPolicy.js";
 import { CRAFT_SPAWN, surfaceY, type RayHit } from "./voxelWorld.js";
-import { PIECES, pieceCells } from "./pieces.js";
-import { CUBE, ROUND, slopeShape } from "./shapes.js";
+import { PIECES, MAX_PIECE_CELLS, pieceCells, pieceShape } from "./pieces.js";
+import { ROUND, KIT_CUBE, isOrientedShape, blockShapeFamily } from "./shapes.js";
+import {kitCubeGeometry,kitRampGeometry,kitConnectorGeometry,kitRoundGeometry,kitCellsGeometry} from "./kitGeometry.js";
+import {planPiecePlacement} from "./blockPlacement.js";
 import {
   brickOrientation,
-  cubeBrickGeometry,
-  roundBrickGeometry,
-  slopeBrickGeometry,
 } from "./brickGeometry.js";
 import { VoxelView } from "./voxelView.js";
+import {preloadHeldItems} from "../player/heldItem.js";
+import {PICKAXE,pickaxeWork,pickaxeInReach} from "./toolDefinitions.js";
+/** The held pickaxe is still being built: off unless the page is opened with `?pickaxe`. */
+const HELD_ITEMS = typeof location !== "undefined" && new URLSearchParams(location.search).has("pickaxe");
+import {MiningEffects} from "./miningEffects.js";
 import { CraftCamera } from "./craftCamera.js";
 import { CraftHud } from "./craftHud.js";
 import { MachineWorkshop } from "./machines/workshop.js";
@@ -85,6 +99,12 @@ export class CraftGame {
   private debugHooks: object | null = null;
   private readonly renderer: GameRenderer;
   private readonly view: VoxelView;
+  private readonly miningEffects:MiningEffects;
+  private miningIdentity="";
+  private toolEnabled=HELD_ITEMS;
+  private toolOption=PICKAXE.defaultOption;
+  private toolElapsed=0;
+  private sand:SandSim|null=null;
   private readonly hud: CraftHud;
   private readonly sfx = new Sfx();
   private readonly bgm = new Bgm(BGM_PLAYLIST);
@@ -116,6 +136,18 @@ export class CraftGame {
   private emoteLeft = 0;
   private posture: Posture = "stand";
   private postureDelay = 0;
+  private workAction: CharacterAction = "none";
+  private workSeq = 0;
+  private workLoop = false;
+  private workLeft = 0;
+  /** What's left of a classroom tap's shove, added on top of walking. */
+  private knockX = 0;
+  private knockZ = 0;
+  /** Earliest time another tap may be thrown. */
+  private bonkAt = 0;
+  private readonly seatOffset = new THREE.Vector3();
+  private seatBlend = 0;
+  private seatBlendDuration = .65;
   private mining = false;
   private placing = false;
   private miningTarget: [number, number, number] | null = null;
@@ -140,6 +172,11 @@ export class CraftGame {
   private ghostCubeGeo!: THREE.BufferGeometry;
   private ghostRoundGeo!: THREE.BufferGeometry;
   private ghostSlopeGeo!: THREE.BufferGeometry;
+  private ghostCornerGeo!:THREE.BufferGeometry;
+  private ghostCapGeo!:THREE.BufferGeometry;
+  private ghostShellGeo:THREE.BufferGeometry|null=null;
+  private ghostShellKey="";
+  private readonly ghostCaps:THREE.Mesh[]=[];
   private readonly ghostQuat = new THREE.Quaternion();
   private locked = false;
   private readonly camera;
@@ -158,13 +195,25 @@ export class CraftGame {
     this.sky = new SkyDome(this.renderer.scene, SKY_TOP, FOG_COLOR);
     this.camera = new CraftCamera(this.renderer.camera);
     this.view = new VoxelView(this.renderer.scene);
-    this.hud = new CraftHud(document.body, (recipe) => this.handleCraft(recipe), {
+    this.skyEnvironment = createSkyEnvironment(this.renderer.renderer, SKY_TOP, FOG_COLOR, 0x9a8f78);
+    this.view.setEnvironment(this.skyEnvironment.texture);
+    this.miningEffects=new MiningEffects(this.renderer.scene,cell=>this.view.setMiningHidden(cell));
+    this.hud = new CraftHud(document.body, (recipe, many) => this.handleCraft(recipe, many), {
       furniture: true,
+      creative: opts.field === true || opts.classroom !== undefined,
       mode: opts.classroom
         ? t(`교실 · ${opts.classroom.session.room}`, `Class · ${opts.classroom.session.room}`)
         : opts.field ? t("교육 모드 · 들판", "Education field") : "Craft Island",
       onResume: () => this.resumePlay(),
       onRecipesClose: () => this.resumePlay(),
+      onAssign: (slot, key, move, hold) => this.assignToHotbar(slot, key, move, hold === true),
+      onClearSlot: (slot) => this.clearHotbar(slot),
+      onArm: (slot) => { this.selected = slot; this.emptyHands = false; },
+      onSelect: (slot) => {
+        this.selected = slot;
+        this.emptyHands = false;
+        if (slot < WATER_SLOT) this.hud.armBag(slot);
+      },
     });
 
     this.emoteMenu = new EmoteMenu(document.body, id => this.chooseEmote(id), id => this.chooseCharacter(id), () => this.resumePlay());
@@ -179,6 +228,7 @@ export class CraftGame {
         seed: 0,
         world: this.field.world,
         inventory: fieldStarterInventory(),
+        hotbar: readStoredHotbar(localStorage, CLASS_HOTBAR_KEY, fieldStarterHotbar),
         // spread arrivals out so a whole class doesn't land in one cell
         player: { x: spawn.x + (Math.random() - 0.5) * 8, y: spawn.y, z: spawn.z + (Math.random() - 0.5) * 8 },
         pet: "dog",
@@ -192,7 +242,8 @@ export class CraftGame {
       this.state = {
         seed: 0,
         world: this.field.world,
-        inventory: saved?.inventory ?? fieldStarterInventory(),
+        inventory: ensureFieldStacks(saved?.inventory ?? {}),
+        hotbar: saved?.hotbar ?? fieldStarterHotbar(),
         player: saved?.player ?? this.field.spawn,
         pet: isPetSpecies(saved?.pet) ? saved.pet : "dog",
         furniture: new FurnitureLayout(),
@@ -221,7 +272,7 @@ export class CraftGame {
       changed: (placed, removed) => {
         for (const [kind, x, y, z, rot] of [...placed, ...removed])
           for (const [ax, ay, az] of this.state.furniture.cellsOf({ kind, x, y, z, rot }))
-            this.water?.touch(ax - (this.field?.absOriginX ?? 0), ay, az - (this.field?.absOriginZ ?? 0));
+            {this.water?.touch(ax - (this.field?.absOriginX ?? 0), ay, az - (this.field?.absOriginZ ?? 0));this.sand?.touch(ax-(this.field?.absOriginX??0),ay,az-(this.field?.absOriginZ??0));}
         if (!classroomClient) return;
         this.sync?.flushEdits();
         classroomClient.send({ t: "k-furniture", placed, removed });
@@ -254,8 +305,11 @@ export class CraftGame {
             this.body.y = y;
             this.body.z = z;
             this.body.vx = this.body.vy = this.body.vz = 0;
+            this.knockX = this.knockZ = 0;
             unstick(this.state.world, this.body);
           },
+          bonked: (push) => this.receiveBonk(push),
+          impact: () => this.sfx.play("bonk"),
           toast: (text) => this.hud.toast(text),
           clearKeys: () => {
             this.keys.clear();
@@ -291,6 +345,7 @@ export class CraftGame {
     // solo play runs the water itself; a classroom's water is the server's
     this.water = this.sync ? null : new WaterSim(this.state.world, this.view, this.field);
     this.water?.wakeAll();
+    this.sand=this.sync?null:new SandSim(this.state.world,{scene:this.renderer.scene,shape:(block,shape,cell)=>this.view.miningShape(shape,block,cell,this.state.world),write:(x,y,z,block,shape)=>this.writeCell(x,y,z,block,shape),hidden:cells=>this.view.setFallingHidden(cells),canEnter:(x,y,z)=>!overlapsShapedVoxel(this.body,x,y,z,0)&&!overlapsShapedVoxel(this.pet.body,x,y,z,0)});this.sand?.wakeAll();
     this.underwaterTint.className = "craft-underwater";
     document.body.appendChild(this.underwaterTint);
 
@@ -309,9 +364,87 @@ export class CraftGame {
   /** How wet the body was last tick — a dry → wet change with speed splashes. */
   private lastWet = 0;
 
+  private heldKey(): string {
+    return this.state.hotbar[this.selected] ?? "";
+  }
+
   /** Is the selected hotbar slot the water bucket? */
   private holdingWater(): boolean {
-    return !this.emptyHands && blockByKey(HOTBAR[this.selected]!)?.fluid === true;
+    return !this.emptyHands && blockByKey(this.heldKey())?.fluid === true;
+  }
+
+  /** Remember a classroom loadout locally. Solo modes persist it with the save. */
+  private rememberHotbar(): void {
+    if (!this.sync) {
+      this.persist();
+      return;
+    }
+    try {
+      localStorage.setItem(CLASS_HOTBAR_KEY, JSON.stringify(this.state.hotbar));
+    } catch {
+      /* the loadout lasts for this visit */
+    }
+  }
+
+  private assignToHotbar(slot: number, key: string, move = false, hold = false): void {
+    if (!move) {
+      const existing = this.state.hotbar.indexOf(key);
+      if (existing >= 0 && existing < WATER_SLOT) {
+        this.selected = existing;
+        this.emptyHands = false;
+        this.hud.armBag(existing);
+        return;
+      }
+    }
+    if (!assignHotbar(this.state.hotbar, slot, key)) return;
+    this.selected = slot;
+    this.emptyHands = false;
+    // A click fills the next slot. A drag stays on the slot the block landed on.
+    this.hud.armBag(hold ? slot : (slot + 1) % WATER_SLOT);
+    this.rememberHotbar();
+  }
+
+  /** A craft you can place immediately: hold it if it is already on the bar, otherwise take the slot in hand. */
+  private holdCrafted(key: string): void {
+    const existing = this.state.hotbar.indexOf(key);
+    if (existing >= 0 && existing < WATER_SLOT) {
+      this.selected = existing;
+      this.emptyHands = false;
+      if (this.hud.recipesOpen) this.hud.armBag(existing);
+      return;
+    }
+    const slot = this.selected < WATER_SLOT ? this.selected : 0;
+    if (!assignHotbar(this.state.hotbar, slot, key)) return;
+    this.selected = slot;
+    this.emptyHands = false;
+    if (this.hud.recipesOpen) this.hud.armBag(slot);
+    this.rememberHotbar();
+  }
+
+  private clearHotbar(slot: number): void {
+    if (!clearHotbarSlot(this.state.hotbar, slot)) return;
+    this.rememberHotbar();
+  }
+
+  /** Middle-click: hold the block you are looking at, if you own it. */
+  private pickAimedBlock(): void {
+    if (!this.aim || this.furniture.active) return;
+    const [x, y, z] = this.aim.voxel;
+    const def = blockById(this.state.world.get(x, y, z));
+    if (!def || !isPlaceableItem(def)) return;
+    const creative = this.field !== null;
+    if (!creative && countOf(this.state.inventory, def.key) <= 0) {
+      this.hud.toast(t("그 블록은 아직 없어요. 캐거나 조합해 보세요", "You don't have that block yet. Mine or craft one"));
+      return;
+    }
+    const existing = this.state.hotbar.indexOf(def.key);
+    if (existing >= 0 && existing < WATER_SLOT) {
+      this.selected = existing;
+      this.emptyHands = false;
+      return;
+    }
+    const slot = this.selected < WATER_SLOT ? this.selected : 0;
+    this.assignToHotbar(slot, def.key);
   }
 
   /**
@@ -321,11 +454,13 @@ export class CraftGame {
    */
   async prepare(setMessage: (text: string) => void = () => {}): Promise<void> {
     setMessage(t("텍스처 불러오는 중…", "Loading textures…"));
-    await texturesReady();
+    await Promise.all([texturesReady(),HELD_ITEMS?preloadHeldItems():Promise.resolve(false)]);
+    if(!this.disposed)this.rig.setHeldItem(this.toolEnabled?"pickaxe-basic":null,this.toolOption);
     if (this.disposed) return;
     setMessage(t("그래픽 준비하는 중…", "Preparing graphics…"));
     this.furniture.setWarm(true);
     this.view.setWarm(true); // the water shader, too
+    this.miningEffects.prewarm(BLOCKS.filter((def) => !def.fluid).map((def) => ({ def, materials: this.view.miningMaterials(def.id) })));
     this.warming = true;
     try {
       await warmupGpuAsync(this.renderer.renderer, this.renderer.scene, this.renderer.camera, () => {
@@ -336,6 +471,7 @@ export class CraftGame {
     this.warming = false;
     this.furniture.setWarm(false);
     this.view.setWarm(false);
+    this.miningEffects.endWarm();
     this.warmed = true;
     this.facing = this.yaw; // start facing the way the camera looks
   }
@@ -369,10 +505,13 @@ export class CraftGame {
     if (globals.__roboCraft === this.debugHooks) delete globals.__roboCraft;
     this.debugHooks = null;
     this.water?.clear();
+    this.sand?.dispose();
     this.underwaterTint.remove();
     this.workshop.dispose();
+    this.miningEffects.dispose();
     this.view.dispose();
     this.sky.dispose();
+    this.skyEnvironment.dispose();
     this.sync?.dispose();
     if (this.fieldGround) {
       this.renderer.scene.remove(this.fieldGround);
@@ -389,7 +528,7 @@ export class CraftGame {
     this.sfx.dispose();
     this.perf.dispose();
     this.hud.dispose();
-    this.ghostCubeGeo.dispose(); this.ghostRoundGeo.dispose(); this.ghostSlopeGeo.dispose();
+    this.ghostCubeGeo.dispose(); this.ghostRoundGeo.dispose(); this.ghostSlopeGeo.dispose();this.ghostCornerGeo.dispose();this.ghostCapGeo.dispose();this.ghostShellGeo?.dispose();
     this.ghostOk.dispose(); this.ghostBad.dispose();
     for (const material of this.robotMaterials ?? []) material.dispose();
     this.robotMaterials = null;
@@ -431,11 +570,14 @@ export class CraftGame {
     });
     on("mousedown", (e) => {
       if (!this.locked) return;
-      if (e.button === 0) this.mining = true;
+      if (e.button === 0) {
+        if (!this.tryBonk()) this.mining = true;
+      }
       if (e.button === 2) this.placing = true;
       if (e.button === 1) {
         e.preventDefault(); // no autoscroll cursor
         if (this.aimFurniture) this.furniture.pickKind(this.aimFurniture);
+        else this.pickAimedBlock();
       }
     });
     on("mouseup", (e) => {
@@ -446,7 +588,7 @@ export class CraftGame {
     on("wheel", (e) => {
       if (!this.locked) return;
       if (this.furniture.handleWheel(e.deltaY > 0)) return;
-      this.selected = (this.selected + (e.deltaY > 0 ? 1 : HOTBAR.length - 1)) % HOTBAR.length;
+      this.selected = (this.selected + (e.deltaY > 0 ? 1 : this.state.hotbar.length - 1)) % this.state.hotbar.length;
       this.emptyHands = false; // picking a block means "let me build"
     });
     on("keydown", (e) => {
@@ -475,8 +617,13 @@ export class CraftGame {
       }
       // furniture's keys first: in furniture mode 1-9, Q/E, X and R are its own
       if (this.furniture.handleKey(key, e.repeat)) return;
-      if (key >= "1" && key <= "9") { this.selected = Number(key) - 1; this.emptyHands = false; }
-      if (key === "0" && HOTBAR.length > 9) { this.selected = 9; this.emptyHands = false; }
+      if (key >= "1" && key <= "9") {
+        this.selected = Number(key) - 1;
+        this.emptyHands = false;
+        if (this.hud.recipesOpen) this.hud.armBag(this.selected);
+      }
+      if (key === "0") { this.selected = WATER_SLOT; this.emptyHands = false; }
+      if(HELD_ITEMS&&key==="h"&&!e.repeat&&!e.ctrlKey&&!e.metaKey){if(e.shiftKey){const index=PICKAXE.options.findIndex(o=>o.id===this.toolOption);this.toolOption=PICKAXE.options[(index+1)%PICKAXE.options.length]!.id;this.toolEnabled=true;}else this.toolEnabled=!this.toolEnabled;this.mining=false;this.miningTarget=null;this.miningProgress=0;this.toolElapsed=0;this.hud.toast(this.toolEnabled?t(`곡괭이 · ${PICKAXE.options.find(o=>o.id===this.toolOption)!.name} · Shift+H 옵션`,`Pickaxe · ${this.toolOption} · Shift+H options`):t("곡괭이 해제 · H로 장착","Pickaxe unequipped · H to equip"));}
       // Q (furniture mode keeps Q for its categories, handled above)
       if (key === "q" && !e.repeat) {
         this.emptyHands = !this.emptyHands;
@@ -485,10 +632,18 @@ export class CraftGame {
           ? t("✋ 빈손 — 캐기만 해요, 놓지 않아요 · Q로 다시 들기", "✋ Empty hands — mine only, nothing is placed · Q to pick blocks back up")
           : t("🧱 블록 쌓기 — 다시 놓을 수 있어요", "🧱 Building — placing again"));
       }
-      if (key === "i" && !e.repeat) {
-        this.hud.toggleRecipes();
-        if (this.hud.recipesOpen) document.exitPointerLock();
-        else this.resumePlay();
+      if ((key === "e" || key === "i") && !e.repeat) {
+        const open = this.hud.toggleBag(key === "i" ? "craft" : "blocks", this.selected);
+        if (open) {
+          this.keys.clear();
+          this.mining = this.placing = false;
+          document.exitPointerLock();
+        } else this.resumePlay();
+      }
+      if (key === "escape" && this.hud.recipesOpen) {
+        this.hud.hideRecipes();
+        this.resumePlay();
+        return;
       }
       if (key === "v") this.camera.toggleView();
       if (key === "p" && !e.repeat) {
@@ -506,9 +661,10 @@ export class CraftGame {
         }
         this.hud.toast(`👁️ ${t("시야 거리", "View distance")}: ${viewName(next)} (${this.viewPresets[next]} m)`);
       }
-      if (key === "r") this.pieceRot = (this.pieceRot + 1) % 4; // spin (yaw)
-      if (key === "t") this.pieceTilt = (this.pieceTilt + 1) % 4; // tip sideways (tilt)
-      if (key === "f") {
+      if (key === "r" && e.shiftKey && !e.repeat) {this.pieceRot=0;this.pieceTilt=0;this.hud.toast(t("기본 방향으로 맞췄어요", "Reset to upright"));return;}
+      if (key === "r" && !e.repeat) this.pieceRot = (this.pieceRot + 1) % 4; // spin (yaw)
+      if (key === "t" && !e.repeat) this.pieceTilt = (this.pieceTilt + 1) % 4; // tip sideways (tilt)
+      if (key === "f" && !e.repeat) {
         this.pieceIndex = (this.pieceIndex + 1) % PIECES.length;
         this.pieceRot = 0;
         this.pieceTilt = 0;
@@ -526,11 +682,16 @@ export class CraftGame {
     // where the body was before this tick: render() blends prev → current
     this.prevBody.set(this.body.x, this.body.y, this.body.z);
     if (this.sync) {
-      this.sync.tick(1 / 60, this.body, this.facing, this.characterAnimation(), {character:this.character, emote:this.emote, emoteSeq:this.emoteSeq});
+      this.sync.tick(1 / 60, this.body, this.facing, this.characterAnimation(), this.presentation());
     }
-    if (this.workshop.active) { this.workshop.fixedUpdate(); return; }
+    if (this.workshop.active) { this.knockX = this.knockZ = 0; this.workshop.fixedUpdate(); return; }
     const dt = 1 / 60;
+    if(this.sand)this.perf.time("sand",()=>this.sand!.update(dt));
     this.postureDelay = Math.max(0, this.postureDelay-dt);
+    this.seatBlend = Math.max(0,this.seatBlend-dt);
+    this.workLeft = Math.max(0,this.workLeft-dt);
+    if(this.workLeft===0 && this.workAction!=="none")this.beginWork("none");
+    if(this.isSwimming() && this.posture!=="stand")this.changePosture("stand",false);
     if (this.emoteLeft > 0) { this.emoteLeft -= dt; if (this.emoteLeft <= 0) this.clearEmote(); }
     const movement = this.locked && ["KeyW","KeyA","KeyS","KeyD"].some(k=>this.keys.has(k));
     if (this.locked && this.keys.has("Space") && this.posture !== "stand") this.changePosture("stand",false);
@@ -548,7 +709,7 @@ export class CraftGame {
     }
     let fwd = 0;
     let strafe = 0;
-    if (this.locked && this.posture !== "lie" && this.postureDelay <= 0 && !this.emoteMenu.open) {
+    if (this.locked && this.posture !== "lie" && this.postureDelay <= 0 && !this.rig.postureBusy && !this.emoteMenu.open) {
       if (this.keys.has("KeyW")) fwd += 1;
       if (this.keys.has("KeyS")) fwd -= 1;
       if (this.keys.has("KeyA")) strafe -= 1;
@@ -566,11 +727,19 @@ export class CraftGame {
     this.wishX += (rawX - this.wishX) * k;
     this.wishZ += (rawZ - this.wishZ) * k;
     if (Math.abs(this.wishX) < 1e-3 && Math.abs(this.wishZ) < 1e-3) this.wishX = this.wishZ = 0;
-    const speedRatio = this.posture === "crawl" ? CRAWL_SPEED_RATIO : 1;
-    const wishX = this.wishX * speedRatio;
-    const wishZ = this.wishZ * speedRatio;
+    const sprint = this.posture === "stand" && (this.keys.has("ShiftLeft") || this.keys.has("ShiftRight"));
+    const targetRatio = moveScale(this.posture, sprint, this.isSwimming());
+    // Crawl and swimming snap. On foot, Shift eases up into the run and back down into the walk.
+    if (this.posture !== "stand" || this.isSwimming()) this.moveRatio = targetRatio;
+    else this.moveRatio += (targetRatio - this.moveRatio) * approach(dt, sprint ? 0.06 : 0.09);
+    const wishX = this.wishX * this.moveRatio;
+    const wishZ = this.wishZ * this.moveRatio;
     this.prevVy = this.body.vy;
-    this.perf.time("physics", () => stepBody(this.state.world, this.body, dt, wishX, wishZ, this.locked && this.posture === "stand" && this.postureDelay <= 0 && this.keys.has("Space")));
+    this.perf.time("physics", () => stepBody(this.state.world, this.body, dt, wishX, wishZ, this.locked && this.posture === "stand" && this.postureDelay <= 0 && !this.rig.postureBusy && this.keys.has("Space"), this.knockX, this.knockZ));
+    const knockKeep = Math.exp(-BONK_DECAY * dt);
+    this.knockX *= knockKeep;
+    this.knockZ *= knockKeep;
+    if (this.knockX * this.knockX + this.knockZ * this.knockZ < 0.04) this.knockX = this.knockZ = 0;
     // hard landings thump the camera a little
     if (this.body.grounded && this.prevVy < -11) {
       this.camera.addShake(Math.min(0.11, -this.prevVy * 0.006));
@@ -591,7 +760,10 @@ export class CraftGame {
         this.miningTarget = null;
         this.miningProgress = 0;
         this.view.shift(shift.dx, shift.dz);
+        this.sand?.shift();
+        this.miningEffects.shift(shift.dx,shift.dz);
         this.pet.shift(shift.dx, shift.dz);
+        this.sync?.shift(shift.dx, shift.dz);
       }
     }
 
@@ -628,10 +800,8 @@ export class CraftGame {
   }
 
   private updateAim(): void {
-    const eyeY = this.body.y + POSTURE_EYE[this.posture];
-    const dx = Math.sin(this.yaw) * Math.cos(this.pitch);
-    const dy = Math.sin(this.pitch);
-    const dz = Math.cos(this.yaw) * Math.cos(this.pitch);
+    const eyeY = this.body.y + POSTURE_EYE[this.seated ? "sit" : this.posture];
+    const [dx, dy, dz] = lookDirection(this.yaw, this.pitch);
     // furniture stops the ray too: you aim at a chair, not the floor under it
     // holding the bucket, water is a target too (to scoop it back up)
     this.aim = this.state.world.raycast(this.body.x, eyeY, this.body.z, dx, dy, dz, REACH, true, this.holdingWater());
@@ -643,13 +813,14 @@ export class CraftGame {
     );
   }
 
+  private usingPickaxe():boolean {return this.toolEnabled&&!this.emptyHands&&!this.holdingWater()&&!this.furniture.active&&this.posture==="stand"&&!this.isSwimming();}
   private stepMining(dt: number): void {
     if (this.aimFurniture) {
       this.stepPickup(this.aimFurniture, dt);
       return;
     }
     this.pickupTarget = null;
-    if (!this.aim) {
+    if (!this.aim || this.usingPickaxe()&&!pickaxeInReach(this.aim.dist,this.yaw-this.facing)) {
       this.miningTarget = null;
       this.miningProgress = 0;
       this.miningFrac = null;
@@ -665,17 +836,21 @@ export class CraftGame {
     }
     const def = blockById(cellId);
     if (!def || def.hardness <= 0 || !this.canBuild()) {
-      this.miningFrac = null; // bedrock: unbreakable (or the teacher locked building)
+      this.miningFrac = null;this.miningTarget=null;this.miningProgress=0;this.miningIdentity=""; // bedrock or build lock cancels accumulated damage
       return;
     }
-    const t = this.miningTarget;
-    if (!t || t[0] !== x || t[1] !== y || t[2] !== z) {
+    this.beginWork("interact",true);
+    const t = this.miningTarget,shape=this.state.world.getShape(x,y,z),identity=cellId+":"+shape;
+    if (!t || t[0] !== x || t[1] !== y || t[2] !== z || identity!==this.miningIdentity) {
+      this.miningIdentity=identity;
       this.miningTarget = [x, y, z];
-      this.miningProgress = 0;
+      this.miningProgress = 0;this.toolElapsed=0;
+      if(this.usingPickaxe()){this.workSeq=(this.workSeq+1)%1_000_000_000;}
     }
-    this.miningProgress += dt;
-    this.miningFrac = this.miningProgress / def.hardness;
+    if(this.usingPickaxe()){this.miningProgress+=pickaxeWork(this.toolElapsed,this.toolElapsed+dt,def.key,this.toolOption);this.toolElapsed+=dt;}else this.miningProgress += dt;
+    this.miningFrac = this.usingPickaxe()?Math.max(.05,this.miningProgress/def.hardness):this.miningProgress/def.hardness;
     if (this.miningProgress >= def.hardness) {
+      this.miningEffects.burst([x,y,z],def,shape,()=>this.view.miningShape(shape,def.id,[x,y,z],this.state.world));
       this.writeCell(x, y, z, AIR, 0);
       addItem(this.state.inventory, dropOf(def));
       this.miningTarget = null;
@@ -686,6 +861,58 @@ export class CraftGame {
     }
   }
 
+  private isSwimming(): boolean { return !this.seated && (this.body.wet ?? 0) >= SWIM_DEPTH; }
+  private presentation(): CharacterPresentation {
+    return { character: this.character, emote: this.emote, emoteSeq: this.emoteSeq, action: this.workAction, actionSeq: this.workSeq, actionLoop: this.workLoop, swimming: this.isSwimming() };
+  }
+
+  /**
+   * Left click on a classmate in reach taps them instead of mining. A miss
+   * falls through to the normal dig. The server decides the shove.
+   */
+  private tryBonk(): boolean {
+    if (!this.sync || !this.sync.tapsAllowed || this.workshop.active || this.furniture.active) return false;
+    const hit = pickBonk(
+      { x: this.body.x, y: this.body.y, z: this.body.z, yaw: this.yaw, pitch: this.pitch, eye: POSTURE_EYE[this.seated ? "sit" : this.posture] },
+      this.sync.bonkTargets(),
+      { aim: "body", blocked: (from, to) => bonkBlocked(from, to, (x, y, z) => this.state.world.isBlocked(x, y, z)) },
+    );
+    if (!hit) return false;
+    // the crosshair is on a block in front of them: that click digs the block
+    if (this.aim && this.aim.dist < hit.dist) return false;
+    if (performance.now() < this.bonkAt) return true;
+    this.bonkAt = performance.now() + BONK_COOLDOWN_MS;
+    this.actionHold = ACTION_FACE_TIME;
+    this.beginWork("hit");
+    this.sfx.play("tap");
+    this.sync.reportNow(this.body, this.facing, this.characterAnimation(), this.presentation());
+    this.sync.sendBonk(hit.id, this.yaw, this.pitch, this.workSeq);
+    return true;
+  }
+
+  /** The server said this tap connected. The shove is theirs, not ours. */
+  private receiveBonk(push: { vx: number; vz: number; vy: number }): void {
+    if (this.seated) this.standUp();
+    this.knockX += push.vx;
+    this.knockZ += push.vz;
+    const speed = Math.hypot(this.knockX, this.knockZ);
+    if (speed > BONK_PUSH_CAP) {
+      const scale = BONK_PUSH_CAP / speed;
+      this.knockX *= scale;
+      this.knockZ *= scale;
+    }
+    this.body.vy = Math.max(this.body.vy, push.vy);
+    this.body.grounded = false;
+    this.rig.flashHit();
+    this.rig.pop(-1.3);
+    this.camera.addShake(0.045);
+  }
+
+  private beginWork(action:CharacterAction,loop=false):void {
+    if(loop && !this.workLoop && this.workLeft>.17)return;
+    if(action!==this.workAction || loop!==this.workLoop || !loop){this.workAction=action;this.workLoop=loop;this.workSeq=(this.workSeq+1)%1_000_000_000;}
+    this.workLeft=action==="none"?0:loop?.15:action==="place"?.45:.55;
+  }
   private characterAnimation(): ClassAnim {
     if (this.seated || this.posture === "sit") return "sit";
     if (this.posture === "lie") return "lie";
@@ -697,12 +924,12 @@ export class CraftGame {
   private changePosture(next: Posture, announce=true): boolean {
     if (this.seated) this.standUp();
     if (next === this.posture) return true;
-    if (!adoptPosture(this.state.world,this.body,next)) {
+    if (!adoptPosture(this.state.world,this.body,next,this.posture)) {
       if (announce) this.hud.toast(t("바닥과 머리 위 공간을 확인해 주세요", "Check the ground and space above you"));
       return false;
     }
     const old=this.posture; this.posture=next; this.wishX=this.wishZ=0;
-    this.postureDelay=next === "stand" ? (old === "lie" ? .8 : .65) : next === "lie" ? .9 : .65;
+    this.postureDelay=postureTransition(old,next)?.seconds ?? .65;
     this.clearEmote();
     if (announce) this.hud.toast(next === "crawl" ? t("Z 기어가기 · WASD 이동 · Z/Space 일어나기", "Crawling · WASD move · Z/Space stand") : next === "lie" ? t("누웠어요 · WASD 기어가기 · Z/Space 일어나기", "Lying down · WASD crawl · Z/Space stand") : t("자세를 바꿨어요", "Posture changed"));
     return true;
@@ -729,9 +956,12 @@ export class CraftGame {
   private seated: { item: PlacedFurniture; x: number; y: number; z: number; yaw: number } | null = null;
 
   private trySit(item: PlacedFurniture): boolean {
-    const seat = this.furniture.seatAt(item, this.aim?.voxel ?? null);
+    const seat = this.furniture.seatAt(item, this.aim?.voxel ?? null,this.rig.seatContactHeight);
     if (!seat) return false;
     this.seated = { item, ...seat };
+    this.posture="stand";this.clearEmote();this.beginWork("none");
+    this.body.x=seat.x;this.body.y=seat.y;this.body.z=seat.z;
+    this.blendSeatAnchor(.65);
     this.body.vx = this.body.vy = this.body.vz = 0;
     this.wishX = this.wishZ = 0;
     this.sfx.play("sit");
@@ -760,6 +990,11 @@ export class CraftGame {
     return true;
   }
 
+  private blendSeatAnchor(seconds:number):void {
+    this.seatOffset.copy(this.rig.root.position).sub(new THREE.Vector3(this.body.x,this.body.y,this.body.z));
+    this.seatBlend=this.seatBlendDuration=seconds;
+    this.prevBody.set(this.body.x,this.body.y,this.body.z);
+  }
   /** Off the seat: onto the floor in front of it if that is clear, else on top. */
   private standUp(): void {
     const s = this.seated;
@@ -771,7 +1006,9 @@ export class CraftGame {
     this.body.z = s.z + fz * 0.75;
     this.body.y = s.item.y;
     this.body.vx = this.body.vy = this.body.vz = 0;
+    this.body.h=1.8;this.posture="stand";
     unstick(this.state.world, this.body); // blocked in front: lifted clear, never stuck
+    this.postureDelay=.65;this.blendSeatAnchor(.65);
   }
 
   /**
@@ -791,7 +1028,7 @@ export class CraftGame {
       return;
     }
     this.writeCell(x, y, z, AIR, 0);
-    this.sfx.play("pour");
+    this.sfx.play("pour");this.beginWork("place");
   }
 
   /** Right click with the bucket: a water source in the aimed cell. */
@@ -800,7 +1037,7 @@ export class CraftGame {
     if (!world.inBounds(x, y, z) || !world.isReplaceable(x, y, z) || this.furniture.blocksCell(x, y, z)) return;
     if (world.get(x, y, z) === WATER) return;
     this.writeCell(x, y, z, WATER, 0);
-    this.sfx.play("pour");
+    this.sfx.play("pour");this.beginWork("place");
   }
 
   /** Held left click on furniture: a short hold puts it away (it is free). */
@@ -815,6 +1052,7 @@ export class CraftGame {
     }
     this.miningTarget = null; // a block mined next starts from zero
     this.miningProgress += dt;
+    this.beginWork("interact",true);
     this.miningFrac = this.miningProgress / PICKUP_TIME;
     if (this.miningProgress < PICKUP_TIME) return;
     this.furniture.pickUp(item);
@@ -831,7 +1069,7 @@ export class CraftGame {
   private tryPlace(): void {
     this.actionHold = ACTION_FACE_TIME; // face what you are building on
     // right click ON a door/gate/curtain opens or closes it, whatever you hold
-    if (this.aimFurniture && this.furniture.interact(this.aimFurniture)) return;
+    if (this.aimFurniture && this.furniture.interact(this.aimFurniture)) { this.beginWork("place"); return; }
     // ...and on a chair, sofa or bed you sit down — unless you are placing
     // furniture, where the click means "put the piece here"
     if (this.aimFurniture && !this.furniture.active && this.trySit(this.aimFurniture)) return;
@@ -842,44 +1080,23 @@ export class CraftGame {
       return;
     }
     if (this.furniture.active) {
-      this.furniture.place(this.aim, this.yaw);
+      if(this.furniture.place(this.aim, this.yaw))this.beginWork("place");
       return;
     }
     if (this.holdingWater()) {
       this.pour(...this.aim.before);
       return;
     }
-    if (this.stampPiece(this.aim.before, HOTBAR[this.selected]!)) this.sfx.play("land");
+    const held = this.heldKey();
+    if (held && this.stampPiece(this.aim.before, held)) { this.sfx.play("land"); this.beginWork("place"); }
   }
 
   /** Try to place the active piece with anchor at `before`; true if it landed. */
-  private stampPiece(before: [number, number, number], key: string): boolean {
-    const [ax, ay, az] = before;
-    const piece = PIECES[this.pieceIndex]!;
-    const cells = pieceCells(piece, this.pieceRot, this.pieceTilt);
-    const shape =
-      piece.shape === "round"
-        ? ROUND
-        : piece.shape === "slope"
-          ? slopeShape(this.pieceRot, this.pieceTilt)
-          : CUBE;
-    const targets: [number, number, number][] = [];
-    for (const [dx, dy, dz] of cells) {
-      const x = ax + dx;
-      const y = ay + dy;
-      const z = az + dz;
-      if (!this.state.world.inBounds(x, y, z)) return false;
-      if (!this.state.world.isReplaceable(x, y, z)) return false; // air, or water it displaces
-      if (this.furniture.blocksCell(x, y, z)) return false;
-      if (overlapsVoxel(this.body, x, y, z)) return false; // never bury yourself
-      targets.push([x, y, z]);
-    }
-    if (countOf(this.state.inventory, key) < targets.length) return false;
-    const id = blockByKey(key)!.id;
-    for (const [x, y, z] of targets) {
-      removeItem(this.state.inventory, key);
-      this.writeCell(x, y, z, id, shape);
-    }
+  private stampPiece(before:[number,number,number],key:string):boolean {
+    if(!key||!blockByKey(key))return false;
+    const plan=planPiecePlacement(this.state.world,this.body,PIECES[this.pieceIndex]!,this.pieceRot,this.pieceTilt,before,countOf(this.state.inventory,key),(x,y,z)=>this.furniture.blocksCell(x,y,z));
+    if(!plan)return false;const id=blockByKey(key)!.id;
+    for(const [x,y,z] of plan.cells){removeItem(this.state.inventory,key);this.writeCell(x,y,z,id,plan.shape);}
     return true;
   }
 
@@ -892,6 +1109,7 @@ export class CraftGame {
     if (SOLID_ID[prevBlock] === 0 && SOLID_ID[block] === 0) this.view.markWaterDirty(x, y, z);
     else { this.view.markCellDirty(x, y, z); this.view.markWaterDirty(x, y, z); }
     this.water?.touch(x, y, z); // water around it may flow in, or drain
+    this.sand?.touch(x,y,z);
     this.sync?.recordEdit(x, y, z, prevBlock, prevShape, block, shape);
     if (block === AIR) this.furniture.onBlockRemoved(x, y, z);
   }
@@ -908,9 +1126,10 @@ export class CraftGame {
    * (green = fits, red = blocked).
    */
   private buildGhost(): void {
-    this.ghostCubeGeo = cubeBrickGeometry();
-    this.ghostRoundGeo = roundBrickGeometry();
-    this.ghostSlopeGeo = slopeBrickGeometry();
+    this.ghostCubeGeo = kitCubeGeometry();
+    this.ghostRoundGeo = kitRoundGeometry();
+    this.ghostSlopeGeo = kitRampGeometry();
+    this.ghostCornerGeo=kitRampGeometry(true);this.ghostCapGeo=kitConnectorGeometry();
     // polygonOffset pulls the preview toward the camera: where it shares
     // surfaces with what is already there (a red "taken" preview over a placed
     // piece, a brick flush with a wall) it wins cleanly instead of z-fighting
@@ -918,12 +1137,13 @@ export class CraftGame {
     const ghost = { transparent: true, opacity: 0.34, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -4 };
     this.ghostOk = new THREE.MeshBasicMaterial({ color: 0x8ce87a, ...ghost });
     this.ghostBad = new THREE.MeshBasicMaterial({ color: 0xe8695b, ...ghost });
-    for (let i = 0; i < 4; i++) {
+    for (let i = 0; i < MAX_PIECE_CELLS; i++) {
       const m = new THREE.Mesh(this.ghostCubeGeo, this.ghostOk);
       m.visible = false;
       m.frustumCulled = false; // drawn off-screen by the boot warm-up (see prepare)
       this.ghost.add(m);
       this.ghostMeshes.push(m);
+      const cap=new THREE.Mesh(this.ghostCapGeo,this.ghostOk);cap.position.y=.5;cap.visible=false;m.add(cap);this.ghostCaps.push(cap);
     }
     this.renderer.scene.add(this.ghost);
   }
@@ -946,16 +1166,19 @@ export class CraftGame {
     }
     // the bucket pours one cell, whatever brick shape is picked
     const piece = this.holdingWater() ? PIECES[0]! : PIECES[this.pieceIndex]!;
-    const geo =
-      piece.shape === "round"
-        ? this.ghostRoundGeo
-        : piece.shape === "slope"
-          ? this.ghostSlopeGeo
-          : this.ghostCubeGeo;
-    if (piece.shape === "slope") brickOrientation(this.pieceRot, this.pieceTilt, this.ghostQuat);
-    else this.ghostQuat.identity();
+    const shape=pieceShape(piece,this.pieceRot,this.pieceTilt);
+    const geo=shape===ROUND?this.ghostRoundGeo:blockShapeFamily(shape)==="corner"?this.ghostCornerGeo:isOrientedShape(shape)?this.ghostSlopeGeo:this.ghostCubeGeo;
+    if(isOrientedShape(shape))brickOrientation(this.pieceRot,this.pieceTilt,this.ghostQuat);else this.ghostQuat.identity();
     const cells = this.holdingWater() ? [[0, 0, 0] as const] : pieceCells(piece, this.pieceRot, this.pieceTilt);
     const [ax, ay, az] = this.aim.before;
+    const valid=this.canBuild() && (this.holdingWater() ? this.state.world.inBounds(ax,ay,az)&&this.state.world.isReplaceable(ax,ay,az)&&!this.furniture.blocksCell(ax,ay,az) : planPiecePlacement(this.state.world,this.body,piece,this.pieceRot,this.pieceTilt,[ax,ay,az],countOf(this.state.inventory,this.heldKey()),(x,y,z)=>this.furniture.blocksCell(x,y,z))!==null);
+    if(!this.holdingWater()&&shape===KIT_CUBE){
+      const cacheKey=piece.key+"/"+this.pieceRot+"/"+this.pieceTilt;
+      if(cacheKey!==this.ghostShellKey){this.ghostShellGeo?.dispose();this.ghostShellGeo=kitCellsGeometry(cells);this.ghostShellGeo.translate(-.5,-.5,-.5);this.ghostShellKey=cacheKey;}
+      for(let i=0;i<this.ghostMeshes.length;i++){this.ghostMeshes[i]!.visible=i===0;this.ghostCaps[i]!.visible=false;}
+      const m=this.ghostMeshes[0]!;m.geometry=this.ghostShellGeo!;m.material=valid?this.ghostOk:this.ghostBad;m.quaternion.identity();m.position.set(ax+.5,ay+.5,az+.5);return;
+    }
+    const occupied=new Set(cells.map(c=>c.join(",")));
     for (let i = 0; i < this.ghostMeshes.length; i++) {
       const m = this.ghostMeshes[i]!;
       const c = cells[i];
@@ -966,20 +1189,27 @@ export class CraftGame {
       const x = ax + c[0];
       const y = ay + c[1];
       const z = az + c[2];
-      const ok = this.state.world.inBounds(x, y, z) && this.state.world.isReplaceable(x, y, z) && !this.furniture.blocksCell(x, y, z);
+      const ok = valid;
       m.visible = true;
       m.geometry = geo;
       m.material = ok ? this.ghostOk : this.ghostBad;
+      const cap=this.ghostCaps[i]!;cap.visible=!this.holdingWater()&&(shape===KIT_CUBE||shape===ROUND)&&!occupied.has([c[0],c[1]+1,c[2]].join(","))&&!this.state.world.isSolid(x,y+1,z);cap.material=m.material;
       m.quaternion.copy(this.ghostQuat);
       m.position.set(x + 0.5, y + 0.5, z + 0.5);
     }
   }
 
-  private handleCraft(recipe: CraftRecipe): void {
-    if (!craftRecipe(this.state.inventory, recipe)) return;
+  private handleCraft(recipe: CraftRecipe, many = false): void {
+    const outKey = Object.keys(recipe.output)[0];
+    if (!outKey) return;
+    const before = countOf(this.state.inventory, outKey);
+    const made = craftBatch(this.state.inventory, recipe, many ? 16 : 1);
+    if (made === 0) return;
     this.sfx.play("checkpoint");
-    const made = blockByKey(Object.keys(recipe.output)[0]!);
-    this.hud.toast(t(`🛠️ ${made?.ko ?? recipe.name} 만들었어요!`, `🛠️ Crafted ${recipe.name}!`));
+    this.holdCrafted(outKey);
+    const gained = countOf(this.state.inventory, outKey) - before;
+    const def = blockByKey(outKey);
+    this.hud.toast(t(`🛠️ ${def?.ko ?? recipe.name} ${gained}개 만들었어요`, `🛠️ Crafted ${gained} ${def?.name ?? recipe.name}`));
   }
 
   /**
@@ -1022,14 +1252,14 @@ export class CraftGame {
     if (this.sync) return; // the class's field lives on the server
     // standing still with no edits: nothing to write, skip the serialise +
     // synchronous localStorage write entirely
-    const signature = `${this.field?.absOriginX ?? 0},${this.field?.absOriginZ ?? 0}|${this.state.world.version}|${Math.round(this.body.x * 2)},${Math.round(this.body.y * 2)},${Math.round(this.body.z * 2)}|${JSON.stringify(this.state.inventory)}|${this.pet.species}|${this.state.furniture.version}`;
+    const signature = `${this.field?.absOriginX ?? 0},${this.field?.absOriginZ ?? 0}|${this.state.world.version}|${Math.round(this.body.x * 2)},${Math.round(this.body.y * 2)},${Math.round(this.body.z * 2)}|${JSON.stringify(this.state.inventory)}|${this.state.hotbar.join(",")}|${this.pet.species}|${this.state.furniture.version}`;
     if (signature === this.lastSaveSignature) return;
     this.state.player = { x: this.body.x, y: this.body.y, z: this.body.z };
     this.state.pet = this.pet.species;
     let saved = false;
     try {
       saved = this.field
-        ? this.field.save(localStorage, this.state.inventory, this.state.player, this.state.pet, this.state.furniture.toJSON())
+        ? this.field.save(localStorage, this.state.inventory, this.state.player, this.state.pet, this.state.furniture.toJSON(), this.state.hotbar)
         : saveCraft(this.state, localStorage, Date.now());
     } catch { /* access to localStorage itself can be disabled by the browser */ }
     if (saved) {
@@ -1051,12 +1281,14 @@ export class CraftGame {
       // one clone per SOURCE material: parts that shared a colour keep sharing
       const clones = new Map<THREE.Material, THREE.Material>();
       this.rig.root.traverse((o) => {
-        if (o instanceof THREE.Mesh) {
+        if (o instanceof THREE.Mesh && !o.userData.heldItem) {
           const source = o.material as THREE.Material;
           let cloned = clones.get(source);
           if (!cloned) {
             cloned = source.clone();
             cloned.transparent = true;
+            // transparent + DoubleSide makes three draw back then front faces, re-deriving the program twice a frame
+            cloned.forceSinglePass = true;
             clones.set(source, cloned);
           }
           o.material = cloned;
@@ -1069,6 +1301,7 @@ export class CraftGame {
     const opacity = Math.min(1, Math.max(0, this.robotOpacity));
     this.rig.root.visible = opacity > 0.03;
     for (const material of this.robotMaterials) material.opacity = opacity;
+    this.rig.setHeldOpacity(opacity);
   }
 
   /**
@@ -1078,7 +1311,7 @@ export class CraftGame {
    */
   private smoothEyeY = Number.NaN;
   private smoothedEyeY(bodyY: number, dt: number): number {
-    const target = bodyY + POSTURE_EYE[this.posture];
+    const target = bodyY + POSTURE_EYE[this.seated ? "sit" : this.posture];
     if (!Number.isFinite(this.smoothEyeY) || Math.abs(target - this.smoothEyeY) > 1.6) {
       this.smoothEyeY = target;
     } else {
@@ -1131,6 +1364,9 @@ export class CraftGame {
    */
   private interpolatedBody(alpha: number): THREE.Vector3 {
     interpolate(this.prevBody, this.body, alpha, this.drawBody);
+    const remaining=this.seatBlend/this.seatBlendDuration;
+    const weight=remaining*remaining*(3-2*remaining);
+    this.drawBody.addScaledVector(this.seatOffset,weight);
     return this.drawBody;
   }
 
@@ -1167,6 +1403,11 @@ export class CraftGame {
 
   private render(alpha: number, frameDt: number): void {
     this.syncLock();
+    const target=this.miningTarget,progress=this.miningFrac;
+    if(this.locked&&this.mining&&!this.workshop.active&&target&&progress!==null&&!this.aimFurniture){
+      const def=blockById(this.state.world.get(...target));if(def){const shape=this.state.world.getShape(...target);this.miningEffects.setProgress(target,def,shape,progress,()=>this.view.miningShape(shape,def.id,target,this.state.world));}else this.miningEffects.clearTarget();
+    }else this.miningEffects.clearTarget();
+    this.miningEffects.update(frameDt,this.state.world);
     const drawn = this.interpolatedBody(alpha);
     this.hud.syncMenu(this.workshop.active || this.furniture.panelOpen || this.petShop.open || this.emoteMenu.open
       || performance.now() < this.resumeUntil || document.querySelector(".class-ended") !== null);
@@ -1212,8 +1453,10 @@ export class CraftGame {
     const planar = Math.hypot(this.body.vx, this.body.vz);
     // swimming is paddling (run) or treading water (idle) — not a jump pose
     const anim = this.characterAnimation();
+    this.rig.setHeldItem(this.toolEnabled&&!this.emptyHands&&!this.holdingWater()&&!this.furniture.active?"pickaxe-basic":null,this.toolOption);
     this.rig.setEmote(this.emote, this.emoteSeq);
-    this.rig.update(anim, planar, frameDt);
+    this.rig.performAction(this.workAction,this.workSeq,this.workLoop);
+    this.rig.update(anim, planar, frameDt,{swimming:this.isSwimming()});
 
     const eye = this.tmpEye.set(drawn.x, this.smoothedEyeY(drawn.y, frameDt), drawn.z);
     const t0 = performance.now();
@@ -1222,7 +1465,7 @@ export class CraftGame {
       eye,
       this.viewYaw,
       this.viewPitch,
-      planar > 0.5,
+      planar > 0.8 && gaitBlend(planar) >= 0.5,
       frameDt,
     );
     this.applyRobotOpacity(this.debugHideRobot ? 0 : robotOpacity, frameDt);
@@ -1231,12 +1474,13 @@ export class CraftGame {
     this.view.animateWater(performance.now() / 1000, this.field?.absOriginX ?? 0, this.field?.absOriginZ ?? 0);
 
     this.updateGhost();
-    this.hud.update(this.state.inventory, this.emptyHands ? -1 : this.selected);
+    this.hud.update(this.state.inventory, this.emptyHands ? -1 : this.selected, this.state.hotbar);
     this.hud.setMineProgress(this.miningFrac);
     this.perf.phase("camera", performance.now() - t0);
     this.perf.time("furniture", () => this.furniture.render(this.aim, this.yaw, this.locked && !this.mining, this.ghostOk, this.ghostBad));
     if (!this.furniture.active) {
-      if (this.emptyHands) this.hud.setPiece(t("빈손 · Q로 블록 들기", "Empty hands · Q to hold blocks"), 0, 0, "✋");
+      if(this.usingPickaxe()&&this.mining)this.hud.setPiece(t(`곡괭이 · 사거리 ${PICKAXE.targeting.reach}m · H로 해제`,`Pickaxe · ${PICKAXE.targeting.reach}m reach · H to unequip`),0,0,"⛏️");
+      else if (this.emptyHands) this.hud.setPiece(t("빈손 · Q로 블록 들기", "Empty hands · Q to hold blocks"), 0, 0, "✋");
       else this.hud.setPiece(PIECES[this.pieceIndex]!, this.pieceRot, this.pieceTilt);
     }
     this.perf.time("render", () => this.renderer.render());
@@ -1247,6 +1491,8 @@ export class CraftGame {
   /** Eased movement input (see fixedUpdate). */
   private wishX = 0;
   private wishZ = 0;
+  /** 1 is a run. Eases between the walk and the run while Shift is held. */
+  private moveRatio = moveScale("stand", false);
   /** The view angles the camera DRAWS with — `yaw`/`pitch` lightly smoothed. */
   private viewYaw = Math.PI;
   private viewPitch = -0.25;
@@ -1301,6 +1547,8 @@ export class CraftGame {
   /** Dev-only perf bisection switch (`__roboCraft.renderFlags`). */
   private debugHideRobot = false;
   private readonly sky: SkyDome;
+  /** Reflections for metal/gem/glass blocks (see render/skyEnvironment.ts). */
+  private readonly skyEnvironment: THREE.WebGLRenderTarget;
   /** Live classroom link (education mode with a teacher); null when solo. */
   private readonly sync: ClassSync | null = null;
   private viewPreset = 1;
@@ -1374,6 +1622,7 @@ export class CraftGame {
         pitch: this.pitch,
         yaw: this.yaw,
         inventory: { ...this.state.inventory },
+        hotbar: [...this.state.hotbar],
       }),
       seated: () => (this.seated ? { kind: this.seated.item.kind, pos: [this.body.x, this.body.y, this.body.z] } : null),
       /** What the crosshair is on: the voxel ray's hit and any furniture. */
@@ -1396,7 +1645,7 @@ export class CraftGame {
           cells++;
           if (id === WATER) sources++;
         }
-        return { wet: this.body.wet ?? 0, underwater: this.underwater, cells, sources, y: this.body.y, selected: HOTBAR[this.selected] };
+        return { wet: this.body.wet ?? 0, underwater: this.underwater, cells, sources, y: this.body.y, selected: this.heldKey() };
       },
       /** The live scene — for resource audits (duplicate materials/geometries). */
       scene: () => this.renderer.scene,
@@ -1466,8 +1715,10 @@ export class CraftGame {
       },
       saveNow: () => this.persist(),
       perf: () => this.perf.sample(),
+      sandStats:()=>this.sand?.stats()??null,
       waterStats: () => ({ ...this.view.waterStats(), simulation: this.water?.stats() ?? null }),
       chunks: () => this.view.chunkStats(),
+      miningVisual:()=>this.miningEffects.stats(),
       dispose: () => this.dispose(),
       machine: () => this.workshop.snapshot(),
       classroom: () => this.sync?.debug() ?? null,

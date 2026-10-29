@@ -1,0 +1,74 @@
+{
+  "id": "pickaxe-basic",
+  "version": "1.0.0",
+  "name": "포근한 곡괭이",
+  "kind": "pickaxe",
+  "modelUrl": "/models/items/tools/pickaxe-basic/pickaxe-basic.glb",
+  "iconUrl": "/models/items/tools/pickaxe-basic/icon.png",
+  "grip": {
+    "node": "Grip_Main",
+    "scale": 0.72,
+    "rotation": [
+      0,
+      1.5707963267948966,
+      -0.12
+    ]
+  },
+  "targeting": {
+    "mode": "crosshair-first-solid",
+    "reach": 2.4,
+    "contactRadius": 0.12,
+    "arcDegrees": 70,
+    "maxTargets": 1
+  },
+  "swing": {
+    "seconds": 0.62,
+    "impactAt": 0.58
+  },
+  "efficiency": {
+    "stone": 1.6,
+    "ore": 1.7,
+    "gem": 1.25,
+    "metal": 1.1,
+    "wood": 0.8,
+    "ground": 1,
+    "other": 1
+  },
+  "abilities": {
+    "singleTarget": true,
+    "areaBreak": false,
+    "playerDamage": 0,
+    "durabilityEnabled": false
+  },
+  "options": [
+    {
+      "id": "balanced",
+      "name": "기본",
+      "speed": 1,
+      "mining": 1,
+      "radius": 1
+    },
+    {
+      "id": "light-grip",
+      "name": "가벼운 손잡이",
+      "speed": 1.15,
+      "mining": 0.9,
+      "radius": 1
+    },
+    {
+      "id": "stone-focus",
+      "name": "석재 집중",
+      "speed": 0.9,
+      "mining": 1.2,
+      "radius": 1
+    },
+    {
+      "id": "precise-tip",
+      "name": "정밀한 날",
+      "speed": 1,
+      "mining": 1.05,
+      "radius": 0.7
+    }
+  ],
+  "defaultOption": "balanced"
+}

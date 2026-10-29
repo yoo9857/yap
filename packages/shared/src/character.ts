@@ -51,5 +51,24 @@ export interface CharacterPresentation {
     character: CharacterId;
     emote: EmoteId;
     emoteSeq: number;
+    action?: CharacterAction;
+    actionSeq?: number;
+    actionLoop?: boolean;
+    swimming?: boolean;
 }
+
+
+export type CharacterPosture = "stand" | "sit" | "lie" | "crawl";
+export interface PostureTransition { clip: string; seconds: number; clearance: number }
+const postureEdges: Partial<Record<`${CharacterPosture}:${CharacterPosture}`, PostureTransition>> = {
+  "stand:sit": {clip:"SitDown",seconds:.65,clearance:1.8}, "sit:stand": {clip:"SitToStand",seconds:.65,clearance:1.8},
+  "stand:lie": {clip:"LieDown",seconds:.9,clearance:1.8}, "lie:stand": {clip:"StandUp",seconds:.8,clearance:1.8},
+  "stand:crawl": {clip:"CrawlEnter",seconds:.65,clearance:1.8}, "crawl:stand": {clip:"CrawlExit",seconds:.65,clearance:1.8},
+  "lie:crawl": {clip:"LieToCrawl",seconds:1.3,clearance:1.55}, "crawl:lie": {clip:"CrawlToLie",seconds:1.2,clearance:1.55},
+  "sit:lie": {clip:"SitToLie",seconds:.8,clearance:1.45}, "lie:sit": {clip:"LieToSit",seconds:.8,clearance:1.45},
+  "sit:crawl": {clip:"SitToCrawl",seconds:.7,clearance:1.45}, "crawl:sit": {clip:"CrawlToSit",seconds:.7,clearance:1.45},
+};
+export function postureTransition(from: CharacterPosture, to: CharacterPosture): PostureTransition | undefined { return postureEdges[`${from}:${to}`]; }
+export const characterActionSchema = z.enum(["none","interact","place","hit"]);
+export type CharacterAction = z.infer<typeof characterActionSchema>;
 

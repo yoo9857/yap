@@ -1,6 +1,7 @@
+import { MAX_BLOCK_SHAPE } from "@robo/shared";
 import { z } from "zod";
 import { isKnownCell } from "./blocks.js";
-import { sanitizeCounts, type Counts } from "./inventory.js";
+import { defaultHotbar, sanitizeCounts, sanitizeHotbar, type Counts } from "./inventory.js";
 import { isPetSpecies, type PetSpecies } from "../player/creatureRig.js";
 import { FurnitureLayout, furnitureSaveSchema } from "./furniture/layout.js";
 import { VoxelWorld, WORLD_X, WORLD_Y, WORLD_Z, CRAFT_SPAWN, generateIsland, surfaceY } from "./voxelWorld.js";
@@ -26,6 +27,9 @@ const saveSchema = z.object({
     .max(WORLD_X * WORLD_Y * WORLD_Z)
     .optional(),
   inventory: z.record(z.string(), z.number()),
+  /** Hotbar loadout. Optional: saves from before the bag keep the default bar.
+   *  Unknown shapes are ignored in `sanitizeHotbar` so a bad slot cannot wipe the island. */
+  hotbar: z.unknown().optional(),
   player: z.object({ x: z.number().finite(), y: z.number().finite(), z: z.number().finite() }),
   /** Adopted companion. Optional and loosely typed on the way in: every save
    *  written before the adoption panel existed has no pet, and an unknown
@@ -47,6 +51,8 @@ export interface CraftGameState {
   seed: number;
   world: VoxelWorld;
   inventory: Counts;
+  /** Nine building slots plus the water bucket. Slot keys are block keys, or "". */
+  hotbar: string[];
   player: { x: number; y: number; z: number };
   pet: PetSpecies;
   furniture: FurnitureLayout;
@@ -61,6 +67,7 @@ export function freshState(seed: number): CraftGameState {
     seed,
     world,
     inventory: {},
+    hotbar: defaultHotbar(),
     player: { x, y: surfaceY(world, Math.floor(x), Math.floor(z)) + 1, z },
     pet: "dog",
     furniture: new FurnitureLayout(),
@@ -99,6 +106,7 @@ export function serializeCraft(state: CraftGameState, nowMs: number): string {
     edits,
     shapes,
     inventory: state.inventory,
+    hotbar: state.hotbar,
     player: state.player,
     pet: state.pet,
     furniture: state.furniture.toJSON(),
@@ -159,9 +167,10 @@ export function loadCraft(storage: KeyValueStorage, defaultSeed: number): CraftG
   }
   for (const [index, shape] of d.shapes ?? []) {
     const target = remap(index);
-    if (target < cellCount && shape <= 17) state.world.shapes[target] = shape;
+    if (target < cellCount && shape <= MAX_BLOCK_SHAPE) state.world.shapes[target] = shape;
   }
   state.inventory = sanitizeCounts(d.inventory);
+  state.hotbar = sanitizeHotbar(d.hotbar);
   if (isPetSpecies(d.pet)) state.pet = d.pet;
   state.furniture.load(d.furniture);
   // a save from inside a wall (or out of bounds) respawns on the surface

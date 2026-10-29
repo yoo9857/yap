@@ -1,6 +1,7 @@
 import type { FurnitureLayout } from "./furniture/layout.js";
 import * as THREE from "three";
-import type { ClassEdit, ClassMember, ClassSettings, ClassAnim, ClassServerMessage, CharacterPresentation } from "@robo/shared";
+import type { ClassEdit, ClassMember, ClassSettings, ClassAnim, ClassServerMessage, CharacterPresentation, BonkCandidate } from "@robo/shared";
+import { BonkFx } from "./bonkFx.js";
 import { CharacterRig, disposeRig } from "../player/rig.js";
 import type { ClassClient, ClassSession } from "../net/classClient.js";
 import { ClassHud } from "./classHud.js";
@@ -27,6 +28,7 @@ interface Remote {
   anim: ClassAnim;
   speed: number;
   seenAt: number;
+  swimming?: boolean;
 }
 
 export interface ClassSyncHooks {
@@ -35,6 +37,10 @@ export interface ClassSyncHooks {
   toast(text: string): void;
   clearKeys(): void;
   worldChanged?(): void;
+  /** The tap connected and we are the one who was hit. */
+  bonked?(push: { vx: number; vz: number; vy: number }): void;
+  /** The connect sound, for everyone who can see it. */
+  impact?(): void;
 }
 
 function nameTag(name: string, teacher: boolean): THREE.Sprite {
@@ -79,6 +85,7 @@ export class ClassSync {
   private moveTimer = 0;
   private online = true;
   private readonly tmp = new THREE.Vector3();
+  private readonly fx: BonkFx;
 
   constructor(
     readonly client: ClassClient,
@@ -92,6 +99,7 @@ export class ClassSync {
     // The full initial edit array can contain 300,000 tuples. The field owns
     // the live state; retain only identity, not a second obsolete world copy.
     this.session = { you: session.you, role: session.role };
+    this.fx = new BonkFx(scene);
     this.online = client.connected;
     this.members = session.members;
     this.settings = session.settings;
@@ -132,12 +140,15 @@ export class ClassSync {
       this.settings = settings;
       this.hud.setSettings(settings);
       if (this.session.role === "student") {
+        if ((settings.tapsLocked ?? false) !== (was.tapsLocked ?? false))
+          hooks.toast(settings.tapsLocked ? t("👋 선생님이 친구 밀기를 껐어요", "👋 The teacher turned friend taps off") : t("👋 다시 친구를 살짝 밀 수 있어요", "👋 Friend taps are back on"));
         if (settings.buildLocked !== was.buildLocked)
           hooks.toast(settings.buildLocked ? t("🧱 선생님이 건축을 잠갔어요", "🧱 The teacher locked building") : t("🧱 다시 건축할 수 있어요", "🧱 You can build again"));
         if (settings.chatLocked !== was.chatLocked)
           hooks.toast(settings.chatLocked ? t("💬 선생님이 채팅을 잠갔어요", "💬 The teacher locked the chat") : t("💬 다시 채팅할 수 있어요", "💬 You can chat again"));
       }
     };
+    client.onBonk = (msg) => this.applyBonk(msg);
     client.onGather = ([ax, y, az]) => {
       const [x, z] = field.toGrid(ax, az);
       // fan out around the teacher instead of stacking in one cell
@@ -230,9 +241,55 @@ export class ClassSync {
     this.moveTimer += dt;
     if (this.moveTimer >= 1 / MOVE_HZ) {
       this.moveTimer = 0;
-      const [ax, az] = this.field.toAbsolute(body.x, body.z);
-      this.client.send({ t: "k-move", pos: [ax, body.y, az], yaw, anim, ...presentation });
+      this.sendMove(body, yaw, anim, presentation);
     }
+  }
+
+  /** Send the position now, so a tap is judged against where we actually are. */
+  reportNow(body: { x: number; y: number; z: number }, yaw: number, anim: ClassAnim, presentation?: CharacterPresentation): void {
+    this.moveTimer = 0;
+    this.sendMove(body, yaw, anim, presentation);
+  }
+
+  /** False while the teacher has taps switched off: a click on a classmate digs as usual. */
+  get tapsAllowed(): boolean {
+    return this.settings.tapsLocked !== true;
+  }
+
+  sendBonk(target: string, yaw: number, pitch: number, seq: number): void {
+    this.client.send({ t: "k-bonk", target, yaw, pitch, seq });
+  }
+
+  /** Classmates in local grid metres, where the player is drawn. */
+  bonkTargets(): BonkCandidate[] {
+    const out: BonkCandidate[] = [];
+    for (const [id, remote] of this.remotes) {
+      if (!remote.rig.root.visible) continue;
+      const [x, z] = this.field.toGrid(remote.pos.x, remote.pos.z);
+      out.push({ id, x, y: remote.pos.y, z });
+    }
+    return out;
+  }
+
+  /** The field window scrolled under the player. */
+  shift(dx: number, dz: number): void {
+    this.fx.shift(dx, dz);
+  }
+
+  private sendMove(body: { x: number; y: number; z: number }, yaw: number, anim: ClassAnim, presentation?: CharacterPresentation): void {
+    const [ax, az] = this.field.toAbsolute(body.x, body.z);
+    this.client.send({ t: "k-move", pos: [ax, body.y, az], yaw, anim, ...presentation });
+  }
+
+  private applyBonk(msg: Extract<ClassServerMessage, { t: "s-k-bonk" }>): void {
+    if (msg.target === this.session.you) this.hooks.bonked?.({ vx: msg.vx, vz: msg.vz, vy: msg.vy });
+    else this.remotes.get(msg.target)?.rig.flashHit();
+    if (msg.by !== this.session.you) this.remotes.get(msg.by)?.rig.performAction("hit", msg.seq, false);
+    const remote = this.remotes.get(msg.target);
+    remote?.rig.pop(-1.3);
+    const [x, z] = this.field.toGrid(msg.at[0], msg.at[2]);
+    this.fx.burst(x, msg.at[1], z, msg.vx, msg.vz);
+    this.hooks.impact?.();
   }
 
   /** Per rendered frame: place remote robots in local grid space. */
@@ -258,8 +315,9 @@ export class ClassSync {
       r.rig.root.position.set(x, r.pos.y, z);
       r.drawnYaw = turnToward(r.drawnYaw, r.yaw, frameDt, 0.06, 20);
       r.rig.root.rotation.y = r.drawnYaw;
-      r.rig.update(r.anim, r.speed, frameDt);
+      r.rig.update(r.anim, r.speed, frameDt,{swimming:r.swimming});
     }
+    this.fx.update(frameDt);
   }
 
   private applySnap(players: Extract<ClassServerMessage, {t: "s-k-snap"}>["players"]): void {
@@ -287,6 +345,8 @@ export class ClassSync {
       }
       r.rig.setCharacter(p.character ?? "mascot");
       r.rig.setEmote(p.emote ?? "none", p.emoteSeq ?? 0);
+      r.rig.performAction(p.action??"none",p.actionSeq??0,p.actionLoop??false);
+      r.swimming=p.swimming;
       r.target.set(...p.pos);
       r.yaw = p.yaw;
       r.anim = p.anim;
@@ -344,6 +404,7 @@ export class ClassSync {
 
   dispose(): void {
     for (const id of [...this.remotes.keys()]) this.dropRemote(id);
+    this.fx.dispose();
     this.hud.dispose();
     this.client.close();
     this.pending.clear(); this.outbox.length = 0; this.members = [];

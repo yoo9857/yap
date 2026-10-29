@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { AIR, blockByKey, dropOf, blockById } from "../src/craft/blocks.js";
+import { existsSync } from "node:fs";
+import { MAX_SOLID_ID, PLAYER_SOLID_IDS, WATER, isPlayerBlock } from "@robo/shared";
+import { AIR, BLOCKS, blockByKey, dropOf, blockById, isPlaceableItem } from "../src/craft/blocks.js";
 import {
   VoxelWorld,
   WORLD_X,
@@ -16,12 +18,24 @@ import {
   type Body,
 } from "../src/craft/voxelBody.js";
 import {
+  BLOCK_GROUPS,
   CRAFT_RECIPES,
+  HOTBAR,
   addItem,
+  assignHotbar,
+  craftBatch,
+  FIELD_HOTBAR,
+  blockBagOrder,
+  blockGroup,
   canCraftRecipe,
-  craftRecipe,
+  clearHotbarSlot,
   countOf,
+  craftRecipe,
+  defaultHotbar,
+  ensureFieldStacks,
+  placeableBlocks,
   sanitizeCounts,
+  sanitizeHotbar,
 } from "../src/craft/inventory.js";
 import { freshState, loadCraft, serializeCraft } from "../src/craft/craftSave.js";
 
@@ -205,11 +219,97 @@ describe("inventory + recipes", () => {
   });
 
   it("every recipe input/output uses known block keys", () => {
+    expect(new Set(CRAFT_RECIPES.map((recipe) => recipe.id)).size).toBe(CRAFT_RECIPES.length);
     for (const recipe of CRAFT_RECIPES) {
       for (const key of [...Object.keys(recipe.input), ...Object.keys(recipe.output)]) {
         expect(blockByKey(key), `unknown key ${key} in ${recipe.id}`).toBeDefined();
+        expect(isPlaceableItem(blockByKey(key)!), key).toBe(true);
       }
     }
+  });
+
+  it("catalog ids are unique, placeable, and match the shared classroom gate", () => {
+    const ids = BLOCKS.map((block) => block.id);
+    expect(new Set(ids).size).toBe(ids.length);
+    expect(new Set(BLOCKS.map((block) => block.key)).size).toBe(BLOCKS.length);
+    expect(blockByKey("white-wool")!.id).toBe(29);
+    expect(blockByKey("ruby-ore")!.id).toBe(58);
+    expect(blockByKey("question-block")!.id).toBe(MAX_SOLID_ID);
+    for (const def of BLOCKS) {
+      expect(existsSync(`public/textures/blocks/${def.texture}.png`), def.texture).toBe(true);
+      if (def.fluid) expect(def.id).toBe(WATER);
+      else expect(PLAYER_SOLID_IDS.has(def.id), def.key).toBe(true);
+    }
+    for (const id of PLAYER_SOLID_IDS) {
+      const def = blockById(id);
+      expect(def, `missing catalog row ${id}`).toBeDefined();
+      expect(def!.fluid).not.toBe(true);
+    }
+    for (let id = 20; id <= 28; id++) expect(isPlayerBlock(id)).toBe(false);
+    expect(isPlayerBlock(0)).toBe(true);
+    expect(isPlayerBlock(WATER)).toBe(true);
+    expect(isPlayerBlock(MAX_SOLID_ID + 1)).toBe(false);
+    for (const def of placeableBlocks()) expect(blockGroup(def.key), def.key).toBeDefined();
+    const order = placeableBlocks().map((def) => blockBagOrder(def.key));
+    expect(new Set(order).size).toBe(order.length);
+    expect(blockBagOrder("snow")).toBeLessThan(blockBagOrder("oak-log"));
+    expect(blockBagOrder("bookshelf")).toBeLessThan(blockBagOrder("stone"));
+    expect(blockBagOrder("black-wool")).toBeLessThan(blockBagOrder("glass"));
+    expect(blockBagOrder("ice")).toBeLessThan(blockBagOrder("question-block"));
+    for (const group of BLOCK_GROUPS) {
+      if (group.id === "all") continue;
+      expect(placeableBlocks().some((def) => blockGroup(def.key) === group.id)).toBe(true);
+    }
+  });
+
+  it("loads a hotbar, rejects illegal slots, and keeps the water bucket", () => {
+    const hostile = sanitizeHotbar(["bedrock", "nope", "glass", "water"]);
+    expect(hostile[0]).toBe("");
+    expect(hostile[1]).toBe("");
+    expect(hostile[2]).toBe("glass");
+    expect(hostile[3]).toBe("");
+    expect(hostile[9]).toBe("water");
+    expect(sanitizeHotbar(undefined)).toEqual(HOTBAR);
+    const bar = defaultHotbar();
+    expect(assignHotbar(bar, 9, "dirt")).toBe(false);
+    expect(assignHotbar(bar, 0, "white-wool")).toBe(true);
+    expect(bar[0]).toBe("white-wool");
+    expect(assignHotbar(bar, 2, "white-wool")).toBe(true);
+    expect(bar[2]).toBe("white-wool");
+    expect(bar[0]).toBe("sand");
+    bar[4] = "";
+    expect(assignHotbar(bar, 4, "white-wool")).toBe(true);
+    expect(bar[4]).toBe("white-wool");
+    expect(bar[2]).toBe("");
+    expect(FIELD_HOTBAR).toHaveLength(10);
+    expect(FIELD_HOTBAR[9]).toBe("water");
+    expect(new Set(FIELD_HOTBAR).size).toBe(FIELD_HOTBAR.length);
+    expect(clearHotbarSlot(bar, 0)).toBe(true);
+    expect(bar[0]).toBe("");
+    expect(clearHotbarSlot(bar, 9)).toBe(false);
+    const stacks = ensureFieldStacks({ dirt: 3, water: 9 });
+    expect(stacks.dirt).toBe(3);
+    expect(stacks["white-wool"]).toBe(999);
+    expect(stacks.bedrock).toBeUndefined();
+    expect(stacks.water).toBeUndefined();
+  });
+
+  it("dyes wool from leaves", () => {
+    const counts = {};
+    addItem(counts, "oak-leaves", 2);
+    const wool = CRAFT_RECIPES.find((recipe) => recipe.id === "white-wool")!;
+    expect(craftRecipe(counts, wool)).toBe(true);
+    expect(countOf(counts, "oak-leaves")).toBe(0);
+    expect(countOf(counts, "white-wool")).toBe(4);
+    const red = CRAFT_RECIPES.find((recipe) => recipe.id === "wool-red")!;
+    expect(craftRecipe(counts, red)).toBe(true);
+    expect(countOf(counts, "red-wool")).toBe(1);
+    expect(countOf(counts, "white-wool")).toBe(3);
+    const leaves = CRAFT_RECIPES.find((recipe) => recipe.id === "dark-leaves")!;
+    addItem(counts, "oak-leaves", 3);
+    expect(craftBatch(counts, leaves, 16)).toBe(3);
+    expect(countOf(counts, "dark-leaves")).toBe(3);
+    expect(craftBatch(counts, leaves, 16)).toBe(0);
   });
 
   it("sanitizes hostile inventories", () => {
@@ -223,6 +323,17 @@ describe("inventory + recipes", () => {
 });
 
 describe("craft save", () => {
+  it("round-trips construction cubes, rotated ramps and corners without remapping older shapes", () => {
+    const state = freshState(42), storage = memoryStorage();
+    for (const [index,shape] of [0,17,18,34,50].entries()) state.world.setShaped(10+index,40,10,3,shape);
+    storage.setItem("craftyap-craft-save-v1", serializeCraft(state,1000));
+    const loaded = loadCraft(storage,999);
+    for (const [index,shape] of [0,17,18,34,50].entries()) {
+      expect(loaded.world.get(10+index,40,10)).toBe(3);
+      expect(loaded.world.getShape(10+index,40,10)).toBe(shape);
+    }
+  });
+
   it("reloads a large legitimate water build written by the serializer", () => {
     const state = freshState(42), storage = memoryStorage();
     for (let i = 0; i < 200_001; i++) {
@@ -262,6 +373,9 @@ describe("craft save", () => {
     state.world.set(cx, top, cz, AIR); // mined the surface block
     state.world.set(cx, top + 3, cz, blockByKey("glass")!.id); // placed in air
     state.inventory = { dirt: 12, glass: 3 };
+    state.hotbar = defaultHotbar();
+    state.hotbar[0] = "red-wool";
+    state.hotbar[1] = "";
     state.player = { x: 11.2, y: 9.1, z: 10.7 };
     storage.setItem("craftyap-craft-save-v1", serializeCraft(state, 1000));
 
@@ -270,6 +384,9 @@ describe("craft save", () => {
     expect(loaded.world.get(cx, top, cz)).toBe(AIR);
     expect(blockById(loaded.world.get(cx, top + 3, cz))?.key).toBe("glass");
     expect(loaded.inventory).toEqual({ dirt: 12, glass: 3 });
+    expect(loaded.hotbar[0]).toBe("red-wool");
+    expect(loaded.hotbar[1]).toBe("");
+    expect(loaded.hotbar[9]).toBe("water");
     expect(loaded.player.x).toBeCloseTo(11.2, 5);
     // untouched cells still match the generated island
     const pristine = generateIsland(42);

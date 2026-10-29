@@ -8,7 +8,7 @@ import type { VoxelWorld } from "./voxelWorld.js";
  * - 5-ray spherical occlusion probe so corners never clip into rock
  * - zoom snaps IN through walls, eases back OUT (tight spaces feel deliberate)
  * - first-person toggle for precise mining
- * - dynamic FOV: subtle widen while running
+ * - dynamic FOV: subtle widen while running (callers pass walk as false)
  * - micro screen-shake impulses (block breaks, hard landings)
  *
  * Every transition is frame-rate independent (exponential easing).
@@ -73,7 +73,7 @@ export class CraftCamera {
     eye: THREE.Vector3,
     yaw: number,
     pitch: number,
-    moving: boolean,
+    running: boolean,
     dt: number,
   ): number {
     const ease = (rate: number) => 1 - Math.pow(rate, dt);
@@ -127,7 +127,7 @@ export class CraftCamera {
     this.dist = Math.min(this.dist, hardLimit);
 
     // dynamic FOV — a touch wider on the move
-    const wantFov = moving && !this.firstPerson ? MOVE_FOV : BASE_FOV;
+    const wantFov = running && !this.firstPerson ? MOVE_FOV : BASE_FOV;
     this.fov += (wantFov - this.fov) * ease(0.02);
     if (Math.abs(this.camera.fov - this.fov) > 0.01) {
       this.camera.fov = this.fov;

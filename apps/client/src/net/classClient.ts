@@ -51,6 +51,32 @@ export const CLASS_ERROR_TEXT: Record<ClassErrorCode | "offline", string> = {
   offline: "서버에 연결할 수 없어요. 인터넷 연결을 확인해주세요.",
 };
 
+/**
+ * A deploy that changes CLASS_PROTOCOL_VERSION restarts the server; every open
+ * classroom tab reconnects with the old page and is refused "bad-version".
+ * Reload straight back into the same class instead of showing an error: the
+ * seat / host key is in localStorage, so the class name and your name are all
+ * the link needs (never the password). Once per minute, so a mismatched cache
+ * cannot loop.
+ */
+export function reloadIntoClass(join: ClassJoin): boolean {
+  const GUARD = "craftyap-class-version-reload";
+  try {
+    const last = Number(sessionStorage.getItem(GUARD) ?? 0);
+    if (Date.now() - last < 60_000) return false;
+    sessionStorage.setItem(GUARD, String(Date.now()));
+  } catch {
+    return false;
+  }
+  const p = new URLSearchParams({ mode: "field", room: join.room });
+  if (join.role === "teacher") p.set("host", join.teacher);
+  else p.set("student", join.student);
+  const lang = new URLSearchParams(location.search).get("lang");
+  if (lang) p.set("lang", lang);
+  location.replace(`${location.pathname}?${p.toString()}`);
+  return true;
+}
+
 const RECONNECT_MAX_MS = 8000;
 const LOAD_IDLE_MS = 10_000;
 const LOAD_TOTAL_MS = 120_000;
@@ -126,6 +152,7 @@ export class ClassClient {
   onReject: ((edits: ClassEdit[], authoritative: boolean) => void) | null = null;
   onChat: ((msg: Extract<ClassServerMessage, { t: "s-k-chat" }>) => void) | null = null;
   onGather: ((pos: [number, number, number]) => void) | null = null;
+  onBonk: ((msg: Extract<ClassServerMessage, { t: "s-k-bonk" }>) => void) | null = null;
   onSettings: ((settings: ClassSettings) => void) | null = null;
   onResync: ((session: ClassSession) => void) | null = null;
   onWorldReset: (() => void) | null = null;
@@ -205,7 +232,7 @@ export class ClassClient {
     const ws = this.ws; this.ws = null;
     if (ws) { ws.onopen = ws.onmessage = ws.onclose = ws.onerror = null; ws.close(1000, "left"); }
     this.onMembers = this.onSnap = this.onEdit = this.onFurniture = this.onReject = this.onChat = null;
-    this.onGather = this.onSettings = this.onResync = this.onWorldReset = this.onEnded = this.onConnection = null;
+    this.onGather = this.onBonk = this.onSettings = this.onResync = this.onWorldReset = this.onEnded = this.onConnection = null;
   }
 
   private open(): void {
@@ -272,6 +299,10 @@ export class ClassClient {
         this.maybeReady();
         return;
       case "s-k-error": {
+        if (msg.code === "bad-version" && reloadIntoClass(this.join)) {
+          this.ended = true;
+          return;
+        }
         // A lost teacher transport can outlive the browser's socket briefly.
         // Fresh duplicate tabs still fail immediately; an existing session
         // retries while the heartbeat retires its old transport.
@@ -305,7 +336,7 @@ export class ClassClient {
         return;
     }
     if (this.pending || !this.active) {
-      if (msg.t === "s-k-snap") return;
+      if (msg.t === "s-k-snap" || msg.t === "s-k-bonk") return;
       this.earlyEdits += msg.t === "s-k-edit" || msg.t === "s-k-reject" ? msg.edits.length
         : msg.t === "s-k-furniture" ? msg.furniture.length : 0;
       if (this.early.length >= 1024 || this.earlyEdits > 65_536) {
@@ -334,6 +365,9 @@ export class ClassClient {
         return;
       case "s-k-gather":
         this.onGather?.(msg.pos);
+        return;
+      case "s-k-bonk":
+        this.onBonk?.(msg);
         return;
       case "s-k-settings":
         this.onSettings?.(msg.settings);

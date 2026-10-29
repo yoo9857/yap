@@ -127,7 +127,10 @@ export class BuilderEnvironment {
         horizonColor: { value: new THREE.Color(0xd7d7ca) },
       },
       vertexShader: `varying vec3 vWorld; void main(){ vWorld=(modelMatrix*vec4(position,1.0)).xyz; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0); }`,
-      fragmentShader: `varying vec3 vWorld; uniform vec3 topColor; uniform vec3 horizonColor; void main(){ float h=clamp(normalize(vWorld).y*.78+.22,0.0,1.0); gl_FragColor=vec4(mix(horizonColor,topColor,pow(h,.7)),1.0); }`,
+      fragmentShader: `varying vec3 vWorld; uniform vec3 topColor; uniform vec3 horizonColor; void main(){ float h=clamp(normalize(vWorld).y*.78+.22,0.0,1.0); gl_FragColor=vec4(mix(horizonColor,topColor,pow(h,.7)),1.0);
+#include <tonemapping_fragment>
+#include <colorspace_fragment>
+}`,
     });
     const sky = new THREE.Mesh(geometry, material);
     sky.name = "architectural-sky";

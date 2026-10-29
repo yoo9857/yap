@@ -5,7 +5,7 @@ const byKey = (k: string): Piece => PIECES.find((p) => p.key === k)!;
 
 describe("craft pieces", () => {
   it("exposes the rectangular family plus round + slope", () => {
-    expect(PIECES.map((p) => p.key)).toEqual(["1x1", "1x2", "1x3", "corner", "2x2", "round", "slope"]);
+    expect(PIECES.map((p) => p.key)).toEqual(["1x1", "1x2", "1x3", "corner", "2x2", "round", "slope", "1x4", "2x3", "2x4", "corner-long", "corner-slope"]);
   });
 
   it("tags round + slope with their geometry", () => {
@@ -65,3 +65,4 @@ describe("craft pieces", () => {
     }
   });
 });
+

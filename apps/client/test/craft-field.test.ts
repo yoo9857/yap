@@ -9,6 +9,19 @@ const memory = () => {
 };
 
 describe("education field", () => {
+  it("preserves rotated kit corners through scrolling and save/load", () => {
+    const storage = memory(), field = new FieldWindow();
+    const x = 10, y = FIELD_TOP + 2, z = 20;
+    field.world.setShaped(x, y, z, blockByKey("stone")!.id, 50);
+    field.recenter({ x: 300, z: 300 });
+    expect(field.save(storage, {}, { x: 81, y: 4, z: 82 })).toBe(true);
+    const restored = new FieldWindow();
+    expect(restored.load(storage)).not.toBeNull();
+    restored.recenter({ x: 80 - 224, z: 80 - 224 });
+    expect(restored.world.getShape(x, y, z)).toBe(50);
+    expect(restored.world.get(x, y, z)).toBe(blockByKey("stone")!.id);
+  });
+
   it("preserves the previous readable save when the field exceeds its save limit", () => {
     const storage = memory(), field = new FieldWindow();
     expect(field.save(storage, {}, field.spawn)).toBe(true);

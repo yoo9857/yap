@@ -32,6 +32,7 @@ export class ClassHud {
   private readonly controls = el("div", "class-controls");
   private readonly chatLock = el("button", "class-btn");
   private readonly buildLock = el("button", "class-btn");
+  private readonly tapsLock = el("button", "class-btn");
   private readonly log = el("div", "class-chat-log");
   private readonly input = el("input", "class-chat-input");
   private settings: ClassSettings = { chatLocked: false, buildLocked: false };
@@ -62,6 +63,9 @@ export class ClassHud {
       this.buildLock.addEventListener("click", () =>
         this.actions.settings({ ...this.settings, buildLocked: !this.settings.buildLocked }),
       );
+      this.tapsLock.addEventListener("click", () =>
+        this.actions.settings({ ...this.settings, tapsLocked: !this.settings.tapsLocked }),
+      );
       const end = el("button", "class-btn danger", t("수업 종료", "End class"));
       end.addEventListener("click", () => {
         if (confirm(t("수업을 끝낼까요? 모든 학생의 연결이 끊어져요.", "End the class? Every student will be disconnected."))) this.actions.end();
@@ -70,7 +74,7 @@ export class ClassHud {
       reset.addEventListener("click", () => {
         if (confirm(t("반의 들판을 모두 비울까요? 지금까지 만든 것이 모두 사라져요.", "Clear the whole class field? Everything built so far will be gone."))) this.actions.resetWorld();
       });
-      this.controls.append(gather, this.chatLock, this.buildLock, reset, end);
+      this.controls.append(gather, this.chatLock, this.buildLock, this.tapsLock, reset, end);
       this.panel.append(this.controls);
     }
     this.panel.append(el("div", "class-tip", t("Esc로 마우스를 풀면 버튼을 누를 수 있어요 · Enter 채팅", "Press Esc to free the mouse and use the buttons · Enter to chat")));
@@ -118,6 +122,8 @@ export class ClassHud {
     this.buildLock.textContent = settings.buildLocked ? t("🧱 건축 잠금 해제", "🧱 Unlock building") : t("🧱 건축 잠그기", "🧱 Lock building");
     this.chatLock.classList.toggle("on", settings.chatLocked);
     this.buildLock.classList.toggle("on", settings.buildLocked);
+    this.tapsLock.textContent = settings.tapsLocked ? t("👋 친구 밀기 다시 허용", "👋 Allow friend taps") : t("👋 친구 밀기 끄기", "👋 Turn friend taps off");
+    this.tapsLock.classList.toggle("on", settings.tapsLocked === true);
     if (this.role === "student" && settings.chatLocked) this.closeInput();
   }
 

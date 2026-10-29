@@ -1,7 +1,8 @@
+import { MAX_BLOCK_SHAPE } from "@robo/shared";
 import { z } from "zod";
 import { voxelCoordinates, voxelKey, type VoxelKey } from "@robo/shared";
 import { blockByKey, isKnownCell } from "./blocks.js";
-import { HOTBAR, sanitizeCounts, type Counts } from "./inventory.js";
+import { ensureFieldStacks, fieldStarterHotbar, sanitizeCounts, sanitizeHotbar, type Counts } from "./inventory.js";
 import { VoxelWorld, WORLD_X, WORLD_Y, WORLD_Z } from "./voxelWorld.js";
 import type { KeyValueStorage } from "./craftSave.js";
 import { furnitureSaveSchema, type FurnitureTuple } from "./furniture/layout.js";
@@ -51,6 +52,8 @@ const saveSchema = z.object({
     .array(z.tuple([z.number().int(), z.number().int(), z.number().int(), z.number().int(), z.number().int()]))
     .max(MAX_SAVED_EDITS),
   inventory: z.record(z.string(), z.number()),
+  /** Optional loadout. A bad value must not reject the whole field. */
+  hotbar: z.unknown().optional(),
   player: z.object({ x: z.number().finite(), y: z.number().finite(), z: z.number().finite() }),
   /** Adopted companion. Optional: fields saved before the adoption panel
    *  existed have none, and the caller falls back to the dog. */
@@ -204,6 +207,7 @@ export class FieldWindow {
     player: { x: number; y: number; z: number },
     pet?: string,
     furniture?: FurnitureTuple[],
+    hotbar?: readonly string[],
   ): boolean {
     this.bank();
     // Never overwrite a readable save with one the loader would reject.
@@ -212,7 +216,7 @@ export class FieldWindow {
     try {
       storage.setItem(
         SAVE_KEY,
-        JSON.stringify({ v: 1, originX: this.originX, originZ: this.originZ, edits, inventory, player, pet, furniture }),
+        JSON.stringify({ v: 1, originX: this.originX, originZ: this.originZ, edits, inventory, player, pet, furniture, ...(hotbar ? { hotbar: [...hotbar] } : {}) }),
       );
       return true;
     } catch {
@@ -223,7 +227,7 @@ export class FieldWindow {
   /** Restore a saved field; returns its inventory/player or null for a fresh one. */
   load(
     storage: KeyValueStorage,
-  ): { inventory: Counts; player: { x: number; y: number; z: number }; pet?: string; furniture?: unknown[] } | null {
+  ): { inventory: Counts; hotbar: string[]; player: { x: number; y: number; z: number }; pet?: string; furniture?: unknown[] } | null {
     let parsed: unknown;
     try {
       const raw = storage.getItem(SAVE_KEY);
@@ -239,7 +243,7 @@ export class FieldWindow {
     this.originZ = d.originZ;
     this.edits.clear();
     for (const [x, y, zz, block, shape] of d.edits) {
-      if (y < 0 || y >= WORLD_Y || shape < 0 || shape > 17) continue;
+      if (y < 0 || y >= WORLD_Y || shape < 0 || shape > MAX_BLOCK_SHAPE) continue;
       if (!isKnownCell(block)) continue;
       this.edits.set(voxelKey(x, y, zz), [block, shape]);
     }
@@ -247,6 +251,7 @@ export class FieldWindow {
     const clamp = (v: number, hi: number) => Math.min(Math.max(v, 1), hi - 1);
     return {
       inventory: sanitizeCounts(d.inventory),
+      hotbar: Array.isArray(d.hotbar) ? sanitizeHotbar(d.hotbar) : fieldStarterHotbar(),
       player: { x: clamp(d.player.x, WORLD_X), y: clamp(d.player.y, WORLD_Y + 4), z: clamp(d.player.z, WORLD_Z) },
       pet: d.pet,
       furniture: d.furniture,
@@ -254,11 +259,9 @@ export class FieldWindow {
   }
 }
 
-/** Education mode is for building, not grinding: start with full stacks. */
+/** Education mode is for building, not grinding: a full stack of every placeable block. */
 export function fieldStarterInventory(): Counts {
-  const inventory: Counts = {};
-  for (const key of HOTBAR) inventory[key] = 999;
-  return inventory;
+  return ensureFieldStacks({});
 }
 
 export function clearFieldSave(storage: { removeItem(key: string): void }): void {

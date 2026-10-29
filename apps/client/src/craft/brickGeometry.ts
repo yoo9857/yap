@@ -16,7 +16,7 @@ export function cubeBrickGeometry(): THREE.BufferGeometry {
 
 /** Round (cylinder) brick — the "○" piece. */
 export function roundBrickGeometry(): THREE.BufferGeometry {
-  return new THREE.CylinderGeometry(0.56, 0.56, 1.1, 16);
+  return new THREE.CylinderGeometry(0.5, 0.5, 1, 16);
 }
 
 /** Stud cap for flat-topped bricks. Sized for a 0.5 m sub-cell (4 studs per 1 m
@@ -36,7 +36,7 @@ export function studGeometry(): THREE.CylinderGeometry {
  * computeVertexNormals gives correct OUTWARD flat normals (a mixed winding is
  * what made the slope shade wrong). Rotated per instance for its facings.
  */
-export function slopeBrickGeometry(s = 0.55): THREE.BufferGeometry {
+export function slopeBrickGeometry(s = 0.5): THREE.BufferGeometry {
   const L0 = [-s, -s, -s], L1 = [-s, s, -s], L2 = [-s, -s, s]; // left cap (x=−s)
   const R0 = [s, -s, -s], R1 = [s, s, -s], R2 = [s, -s, s]; //     right cap (x=+s)
   const tri = (a: number[], b: number[], c: number[]): number[] => [...a, ...b, ...c];

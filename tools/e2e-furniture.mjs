@@ -249,7 +249,7 @@ check("right-clicking a door opens it (and places no block)", (await craft((c) =
 // walk through the open doorway for real: hold W from in front of it
 await craft((c) => c.look(0, 0));
 await page.keyboard.down("KeyW");
-await wait(1400);
+await wait(2200);
 await page.keyboard.up("KeyW");
 const through = await craft((c) => c.snapshot().pos);
 check("an open door can be walked through", through[2] > 77, JSON.stringify(through));

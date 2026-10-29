@@ -35,6 +35,7 @@ export class SkyDome {
           // flat fog colour at and below the horizon, easing to blue above
           float t = smoothstep(0.0, 0.45, vDir.y);
           gl_FragColor = vec4(mix(horizon, top, t), 1.0);
+          #include <tonemapping_fragment>
           #include <colorspace_fragment>
         }`,
     });

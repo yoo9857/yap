@@ -21,6 +21,19 @@ export function instancedDepthMaterial(): THREE.MeshDepthMaterial {
   return shared;
 }
 
+let skinned: THREE.MeshDepthMaterial | null = null;
+
+/**
+ * The same split for SKINNED casters (the HOME/TT characters): a skinned mesh
+ * drawn with the shared depth material flips it between the skinning and the
+ * plain variant every frame, exactly like an instanced one.
+ */
+export function castsSkinnedShadow(mesh: THREE.SkinnedMesh): void {
+  skinned ??= new THREE.MeshDepthMaterial({ depthPacking: THREE.RGBADepthPacking });
+  mesh.castShadow = true;
+  mesh.customDepthMaterial = skinned;
+}
+
 /** Make an instanced mesh cast shadows without thrashing the shared depth material. */
 export function castsInstancedShadow(mesh: THREE.InstancedMesh): void {
   mesh.castShadow = true;

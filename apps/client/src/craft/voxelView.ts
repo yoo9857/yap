@@ -1,15 +1,18 @@
+import {kitCubeGeometry,kitRampGeometry,kitConnectorGeometry,kitRoundGeometry,kitCellsGeometry} from "./kitGeometry.js";
 import * as THREE from "three";
+import {mergeGeometries} from "three/examples/jsm/utils/BufferGeometryUtils.js";
+import {repeatingKitTexture} from "./kitSurface.js";
+import {BlockMaterialLibrary,materialFaceGroups,needsCatalogTexture} from "./blockMaterials.js";
 import { castsInstancedShadow } from "../render/instancedDepth.js";
 import { BLOCKS, SOLID_ID, blockById, textureUrl, type BlockDef } from "./blocks.js";
 import { animateWater, buildWaterGeometry, makeWaterMaterial, prepareWaterTransition } from "./waterMesh.js";
 import type { WaterWorkerRequest, WaterWorkerResponse } from "./waterWorkerTypes.js";
 import { loadTexture } from "../render/textures.js";
 import { WORLD_X, WORLD_Y, WORLD_Z, type VoxelWorld } from "./voxelWorld.js";
-import { ROUND, isSlope, slopeYaw, slopeTilt } from "./shapes.js";
+import { ROUND, KIT_CUBE, isOrientedShape, shapeYaw, shapeTilt, isFullCubeShape, blockShapeFamily } from "./shapes.js";
 import {
   brickOrientation,
   cubeBrickGeometry,
-  roundBrickGeometry,
   slopeBrickGeometry,
   studGeometry,
 } from "./brickGeometry.js";
@@ -153,19 +156,46 @@ interface FarBuffers {
  * few thousand triangles instead of millions. Edits rebuild only the chunk
  * they touch; rebuilds go through a nearest-first queue with a frame budget.
  */
+/**
+ * The block materials use vertexColors (the kit shells bake their shading into
+ * a colour attribute). A geometry WITHOUT that attribute reads (0,0,0) from
+ * WebGL and draws black — that was the studs and every far chunk. White = no
+ * tint; one byte per channel keeps it cheap on the big merged meshes.
+ */
+function whiteVertexColors<T extends THREE.BufferGeometry>(geometry: T): T {
+  if (!geometry.getAttribute("color")) {
+    const count = geometry.getAttribute("position").count;
+    geometry.setAttribute("color", new THREE.BufferAttribute(new Uint8Array(count * 3).fill(255), 3, true));
+  }
+  return geometry;
+}
+
 export class VoxelView {
   private disposed = false;
+  private readonly fallingHidden=new Set<number>();
+  private miningHidden:readonly [number,number,number]|null=null;
+  private readonly miningPriority=new Set<number>();
+  private readonly blockSurfaces=new BlockMaterialLibrary();
+  private readonly clonedBlockTextures=new Set<THREE.Texture>();
+  private readonly faceMaterialIndices=new Map<number,number[]>();
+  private readonly kitCapGeo=kitConnectorGeometry();
+  private readonly kitCubeGeo=kitCubeGeometry();
+  private readonly kitSlopeGeo=kitRampGeometry();
+  private readonly cornerGeo=kitRampGeometry(true);
+  private readonly farCorner=kitRampGeometry(true,0);
   private readonly cubeGeo = cubeBrickGeometry();
-  private readonly roundGeo = roundBrickGeometry();
+  private readonly roundGeo = kitRoundGeometry();
   private readonly slopeGeo = slopeBrickGeometry();
   /** Cheap non-indexed shapes baked into far meshes for round/slope bricks. */
   private readonly farRound = new THREE.CylinderGeometry(0.5, 0.5, 1, 8).toNonIndexed();
-  private readonly farSlope = nonIndexed(slopeBrickGeometry());
-  private readonly studGeometry = studGeometry();
+  private readonly farSlope = nonIndexed(kitRampGeometry(false,0));
+  private readonly studGeometry = whiteVertexColors(studGeometry());
   private readonly studMeshes = new Map<number, THREE.InstancedMesh>();
   private chunks = new Map<number, ChunkState>();
   private readonly queue = new Set<number>();
   private readonly materials = new Map<number, THREE.Material>();
+  private readonly kitMaterials = new Map<number,THREE.MeshPhysicalMaterial[]>();
+  private readonly ownedShells = new WeakSet<THREE.BufferGeometry>();
   /** Material index for far-mesh groups (block ids are sparse-ish). */
   private readonly materialList: THREE.Material[] = [];
   private readonly materialIndex = new Map<number, number>();
@@ -179,14 +209,16 @@ export class VoxelView {
   private studsDirty = true;
   private renderDistance = Infinity;
 
-  constructor(private readonly scene: THREE.Scene) {
+  constructor(private readonly scene: THREE.Scene,private readonly options:{catalogTextures?:boolean}={}) {
     for (const def of BLOCKS) {
       if (def.fluid) continue; // drawn by the water mesh, never as a brick
       const [material, merged] = this.makeMaterials(def);
       this.materials.set(def.id, material);
-      this.materialIndex.set(def.id, this.materialList.length);
-      this.materialList.push(merged);
-      if (def.key === "glass") this.seeThrough.add(def.id);
+      const kit=this.blockSurfaces.get(def.key,def.color,material as THREE.MeshStandardMaterial);
+      this.kitMaterials.set(def.id,kit);
+      const far=kit.map(m=>m.clone());this.materialIndex.set(def.id,this.materialList.length);this.faceMaterialIndices.set(def.id,far.map((_,i)=>this.materialList.length+i));this.materialList.push(...far);merged.dispose();
+      if(options.catalogTextures!==false&&needsCatalogTexture(def))void loadTexture(textureUrl(def)).then(tex=>{if(this.disposed||!tex)return;const map=repeatingKitTexture(tex);this.clonedBlockTextures.add(map);for(const m of [...kit,...far]){m.map=map;m.color.set(0xffffff);if(def.emissive)m.emissiveMap=map;m.needsUpdate=true;}});
+      if (def.seeThrough) this.seeThrough.add(def.id);
     }
     const edges = new THREE.EdgesGeometry(new THREE.BoxGeometry(1.002, 1.002, 1.002));
     this.highlight = new THREE.LineSegments(
@@ -199,7 +231,62 @@ export class VoxelView {
   }
 
   private geometryFor(shape: number): THREE.BufferGeometry {
-    return shape === ROUND ? this.roundGeo : isSlope(shape) ? this.slopeGeo : this.cubeGeo;
+    return isFullCubeShape(shape)?this.kitCubeGeo:shape===ROUND?this.roundGeo:blockShapeFamily(shape)==="corner"?this.cornerGeo:isOrientedShape(shape)?(shape>=19?this.kitSlopeGeo:this.slopeGeo):this.cubeGeo;
+  }
+
+  /** Visual masking never mutates world cells, collision, saves or inventory. */
+  setMiningHidden(cell:readonly [number,number,number]|null):void {
+    if(this.miningHidden?.join(",")===cell?.join(","))return;
+    const previous=this.miningHidden;this.miningHidden=cell?[...cell]:null;
+    for(const c of [previous,cell]){if(!c)continue;this.markCellDirty(...c);
+      const cx=Math.floor(c[0]/CHUNK),cz=Math.floor(c[2]/CHUNK),lx=c[0]-cx*CHUNK,lz=c[2]-cz*CHUNK;
+      this.miningPriority.add(chunkId(cx,cz));
+      if(lx===0)this.miningPriority.add(chunkId(cx-1,cz));if(lx===CHUNK-1)this.miningPriority.add(chunkId(cx+1,cz));
+      if(lz===0)this.miningPriority.add(chunkId(cx,cz-1));if(lz===CHUNK-1)this.miningPriority.add(chunkId(cx,cz+1));
+    }
+  }
+  setFallingHidden(cells:readonly (readonly [number,number,number])[]):void {
+    const next=new Set(cells.map(([x,y,z])=>(y*WORLD_Z+z)*WORLD_X+x));
+    for(const index of new Set([...next,...this.fallingHidden]))if(next.has(index)!==this.fallingHidden.has(index)){
+      const x=index%WORLD_X,y=Math.floor(index/(WORLD_X*WORLD_Z)),z=Math.floor(index/WORLD_X)%WORLD_Z;this.markCellDirty(x,y,z);const cx=Math.floor(x/CHUNK),cz=Math.floor(z/CHUNK);this.miningPriority.add(chunkId(cx,cz));
+      if(x%CHUNK===0)this.miningPriority.add(chunkId(cx-1,cz));if(x%CHUNK===CHUNK-1)this.miningPriority.add(chunkId(cx+1,cz));
+      if(z%CHUNK===0)this.miningPriority.add(chunkId(cx,cz-1));if(z%CHUNK===CHUNK-1)this.miningPriority.add(chunkId(cx,cz+1));
+    }
+    this.fallingHidden.clear();for(const index of next)this.fallingHidden.add(index);
+  }
+  private isMiningHidden(x:number,y:number,z:number):boolean {return (x>=0&&x<WORLD_X&&y>=0&&y<WORLD_Y&&z>=0&&z<WORLD_Z&&this.fallingHidden.has((y*WORLD_Z+z)*WORLD_X+x))||!!this.miningHidden&&x===this.miningHidden[0]&&y===this.miningHidden[1]&&z===this.miningHidden[2];}
+
+
+  /**
+   * The merged-mesh twins, not the instanced kit materials: a shard is a plain Mesh, and an
+   * instanced material drawn on one flips its shader variant every frame (see render/instancedDepth.ts).
+   */
+  /**
+   * Give the reflective surfaces (metal, gem, glass) a sky to reflect. Applied to
+   * the instanced kit materials and their merged-mesh twins alike, before the
+   * boot warm-up compiles them; matte blocks are left untouched.
+   */
+  setEnvironment(texture:THREE.Texture|null):void {
+    const strength:Record<string,number>={metal:1.15,gem:.8,glass:.7,ore:.25};
+    const apply=(m:THREE.Material)=>{if(!(m instanceof THREE.MeshStandardMaterial))return;const s=strength[String(m.userData.surface_family)];if(s===undefined)return;m.envMap=texture;m.envMapIntensity=s;m.needsUpdate=true;};
+    for(const list of this.kitMaterials.values())list.forEach(apply);
+    this.materialList.forEach(apply);
+  }
+
+  miningMaterials(block:number):THREE.Material[] {return (this.faceMaterialIndices.get(block)??[]).map(i=>this.materialList[i]!);}
+
+  /** Preserve live surface materials, orientation, UVs and exposed connectors on the fractured copy. */
+  miningShape(shape:number,block:number,cell?:readonly [number,number,number],world?:Pick<VoxelWorld,"isSolid">):{geometry:THREE.BufferGeometry;rotation:THREE.Quaternion;materials:THREE.Material[]} {
+    if(cell&&world&&["grass","flower-grass"].includes(blockById(block)?.key??"")&&world.isSolid(cell[0],cell[1]+1,cell[2]))block=2;
+    let geometry=this.geometryFor(shape).clone();const rotation=isOrientedShape(shape)?brickOrientation(shapeYaw(shape),shapeTilt(shape)):new THREE.Quaternion();
+    const materials=this.miningMaterials(block);
+    if(cell&&world&&!blockById(block)?.noStud&&(isFullCubeShape(shape)||shape===ROUND)&&!world.isSolid(cell[0],cell[1]+1,cell[2])){
+      const style=shape===KIT_CUBE||shape===ROUND,parts=[geometry.index?geometry.toNonIndexed():geometry.clone()];
+      for(const [x,z] of style?[[0,0]]:STUD_OFFSETS){const cap=(style?this.kitCapGeo:this.studGeometry).clone().translate(x,.5,z);parts.push(cap.index?cap.toNonIndexed():cap);if(cap.index)cap.dispose();}
+      const merged=mergeGeometries(parts);for(const p of parts)p.dispose();if(merged){geometry.dispose();geometry=merged;}
+    }
+    if(materials.length>1)materialFaceGroups(geometry,rotation);
+    return {geometry,rotation,materials};
   }
 
   /**
@@ -221,19 +308,19 @@ export class VoxelView {
   }
 
   private makeMaterial(def: BlockDef): THREE.Material {
-    const isGlass = def.key === "glass";
+    const clear = def.seeThrough === true;
     const material = new THREE.MeshStandardMaterial({
       color: new THREE.Color(def.color),
       roughness: 0.75,
       metalness: 0.05,
-      transparent: isGlass,
-      opacity: isGlass ? 0.55 : 1,
+      transparent: clear,
+      opacity: clear ? 0.55 : 1,
     });
     if (def.emissive) {
       material.emissive = new THREE.Color(def.color);
       material.emissiveIntensity = 0.55;
     }
-    void loadTexture(textureUrl(def)).then((tex) => {
+    if(this.options.catalogTextures!==false)void loadTexture(textureUrl(def)).then((tex) => {
       if (this.disposed || !tex) return; // keep the solid crayon colour
       material.map = tex;
       material.color.set(0xffffff); // the tile carries the hue, exactly like the tower
@@ -453,6 +540,7 @@ export class VoxelView {
    * is queued for building.
    */
   shift(dx: number, dz: number): void {
+    this.setMiningHidden(null);this.setFallingHidden([]);this.miningPriority.clear();
     this.cancelWaterBatch();
     const waterQueued = [...this.waterQueue];
     this.waterQueue.clear();
@@ -549,6 +637,9 @@ export class VoxelView {
         for (let cx = 0; cx < CHUNKS_X; cx++) this.queue.add(chunkId(cx, cz));
       }
     }
+    // A replacement and its original must swap in the same frame, even during a queued terrain rebuild.
+    for(const id of this.miningPriority){this.queue.delete(id);if(this.buildChunk(world,chunkX(id),chunkZ(id)))this.studsDirty=true;}
+    this.miningPriority.clear();
     if (this.queue.size > 0) {
       const order = [...this.queue].sort((a, b) => this.distSqTo(a) - this.distSqTo(b));
       // The first fill and focus-less callers build everything at once, so a
@@ -676,7 +767,10 @@ export class VoxelView {
     const water: number[] = [];
     let top = 0;
 
+    const hiddenIndex=this.miningHidden?(this.miningHidden[1]*WORLD_Z+this.miningHidden[2])*W+this.miningHidden[0]:-1;
+    const opaque=(index:number)=>index!==hiddenIndex&&!this.fallingHidden.has(index)&&SOLID_ID[cells[index]!]===1&&isFullCubeShape(shapes[index]!)&&!this.seeThrough.has(cells[index]!);
     const occludes = (nx: number, ny: number, nz: number): boolean => {
+      if(this.isMiningHidden(nx,ny,nz))return false;
       let block: number;
       let shape: number;
       if (nx >= 0 && nx < W && nz >= 0 && nz < WORLD_Z && ny >= 0 && ny < WORLD_Y) {
@@ -687,14 +781,15 @@ export class VoxelView {
         block = world.get(nx, ny, nz);
         shape = 0;
       }
-      return SOLID_ID[block] === 1 && shape === 0 && !this.seeThrough.has(block);
+      return SOLID_ID[block] === 1 && isFullCubeShape(shape) && !this.seeThrough.has(block);
     };
 
     for (let y = 0; y < WORLD_Y; y++) {
       for (let z = z0; z < z1; z++) {
         let i = (y * WORLD_Z + z) * W + x0;
         for (let x = x0; x < x1; x++, i++) {
-          const block = cells[i]!;
+          if(i===hiddenIndex||this.fallingHidden.has(i))continue;
+          let block = cells[i]!;
           if (SOLID_ID[block] === 0) {
             if (block !== 0) water.push(x, y, z); // water: its own mesh below
             continue;
@@ -702,19 +797,18 @@ export class VoxelView {
           // direct neighbour reads in the interior; the bounds-aware path
           // (which also sees the field's endless ground) only at the edges
           const interior = x > 0 && x < W - 1 && z > 0 && z < WORLD_Z - 1 && y > 0 && y < WORLD_Y - 1;
-          const exposed = interior
-            ? SOLID_ID[cells[i - 1]!] === 0 || SOLID_ID[cells[i + 1]!] === 0 || SOLID_ID[cells[i - W]!] === 0 ||
-              SOLID_ID[cells[i + W]!] === 0 || SOLID_ID[cells[i - layer]!] === 0 || SOLID_ID[cells[i + layer]!] === 0
-            : world.isExposed(x, y, z);
+          const exposed=interior ? !opaque(i-1)||!opaque(i+1)||!opaque(i-W)||!opaque(i+W)||!opaque(i-layer)||!opaque(i+layer) : !occludes(x-1,y,z)||!occludes(x+1,y,z)||!occludes(x,y-1,z)||!occludes(x,y+1,z)||!occludes(x,y,z-1)||!occludes(x,y,z+1);
           if (!exposed) continue;
           top = y;
           const shape = shapes[i]!;
-          const def = blockById(block);
-          const airAbove = y < WORLD_Y - 1 ? SOLID_ID[cells[i + layer]!] === 0 : !world.isSolid(x, y + 1, z);
+          let def = blockById(block);
+          if(def&&(def.key==="grass"||def.key==="flower-grass")&&occludes(x,y+1,z)){block=2;def=blockById(block);}
+          const airAbove = i+layer===hiddenIndex||this.fallingHidden.has(i+layer)||(y < WORLD_Y - 1 ? SOLID_ID[cells[i + layer]!] === 0 : !world.isSolid(x, y + 1, z));
           // studs only cap flat-topped bricks (cube/round), never a slope
-          if (def && !def.noStud && (shape === 0 || shape === ROUND) && airAbove) {
-            let studs = chunk.studs.get(block);
-            if (!studs) chunk.studs.set(block, (studs = []));
+          if (def && !def.noStud && (isFullCubeShape(shape) || shape === ROUND) && airAbove) {
+            const studKey=(block<<1)|((shape===KIT_CUBE||shape===ROUND)?1:0);
+            let studs = chunk.studs.get(studKey);
+            if (!studs) chunk.studs.set(studKey, (studs = []));
             studs.push(x, y, z);
           }
 
@@ -726,10 +820,9 @@ export class VoxelView {
             continue;
           }
 
-          let buf = farBuffers.get(block);
-          if (!buf) farBuffers.set(block, (buf = { pos: new Floats(), nrm: new Floats(), uv: new Floats() }));
-          if (shape === 0) {
+          if (isFullCubeShape(shape)) {
             for (const face of FACES) {
+              const buf=this.farBuffer(farBuffers,block,face.n[1]);
               if (occludes(x + face.n[0], y + face.n[1], z + face.n[2])) continue;
               // a glass face next to glass is hidden too (no inner panes)
               if (this.seeThrough.has(block) && world.get(x + face.n[0], y + face.n[1], z + face.n[2]) === block) continue;
@@ -745,7 +838,7 @@ export class VoxelView {
               }
             }
           } else {
-            this.bakeShape(buf, x, y, z, shape);
+            this.bakeShape(farBuffers,block, x, y, z, shape);
           }
         }
       }
@@ -755,22 +848,24 @@ export class VoxelView {
     if (!this.primed && typeof Worker === "undefined") this.buildWater(world, chunk, water);
     else if (!this.primed || rebuildWater) this.waterQueue.set(chunkId(cx, cz), [0, WORLD_Y - 1]);
     if (far) this.buildFarMesh(chunk, farBuffers);
-    else this.buildNearMeshes(chunk, positions);
+    else this.buildNearMeshes(chunk, positions,world);
   }
 
   private readonly tmpQ = new THREE.Quaternion();
   private readonly tmpV = new THREE.Vector3();
 
   /** Append a round/slope brick's cheap geometry, transformed, to a far buffer. */
-  private bakeShape(buf: FarBuffers, x: number, y: number, z: number, shape: number): void {
-    const geo = shape === ROUND ? this.farRound : this.farSlope;
-    if (isSlope(shape)) brickOrientation(slopeYaw(shape), slopeTilt(shape), this.tmpQ);
+  private bakeShape(buffers:Map<number,FarBuffers>,block:number, x: number, y: number, z: number, shape: number): void {
+    const geo = shape === ROUND ? this.farRound : blockShapeFamily(shape)==="corner"?this.farCorner:this.farSlope;
+    if (isOrientedShape(shape)) brickOrientation(shapeYaw(shape), shapeTilt(shape), this.tmpQ);
     else this.tmpQ.identity();
     const p = geo.attributes.position!;
     const n = geo.attributes.normal!;
     const uv = geo.attributes.uv;
     const v = this.tmpV;
+    let buf=this.farBuffer(buffers,block,0);
     for (let k = 0; k < p.count; k++) {
+      if(k%3===0){v.fromBufferAttribute(n,k).applyQuaternion(this.tmpQ);buf=this.farBuffer(buffers,block,v.y);}
       v.fromBufferAttribute(p, k).applyQuaternion(this.tmpQ);
       buf.pos.push3(v.x + x + 0.5, v.y + y + 0.5, v.z + z + 0.5);
       v.fromBufferAttribute(n, k).applyQuaternion(this.tmpQ);
@@ -779,6 +874,11 @@ export class VoxelView {
     }
   }
 
+  private farBuffer(buffers:Map<number,FarBuffers>,block:number,normalY:number):FarBuffers {
+    const indices=this.faceMaterialIndices.get(block)!;
+    const index=indices.length>1?indices[normalY>.52?0:normalY<-.52?2:1]!:indices[0]!;
+    let buffer=buffers.get(index);if(!buffer){buffer={pos:new Floats(),nrm:new Floats(),uv:new Floats()};buffers.set(index,buffer);}return buffer;
+  }
   private buildFarMesh(chunk: ChunkState, farBuffers: Map<number, FarBuffers>): void {
     let vertices = 0;
     for (const buf of farBuffers.values()) vertices += buf.pos.length / 3;
@@ -789,19 +889,20 @@ export class VoxelView {
     const geometry = new THREE.BufferGeometry();
     let at = 0;
     let glass = false;
-    for (const [block, buf] of farBuffers) {
+    for (const [index, buf] of farBuffers) {
       const count = buf.pos.length / 3;
       if (count === 0) continue;
       pos.set(buf.pos.data.subarray(0, buf.pos.length), at * 3);
       nrm.set(buf.nrm.data.subarray(0, buf.nrm.length), at * 3);
       uv.set(buf.uv.data.subarray(0, buf.uv.length), at * 2);
-      geometry.addGroup(at, count, this.materialIndex.get(block) ?? 0);
-      if (this.seeThrough.has(block)) glass = true;
+      geometry.addGroup(at, count, index);
+      if (this.materialList[index]?.transparent) glass = true;
       at += count;
     }
     geometry.setAttribute("position", new THREE.BufferAttribute(pos, 3));
     geometry.setAttribute("normal", new THREE.BufferAttribute(nrm, 3));
     geometry.setAttribute("uv", new THREE.BufferAttribute(uv, 2));
+    whiteVertexColors(geometry);
     geometry.computeBoundingSphere();
     const mesh = new THREE.Mesh(geometry, this.materialList);
     mesh.castShadow = true;
@@ -811,7 +912,7 @@ export class VoxelView {
     chunk.far = mesh;
   }
 
-  private buildNearMeshes(chunk: ChunkState, positions: Map<number, number[]>): void {
+  private buildNearMeshes(chunk: ChunkState, positions: Map<number, number[]>,world:VoxelWorld): void {
     const q = new THREE.Quaternion();
     const scl = new THREE.Vector3(1, 1, 1);
     const pos = new THREE.Vector3();
@@ -820,13 +921,23 @@ export class VoxelView {
       const count = list.length / 3;
       const block = key >> 8;
       const shape = key & 0xff;
-      const material = this.materials.get(block);
+      const materials=this.kitMaterials.get(block);const material=materials?.length===1?materials[0]:materials;
       if (!material) continue;
-      const mesh = new THREE.InstancedMesh(this.geometryFor(shape), material, count);
+      if(isFullCubeShape(shape)){
+        const cells:[number,number,number][]=[];for(let i=0;i<list.length;i+=3)cells.push([list[i]!,list[i+1]!,list[i+2]!]);
+        const geometry=kitCellsGeometry(cells,false,(x,y,z)=>!this.isMiningHidden(x,y,z)&&world.isSolid(x,y,z)&&isFullCubeShape(world.getShape(x,y,z)));
+        if(materials!.length>1)materialFaceGroups(geometry);
+        const shell=new THREE.InstancedMesh(geometry,material,1);shell.setMatrixAt(0,new THREE.Matrix4());shell.instanceMatrix.needsUpdate=true;
+        castsInstancedShadow(shell);shell.receiveShadow=true;if(this.seeThrough.has(block))shell.renderOrder=2;
+        shell.computeBoundingSphere();this.ownedShells.add(geometry);this.scene.add(shell);chunk.meshes.set(key,shell);continue;
+      }
+      let geometry=this.geometryFor(shape);
+      if(materials!.length>1){geometry=materialFaceGroups(geometry.clone(),isOrientedShape(shape)?brickOrientation(shapeYaw(shape),shapeTilt(shape)):undefined);this.ownedShells.add(geometry);}
+      const mesh = new THREE.InstancedMesh(geometry, material, count);
       castsInstancedShadow(mesh);
       mesh.receiveShadow = true;
       if (this.seeThrough.has(block)) mesh.renderOrder = 2;
-      if (isSlope(shape)) brickOrientation(slopeYaw(shape), slopeTilt(shape), q);
+      if (isOrientedShape(shape)) brickOrientation(shapeYaw(shape), shapeTilt(shape), q);
       else q.identity();
       for (let i = 0; i < count; i++) {
         pos.set(list[i * 3]! + 0.5, list[i * 3 + 1]! + 0.5, list[i * 3 + 2]! + 0.5);
@@ -846,6 +957,7 @@ export class VoxelView {
     for (const mesh of chunk.meshes.values()) {
       this.scene.remove(mesh);
       mesh.dispose();
+      if(this.ownedShells.has(mesh.geometry))mesh.geometry.dispose();
     }
     chunk.meshes.clear();
   }
@@ -950,8 +1062,9 @@ export class VoxelView {
       }
     }
     const matrix = new THREE.Matrix4();
-    for (const def of BLOCKS) {
-      const bucket = near.get(def.id) ?? [];
+    for (const def of BLOCKS) for(const style of [0,1]) {
+      const key=(def.id<<1)|style;const offsets:readonly (readonly [number,number])[]=style===1?[[0,0]]:STUD_OFFSETS;
+      const bucket = near.get(key) ?? [];
       // Count what is actually in range before touching the GPU buffer.
       let inRange = 0;
       for (const list of bucket) {
@@ -959,8 +1072,8 @@ export class VoxelView {
           if (!eye || this.withinRange(list, i, eye, range)) inRange++;
         }
       }
-      const count = inRange * STUD_OFFSETS.length;
-      let mesh = this.studMeshes.get(def.id);
+      const count = inRange * offsets.length;
+      let mesh = this.studMeshes.get(key);
       // Do not create a GPU buffer for an unused block type.
       if (count === 0) {
         if (mesh) mesh.count = 0;
@@ -971,15 +1084,16 @@ export class VoxelView {
           this.scene.remove(mesh);
           mesh.dispose();
         }
-        const material = this.materials.get(def.id);
+        const material = this.kitMaterials.get(def.id)?.[0];
         if (!material) continue;
         const capacity = Math.max(256, Math.ceil(count * 1.25));
-        mesh = new THREE.InstancedMesh(this.studGeometry, material, capacity);
+        mesh = new THREE.InstancedMesh(style===1?this.kitCapGeo:this.studGeometry, material, capacity);
         // 10 cm caps: their shadows are invisible but doubled the shadow pass
         mesh.castShadow = false;
+        if(style===1)castsInstancedShadow(mesh);
         mesh.receiveShadow = true;
         this.scene.add(mesh);
-        this.studMeshes.set(def.id, mesh);
+        this.studMeshes.set(key, mesh);
       }
       let k = 0;
       for (const list of bucket) {
@@ -988,7 +1102,7 @@ export class VoxelView {
           const x = list[i]! + 0.5;
           const y = list[i + 1]! + 1;
           const z = list[i + 2]! + 0.5;
-          for (const [ox, oz] of STUD_OFFSETS) {
+          for (const [ox, oz] of offsets) {
             matrix.makeTranslation(x + ox, y, z + oz);
             mesh.setMatrixAt(k++, matrix);
           }
@@ -1027,13 +1141,15 @@ export class VoxelView {
       mesh.dispose();
     }
     this.studMeshes.clear();
-    this.studGeometry.dispose();
+    this.studGeometry.dispose();this.kitCapGeo.dispose();
     for (const material of this.materials.values()) material.dispose();
+    this.kitMaterials.clear();this.blockSurfaces.dispose();for(const map of this.clonedBlockTextures)map.dispose();this.clonedBlockTextures.clear();
     for (const material of this.materialList) material.dispose(); // the merged twins
     this.materials.clear(); this.materialList.length = 0;
     this.scene.remove(this.highlight);
     this.highlight.geometry.dispose();
     (this.highlight.material as THREE.Material).dispose();
+    this.kitCubeGeo.dispose();this.kitSlopeGeo.dispose();this.cornerGeo.dispose();this.farCorner.dispose();
     this.cubeGeo.dispose();
     this.roundGeo.dispose();
     this.slopeGeo.dispose();
@@ -1041,3 +1157,4 @@ export class VoxelView {
     this.farSlope.dispose();
   }
 }
+

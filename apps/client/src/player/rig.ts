@@ -1,8 +1,11 @@
 import * as THREE from "three";
-import type { AnimState, EmoteId } from "@robo/shared";
-import { createHomeRig, disposeHomeRig, preloadHomeCharacter, type HomeRig } from "./homeRig.js";
+import type { AnimState, EmoteId, CharacterAction } from "@robo/shared";
+import { createHomeRig, disposeHomeRig, preloadHomeCharacter, type HomeRig, type MotionContext } from "./homeRig.js";
 import { loadTexture } from "../render/textures.js";
 import { box, bodyMat, crayonGrain, outline, part, stud } from "./blockParts.js";
+import {type HeldItemId} from "../craft/toolDefinitions.js";
+import { gaitBlend } from "./motionPolicy.js";
+import { applyHitFlash, releaseHitFlash } from "./hitTint.js";
 
 /**
  * CraftYap's own mascots, built EXACTLY like the banner drawings: each
@@ -259,12 +262,13 @@ class ProceduralCharacterRig {
       armSplay = 0.75;
       legSwing = 0.35;
     } else if (moving) {
+      const running = gaitBlend(planarSpeed) >= 0.5;
       const s = Math.sin(this.phase);
-      legSwing = s * 1.0;
-      armSwing = -s * 0.55;
-      bobY = Math.abs(Math.sin(this.phase)) * 0.06;
-      lean = 0.14;
-      waddle = Math.sin(this.phase) * 0.06; // side-to-side toy waddle
+      legSwing = s * (running ? 1.05 : 0.62);
+      armSwing = -s * (running ? 0.7 : 0.4);
+      bobY = Math.abs(Math.sin(this.phase)) * (running ? 0.07 : 0.03);
+      lean = running ? 0.16 : 0.05;
+      waddle = Math.sin(this.phase) * (running ? 0.07 : 0.04);
       if (anim === "carry") {
         armRaise = -1.3;
         armSwing = 0;
@@ -307,23 +311,47 @@ export class CharacterRig {
   readonly root = new THREE.Group();
   private implementation: HomeRig | ProceduralCharacterRig | undefined;
   private variant: CharacterVariant | undefined;
+  /** 1 the frame a tap lands, fading to 0. Drawn by applyHitFlash. */
+  private itemId:HeldItemId|null=null;
+  private itemOption="balanced";
+  private hitFlash = 0;
+  /** True until the frame that puts the calm materials back. */
+  private wasFlashing = false;
   constructor(variant: CharacterVariant = "mascot") { this.setCharacter(variant); characterDisposers.set(this.root, () => this.dispose()); }
   setCharacter(variant: CharacterVariant): void {
     if (this.variant === variant && this.implementation) return;
-    if (this.implementation) { disposeHomeRig(this.implementation.root); this.root.remove(this.implementation.root); }
+    if (this.implementation) {
+      releaseHitFlash(this.root);
+      disposeHomeRig(this.implementation.root);
+      this.root.remove(this.implementation.root);
+    }
+    this.wasFlashing = false;
     this.variant = variant;
     this.implementation = createHomeRig(variant) ?? new ProceduralCharacterRig(variant === "tt" ? "purple" : variant);
     this.root.add(this.implementation.root);
+    if("setHeldItem" in this.implementation)this.implementation.setHeldItem(this.itemId,this.itemOption);
     Object.assign(this.root.userData, this.implementation.root.userData, {characterId:variant === "tt" ? "tt" : "mascot"});
   }
+  setHeldOpacity(opacity:number):void {if(this.implementation&&"setHeldOpacity" in this.implementation)this.implementation.setHeldOpacity(opacity);}
+  setHeldItem(id:HeldItemId|null,option="balanced"):void {this.itemId=id;this.itemOption=option;if(this.implementation&&"setHeldItem" in this.implementation)this.implementation.setHeldItem(id,option);}
+  /** A short red wash. Safe to call on every classmate who sees the tap. */
+  flashHit(): void { this.hitFlash = 1; }
   setEmote(id: EmoteId, seq: number): void {
     if (this.implementation && "setEmote" in this.implementation) this.implementation.setEmote(id,seq);
     this.root.userData.emote=id; this.root.userData.emoteSeq=seq;
   }
-  update(anim: Anim | "lie" | "crawl", speed: number, dt: number): void {
+  get postureBusy(): boolean { return this.implementation instanceof Object && "postureBusy" in this.implementation ? this.implementation.postureBusy : false; }
+  get seatContactHeight(): number { return this.implementation && "seatContactHeight" in this.implementation ? this.implementation.seatContactHeight : .38; }
+  performAction(id: CharacterAction, seq: number, loop=false): void { if(this.implementation && "performAction" in this.implementation)this.implementation.performAction(id,seq,loop); }
+  update(anim: Anim | "lie" | "crawl", speed: number, dt: number, context: MotionContext = {}): void {
+    if (this.hitFlash > 0 || this.wasFlashing) {
+      applyHitFlash(this.root, this.hitFlash);
+      this.wasFlashing = this.hitFlash > 0;
+    }
+    if (this.hitFlash > 0) this.hitFlash = Math.max(0, this.hitFlash - Math.min(Math.max(dt, 0), 0.05) / 0.36);
     const impl = this.implementation;
     if (!impl) return;
-    if ("setEmote" in impl) impl.update(anim,speed,dt);
+    if ("setEmote" in impl) impl.update(anim,speed,dt,context);
     else {
       impl.update(anim === "lie" ? "sit" : anim === "crawl" ? (speed > .1 ? "run" : "sit") : anim,speed,dt);
       const low = anim === "lie" || anim === "crawl";
@@ -334,7 +362,11 @@ export class CharacterRig {
     if (typeof motion === "string") this.root.userData.homeMotion = motion;
   }
   pop(impulse: number): void { this.implementation?.pop(impulse); }
-  private dispose(): void { if(this.implementation)disposeHomeRig(this.implementation.root); characterDisposers.delete(this.root); }
+  private dispose(): void {
+    releaseHitFlash(this.root);
+    if (this.implementation) disposeHomeRig(this.implementation.root);
+    characterDisposers.delete(this.root);
+  }
 }
 
 /** Frees per-instance extras (name-label sprites). Shared geo/materials stay. */
@@ -348,5 +380,6 @@ export function disposeRig(root: THREE.Object3D): void {
     }
   });
 }
+
 
 

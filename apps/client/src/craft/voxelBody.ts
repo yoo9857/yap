@@ -1,3 +1,4 @@
+import { shapeIntersectsBox, rampHeight, isFullCubeShape } from "./shapes.js";
 import { isWater, waterHeight } from "@robo/shared";
 import type { VoxelWorld } from "./voxelWorld.js";
 
@@ -13,6 +14,9 @@ export const BODY_HEIGHT = 1.8;
 export const GRAVITY = 24;
 export const JUMP_SPEED = 8.6;
 export const MOVE_SPEED = 4.6;
+/** Ground walk, and the Shift run. Swim and pets stay on {@link MOVE_SPEED}. */
+export const WALK_SPEED = 2.7;
+export const RUN_SPEED = 5.2;
 
 /**
  * Swimming. Below SWIM_DEPTH of the body underwater it is wading (a puddle
@@ -107,7 +111,7 @@ function collides(world: VoxelWorld, body: Body): boolean {
   for (let ix = x0; ix <= x1; ix++) {
     for (let iy = y0; iy <= y1; iy++) {
       for (let iz = z0; iz <= z1; iz++) {
-        if (world.isBlocked(ix, iy, iz)) return true;
+        if (world.isBlocked(ix, iy, iz) && (world.propSolid?.(ix,iy,iz) || isFullCubeShape(world.getShape(ix,iy,iz)) || shapeIntersectsBox(world.getShape(ix,iy,iz),{min:[x-half-ix,y-iy,z-half-iz],max:[x+half-ix,y+heightOf(body)-iy,z+half-iz]}))) return true;
       }
     }
   }
@@ -151,6 +155,18 @@ export function overlapsVoxel(body: Body, vx: number, vy: number, vz: number): b
   );
 }
 
+/** Body/shape test used by both the placement ghost and the actual stamp. */
+export function overlapsShapedVoxel(body:Body,x:number,y:number,z:number,shape:number):boolean {const half=halfOf(body);return shapeIntersectsBox(shape,{min:[body.x-half-x,body.y-y,body.z-half-z],max:[body.x+half-x,body.y+heightOf(body)-y,body.z+half-z]});}
+function nearbyRampFloor(world:VoxelWorld,body:Body):number|null {
+ const half=halfOf(body);let highest=-Infinity;
+ for(let y=Math.floor(body.y-.15);y<=Math.floor(body.y+.15);y++)for(let x=Math.floor(body.x-half);x<=Math.floor(body.x+half-EPS);x++)for(let z=Math.floor(body.z-half);z<=Math.floor(body.z+half-EPS);z++){
+  if(!world.isSolid(x,y,z))continue;const shape=world.getShape(x,y,z);
+  const x0=Math.max(0,body.x-half-x),x1=Math.min(1,body.x+half-x),z0=Math.max(0,body.z-half-z),z1=Math.min(1,body.z+half-z);
+  for(const cx of [x0,x1])for(const cz of [z0,z1]){const h=rampHeight(shape,cx,cz);if(h!==null)highest=Math.max(highest,y+h);}
+ }
+ return Number.isFinite(highest)?highest:null;
+}
+
 /** Sub-step cap keeps fast falls from tunnelling through 1m cells. */
 const MAX_STEP = 0.45;
 
@@ -160,13 +176,14 @@ const MAX_STEP = 0.45;
  * so climbing is a deliberate jump (auto-climb read as the camera teleporting
  * up while you brushed a wall).
  */
-function moveAxis(world: VoxelWorld, body: Body, axis: "x" | "y" | "z", amount: number): void {
+function moveAxis(world: VoxelWorld, body: Body, axis: "x" | "y" | "z", amount: number, followRamp=false): void {
   let remaining = amount;
   while (remaining !== 0) {
     const step = Math.sign(remaining) * Math.min(Math.abs(remaining), MAX_STEP);
     remaining -= step;
     const prev = body[axis];
     body[axis] = prev + step;
+    if(followRamp&&axis!=="y"){const top=nearbyRampFloor(world,body);if(top!==null&&Math.abs(top-body.y)<=Math.abs(step)+.015){const oldY=body.y;body.y=top+EPS;if(!collides(world,body)){body.vy=0;body.grounded=true;continue;}body.y=oldY;}}
     if (collides(world, body)) {
       let free = 0;
       let blocked = step;
@@ -186,13 +203,25 @@ function moveAxis(world: VoxelWorld, body: Body, axis: "x" | "y" | "z", amount: 
   }
 }
 
-export function stepBody(world: VoxelWorld, body: Body, dt: number, wishX: number, wishZ: number, jump: boolean): void {
+export function stepBody(
+  world: VoxelWorld,
+  body: Body,
+  dt: number,
+  wishX: number,
+  wishZ: number,
+  jump: boolean,
+  pushX = 0,
+  pushZ = 0,
+): void {
+  const wasGrounded=body.grounded;
   const wet = submersion(world, body);
   body.wet = wet;
   const swimming = wet >= SWIM_DEPTH;
   const drag = 1 - (1 - SWIM_SPEED) * Math.min(1, wet / 0.6);
-  body.vx = wishX * MOVE_SPEED * drag;
-  body.vz = wishZ * MOVE_SPEED * drag;
+  // A tap's shove is added on top of input. It is not stored on the body:
+  // the caller passes what is left of it each tick, or the next step walks it off.
+  body.vx = wishX * MOVE_SPEED * drag + pushX;
+  body.vz = wishZ * MOVE_SPEED * drag + pushZ;
   if (swimming) {
     body.vy += ((jump ? SWIM_ACCEL : 0) - WATER_GRAVITY) * dt;
     body.vy *= Math.exp(-WATER_DRAG * dt); // water brakes a dive within a body length
@@ -208,8 +237,8 @@ export function stepBody(world: VoxelWorld, body: Body, dt: number, wishX: numbe
   if (body.vy <= 0) body.grounded = false;
   const startX = body.x;
   const startZ = body.z;
-  moveAxis(world, body, "x", body.vx * dt);
-  moveAxis(world, body, "z", body.vz * dt);
+  moveAxis(world, body, "x", body.vx * dt,wasGrounded&&!jump&&!swimming);
+  moveAxis(world, body, "z", body.vz * dt,wasGrounded&&!jump&&!swimming);
   // swimming into a bank with Space held: hop out onto it, Minecraft-style
   if (swimming && jump && wet < 0.9) {
     const wanted = Math.hypot(body.vx, body.vz) * dt;

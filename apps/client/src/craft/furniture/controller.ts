@@ -51,7 +51,7 @@ export interface FurnitureHost {
 export const PICKUP_TIME = 0.35;
 /** The robot rig's hip height above its feet (player/rig.ts) — a seat at
  *  height h puts the feet at h − this. */
-const SEAT_HIP = 0.42;
+const DEFAULT_SEAT_CONTACT = .38;
 
 /** A candidate placement (absolute anchor) and whether it is allowed. */
 interface Candidate {
@@ -359,7 +359,7 @@ export class FurnitureController {
    * the robot's hip height (its feet are its origin) — and the way it faces.
    * Grid coordinates.
    */
-  seatAt(item: PlacedFurniture, aimed: [number, number, number] | null): { x: number; y: number; z: number; yaw: number } | null {
+  seatAt(item: PlacedFurniture, aimed: [number, number, number] | null, contactHeight = DEFAULT_SEAT_CONTACT): { x: number; y: number; z: number; yaw: number } | null {
     const def = furnitureDef(item.kind);
     if (def.seat === undefined || item.state === 1) return null;
     const ox = this.host.originX();
@@ -370,7 +370,7 @@ export class FurnitureController {
     const [fx, fz] = frontOf(item.rot);
     return {
       x: cx - ox + 0.5 + fx * 0.08,
-      y: item.y + def.seat - SEAT_HIP + 0.04,
+      y: item.y + def.seat - contactHeight + .006,
       z: cz - oz + 0.5 + fz * 0.08,
       yaw: Math.atan2(fx, fz),
     };

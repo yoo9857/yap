@@ -51,7 +51,7 @@ export class EmoteMenu {
         } b.onclick = () => { this.choose(def.id); this.setOpen(false); }; this.buttons.push(b); grid.append(b); });
         const foot = document.createElement("p");
         foot.className = "emote-foot";
-        foot.textContent = t("C 닫기 · 1–9 빠른 선택 · Z 기어가기 / 일어서기 · I 조합", "C close · 1–9 quick pick · Z crawl / stand · I crafting");
+        foot.textContent = t("C 닫기 · 1–9 빠른 선택 · Z 기어가기 / 일어서기 · E 가방 · I 조합", "C close · 1–9 quick pick · Z crawl / stand · E bag · I crafting");
         card.append(head, help, characters, grid, foot);
         this.root.append(card);
         this.root.addEventListener("click", e => { if (e.target === this.root)
