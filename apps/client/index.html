@@ -1161,6 +1161,335 @@
         -webkit-user-select: none;
       }
 
+      /* ---------------------------------------------------------------
+         Home notice board (#mode-select only): a wooden board with brick
+         studs on top, a cork panel, and the modes pinned on it as photo
+         notes. The class lobby reuses .screen-card/.mode-btn unchanged.
+         --------------------------------------------------------------- */
+      #mode-select .board {
+        --wood: #c98a4b;
+        --wood-dark: #a8682f;
+        --cork: #e8c58c;
+        position: relative;
+        width: min(620px, calc(100vw - 24px));
+        max-width: none;
+        max-height: calc(100dvh - 24px);
+        padding: 26px 18px 14px;
+        border-width: 4px;
+        border-radius: 22px 26px 20px 28px / 26px 20px 28px 22px;
+        background:
+          repeating-linear-gradient(176deg, rgba(255, 255, 255, 0.07) 0 3px, transparent 3px 19px),
+          repeating-linear-gradient(4deg, rgba(90, 45, 10, 0.1) 0 2px, transparent 2px 27px),
+          linear-gradient(180deg, var(--wood), var(--wood-dark));
+        box-shadow: 0 8px 0 #6f3f17, 8px 14px 0 rgba(31, 31, 31, 0.35);
+        transform: rotate(-0.4deg);
+        overflow-y: auto;
+        scrollbar-width: thin;
+      }
+      #mode-select .board::before {
+        /* studs along the top edge, like the brick UI in game */
+        content: "";
+        position: absolute;
+        top: 6px;
+        left: 34px;
+        right: 34px;
+        height: 18px;
+        background: url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20width%3D%2744%27%20height%3D%2718%27%20viewBox%3D%270%200%2044%2018%27%3E%3Cpath%20d%3D%27M10%206v6a12%205%200%200%200%2024%200V6%27%20fill%3D%27%238f5524%27%20stroke%3D%27%231f1f1f%27%20stroke-width%3D%272%27%2F%3E%3Cellipse%20cx%3D%2722%27%20cy%3D%276%27%20rx%3D%2712%27%20ry%3D%275%27%20fill%3D%27%23e9ad6c%27%20stroke%3D%27%231f1f1f%27%20stroke-width%3D%272%27%2F%3E%3Cellipse%20cx%3D%2718%27%20cy%3D%275%27%20rx%3D%274%27%20ry%3D%271.6%27%20fill%3D%27%23fff%27%20opacity%3D%27.45%27%2F%3E%3C%2Fsvg%3E") 0 0 / 44px 18px space no-repeat;
+        pointer-events: none;
+      }
+      #mode-select .brand-logo {
+        width: min(210px, 52vw);
+        margin: -8px auto -4px;
+        position: relative;
+        z-index: 1;
+        filter: drop-shadow(0 4px 0 rgba(31, 31, 31, 0.35));
+      }
+      #mode-select .board-sign {
+        position: relative;
+        margin: 0 auto 12px;
+        max-width: 470px;
+        padding: 10px 18px 11px;
+        border: 3px solid var(--ink);
+        border-radius: var(--wobble-md);
+        background: var(--paper) url("/textures/doodle-paper.webp");
+        background-size: 280px;
+        box-shadow: var(--shadow-soft);
+        transform: rotate(0.6deg);
+      }
+      #mode-select .board-sign::before,
+      #mode-select .board-sign::after {
+        /* two nails holding the sign */
+        content: "";
+        position: absolute;
+        top: 9px;
+        width: 9px;
+        height: 9px;
+        border: 2px solid var(--ink);
+        border-radius: 50%;
+        background: #9aa3ad;
+      }
+      #mode-select .board-sign::before { left: 10px; }
+      #mode-select .board-sign::after { right: 10px; }
+      #mode-select .board-sign .game-brand { margin: 0 0 2px; font-size: 25px; }
+      #mode-select .board-sign .game-intro { margin: 0; font-size: 13.5px; color: #4f4f4f; }
+      /* the game list is the second page of the board: drop the header so all four fit */
+      #mode-select[data-step="games"] .board-head { display: none; }
+      #mode-select .board-cork {
+        padding: 14px 14px 12px;
+        border: 3px solid var(--ink);
+        border-radius: 14px 18px 12px 16px / 16px 12px 18px 14px;
+        background:
+          radial-gradient(circle at 20% 30%, rgba(150, 95, 35, 0.32) 0 1.2px, transparent 1.6px) 0 0 / 13px 11px,
+          radial-gradient(circle at 70% 65%, rgba(255, 245, 220, 0.45) 0 1px, transparent 1.5px) 0 0 / 17px 15px,
+          radial-gradient(circle at 40% 80%, rgba(120, 70, 20, 0.22) 0 1.6px, transparent 2px) 0 0 / 23px 19px,
+          var(--cork);
+        box-shadow: inset 0 3px 0 rgba(90, 45, 10, 0.25), inset 0 -2px 0 rgba(255, 255, 255, 0.35);
+      }
+      #mode-select .mode-step h2 {
+        display: inline-block;
+        margin: 0 0 12px;
+        padding: 3px 14px 4px;
+        border: 2px solid var(--ink);
+        border-radius: var(--wobble-sm);
+        background: var(--cy-yellow);
+        box-shadow: var(--shadow-soft);
+        font-size: 19px;
+        transform: rotate(-1deg);
+      }
+      #mode-select .play-kicker {
+        margin: -2px 0 12px;
+        color: #5b3a17;
+      }
+
+      /* the latest dev note, pinned at the top of the cork */
+      #mode-select .board-news {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin: 0 0 14px;
+        padding: 7px 10px;
+        border: 2px solid var(--ink);
+        border-radius: var(--wobble-sm);
+        background: #fff7c7;
+        box-shadow: var(--shadow-soft);
+        color: var(--ink);
+        text-decoration: none;
+        text-align: left;
+        font: 600 12.5px/1.35 system-ui, sans-serif;
+        transform: rotate(0.4deg);
+        transition: transform 0.08s, box-shadow 0.08s;
+      }
+      #mode-select .board-news[hidden] { display: none; }
+      #mode-select .board-news:hover { transform: translate(-1px, -2px); box-shadow: 4px 5px 0 rgba(31, 31, 31, 0.8); }
+      #mode-select .board-news-tag {
+        flex: none;
+        padding: 2px 8px;
+        border: 2px solid var(--ink);
+        border-radius: 999px;
+        background: var(--cy-red);
+        color: var(--paper);
+        font: 13px "Jua", system-ui, sans-serif;
+      }
+      #mode-select .board-news-title {
+        flex: 1;
+        min-width: 0;
+        overflow: hidden;
+        white-space: nowrap;
+        text-overflow: ellipsis;
+      }
+      #mode-select .board-news-go { flex: none; font-size: 15px; }
+
+      /* photo notes */
+      #mode-select .board-notes {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 16px 14px;
+        margin-bottom: 4px;
+      }
+      #mode-select .board-note {
+        position: relative;
+        display: flex;
+        flex-direction: column;
+        align-items: stretch;
+        gap: 0;
+        margin: 0;
+        padding: 8px 8px 11px;
+        border: 3px solid var(--ink);
+        border-radius: 6px 8px 5px 9px;
+        background: var(--paper);
+        box-shadow: 0 2px 0 rgba(31, 31, 31, 0.15), 4px 6px 0 rgba(60, 30, 5, 0.45);
+        text-align: left;
+        transform: rotate(-1.4deg);
+        transition: transform 0.12s, box-shadow 0.12s;
+      }
+      #mode-select .board-note:nth-child(2n) { transform: rotate(1.2deg); }
+      #mode-select .board-note:nth-child(3) { transform: rotate(0.8deg); }
+      #mode-select .board-note:nth-child(4) { transform: rotate(-0.9deg); }
+      #mode-select .board-note::before {
+        /* push pin */
+        content: "";
+        position: absolute;
+        z-index: 2;
+        top: -9px;
+        left: 50%;
+        width: 16px;
+        height: 16px;
+        margin-left: -8px;
+        border: 2.5px solid var(--ink);
+        border-radius: 50%;
+        background: radial-gradient(circle at 35% 30%, rgba(255, 255, 255, 0.75) 0 2.5px, transparent 3px), var(--pin, var(--cy-red));
+        box-shadow: 1px 2px 0 rgba(31, 31, 31, 0.45);
+      }
+      #mode-select .board-note[data-pick="games"],
+      #mode-select .board-note[data-mode="tower"] { --pin: var(--cy-blue); }
+      #mode-select .board-note[data-mode="builder"] { --pin: var(--cy-green); }
+      #mode-select .board-note[data-mode="battle"] { --pin: var(--cy-purple); }
+      #mode-select .board-note:hover,
+      #mode-select .board-note:focus-visible {
+        transform: translateY(-4px) rotate(0deg);
+        box-shadow: 0 2px 0 rgba(31, 31, 31, 0.15), 6px 10px 0 rgba(60, 30, 5, 0.45);
+        outline: none;
+      }
+      #mode-select .board-note:focus-visible { outline: 3px solid var(--cy-blue); outline-offset: 3px; }
+      #mode-select .board-note:active {
+        transform: translateY(1px) rotate(0deg);
+        box-shadow: 0 1px 0 rgba(31, 31, 31, 0.15), 2px 2px 0 rgba(60, 30, 5, 0.45);
+      }
+      #mode-select .board-photo {
+        display: block;
+        overflow: hidden;
+        aspect-ratio: 4 / 3;
+        border: 2px solid var(--ink);
+        border-radius: 3px;
+        background: #9bd7ec;
+      }
+      #mode-select .board-photo img {
+        display: block;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        transition: transform 0.25s;
+      }
+      #mode-select .board-note:hover .board-photo img { transform: scale(1.06); }
+      #mode-select .board-note .mode-text { display: block; padding: 8px 3px 0; }
+      #mode-select .board-note .mode-text b { font-size: 20px; line-height: 1.15; color: var(--cy-blue); }
+      #mode-select .board-note[data-pick="games"] .mode-text b,
+      #mode-select .board-note[data-mode="builder"] .mode-text b { color: var(--cy-green); }
+      #mode-select .board-note[data-mode="battle"] .mode-text b { color: var(--cy-purple); }
+      #mode-select .board-note[data-mode="tower"] .mode-text b { color: var(--cy-orange); }
+      #mode-select .board-note .mode-text small {
+        display: block;
+        margin-top: 3px;
+        font-size: 12px;
+        line-height: 1.4;
+        color: #5f5f5f;
+        word-break: keep-all;
+      }
+      #mode-select .board-chips {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 5px;
+        padding: 8px 2px 0;
+      }
+      #mode-select .board-chips i {
+        padding: 2px 8px;
+        border: 2px solid var(--ink);
+        border-radius: 999px;
+        background: #f3fbef;
+        color: var(--ink);
+        font: 600 11px/1.3 system-ui, sans-serif;
+        font-style: normal;
+      }
+      #mode-select [data-pick="games"] .board-chips i { background: #eaf3ff; }
+      #mode-select .board-go {
+        align-self: flex-start;
+        margin: 10px 2px 0;
+        padding: 5px 13px 6px;
+        border: 2px solid var(--ink);
+        border-radius: var(--wobble-sm);
+        background: var(--cy-yellow);
+        box-shadow: 0 3px 0 var(--ink);
+        color: var(--ink);
+        font: 15px "Jua", system-ui, sans-serif;
+      }
+      #mode-select [data-pick="games"] .board-go { background: #9fd1ff; }
+      #mode-select .board-notes-4 .board-note { padding-bottom: 9px; }
+      #mode-select .board-notes-4 .mode-text b { font-size: 17px; }
+      #mode-select .board-notes-4 .mode-text small { font-size: 11.5px; }
+      #mode-select .mode-back {
+        margin-top: 12px;
+        color: #4a2c0f;
+        border-bottom-color: #8a5a2b;
+      }
+      #mode-select .board-links {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 8px;
+        margin: 12px 0 0;
+      }
+      #mode-select .board-links .desk-link {
+        margin: 0;
+        padding: 5px 11px;
+        border: 2px solid var(--ink);
+        border-radius: var(--wobble-sm);
+        background: var(--paper-dim);
+        box-shadow: 0 3px 0 var(--ink);
+        color: var(--ink);
+        font: 600 12px system-ui, sans-serif;
+      }
+      #mode-select .board-links .desk-link:hover { background: var(--paper); transform: translateY(-1px); }
+        @media (max-width: 560px) {
+        /* clear the 배경 멈추기 button in the top-right corner */
+        #mode-select .board { padding: 24px 10px 12px; margin-top: 44px; max-height: calc(100dvh - 54px); }
+        #mode-select .board::before { left: 22px; right: 22px; }
+        #mode-select .board-head { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+        #mode-select .board-head .brand-logo { flex: none; width: 108px; margin: -4px 0 -6px; }
+        #mode-select .board-head .board-sign { flex: 1; margin: 0; padding: 8px 10px 9px; text-align: left; }
+        #mode-select .board-head .board-sign::before,
+        #mode-select .board-head .board-sign::after { display: none; }
+        #mode-select .board-sign .game-brand { font-size: 20px; }
+        #mode-select .board-sign .game-intro { font-size: 11.5px; }
+        #mode-select .board-cork { padding: 12px 9px 10px; }
+        /* the two modes become wide notes: photo left, words right */
+        #mode-select .board-notes-2 { grid-template-columns: 1fr; gap: 14px; }
+        #mode-select .board-notes-2 .board-note {
+          display: grid;
+          grid-template-columns: 38% 1fr;
+          grid-template-rows: auto auto 1fr;
+          column-gap: 10px;
+        }
+        #mode-select .board-notes-2 .board-photo { grid-row: 1 / 4; align-self: start; }
+        #mode-select .board-notes-2 .mode-text { padding: 2px 0 0; }
+        #mode-select .board-notes-2 .mode-text b { font-size: 19px; }
+        #mode-select .board-notes-2 .board-chips { display: none; }
+        #mode-select .board-notes-2 .board-go { margin-top: 6px; padding: 3px 11px 4px; font-size: 14px; }
+        #mode-select .board-notes-4 { gap: 14px 10px; }
+        #mode-select .board-notes-4 .board-note { padding: 6px 6px 8px; }
+        #mode-select .board-notes-4 .mode-text { padding-top: 6px; }
+        #mode-select .board-notes-4 .mode-text b { font-size: 15.5px; }
+      }
+      @media (max-height: 820px) and (min-width: 561px) {
+        /* laptops: logo beside the sign, wider board, shorter photos */
+        #mode-select .board { width: min(760px, calc(100vw - 24px)); padding-top: 22px; }
+        #mode-select .board-head { display: flex; align-items: center; gap: 14px; margin-bottom: 10px; }
+        #mode-select .board-head .brand-logo { flex: none; width: 150px; margin: -4px 0 -6px; }
+        #mode-select .board-head .board-sign { flex: 1; margin: 0; text-align: left; }
+        #mode-select .board-head .board-sign::before { display: none; }
+        #mode-select .board-news { margin-bottom: 10px; }
+        #mode-select .mode-step h2 { margin-bottom: 10px; }
+        #mode-select .board-photo { aspect-ratio: 16 / 9; }
+        #mode-select .board-chips { display: none; }
+      }
+      @media (max-height: 720px) and (min-width: 561px) {
+        #mode-select .board-photo { aspect-ratio: 2 / 1; }
+        #mode-select .board-note .mode-text small { display: none; }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        #mode-select .board-note,
+        #mode-select .board-photo img { transition: none; }
+      }
+
     </style>
   </head>
   <body>
@@ -1170,43 +1499,62 @@
     </div>
     <button id="menu-motion-toggle" type="button" hidden aria-pressed="false">배경 멈추기</button>
     <main id="mode-select" class="screen mode-screen">
-      <div class="screen-card">
+      <div class="screen-card board">
+        <div class="board-head">
         <img class="brand-logo" src="/craftyap-logo.png" alt="크래프트얍 CraftYap" />
-        <h1 class="game-brand">크래프트얍 <span>CraftYap</span></h1>
-        <p class="game-intro">설치 없이 즐기는 무료 3D 블록 게임<br />블록으로 세상을 만들고, 자동차와 비행기를 조립해요.</p>
-        <div class="mode-step" data-step="category">
-          <h2>어떤 모드로 할까요?</h2>
-          <button class="mode-btn" data-pick="field" type="button">
-            <img class="mode-icon" src="/textures/blocks/grass-top.png" alt="" />
-            <span class="mode-text"><b>교육 모드</b><small>끝없는 들판에서 자유롭게 만들고, 같은 교실에서 함께 건축해요</small></span>
-          </button>
-          <button class="mode-btn" data-pick="games" type="button">
-            <img class="mode-icon" src="/ui/icon-tower.png" alt="" />
-            <span class="mode-text"><b>게임 모드</b><small>블록 섬 탐험, 점프 타워, 랜드마크 건설, 로봇 배틀로얄</small></span>
-          </button>
+        <div class="board-sign">
+          <h1 class="game-brand">크래프트얍 <span>CraftYap</span></h1>
+          <p class="game-intro">설치 없이 즐기는 무료 3D 블록 게임<br />블록으로 세상을 만들고, 자동차와 비행기를 조립해요.</p>
         </div>
-        <div class="mode-step" data-step="games" hidden>
-          <h2>어떤 게임을 할까요?</h2>
-          <p class="play-kicker">Craft Island 기계 작업실에서 자동차와 비행기를 만들고 직접 움직여 보세요</p>
-          <button class="mode-btn" data-mode="craft" type="button">
-            <img class="mode-icon" src="/textures/blocks/workbench-top.png" alt="" />
-            <span class="mode-text"><b>Craft Island</b><small>블록을 캐고 집을 짓고, 기계를 조립하는 샌드박스</small></span>
-          </button>
-          <button class="mode-btn" data-mode="tower" type="button">
-            <img class="mode-icon" src="/ui/icon-tower.png" alt="" />
-            <span class="mode-text"><b>Daily Tower</b><small>매일 새로운 멀티플레이 점프 타워에 도전해요</small></span>
-          </button>
-          <button class="mode-btn" data-mode="builder" type="button">
-            <img class="mode-icon" src="/ui/icon-builder.png" alt="" />
-            <span class="mode-text"><b>Robo Builder</b><small>로봇들이 세계의 랜드마크를 짓는 방치형 건설 게임</small></span>
-          </button>
-          <button class="mode-btn" data-mode="battle" type="button">
-            <img class="mode-icon" src="/textures/blocks/ruby-ore.png" alt="" />
-            <span class="mode-text"><b>Blast Royale</b><small>로봇들과 마지막까지 살아남는 배틀로얄</small></span>
-          </button>
-          <button class="desk-link mode-back" type="button">&larr; 모드 선택으로</button>
         </div>
-        <p class="game-help"><a class="desk-link" href="/guide/">게임 소개 · 조작법 · 자주 묻는 질문 &rarr;</a> · <a class="desk-link" href="/note/">개발 노트 &rarr;</a></p>
+        <div class="board-cork">
+          <a class="board-news" href="/note/" hidden>
+            <span class="board-news-tag">새 소식</span>
+            <span class="board-news-title">개발 노트</span>
+            <span class="board-news-go" aria-hidden="true">&rarr;</span>
+          </a>
+          <div class="mode-step" data-step="category">
+            <h2>어떤 모드로 할까요?</h2>
+            <div class="board-notes board-notes-2">
+              <button class="mode-btn board-note" data-pick="field" type="button">
+                <span class="board-photo"><img src="/home/education.webp" width="480" height="360" alt="" /></span>
+                <span class="mode-text"><b>교육 모드</b><small>끝없는 들판에서 자유롭게 만들고, 같은 교실에서 함께 건축해요</small></span>
+                <span class="board-chips"><i>🏫 교실</i><i>🌱 끝없는 들판</i></span>
+                <span class="board-go">시작하기 <span aria-hidden="true">&rarr;</span></span>
+              </button>
+              <button class="mode-btn board-note" data-pick="games" type="button">
+                <span class="board-photo"><img src="/home/games.webp" width="480" height="360" alt="" /></span>
+                <span class="mode-text"><b>게임 모드</b><small>블록 섬 탐험, 점프 타워, 랜드마크 건설, 로봇 배틀로얄</small></span>
+                <span class="board-chips"><i>🎮 게임 4가지</i><i>👫 멀티플레이</i></span>
+                <span class="board-go">골라 보기 <span aria-hidden="true">&rarr;</span></span>
+              </button>
+            </div>
+          </div>
+          <div class="mode-step" data-step="games" hidden>
+            <h2>어떤 게임을 할까요?</h2>
+            <p class="play-kicker">Craft Island 기계 작업실에서 자동차와 비행기를 만들고 직접 움직여 보세요</p>
+            <div class="board-notes board-notes-4">
+              <button class="mode-btn board-note" data-mode="craft" type="button">
+                <span class="board-photo"><img src="/home/craft.webp" width="480" height="360" alt="" loading="lazy" /></span>
+                <span class="mode-text"><b>Craft Island</b><small>블록을 캐고 집을 짓고, 기계를 조립하는 샌드박스</small></span>
+              </button>
+              <button class="mode-btn board-note" data-mode="tower" type="button">
+                <span class="board-photo"><img src="/home/tower.webp" width="480" height="360" alt="" loading="lazy" /></span>
+                <span class="mode-text"><b>Daily Tower</b><small>매일 새로운 멀티플레이 점프 타워에 도전해요</small></span>
+              </button>
+              <button class="mode-btn board-note" data-mode="builder" type="button">
+                <span class="board-photo"><img src="/home/builder.webp" width="480" height="360" alt="" loading="lazy" /></span>
+                <span class="mode-text"><b>Robo Builder</b><small>로봇들이 세계의 랜드마크를 짓는 방치형 건설 게임</small></span>
+              </button>
+              <button class="mode-btn board-note" data-mode="battle" type="button">
+                <span class="board-photo"><img src="/home/battle.webp" width="480" height="360" alt="" loading="lazy" /></span>
+                <span class="mode-text"><b>Blast Royale</b><small>로봇들과 마지막까지 살아남는 배틀로얄</small></span>
+              </button>
+            </div>
+            <button class="desk-link mode-back" type="button">&larr; 모드 선택으로</button>
+          </div>
+        </div>
+        <p class="game-help board-links"><a class="desk-link" href="/guide/">📖 게임 소개 · 조작법 · 자주 묻는 질문</a><a class="desk-link" href="/note/">📝 개발 노트</a></p>
         <noscript>
           <p class="game-intro">게임을 시작하려면 JavaScript를 켜 주세요. 게임 소개와 조작법은 JavaScript 없이도 읽을 수 있어요.</p>
         </noscript>

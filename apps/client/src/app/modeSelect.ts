@@ -27,7 +27,11 @@ export function selectMode(parent: HTMLElement): Promise<GameMode> {
     parent.appendChild(el);
 
     const steps = el.querySelectorAll<HTMLElement>(".mode-step");
-    const show = (step: string) => steps.forEach((s) => (s.hidden = s.dataset.step !== step));
+    const show = (step: string) => {
+      steps.forEach((s) => (s.hidden = s.dataset.step !== step));
+      el.dataset.step = step; // the board's CSS lays out each step
+    };
+    show("category");
     const choose = (mode: GameMode) => {
       el.remove();
       resolve(mode);
@@ -39,5 +43,23 @@ export function selectMode(parent: HTMLElement): Promise<GameMode> {
     el.querySelectorAll<HTMLButtonElement>("[data-mode]").forEach((btn) => {
       btn.addEventListener("click", () => choose(btn.dataset.mode as GameMode));
     });
+    void pinLatestNote(el);
   });
+}
+
+/** Pins the newest dev note on the home board; the board simply has no pin if this fails. */
+async function pinLatestNote(el: HTMLElement): Promise<void> {
+  const pin = el.querySelector<HTMLAnchorElement>(".board-news");
+  if (!pin) return;
+  try {
+    const res = await fetch("/note/latest.json", { cache: "no-cache" });
+    if (!res.ok) return;
+    const note = (await res.json()) as { title?: unknown; url?: unknown };
+    if (typeof note.title !== "string" || typeof note.url !== "string" || !note.url.startsWith("/note/")) return;
+    pin.href = note.url;
+    pin.querySelector(".board-news-title")!.textContent = note.title;
+    pin.hidden = false;
+  } catch {
+    /* offline or no notes yet */
+  }
 }

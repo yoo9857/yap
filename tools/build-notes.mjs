@@ -341,6 +341,8 @@ const want = new Map([
   ["note/index.html", indexPage()],
   ["note/feed.xml", feed()],
   ["feed.xml", rss()],
+  // the home page's "새 소식" pin reads this
+  ["note/latest.json", `${JSON.stringify({ title: notes[0].title, url: `/note/${notes[0].slug}/`, date: notes[0].date })}\n`],
   ["sitemap.xml", sitemap()],
   ...notes.map((n, i) => [`note/${n.slug}/index.html`, postPage(n, i)]),
 ]);
