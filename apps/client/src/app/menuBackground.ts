@@ -27,8 +27,10 @@ export function initMenuBackground(): void {
   let releaseTimer = 0;
 
   video.muted = video.defaultMuted = true;
-  const menuVisible = () => !!document.querySelector(".mode-screen:not(.hidden):not([hidden])") ||
-    !!(overlay && !overlay.classList.contains("hidden"));
+  // The whole way from the picker to the first game frame counts as "menu": the
+  // picker, lobby and loader replace each other with a gap while a chunk loads,
+  // and dropping the video in that gap flashed the plain sky colour.
+  const menuVisible = () => !document.body.classList.contains("in-game") || (!!overlay && !overlay.classList.contains("hidden"));
   const allowed = () => !reduced.matches && !connection?.saveData;
 
   function release(): void {
@@ -129,7 +131,7 @@ export function initMenuBackground(): void {
   mobile.addEventListener("change", schedule);
   connection?.addEventListener("change", schedule);
   const observer = new MutationObserver(schedule);
-  observer.observe(document.body, { childList: true });
+  observer.observe(document.body, { childList: true, attributes: true, attributeFilter: ["class"] });
   if (overlay) observer.observe(overlay, { attributes: true, attributeFilter: ["class"] });
   schedule();
 }

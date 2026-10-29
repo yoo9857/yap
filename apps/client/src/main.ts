@@ -12,10 +12,32 @@ import type { ClassEntry } from "./app/classLobby.js";
 const overlay = document.getElementById("boot-overlay");
 const messageEl = document.getElementById("boot-message");
 const retryBtn = document.getElementById("boot-retry");
+const fillEl = document.getElementById("boot-fill");
+const tipEl = document.getElementById("boot-tip");
 initMenuBackground();
+if (retryBtn) retryBtn.textContent = t("다시 시도", "Retry");
 
+/** Loading steps reported so far; the brick bar creeps toward full with each one. */
+let bootSteps = 0;
 function setBootMessage(text: string): void {
   if (messageEl) messageEl.textContent = text;
+  bootSteps++;
+  if (fillEl) fillEl.style.width = `${Math.round((1 - 0.62 ** bootSteps) * 100)}%`;
+}
+
+/** One random tip under the bar while a voxel mode loads. */
+function showTip(): void {
+  if (!tipEl) return;
+  const tips = [
+    t("💡 Q를 누르면 빈손이 돼요. 블록을 실수로 놓지 않고 캘 수 있어요.", "💡 Q empties your hands: mine without placing by accident."),
+    t("💡 C로 감정표현을 고르고, Z로 기어갈 수 있어요.", "💡 C picks an emote; Z crawls."),
+    t("💡 B를 누르면 기계 작업실에서 자동차와 비행기를 만들 수 있어요.", "💡 B opens the machine lab: build cars and planes."),
+    t("💡 G를 누르면 가구를 놓을 수 있어요. 가구는 무료로 무제한!", "💡 G places furniture — free and unlimited."),
+    t("💡 Y로 반려동물을 입양하고, P로 앉혀 둘 수 있어요.", "💡 Y adopts a pet; P tells it to sit."),
+    t("💡 H를 누르면 언제든 전체 조작법을 볼 수 있어요.", "💡 H shows every control, any time."),
+  ];
+  tipEl.textContent = tips[Math.floor(Math.random() * tips.length)]!;
+  tipEl.hidden = false;
 }
 
 function showFatal(text: string): void {
@@ -25,6 +47,7 @@ function showFatal(text: string): void {
 }
 
 function hideOverlay(): void {
+  if (fillEl && bootSteps > 0) fillEl.style.width = "100%";
   overlay?.classList.add("hidden");
 }
 
@@ -115,6 +138,11 @@ async function boot(): Promise<void> {
     return;
   }
 
+  if (!params.has("mode")) {
+    // fetch the education lobby while the picker is up, so choosing it is instant
+    const idle = (fn: () => void) => ("requestIdleCallback" in window ? requestIdleCallback(fn, { timeout: 2500 }) : setTimeout(fn, 1500));
+    idle(() => void import("./app/classLobby.js").catch(() => {}));
+  }
   const mode = await selectMode(document.body);
   // Start the HOME character download now, in the background: it overlaps the
   // class lobby instead of covering it. Every mode waits for it below, before
@@ -130,6 +158,7 @@ async function boot(): Promise<void> {
     classroom = params.get("mode") === "field" ? await classFromUrl() : await chooseClass(document.body);
   }
   overlay?.classList.remove("hidden");
+  if (mode === "craft" || mode === "field") showTip();
   setBootMessage(t("캐릭터 불러오는 중…", "Loading characters…"));
   await characters;
   if (mode === "tower") {
@@ -145,6 +174,8 @@ async function boot(): Promise<void> {
   } else {
     await bootBuilder(mount);
   }
+  // the menu art and its video are released once a game is on screen
+  document.body.classList.add("in-game");
 }
 
 boot().catch((err: unknown) => {

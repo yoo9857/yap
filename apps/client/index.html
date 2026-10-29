@@ -157,6 +157,11 @@
         background: #7ec8f0;
         font-family: "Jua", system-ui, -apple-system, sans-serif;
       }
+      /* until a game runs, the art sits under every screen, so the gap while
+         the next screen's code loads shows the same picture, not a flash */
+      body:not(.in-game) {
+        background: #9bd7ec var(--menu-background) center / cover no-repeat;
+      }
       #app {
         position: fixed;
         inset: 0;
@@ -178,46 +183,68 @@
         z-index: 100;
         transition: opacity 0.3s;
         font-size: 18px;
-        text-shadow:
-          0 0 6px #fff,
-          0 0 12px #fff;
       }
       #boot-overlay.hidden {
         opacity: 0;
         pointer-events: none;
       }
-      #boot-overlay .spinner {
-        width: 52px;
-        height: 52px;
-        border: 6px solid var(--ink);
-        border-top-color: var(--cy-yellow);
-        border-radius: 47% 53% 51% 49% / 52% 48% 52% 48%;
-        animation: spin 0.9s linear infinite;
-        background: var(--paper);
+      /* appear at once over the screen it replaces; only fade away into the game */
+      #boot-overlay:not(.hidden) { transition: none; }
+      /* the loader is a small notice board too (styles under .board-screen):
+         logo, a brick progress bar, the current step and a gameplay tip */
+      /* the art behind already carries the big logo, so the board sits low and has none */
+      #boot-overlay { justify-content: flex-end; padding-bottom: clamp(24px, 11vh, 120px); box-sizing: border-box; }
+      #boot-overlay .boot-board { width: min(440px, calc(100vw - 32px)); padding-bottom: 14px; transform: rotate(-0.3deg); }
+      /* while loading, the menu art (and its video) covers the game UI that is already being built */
+      body:has(#boot-overlay:not(.hidden)) #menu-backdrop { z-index: 99; }
+      #boot-overlay .boot-sign { margin: 4px 0 2px; padding: 16px 18px 14px; text-align: center; transform: rotate(0.4deg); }
+      #boot-overlay .boot-bar {
+        position: relative;
+        height: 22px;
+        overflow: hidden;
+        border: 2.5px solid var(--ink);
+        border-radius: 8px;
+        background: #efe6d2;
+        box-shadow: inset 0 3px 0 rgba(31, 31, 31, 0.12);
       }
-      @keyframes spin {
-        to {
-          transform: rotate(360deg);
-        }
+      #boot-fill {
+        position: absolute;
+        inset: 0 auto 0 0;
+        width: 6%;
+        /* a row of yellow bricks with studs on top */
+        background:
+          radial-gradient(ellipse 5px 3px at 50% 5px, rgba(255, 255, 255, 0.65) 0 3px, transparent 3.5px) 0 0 / 22px 22px,
+          linear-gradient(90deg, transparent 0 20px, rgba(150, 100, 0, 0.45) 20px 22px) 0 0 / 22px 22px,
+          linear-gradient(180deg, #ffe066, var(--cy-yellow) 55%, #e8b800);
+        border-right: 2.5px solid var(--ink);
+        transition: width 0.45s cubic-bezier(0.2, 0.8, 0.3, 1);
+      }
+      #boot-message { margin-top: 12px; font-size: 18px; line-height: 1.3; color: var(--ink); }
+      #boot-overlay .boot-tip {
+        margin: 10px 0 0;
+        padding-top: 10px;
+        border-top: 2px dashed #d8cdb6;
+        color: #555;
+        font: 600 12.5px/1.45 system-ui, sans-serif;
+        word-break: keep-all;
       }
       #boot-overlay button {
         display: none;
-        padding: 10px 30px;
-        font-size: 17px;
-        font-family: inherit;
-        color: var(--paper);
-        background: var(--cy-green);
-        border: 3px solid var(--ink);
+        margin: 14px auto 0;
+        padding: 9px 26px 11px;
+        border: 2.5px solid var(--ink);
         border-radius: var(--wobble-md);
-        box-shadow: var(--shadow-soft);
+        background: var(--cy-green);
+        box-shadow: inset 0 -4px 0 rgba(0, 0, 0, 0.2), 0 4px 0 var(--ink);
+        color: var(--paper);
+        font: 17px/1.2 "Jua", system-ui, sans-serif;
         cursor: pointer;
       }
-      #boot-overlay.error .spinner {
-        display: none;
-      }
-      #boot-overlay.error button {
-        display: block;
-      }
+      #boot-overlay button:active { transform: translateY(3px); box-shadow: inset 0 -2px 0 rgba(0, 0, 0, 0.2), 0 1px 0 var(--ink); }
+      #boot-overlay.error .boot-bar,
+      #boot-overlay.error .boot-tip { display: none; }
+      #boot-overlay.error #boot-message { margin-top: 0; }
+      #boot-overlay.error button { display: block; }
 
       /* ---------- HUD (tower) ---------- */
       .hud {
@@ -1707,11 +1734,15 @@
         </noscript>
       </div>
     </main>
-    <div id="boot-overlay">
-      <img class="brand-logo" src="/craftyap-logo.png" alt="CraftYap" />
-      <div class="spinner"></div>
-      <div id="boot-message">Loading…</div>
-      <button id="boot-retry">Retry</button>
+    <div id="boot-overlay" class="board-screen">
+      <div class="screen-card board boot-board">
+        <div class="board-sign boot-sign">
+          <div class="boot-bar" aria-hidden="true"><span id="boot-fill"></span></div>
+          <div id="boot-message" role="status">불러오는 중…</div>
+          <p id="boot-tip" class="boot-tip" hidden></p>
+          <button id="boot-retry" type="button">다시 시도</button>
+        </div>
+      </div>
     </div>
     <script type="module" src="/src/main.ts"></script>
   </body>
