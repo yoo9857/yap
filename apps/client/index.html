@@ -1162,14 +1162,15 @@
       }
 
       /* ---------------------------------------------------------------
-         Home notice board (#mode-select only): a wooden board with brick
+         Notice board (.board-screen: the home menu and the education lobby): a wooden board with brick
          studs on top, a cork panel, and the modes pinned on it as photo
-         notes. The class lobby reuses .screen-card/.mode-btn unchanged.
+         notes. Both screens keep the .mode-btn/.mode-step hooks that the
+         mode picker, the lobby and the E2E suites rely on.
          One line system: 4px board, 3px panels and notes, 2px chips and
          buttons — every pressable thing has the brick kit's darker bottom
          edge and sinks onto it when pressed.
          --------------------------------------------------------------- */
-      #mode-select .board {
+      .board-screen .board {
         --wood: #cf9152;
         --wood-dark: #a9692f;
         --wood-side: #7a4519;
@@ -1201,7 +1202,7 @@
         scrollbar-width: thin;
         scrollbar-color: var(--wood-side) transparent;
       }
-      #mode-select .board::before {
+      .board-screen .board::before {
         /* the brick studs along the top rail (generated art), inked like the rest of the UI */
         content: "";
         position: absolute;
@@ -1213,7 +1214,7 @@
         filter: drop-shadow(1.5px 0 0 var(--ink)) drop-shadow(-1.5px 0 0 var(--ink)) drop-shadow(0 -1.5px 0 var(--ink));
         pointer-events: none;
       }
-      #mode-select .board::after {
+      .board-screen .board::after {
         /* four screws holding the board together */
         content: "";
         position: absolute;
@@ -1225,14 +1226,14 @@
           radial-gradient(circle at 5px 5px, #c9ced4 0 3px, var(--ink) 3.5px 5px, transparent 5.5px) left bottom / 10px 10px no-repeat,
           radial-gradient(circle at 5px 5px, #c9ced4 0 3px, var(--ink) 3.5px 5px, transparent 5.5px) right bottom / 10px 10px no-repeat;
       }
-      #mode-select .brand-logo {
+      .board-screen .brand-logo {
         width: min(210px, 52vw);
         margin: -6px auto -4px;
         position: relative;
         z-index: 1;
         filter: drop-shadow(0 4px 0 rgba(70, 35, 8, 0.45));
       }
-      #mode-select .board-sign {
+      .board-screen .board-sign {
         position: relative;
         margin: 0 auto 14px;
         max-width: 470px;
@@ -1244,8 +1245,8 @@
         box-shadow: inset 0 -3px 0 rgba(31, 31, 31, 0.08), 0 4px 0 var(--ink), 0 9px 0 rgba(70, 35, 8, 0.35);
         transform: rotate(0.6deg);
       }
-      #mode-select .board-sign::before,
-      #mode-select .board-sign::after {
+      .board-screen .board-sign::before,
+      .board-screen .board-sign::after {
         /* two nails holding the sign */
         content: "";
         position: absolute;
@@ -1256,13 +1257,13 @@
         border-radius: 50%;
         background: radial-gradient(circle at 35% 35%, #f2f4f6 0 1.5px, #9aa3ad 2px);
       }
-      #mode-select .board-sign::before { left: 9px; }
-      #mode-select .board-sign::after { right: 9px; }
-      #mode-select .board-sign .game-brand { margin: 0 0 3px; font-size: 25px; line-height: 1.15; }
-      #mode-select .board-sign .game-intro { margin: 0; font-size: 13.5px; line-height: 1.5; color: #4a4a4a; }
+      .board-screen .board-sign::before { left: 9px; }
+      .board-screen .board-sign::after { right: 9px; }
+      .board-screen .board-sign .game-brand { margin: 0 0 3px; font-size: 25px; line-height: 1.15; }
+      .board-screen .board-sign .game-intro { margin: 0; font-size: 13.5px; line-height: 1.5; color: #4a4a4a; }
       /* the game list is the second page of the board: drop the header so all four fit */
-      #mode-select[data-step="games"] .board-head { display: none; }
-      #mode-select .board-cork {
+      .board-screen[data-board="games"] .board-head { display: none; }
+      .board-screen .board-cork {
         position: relative;
         padding: 16px 16px 14px;
         border: 3px solid var(--ink);
@@ -1274,7 +1275,7 @@
           inset -2px -2px 0 rgba(255, 248, 230, 0.4),
           0 2px 0 rgba(255, 236, 205, 0.35);
       }
-      #mode-select .mode-step h2 {
+      .board-screen .mode-step h2 {
         display: inline-block;
         margin: 0 0 14px;
         padding: 3px 16px 5px;
@@ -1286,14 +1287,14 @@
         line-height: 1.2;
         transform: rotate(-1deg);
       }
-      #mode-select .play-kicker {
+      .board-screen .play-kicker {
         margin: -4px 0 14px;
         color: #5b3a17;
         line-height: 1.4;
       }
 
       /* the latest dev note, pinned at the top of the cork */
-      #mode-select .board-news {
+      .board-screen .board-news {
         display: flex;
         align-items: center;
         gap: 8px;
@@ -1310,11 +1311,11 @@
         transform: rotate(0.4deg);
         transition: transform 0.08s, box-shadow 0.08s;
       }
-      #mode-select .board-news[hidden] { display: none; }
-      #mode-select .board-news:hover { transform: translateY(-1px) rotate(0.4deg); box-shadow: inset 0 -3px 0 rgba(200, 160, 40, 0.25), 0 4px 0 var(--ink); }
-      #mode-select .board-news:active { transform: translateY(2px) rotate(0.4deg); box-shadow: var(--edge-down); }
-      #mode-select .board-news:focus-visible { outline: 3px solid var(--cy-blue); outline-offset: 3px; }
-      #mode-select .board-news-tag {
+      .board-screen .board-news[hidden] { display: none; }
+      .board-screen .board-news:hover { transform: translateY(-1px) rotate(0.4deg); box-shadow: inset 0 -3px 0 rgba(200, 160, 40, 0.25), 0 4px 0 var(--ink); }
+      .board-screen .board-news:active { transform: translateY(2px) rotate(0.4deg); box-shadow: var(--edge-down); }
+      .board-screen .board-news:focus-visible { outline: 3px solid var(--cy-blue); outline-offset: 3px; }
+      .board-screen .board-news-tag {
         flex: none;
         padding: 2px 9px 3px;
         border: 2px solid var(--ink);
@@ -1324,24 +1325,24 @@
         color: var(--paper);
         font: 13px/1.2 "Jua", system-ui, sans-serif;
       }
-      #mode-select .board-news-title {
+      .board-screen .board-news-title {
         flex: 1;
         min-width: 0;
         overflow: hidden;
         white-space: nowrap;
         text-overflow: ellipsis;
       }
-      #mode-select .board-news-go { flex: none; font-size: 15px; transition: transform 0.12s; }
-      #mode-select .board-news:hover .board-news-go { transform: translateX(3px); }
+      .board-screen .board-news-go { flex: none; font-size: 15px; transition: transform 0.12s; }
+      .board-screen .board-news:hover .board-news-go { transform: translateX(3px); }
 
       /* photo notes */
-      #mode-select .board-notes {
+      .board-screen .board-notes {
         display: grid;
         grid-template-columns: repeat(2, minmax(0, 1fr));
         gap: 18px 16px;
         padding-top: 4px;
       }
-      #mode-select .board-note {
+      .board-screen .board-note {
         position: relative;
         display: flex;
         flex-direction: column;
@@ -1358,10 +1359,10 @@
         transform: rotate(-1.2deg);
         transition: transform 0.14s ease, box-shadow 0.14s ease;
       }
-      #mode-select .board-note:nth-child(2n) { transform: rotate(1deg); }
-      #mode-select .board-note:nth-child(3) { transform: rotate(0.7deg); }
-      #mode-select .board-note:nth-child(4) { transform: rotate(-0.8deg); }
-      #mode-select .board-note::before {
+      .board-screen .board-note:nth-child(2n) { transform: rotate(1deg); }
+      .board-screen .board-note:nth-child(3) { transform: rotate(0.7deg); }
+      .board-screen .board-note:nth-child(4) { transform: rotate(-0.8deg); }
+      .board-screen .board-note::before {
         /* push pin: head plus a shadow cast on the paper */
         content: "";
         position: absolute;
@@ -1376,21 +1377,21 @@
         background: radial-gradient(circle at 34% 30%, rgba(255, 255, 255, 0.85) 0 2.5px, transparent 3.2px), radial-gradient(circle at 60% 70%, rgba(0, 0, 0, 0.18) 0 5px, transparent 6px), var(--pin, var(--cy-red));
         box-shadow: 2px 3px 0 rgba(31, 31, 31, 0.35);
       }
-      #mode-select .board-note[data-pick="games"],
-      #mode-select .board-note[data-mode="tower"] { --pin: var(--cy-blue); }
-      #mode-select .board-note[data-mode="builder"] { --pin: var(--cy-green); }
-      #mode-select .board-note[data-mode="battle"] { --pin: var(--cy-purple); }
-      #mode-select .board-note:hover,
-      #mode-select .board-note:focus-visible {
+      .board-screen .board-note[data-pick="games"],
+      .board-screen .board-note[data-mode="tower"] { --pin: var(--cy-blue); }
+      .board-screen .board-note[data-mode="builder"] { --pin: var(--cy-green); }
+      .board-screen .board-note[data-mode="battle"] { --pin: var(--cy-purple); }
+      .board-screen .board-note:hover,
+      .board-screen .board-note:focus-visible {
         transform: translateY(-5px) rotate(0deg);
         box-shadow: 0 3px 0 #d8cdb6, 0 5px 0 var(--ink), 7px 15px 0 rgba(90, 45, 10, 0.28);
       }
-      #mode-select .board-note:focus-visible { outline: 3px solid var(--cy-blue); outline-offset: 4px; }
-      #mode-select .board-note:active {
+      .board-screen .board-note:focus-visible { outline: 3px solid var(--cy-blue); outline-offset: 4px; }
+      .board-screen .board-note:active {
         transform: translateY(2px) rotate(0deg);
         box-shadow: 0 1px 0 #d8cdb6, 0 2px 0 var(--ink), 2px 3px 0 rgba(90, 45, 10, 0.32);
       }
-      #mode-select .board-photo {
+      .board-screen .board-photo {
         position: relative;
         display: block;
         overflow: hidden;
@@ -1399,7 +1400,7 @@
         border-radius: 4px;
         background: #9bd7ec;
       }
-      #mode-select .board-photo::after {
+      .board-screen .board-photo::after {
         /* print gloss + a thin inner white mat */
         content: "";
         position: absolute;
@@ -1409,21 +1410,21 @@
         background: linear-gradient(155deg, rgba(255, 255, 255, 0.28), transparent 38%);
         pointer-events: none;
       }
-      #mode-select .board-photo img {
+      .board-screen .board-photo img {
         display: block;
         width: 100%;
         height: 100%;
         object-fit: cover;
         transition: transform 0.35s ease;
       }
-      #mode-select .board-note:hover .board-photo img { transform: scale(1.05); }
-      #mode-select .board-note .mode-text { display: block; padding: 10px 4px 0; }
-      #mode-select .board-note .mode-text b { font-size: 21px; line-height: 1.15; color: var(--cy-blue); }
-      #mode-select .board-note[data-pick="games"] .mode-text b,
-      #mode-select .board-note[data-mode="builder"] .mode-text b { color: var(--cy-green); }
-      #mode-select .board-note[data-mode="battle"] .mode-text b { color: var(--cy-purple); }
-      #mode-select .board-note[data-mode="tower"] .mode-text b { color: var(--cy-orange); }
-      #mode-select .board-note .mode-text small {
+      .board-screen .board-note:hover .board-photo img { transform: scale(1.05); }
+      .board-screen .board-note .mode-text { display: block; padding: 10px 4px 0; }
+      .board-screen .board-note .mode-text b { font-size: 21px; line-height: 1.15; color: var(--cy-blue); }
+      .board-screen .board-note[data-pick="games"] .mode-text b,
+      .board-screen .board-note[data-mode="builder"] .mode-text b { color: var(--cy-green); }
+      .board-screen .board-note[data-mode="battle"] .mode-text b { color: var(--cy-purple); }
+      .board-screen .board-note[data-mode="tower"] .mode-text b { color: var(--cy-orange); }
+      .board-screen .board-note .mode-text small {
         display: block;
         margin-top: 4px;
         font-size: 12.5px;
@@ -1431,13 +1432,13 @@
         color: #555;
         word-break: keep-all;
       }
-      #mode-select .board-chips {
+      .board-screen .board-chips {
         display: flex;
         flex-wrap: wrap;
         gap: 6px;
         padding: 10px 3px 0;
       }
-      #mode-select .board-chips i {
+      .board-screen .board-chips i {
         padding: 2px 9px 3px;
         border: 2px solid var(--ink);
         border-radius: 999px;
@@ -1446,8 +1447,8 @@
         font: 600 11px/1.3 system-ui, sans-serif;
         font-style: normal;
       }
-      #mode-select [data-pick="games"] .board-chips i { background: #e7f1ff; }
-      #mode-select .board-go {
+      .board-screen [data-pick="games"] .board-chips i { background: #e7f1ff; }
+      .board-screen .board-go {
         /* margin-top: auto lines the two buttons up whatever the text length */
         align-self: flex-start;
         margin: auto 3px 0;
@@ -1463,27 +1464,27 @@
         font: 15px/1.2 "Jua", system-ui, sans-serif;
         transition: transform 0.08s, box-shadow 0.08s;
       }
-      #mode-select [data-pick="games"] .board-go { background: #9fd1ff; box-shadow: inset 0 -3px 0 rgba(30, 90, 170, 0.3), var(--edge); }
-      #mode-select .board-note:hover .board-go { transform: translateY(-1px); }
-      #mode-select .board-note:active .board-go { transform: translateY(2px); box-shadow: var(--edge-down); }
+      .board-screen [data-pick="games"] .board-go { background: #9fd1ff; box-shadow: inset 0 -3px 0 rgba(30, 90, 170, 0.3), var(--edge); }
+      .board-screen .board-note:hover .board-go { transform: translateY(-1px); }
+      .board-screen .board-note:active .board-go { transform: translateY(2px); box-shadow: var(--edge-down); }
       /* keep at least 12px above the button that margin-top: auto pushes down */
-      #mode-select .board-notes-2 .board-note > :nth-last-child(2) { margin-bottom: 12px; }
-      #mode-select .board-notes-4 .board-note { padding-bottom: 10px; }
-      #mode-select .board-notes-4 .mode-text b { font-size: 17.5px; }
-      #mode-select .board-notes-4 .mode-text small { font-size: 11.5px; }
-      #mode-select .mode-back {
+      .board-screen :is(.board-notes-2, .board-notes-3) .board-note > :nth-last-child(2) { margin-bottom: 12px; }
+      .board-screen .board-notes-4 .board-note { padding-bottom: 10px; }
+      .board-screen .board-notes-4 .mode-text b { font-size: 17.5px; }
+      .board-screen .board-notes-4 .mode-text small { font-size: 11.5px; }
+      .board-screen .mode-back {
         margin-top: 14px;
         color: #4a2c0f;
         border-bottom-color: #8a5a2b;
       }
-      #mode-select .board-links {
+      .board-screen .board-links {
         display: flex;
         flex-wrap: wrap;
         justify-content: center;
         gap: 10px;
         margin: 16px 0 2px;
       }
-      #mode-select .board-links .desk-link {
+      .board-screen .board-links .desk-link {
         margin: 0;
         padding: 5px 12px 6px;
         border: 2px solid var(--ink);
@@ -1494,64 +1495,146 @@
         font: 600 12px/1.3 system-ui, sans-serif;
         transition: transform 0.08s, box-shadow 0.08s;
       }
-      #mode-select .board-links .desk-link:hover { background: var(--paper); transform: translateY(-1px); box-shadow: 0 4px 0 var(--ink); }
-      #mode-select .board-links .desk-link:active { transform: translateY(2px); box-shadow: var(--edge-down); }
+      .board-screen .board-links .desk-link:hover { background: var(--paper); transform: translateY(-1px); box-shadow: 0 4px 0 var(--ink); }
+      .board-screen .board-links .desk-link:active { transform: translateY(2px); box-shadow: var(--edge-down); }
+      /* education lobby: three choices, then a pinned paper form */
+      .board-screen .board-notes-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px 14px; }
+      .board-screen .board-notes-3 .mode-text b { font-size: 17.5px; }
+      .board-screen .board-notes-3 .mode-text small { font-size: 12px; }
+      .board-screen .board-note[data-go="teacher"] { --pin: var(--cy-green); }
+      .board-screen .board-note[data-go="student"] { --pin: var(--cy-blue); }
+      .board-screen .board-note[data-go="solo"] { --pin: var(--cy-orange); }
+      .board-screen .board-note[data-go="teacher"] .mode-text b { color: var(--cy-green); }
+      .board-screen .board-note[data-go="solo"] .mode-text b { color: var(--cy-orange); }
+      .board-screen .board-note[data-go="student"] .board-go { background: #9fd1ff; box-shadow: inset 0 -3px 0 rgba(30, 90, 170, 0.3), var(--edge); }
+      .board-screen .board-note[data-go="solo"] .board-go { background: #ffd0a3; box-shadow: inset 0 -3px 0 rgba(170, 90, 20, 0.3), var(--edge); }
+      .board-screen .board-paper {
+        position: relative;
+        max-width: 440px;
+        margin: 4px auto 0;
+        padding: 18px 18px 16px;
+        border: 3px solid var(--ink);
+        border-radius: 6px 8px 5px 9px;
+        background: var(--paper) url("/textures/doodle-paper.webp");
+        background-size: 280px;
+        box-shadow: 0 3px 0 #d8cdb6, 0 5px 0 var(--ink), 5px 10px 0 rgba(90, 45, 10, 0.32);
+        text-align: left;
+        transform: rotate(-0.5deg);
+      }
+      .board-screen .board-paper::before {
+        content: "";
+        position: absolute;
+        top: -10px;
+        left: 50%;
+        width: 18px;
+        height: 18px;
+        margin-left: -9px;
+        border: 2.5px solid var(--ink);
+        border-radius: 50%;
+        background: radial-gradient(circle at 34% 30%, rgba(255, 255, 255, 0.85) 0 2.5px, transparent 3.2px), var(--cy-red);
+        box-shadow: 2px 3px 0 rgba(31, 31, 31, 0.35);
+      }
+      .board-screen .class-form { gap: 6px; margin-bottom: 12px; }
+      .board-screen .class-form label { margin-top: 4px; font: 14px/1.2 "Jua", system-ui, sans-serif; color: var(--ink); }
+      .board-screen .class-form input {
+        padding: 10px 12px;
+        border: 2.5px solid var(--ink);
+        border-radius: var(--wobble-sm);
+        background: #fffdf6;
+        box-shadow: inset 0 3px 0 rgba(31, 31, 31, 0.07);
+        font: 600 16px system-ui, sans-serif;
+        text-align: left;
+        transition: box-shadow 0.1s, background 0.1s;
+      }
+      .board-screen .class-form input:focus {
+        outline: none;
+        background: var(--paper);
+        box-shadow: 0 0 0 3px #9fd1ff;
+      }
+      .board-screen .class-note { margin-bottom: 10px; color: #5a5a5a; }
+      .board-screen .class-error:empty { min-height: 0; margin: 0; }
+      .board-screen .class-confirm { border-width: 2.5px; box-shadow: var(--edge); }
+      .board-screen .board-cta {
+        display: flex;
+        width: 100%;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        margin-top: 4px;
+        padding: 10px 16px 12px;
+        border: 2.5px solid var(--ink);
+        border-radius: var(--wobble-md);
+        background: var(--cy-yellow);
+        box-shadow: inset 0 -4px 0 rgba(180, 120, 0, 0.35), 0 4px 0 var(--ink);
+        color: var(--ink);
+        font: 19px/1.2 "Jua", system-ui, sans-serif;
+        cursor: pointer;
+        transition: transform 0.08s, box-shadow 0.08s;
+      }
+      .board-screen .board-cta:hover { transform: translateY(-1px); box-shadow: inset 0 -4px 0 rgba(180, 120, 0, 0.35), 0 5px 0 var(--ink); }
+      .board-screen .board-cta:active { transform: translateY(3px); box-shadow: inset 0 -2px 0 rgba(180, 120, 0, 0.35), var(--edge-down); }
+      .board-screen .board-cta:disabled { opacity: 0.6; cursor: progress; transform: none; }
+      .board-screen .board-cta:focus-visible { outline: 3px solid var(--cy-blue); outline-offset: 3px; }
+      .board-screen .class-form-step > .desk-link { margin-top: 16px; color: #4a2c0f; border-bottom-color: #8a5a2b; }
+      .board-screen .board-cork > .mode-step { text-align: center; }
       @media (max-width: 560px) {
         /* clear the 배경 멈추기 button in the top-right corner */
-        #mode-select .board { padding: 26px 10px 14px; margin-top: 44px; max-height: calc(100dvh - 62px); }
-        #mode-select .board::before { left: 26px; right: 26px; }
-        #mode-select .board-head { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
-        #mode-select .board-head .brand-logo { flex: none; width: 108px; margin: -4px 0 -6px; }
-        #mode-select .board-head .board-sign { flex: 1; margin: 0; padding: 8px 10px 9px; text-align: left; }
-        #mode-select .board-head .board-sign::before,
-        #mode-select .board-head .board-sign::after { display: none; }
-        #mode-select .board-sign .game-brand { font-size: 20px; }
-        #mode-select .board-sign .game-intro { font-size: 11.5px; }
-        #mode-select .board-cork { padding: 14px 10px 12px; }
+        .board-screen .board { padding: 26px 10px 14px; margin-top: 44px; max-height: calc(100dvh - 62px); }
+        .board-screen .board::before { left: 26px; right: 26px; }
+        .board-screen .board-head { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+        .board-screen .board-head .brand-logo { flex: none; width: 108px; margin: -4px 0 -6px; }
+        .board-screen .board-head .board-sign { flex: 1; margin: 0; padding: 8px 10px 9px; text-align: left; }
+        .board-screen .board-head .board-sign::before,
+        .board-screen .board-head .board-sign::after { display: none; }
+        .board-screen .board-sign .game-brand { font-size: 20px; }
+        .board-screen .board-sign .game-intro { font-size: 11.5px; }
+        .board-screen .board-cork { padding: 14px 10px 12px; }
         /* the two modes become wide notes: photo left, words right */
-        #mode-select .board-notes-2 { grid-template-columns: 1fr; gap: 16px; }
-        #mode-select .board-notes-2 .board-note {
+        .board-screen :is(.board-notes-2, .board-notes-3) { grid-template-columns: 1fr; gap: 16px; }
+        .board-screen :is(.board-notes-2, .board-notes-3) .board-note {
           display: grid;
           grid-template-columns: 40% 1fr;
           grid-template-rows: auto 1fr auto;
           column-gap: 10px;
         }
-        #mode-select .board-notes-2 .board-photo { grid-row: 1 / 4; align-self: center; }
-        #mode-select .board-notes-2 .mode-text { padding: 2px 0 0; }
-        #mode-select .board-notes-2 .mode-text b { font-size: 19px; }
-        #mode-select .board-notes-2 .mode-text small { font-size: 12px; }
-        #mode-select .board-notes-2 .board-chips { display: none; }
-        #mode-select .board-notes-2 .board-go { grid-column: 2; margin-top: 8px; padding: 3px 11px 5px; font-size: 14px; }
-        #mode-select .board-notes-4 { gap: 16px 10px; }
-        #mode-select .board-notes-4 .board-note { padding: 6px 6px 9px; }
-        #mode-select .board-notes-4 .mode-text { padding: 7px 2px 0; }
-        #mode-select .board-notes-4 .mode-text b { font-size: 15.5px; }
+        .board-screen :is(.board-notes-2, .board-notes-3) .board-photo { grid-row: 1 / 4; align-self: center; }
+        .board-screen :is(.board-notes-2, .board-notes-3) .mode-text { padding: 2px 0 0; }
+        .board-screen :is(.board-notes-2, .board-notes-3) .mode-text b { font-size: 19px; }
+        .board-screen :is(.board-notes-2, .board-notes-3) .mode-text small { font-size: 12px; }
+        .board-screen :is(.board-notes-2, .board-notes-3) .board-chips { display: none; }
+        /* pin over the photo, not the title; button keeps its own width */
+        .board-screen :is(.board-notes-2, .board-notes-3) .board-note::before { left: 20%; }
+        .board-screen :is(.board-notes-2, .board-notes-3) .board-go { grid-column: 2; justify-self: start; margin-top: 8px; padding: 3px 11px 5px; font-size: 14px; }
+        .board-screen .board-notes-4 { gap: 16px 10px; }
+        .board-screen .board-notes-4 .board-note { padding: 6px 6px 9px; }
+        .board-screen .board-notes-4 .mode-text { padding: 7px 2px 0; }
+        .board-screen .board-notes-4 .mode-text b { font-size: 15.5px; }
       }
       @media (max-height: 940px) and (min-width: 561px) {
         /* laptops: logo beside the sign, wider board, shorter photos */
-        #mode-select .board { width: min(760px, calc(100vw - 24px)); padding-top: 24px; }
-        #mode-select .board-head { display: flex; align-items: center; gap: 14px; margin-bottom: 12px; }
-        #mode-select .board-head .brand-logo { flex: none; width: 150px; margin: -4px 0 -6px; }
-        #mode-select .board-head .board-sign { flex: 1; margin: 0; text-align: left; }
-        #mode-select .board-head .board-sign::before { display: none; }
-        #mode-select .board-news { margin-bottom: 12px; }
-        #mode-select .mode-step h2 { margin-bottom: 12px; }
-        #mode-select .board-photo { aspect-ratio: 16 / 9; }
-        #mode-select .board-chips { display: none; }
+        .board-screen .board { width: min(760px, calc(100vw - 24px)); padding-top: 24px; }
+        .board-screen .board-head { display: flex; align-items: center; gap: 14px; margin-bottom: 12px; }
+        .board-screen .board-head .brand-logo { flex: none; width: 150px; margin: -4px 0 -6px; }
+        .board-screen .board-head .board-sign { flex: 1; margin: 0; text-align: left; }
+        .board-screen .board-head .board-sign::before { display: none; }
+        .board-screen .board-news { margin-bottom: 12px; }
+        .board-screen .mode-step h2 { margin-bottom: 12px; }
+        .board-screen .board-photo { aspect-ratio: 16 / 9; }
+        .board-screen .board-chips { display: none; }
         /* the game list goes four across, so it never needs scrolling */
-        #mode-select[data-step="games"] .board { width: min(900px, calc(100vw - 24px)); }
-        #mode-select .board-notes-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px 14px; }
-        #mode-select .board-notes-4 .board-photo { aspect-ratio: 4 / 3; }
+        .board-screen[data-board="games"] .board { width: min(900px, calc(100vw - 24px)); }
+        .board-screen .board-notes-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px 14px; }
+        .board-screen .board-notes-4 .board-photo { aspect-ratio: 4 / 3; }
       }
       @media (max-height: 720px) and (min-width: 561px) {
-        #mode-select .board-photo { aspect-ratio: 2 / 1; }
-        #mode-select .board-note .mode-text small { display: none; }
+        .board-screen .board-photo { aspect-ratio: 2 / 1; }
+        .board-screen .board-note .mode-text small { display: none; }
       }
       @media (prefers-reduced-motion: reduce) {
-        #mode-select .board-note,
-        #mode-select .board-photo img,
-        #mode-select .board-go,
-        #mode-select .board-news-go { transition: none; }
+        .board-screen .board-note,
+        .board-screen .board-photo img,
+        .board-screen .board-go,
+        .board-screen .board-news-go { transition: none; }
       }
 
     </style>
@@ -1562,7 +1645,7 @@
       <video id="menu-background-video" muted loop playsinline preload="none" tabindex="-1" disablepictureinpicture disableremoteplayback></video>
     </div>
     <button id="menu-motion-toggle" type="button" hidden aria-pressed="false">배경 멈추기</button>
-    <main id="mode-select" class="screen mode-screen">
+    <main id="mode-select" class="screen mode-screen board-screen">
       <div class="screen-card board">
         <div class="board-head">
         <img class="brand-logo" src="/craftyap-logo.png" alt="크래프트얍 CraftYap" />

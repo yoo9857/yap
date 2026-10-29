@@ -29,7 +29,7 @@ export function selectMode(parent: HTMLElement): Promise<GameMode> {
     const steps = el.querySelectorAll<HTMLElement>(".mode-step");
     const show = (step: string) => {
       steps.forEach((s) => (s.hidden = s.dataset.step !== step));
-      el.dataset.step = step; // the board's CSS lays out each step
+      el.dataset.board = step; // the board's CSS lays out each step
     };
     show("category");
     const choose = (mode: GameMode) => {

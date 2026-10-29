@@ -81,66 +81,89 @@ export function chooseClass(parent: HTMLElement): Promise<ClassEntry | null> {
   return new Promise((resolve) => {
     const last = remembered();
     const screen = document.createElement("div");
-    screen.className = "screen mode-screen";
+    screen.className = "screen mode-screen board-screen";
+    screen.dataset.board = "pick"; // not data-step: that marks the steps themselves
+    // the same notice board as the home menu (index.html .board-screen styles)
     screen.innerHTML = `
-      <div class="screen-card">
-        <img class="brand-logo" src="/craftyap-logo.png" alt="CraftYap" />
+      <div class="screen-card board">
+        <div class="board-head">
+          <img class="brand-logo" src="/craftyap-logo.png" alt="CraftYap" />
+          <div class="board-sign">
+            <h1 class="game-brand">${t("교육 모드", "Education mode")} <span>${t("함께 만드는 교실", "Build together")}</span></h1>
+            <p class="game-intro">${t("선생님은 반을 열고, 학생은 반 이름으로 들어와요.<br />혼자서 끝없는 들판을 꾸밀 수도 있어요.", "Teachers open a class; students join with its name.<br />Or build alone on an endless field.")}</p>
+          </div>
+        </div>
+        <div class="board-cork">
         <div class="mode-step" data-step="pick">
-          <h1>${t("교육 모드", "Education mode")}</h1>
-          <button class="mode-btn" data-go="teacher">
-            <span class="mode-emoji">👩‍🏫</span>
+          <h2>${t("어떻게 시작할까요?", "How do you want to start?")}</h2>
+          <div class="board-notes board-notes-3">
+          <button class="mode-btn board-note" data-go="teacher" type="button">
+            <span class="board-photo"><img src="/home/teacher.webp" width="640" height="480" alt="" /></span>
             <span class="mode-text"><b>${t("선생님 · 반 만들기", "Teacher · open a class")}</b><small>${t("반 이름을 정해서 열면 학생들이 들어와요", "Pick a class name and open it; students join with it")}</small></span>
+            <span class="board-go">${t("반 열기", "Open")} <span aria-hidden="true">&rarr;</span></span>
           </button>
-          <button class="mode-btn" data-go="student">
-            <span class="mode-emoji">🧒</span>
+          <button class="mode-btn board-note" data-go="student" type="button">
+            <span class="board-photo"><img src="/home/student.webp" width="640" height="480" alt="" /></span>
             <span class="mode-text"><b>${t("학생 · 반 참여하기", "Student · join a class")}</b><small>${t("반 이름과 내 이름을 입력해요", "Enter the class name and your name")}</small></span>
+            <span class="board-go">${t("참여하기", "Join")} <span aria-hidden="true">&rarr;</span></span>
           </button>
-          <button class="mode-btn" data-go="solo">
-            <span class="mode-emoji">🌱</span>
+          <button class="mode-btn board-note" data-go="solo" type="button">
+            <span class="board-photo"><img src="/home/solo.webp" width="640" height="480" alt="" /></span>
             <span class="mode-text"><b>${t("혼자 하기", "Play solo")}</b><small>${t("끝없는 들판에서 혼자 만들고 실험해요", "Build and experiment on an endless field")}</small></span>
+            <span class="board-go">${t("시작하기", "Start")} <span aria-hidden="true">&rarr;</span></span>
           </button>
-          <a class="desk-link" href="/">&larr; ${t("처음으로", "Home")}</a>
+          </div>
         </div>
         <form class="mode-step class-form-step" data-step="teacher" hidden>
-          <h1>${t("반 만들기", "Open a class")}</h1>
-          <div class="class-form">
-            <label for="cl-host-room">${t("반 이름", "Class name")}</label>
-            <input id="cl-host-room" name="room" maxlength="20" autocomplete="off" required placeholder="${t("예: 햇살반, 3학년 2반", "e.g. Sunshine, Class 3-2")}" />
-            <label for="cl-host">${t("선생님 이름", "Teacher name")}</label>
-            <input id="cl-host" name="teacher" maxlength="16" autocomplete="off" required placeholder="${t("예: 김선생", "e.g. Ms. Kim")}" />
-            <label for="cl-pass">${t("반 비밀번호", "Class password")}</label>
-            <input id="cl-pass" name="password" type="password" minlength="4" maxlength="32" autocomplete="off" placeholder="${t("4자 이상 · 다른 컴퓨터에서 반을 다시 열 때 필요해요", "4+ characters · needed to reopen the class on another computer")}" />
+          <h2>${t("반 만들기", "Open a class")}</h2>
+          <div class="board-paper">
+            <div class="class-form">
+              <label for="cl-host-room">${t("반 이름", "Class name")}</label>
+              <input id="cl-host-room" name="room" maxlength="20" autocomplete="off" required placeholder="${t("예: 햇살반, 3학년 2반", "e.g. Sunshine, Class 3-2")}" />
+              <label for="cl-host">${t("선생님 이름", "Teacher name")}</label>
+              <input id="cl-host" name="teacher" maxlength="16" autocomplete="off" required placeholder="${t("예: 김선생", "e.g. Ms. Kim")}" />
+              <label for="cl-pass">${t("반 비밀번호", "Class password")}</label>
+              <input id="cl-pass" name="password" type="password" minlength="4" maxlength="32" autocomplete="off" placeholder="${t("4자 이상 · 다른 컴퓨터에서 반을 다시 열 때 필요해요", "4+ characters · needed to reopen the class on another computer")}" />
+            </div>
+            <p class="class-note">${t("학생들에게는 <b>반 이름</b>을 알려주세요. 반에서 만든 것은 서버에 저장돼서, 다음 수업에 같은 반 이름으로 열면 이어서 할 수 있어요.", "Give your students the <b>class name</b>. What the class builds is saved on the server, so opening the same class name next lesson picks up where you left off.")}</p>
+            <p class="class-error" data-id="error"></p>
+            <button class="board-cta" type="submit">${t("반 열기", "Open class")} <span aria-hidden="true">&rarr;</span></button>
           </div>
-          <p class="class-note">${t("학생들에게는 <b>반 이름</b>을 알려주세요. 반에서 만든 것은 서버에 저장돼서, 다음 수업에 같은 반 이름으로 열면 이어서 할 수 있어요.", "Give your students the <b>class name</b>. What the class builds is saved on the server, so opening the same class name next lesson picks up where you left off.")}</p>
-          <p class="class-error" data-id="error"></p>
-          <button class="mode-btn" type="submit"><span class="mode-text"><b>${t("반 열기", "Open class")}</b><small>${t("학생들은 반 이름으로 들어와요", "Students join with the class name")}</small></span></button>
           <button class="desk-link mode-back" type="button">&larr; ${t("뒤로", "Back")}</button>
         </form>
         <form class="mode-step class-form-step" data-step="student" hidden>
-          <h1>${t("반 참여하기", "Join a class")}</h1>
-          <div class="class-form">
-            <label for="cl-room">${t("반 이름", "Class name")}</label>
-            <input id="cl-room" name="room" maxlength="20" autocomplete="off" required placeholder="${t("선생님이 알려준 반 이름", "The class name your teacher gave you")}" />
-            <label for="cl-student">${t("내 이름", "Your name")}</label>
-            <input id="cl-student" name="student" maxlength="16" autocomplete="off" required placeholder="${t("예: 민지", "e.g. Minji")}" />
+          <h2>${t("반 참여하기", "Join a class")}</h2>
+          <div class="board-paper">
+            <div class="class-form">
+              <label for="cl-room">${t("반 이름", "Class name")}</label>
+              <input id="cl-room" name="room" maxlength="20" autocomplete="off" required placeholder="${t("선생님이 알려준 반 이름", "The class name your teacher gave you")}" />
+              <label for="cl-student">${t("내 이름", "Your name")}</label>
+              <input id="cl-student" name="student" maxlength="16" autocomplete="off" required placeholder="${t("예: 민지", "e.g. Minji")}" />
+            </div>
+            <p class="class-note">${t("다음을 누르면 어느 선생님 반인지 먼저 보여 줘요.", "Next shows you whose class it is before you join.")}</p>
+            <p class="class-error" data-id="error"></p>
+            <button class="board-cta" type="submit">${t("다음", "Next")} <span aria-hidden="true">&rarr;</span></button>
           </div>
-          <p class="class-error" data-id="error"></p>
-          <button class="mode-btn" type="submit"><span class="mode-text"><b>${t("다음", "Next")}</b><small>${t("어느 선생님 반인지 확인해요", "Check whose class it is")}</small></span></button>
           <button class="desk-link mode-back" type="button">&larr; ${t("뒤로", "Back")}</button>
         </form>
         <div class="mode-step class-form-step" data-step="confirm" hidden>
-          <h1>${t("이 반이 맞나요?", "Is this your class?")}</h1>
-          <div class="class-confirm" data-id="confirm-card"></div>
-          <p class="class-error" data-id="error"></p>
-          <button class="mode-btn" type="button" data-id="confirm-yes"><span class="mode-text"><b>${t("네, 들어갈래요", "Yes, let me in")}</b><small>${t("같은 반 친구들과 함께 만들어요", "Build together with your classmates")}</small></span></button>
+          <h2>${t("이 반이 맞나요?", "Is this your class?")}</h2>
+          <div class="board-paper">
+            <div class="class-confirm" data-id="confirm-card"></div>
+            <p class="class-error" data-id="error"></p>
+            <button class="board-cta" type="button" data-id="confirm-yes">${t("네, 들어갈래요", "Yes, let me in")} <span aria-hidden="true">&rarr;</span></button>
+          </div>
           <button class="desk-link" type="button" data-id="confirm-no">&larr; ${t("아니에요, 다시 입력할게요", "No, let me re-enter")}</button>
         </div>
+        </div>
+        <p class="game-help board-links"><a class="desk-link" href="/">🏠 ${t("처음으로", "Home")}</a><a class="desk-link" href="/guide/#classroom">📖 ${t("교실 이용 안내", "Classroom guide")}</a></p>
       </div>`;
     parent.appendChild(screen);
 
     const steps = screen.querySelectorAll<HTMLElement>(".mode-step");
     const show = (step: string) => {
       steps.forEach((s) => (s.hidden = s.dataset.step !== step));
+      screen.dataset.board = step;
       screen.querySelector<HTMLElement>(`[data-step="${step}"] input, [data-step="${step}"] [data-id="confirm-yes"]`)?.focus();
     };
     const input = (id: string) => screen.querySelector<HTMLInputElement>(`#${id}`)!;
