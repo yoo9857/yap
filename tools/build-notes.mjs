@@ -38,13 +38,22 @@ function parse(file) {
     if (meta[key] && !/^\d{4}-\d{2}-\d{2}$/.test(meta[key])) throw new Error(`${file}: ${key} must be YYYY-MM-DD`);
   }
   if (meta.draft === "true") return null;
+  // every linked note image must exist, and patch notes from Oct 30 2026 on
+  // must show the change: a "BEFORE / AFTER" section with at least one picture
+  for (const [, path] of m[2].matchAll(/\]\((\/note\/assets\/[^)\s]+)\)/g)) {
+    if (!existsSync(new URL(path.slice(1), PUBLIC))) throw new Error(`${file}: image ${path} is not in apps/client/public${path}`);
+  }
+  const tags = meta.tags ? meta.tags.split(",").map((t) => t.trim()).filter(Boolean) : [];
+  if (tags.includes("패치 노트") && meta.date >= "2026-10-30" && !(/^##\s*BEFORE\s*\/\s*AFTER/m.test(m[2]) && /\]\(\/note\/assets\//.test(m[2]))) {
+    throw new Error(`${file}: a patch note needs a "## BEFORE / AFTER" section with screenshots (see notes/README.md)`);
+  }
   return {
     slug,
     title: meta.title,
     date: meta.date,
     updated: meta.updated ?? meta.date,
     summary: meta.summary,
-    tags: meta.tags ? meta.tags.split(",").map((t) => t.trim()).filter(Boolean) : [],
+    tags,
     html: marked.parse(m[2], { async: false }),
     url: `${ORIGIN}/note/${slug}/`,
   };
