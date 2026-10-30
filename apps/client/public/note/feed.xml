@@ -7,6 +7,33 @@
   <updated>2026-10-30T00:00:00+09:00</updated>
   <author><name>크래프트얍(CraftYap)</name></author>
   <entry>
+    <title>10월 30일 패치 노트 (4) — 내 소리도 입체로, 가구가 소리를 막아요, 일시정지 화면 수정</title>
+    <link href="https://craftyap.com/note/patch-2026-10-30-4/" />
+    <id>https://craftyap.com/note/patch-2026-10-30-4/</id>
+    <published>2026-10-30T00:00:00+09:00</published>
+    <updated>2026-10-30T00:00:00+09:00</updated>
+    <summary>내가 캐고 부수고 놓는 블록 소리도 그 블록이 있는 방향에서 들립니다. 가구가 소리를 조금 막아 주고, 가구 모드에서 일시정지하면 종류 바꾸기 버튼이 가려지던 문제를 고쳤습니다.</summary>
+    <content type="html">&lt;h2&gt;한눈에 보기&lt;/h2&gt;
+&lt;p&gt;(3)편의 입체 음향을 &lt;strong&gt;내 소리까지&lt;/strong&gt; 넓혔어요. 오른쪽 블록을 캐면 오른쪽에서, 위의 블록을 캐면 위에서 소리가 나요. &lt;strong&gt;가구도 소리를 조금 막아&lt;/strong&gt; 주고, 가구 모드에서 일시정지했을 때 &lt;strong&gt;종류 바꾸기 버튼이 가려지던 문제&lt;/strong&gt;도 고쳤어요.&lt;/p&gt;
+&lt;h2&gt;BEFORE / AFTER&lt;/h2&gt;
+&lt;p&gt;&lt;strong&gt;가구 모드에서 일시정지&lt;/strong&gt; — 일시정지 카드가 아래로 길어져 가구 종류를 바꾸는 ◀ ▶ 버튼을 덮고 있었어요. 이제 카드가 그 위에서 멈춰, 마우스로 바로 누를 수 있어요.&lt;/p&gt;
+&lt;p&gt;&lt;img src=&quot;/note/assets/20261030-pause-furniture-ba.webp&quot; alt=&quot;가구 모드 일시정지 화면 비교: 왼쪽은 카드가 가구 종류 버튼을 덮은 이전 화면, 오른쪽은 카드 아래로 종류 버튼과 가구 칸이 모두 보이는 새 화면&quot;&gt;&lt;/p&gt;
+&lt;h2&gt;새로 추가&lt;/h2&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;내 블록 소리의 방향&lt;/strong&gt; — 캐기 · 부수기 · 놓기 소리가 그 블록이 있는 쪽에서 들려요. 가까운 거리에서는 크기는 그대로이고 방향만 느껴져요.&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;가구가 막는 소리&lt;/strong&gt; — 소파 · 책장 · 옷장 같은 가구 너머의 친구 소리는 조금 작고 부드럽게 들려요. 블록 벽보다는 덜 막아요.&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2&gt;버그 수정&lt;/h2&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;가구 모드 일시정지&lt;/strong&gt; — 일시정지 카드가 가구 종류 바꾸기 버튼(◀ ▶)과 겹쳐 누를 수 없던 문제를 고쳤어요. 화면이 낮으면 카드 안을 스크롤해요.&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2&gt;알려진 문제&lt;/h2&gt;
+&lt;ul&gt;
+&lt;li&gt;문이 열려 있든 닫혀 있든 같은 정도로 소리를 막아요. 열린 문은 다음 업데이트에서 소리를 더 통과시키도록 할게요.&lt;/li&gt;
+&lt;/ul&gt;
+</content>
+  </entry>
+  <entry>
     <title>10월 30일 패치 노트 (3) — 입체 음향, 벽 너머의 소리, 동굴의 울림</title>
     <link href="https://craftyap.com/note/patch-2026-10-30-3/" />
     <id>https://craftyap.com/note/patch-2026-10-30-3/</id>
@@ -918,47 +945,6 @@
 &lt;li&gt;첫 화면 이미지 용량을 약 3MB에서 0.3MB 수준으로 줄여 처음 접속할 때 더 빨리 열립니다.&lt;/li&gt;
 &lt;li&gt;로딩 화면에서 그래픽 준비를 미리 끝내, 게임 도중 처음 보는 물체 때문에 화면이 멈칫하는 일을 줄였습니다.&lt;/li&gt;
 &lt;li&gt;고해상도 화면에서 그래픽 부담을 낮춰 타워 모드의 프레임 끊김을 줄였습니다.&lt;/li&gt;
-&lt;/ul&gt;
-</content>
-  </entry>
-  <entry>
-    <title>네트워크 서비스 오픈 안내 — 온라인 서버 가동</title>
-    <link href="https://craftyap.com/note/network-2026-07-18/" />
-    <id>https://craftyap.com/note/network-2026-07-18/</id>
-    <published>2026-07-18T00:00:00+09:00</published>
-    <updated>2026-07-18T00:00:00+09:00</updated>
-    <summary>7월 18일 오전, craftyap.com 온라인 서버가 가동을 시작했습니다. Daily Tower 실시간 멀티플레이와 일일 순위표가 서버를 통해 운영됩니다.</summary>
-    <content type="html">&lt;p&gt;안녕하세요, 크래프트얍입니다.&lt;/p&gt;
-&lt;p&gt;&lt;strong&gt;2026년 7월 18일 오전&lt;/strong&gt;, 크래프트얍 온라인 서버가 가동을 시작했습니다. 이날부터
-&lt;a href=&quot;/&quot;&gt;craftyap.com&lt;/a&gt;에서 보안 연결(HTTPS)로 게임에 접속할 수 있고, Daily Tower의
-멀티플레이와 순위표가 서버로 운영됩니다.&lt;/p&gt;
-&lt;h2&gt;서버로 운영되는 것&lt;/h2&gt;
-&lt;h3&gt;Daily Tower 실시간 멀티플레이&lt;/h3&gt;
-&lt;ul&gt;
-&lt;li&gt;같은 날의 타워에 도전하는 플레이어를 한 방에 &lt;strong&gt;최대 8명&lt;/strong&gt;까지 모읍니다.&lt;/li&gt;
-&lt;li&gt;다른 플레이어의 움직임이 실시간으로 보이고, 움직이는 발판도 모두의 화면에서 같은 시각에 같은 자리에 있습니다.&lt;/li&gt;
-&lt;li&gt;타워는 한국 시간 자정마다 바뀌며, 서버와 모든 플레이어가 같은 타워를 받습니다.&lt;/li&gt;
-&lt;/ul&gt;
-&lt;h3&gt;일일 순위표&lt;/h3&gt;
-&lt;ul&gt;
-&lt;li&gt;그날의 최고 기록이 서버에 저장되어 모두가 같은 순위표를 봅니다.&lt;/li&gt;
-&lt;li&gt;서버를 다시 시작해도 기록은 남습니다.&lt;/li&gt;
-&lt;/ul&gt;
-&lt;h3&gt;공정한 기록&lt;/h3&gt;
-&lt;ul&gt;
-&lt;li&gt;서버가 플레이어의 이동과 체크포인트 도착을 검증합니다. 비정상적으로 빠르거나 순서를 건너뛴 기록은 인정되지 않습니다.&lt;/li&gt;
-&lt;li&gt;완주 시간은 서버가 직접 잰 시간과 대조해 확인합니다.&lt;/li&gt;
-&lt;/ul&gt;
-&lt;h2&gt;접속 안내&lt;/h2&gt;
-&lt;ul&gt;
-&lt;li&gt;계정은 없습니다. &lt;strong&gt;닉네임&lt;/strong&gt;을 정하고 바로 참여합니다.&lt;/li&gt;
-&lt;li&gt;연결이 끊기면 혼자 하는 플레이로 계속 이어지고, 다시 연결되면 자동으로 방에 돌아옵니다.&lt;/li&gt;
-&lt;li&gt;Robo Builder, Craft Island, Blast Royale은 서버 없이 브라우저 안에서 동작합니다. 진행 상황도 브라우저에 저장됩니다.&lt;/li&gt;
-&lt;/ul&gt;
-&lt;h2&gt;알려진 문제&lt;/h2&gt;
-&lt;ul&gt;
-&lt;li&gt;타워를 오르는 도중 연결이 끊겼다가 다시 연결되면, 서버에 기록된 체크포인트 진행이 처음부터 다시 시작됩니다.&lt;/li&gt;
-&lt;li&gt;계정이 없기 때문에 같은 닉네임을 다른 사람이 쓸 수 있습니다.&lt;/li&gt;
 &lt;/ul&gt;
 </content>
   </entry>

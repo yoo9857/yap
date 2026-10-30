@@ -31,6 +31,11 @@
   pointer-events: none;
 }
 .craft-hint.game-menu.hidden { display: none; }
+/* In the voxel modes the hotbar and the furniture switcher above it stay clickable under the
+   pause card (the dim layer passes clicks through), so the card must not grow down over them:
+   keep it above that strip and let it scroll on a short screen. */
+body:has(.craft-hotbar) .craft-hint.game-menu { padding-bottom: 168px; }
+body:has(.craft-hotbar) .gm-card { max-height: 100%; overflow-y: auto; }
 .gm-card {
   position: relative;
   box-sizing: border-box;

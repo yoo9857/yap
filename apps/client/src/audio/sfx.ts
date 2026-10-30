@@ -109,6 +109,8 @@ export class Sfx {
   private damping: CellDamping | null = null;
   /** Set only for the duration of one positioned sound: every layer of it goes through this gain + pan. */
   private bus: AudioNode | null = null;
+  /** True while a classmate's sound plays (their breaks skip our "into the bag" pop). */
+  private remote = false;
   /** Live layers. Past the cap new layers are dropped: a sand avalanche must not become a wall of sound. */
   private voices = 0;
 
@@ -180,7 +182,7 @@ export class Sfx {
     if (!played) this.layers(ctx, materialSound(kind, family));
     else if (kind === "break") this.layers(ctx, materialSound(kind, family).map((l) => ({ ...l, vol: l.vol * 0.45 })));
     // the "into my bag" pop is ours alone, not a classmate's
-    if (kind === "break" && !this.bus) this.layers(ctx, collectSound());
+    if (kind === "break" && !this.remote) this.layers(ctx, collectSound());
   }
 
   /** The camera, each frame: classmates' sounds are placed against it. */
@@ -223,7 +225,7 @@ export class Sfx {
   }
 
   /** State for debug hooks and tests: what the listener hears right now. */
-  debug(): { running: boolean; banks: number; echo: number; echoTail: number; masterCutoff: number; voices: number; wallTo: (x: number, y: number, z: number) => number } {
+  debug(): { running: boolean; banks: number; echo: number; echoTail: number; masterCutoff: number; voices: number; wallTo: (x: number, y: number, z: number) => number; damping: (x: number, y: number, z: number) => number } {
     const l = this.listener;
     return {
       running: this.ctx?.state === "running",
@@ -233,6 +235,7 @@ export class Sfx {
       masterCutoff: this.master?.frequency.value ?? 20000,
       voices: this.voices,
       wallTo: (x, y, z) => (this.damping ? occlusion([l.x, l.y, l.z], [x, y, z], this.damping).amount : 0),
+      damping: (x, y, z) => this.damping?.(x, y, z) ?? 0,
     };
   }
 
@@ -248,15 +251,17 @@ export class Sfx {
    * ~22 m, panned left/right by where it is relative to the way we face.
    * `play` emits the sound; everything it plays is routed through the bus.
    */
-  at(x: number, y: number, z: number, play: () => void): void {
+  at(x: number, y: number, z: number, play: () => void, opts: { own?: boolean } = {}): void {
     const ctx = this.ready();
     if (!ctx) return;
+    const own = opts.own === true;
     const { gain: reach, pan: side } = placeSound(this.listener, x, y, z);
-    if (reach < 0.03) return; // beyond ~22 m: not worth a voice
+    if (!own && reach < 0.03) return; // beyond ~22 m: not worth a voice
     const l = this.listener;
     const dist = Math.hypot(x - l.x, y - l.y, z - l.z);
-    // walls between us: quieter and duller, the way a neighbour's hammering comes through
-    const wall = this.damping ? occlusion([l.x, l.y, l.z], [x, y, z], this.damping) : { gain: 1, cutoff: 20000 };
+    // walls between us: quieter and duller, the way a neighbour's hammering comes through.
+    // Our own block is the one we aim at, in plain sight: never occluded (the camera can sit in a wall).
+    const wall = !own && this.damping ? occlusion([l.x, l.y, l.z], [x, y, z], this.damping) : { gain: 1, cutoff: 20000 };
     const g = ctx.createGain();
     g.gain.value = wall.gain;
     const tone = ctx.createBiquadFilter();
@@ -272,7 +277,8 @@ export class Sfx {
       const p = ctx.createPanner();
       p.panningModel = "HRTF";
       p.distanceModel = "inverse";
-      p.refDistance = 2;
+      // our own block sounds stay full out to the third-person camera's distance; only the direction moves
+      p.refDistance = own ? 5 : 2;
       p.maxDistance = 40;
       p.rolloffFactor = 1.1;
       if (p.positionX) { p.positionX.value = x; p.positionY.value = y; p.positionZ.value = z; } else p.setPosition(x, y, z);
@@ -282,14 +288,15 @@ export class Sfx {
     } else {
       const pan = ctx.createStereoPanner();
       pan.pan.value = side;
-      g.gain.value *= reach;
+      if (!own) g.gain.value *= reach;
       tail.connect(pan);
       tail = pan;
       nodes.push(pan);
     }
     tail.connect(this.out ?? ctx.destination);
     this.bus = g;
-    try { play(); } finally { this.bus = null; }
+    this.remote = !own;
+    try { play(); } finally { this.bus = null; this.remote = false; }
     setTimeout(() => { for (const n of nodes) n.disconnect(); }, 2500);
   }
 

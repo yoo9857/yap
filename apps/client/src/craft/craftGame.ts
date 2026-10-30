@@ -215,7 +215,8 @@ export class CraftGame {
     // water damps a little (read live, so field scrolls and classroom resyncs need nothing)
     this.sfx.setAcoustics((x, y, z) => {
       const id = this.state.world.get(x, y, z);
-      if (!id) return 0;
+      // furniture is lighter than brick: a bookcase between you damps a sound, it does not wall it off
+      if (!id) return this.state.world.propSolid?.(x, y, z) ? 0.6 : 0;
       const def = blockById(id);
       if (!def) return 0;
       if (def.fluid) return 0.15;
@@ -894,10 +895,15 @@ export class CraftGame {
     if (cue.digPhase !== null && this.mining && this.miningTarget) {
       if (crossed(this.cueDig, cue.digPhase, 0.5)) {
         const def = blockById(this.state.world.get(...this.miningTarget));
-        if (def) this.sfx.material("hit", surfaceStyle(def.key).family);
+        if (def) this.blockSound("hit", surfaceStyle(def.key).family, this.miningTarget);
       }
       this.cueDig = cue.digPhase;
     } else this.cueDig = -1;
+  }
+
+  /** Our own block sound, heard from where the block is (its direction, not a flat centre). */
+  private blockSound(kind: "hit" | "break" | "place", family: string, cell: readonly [number, number, number]): void {
+    this.sfx.at(cell[0] + 0.5, cell[1] + 0.5, cell[2] + 0.5, () => this.sfx.material(kind, family), { own: true });
   }
 
   private heldTool(){return this.furniture.active?null:selectedTool(this.state.inventory,this.state.hotbar,this.selected,this.emptyHands);}
@@ -961,9 +967,9 @@ export class CraftGame {
     const family=surfaceStyle(def.key).family;
     // the pickaxe sounds only on its blade-impact frames (strike is every tick of the swing), and the
     // breaking blow plays the break, not a hit and a break on top of each other
-    if(strike&&pickaxeImpacts(strike.from,strike.to,this.toolOption)>0&&this.miningProgress<def.hardness)this.sfx.material("hit",family);
+    if(strike&&pickaxeImpacts(strike.from,strike.to,this.toolOption)>0&&this.miningProgress<def.hardness)this.blockSound("hit",family,[x,y,z]);
     // hand digging taps when the hand meets the block (render-side cue); a rig without cues taps on a beat
-    if(!strike&&!this.rig.motionCue&&(this.hitBeat-=dt)<=0){this.hitBeat=.35;if(this.miningProgress<def.hardness)this.sfx.material("hit",family);}
+    if(!strike&&!this.rig.motionCue&&(this.hitBeat-=dt)<=0){this.hitBeat=.35;if(this.miningProgress<def.hardness)this.blockSound("hit",family,[x,y,z]);}
     this.miningFrac = this.miningProgress/def.hardness;
     if (this.miningProgress >= def.hardness) {
       this.miningEffects.burst([x,y,z],def,shape,()=>this.view.miningShape(shape,def.id,[x,y,z],this.state.world));
@@ -972,7 +978,7 @@ export class CraftGame {
       this.miningTarget = null;
       this.miningProgress = 0;
       this.miningFrac = null;
-      this.sfx.material("break",family);
+      this.blockSound("break",family,[x,y,z]);
       this.camera.addShake(0.04);
     }
   }
@@ -1207,7 +1213,7 @@ export class CraftGame {
       return;
     }
     const held = this.heldKey();
-    if (held && this.stampPiece(this.aim.before, held)) { this.sfx.material("place", surfaceStyle(held).family); this.beginWork("place"); }
+    if (held && this.stampPiece(this.aim.before, held)) { this.blockSound("place", surfaceStyle(held).family, this.aim.before); this.beginWork("place"); }
   }
 
   /** Try to place the active piece with anchor at `before`; true if it landed. */
