@@ -21,14 +21,14 @@ interface GameInteraction {
     sync:null;yaw:number;facing:number;
     miningEffects:{primeTarget:ReturnType<typeof vi.fn>;burst:ReturnType<typeof vi.fn>};
     view:{miningShape:ReturnType<typeof vi.fn>};
-    sfx:{play:ReturnType<typeof vi.fn>};camera:{addShake:ReturnType<typeof vi.fn>};
+    sfx:{play:ReturnType<typeof vi.fn>;material:ReturnType<typeof vi.fn>;swing:ReturnType<typeof vi.fn>;step:ReturnType<typeof vi.fn>};camera:{addShake:ReturnType<typeof vi.fn>};
     writeCell:ReturnType<typeof vi.fn>;
     stepInteraction(dt:number):void;heldTool():string|null;tryPlace():void;
 }
 function game():GameInteraction {
     const world=new VoxelWorld();world.set(2,4,2,blockByKey("stone")!.id);
     const g=Object.create(CraftGame.prototype) as GameInteraction;
-    Object.assign(g,{state:{inventory:{[PICKAXE.id]:1},hotbar:[PICKAXE.id,"dirt","water"],world},selected:0,emptyHands:false,locked:true,mining:false,posture:"stand",seated:null,body:{grounded:true,wet:0},furniture:{active:false},rig:{postureBusy:false},toolOption:"balanced",toolElapsed:0,itemAttack:new ItemAttack(),workAction:"none",workSeq:0,workLoop:false,workLeft:0,emote:"none",emoteLeft:0,emoteSeq:0,actionHold:0,aim:{voxel:[2,4,2],dist:1},aimFurniture:null,miningTarget:null,miningIdentity:"",miningProgress:0,miningFrac:null,pickupTarget:null,sync:null,yaw:0,facing:0,miningEffects:{primeTarget:vi.fn(),burst:vi.fn()},view:{miningShape:vi.fn()},sfx:{play:vi.fn()},camera:{addShake:vi.fn()},writeCell:vi.fn()});
+    Object.assign(g,{state:{inventory:{[PICKAXE.id]:1},hotbar:[PICKAXE.id,"dirt","water"],world},selected:0,emptyHands:false,locked:true,mining:false,posture:"stand",seated:null,body:{grounded:true,wet:0},furniture:{active:false},rig:{postureBusy:false},toolOption:"balanced",toolElapsed:0,itemAttack:new ItemAttack(),workAction:"none",workSeq:0,workLoop:false,workLeft:0,emote:"none",emoteLeft:0,emoteSeq:0,actionHold:0,aim:{voxel:[2,4,2],dist:1},aimFurniture:null,miningTarget:null,miningIdentity:"",miningProgress:0,miningFrac:null,pickupTarget:null,sync:null,yaw:0,facing:0,miningEffects:{primeTarget:vi.fn(),burst:vi.fn()},view:{miningShape:vi.fn()},sfx:{play:vi.fn(),material:vi.fn(),swing:vi.fn(),step:vi.fn()},camera:{addShake:vi.fn()},writeCell:vi.fn()});
     return g;
 }
 describe("actual game item interaction",()=>{

@@ -11,6 +11,12 @@ export function pickaxeEfficiency(key:string,option=PICKAXE.defaultOption):numbe
  const family=pickaxeFamily(key),o=pickaxeOption(option);
  return PICKAXE.efficiency[family]*(o.affinity.length===0||o.affinity.includes(family)?o.mining:1);
 }
+/** How many blade impacts happen between two swing times (the frames that should sound). */
+export function pickaxeImpacts(from:number,to:number,option=PICKAXE.defaultOption):number {
+ if(!Number.isFinite(from)||!Number.isFinite(to)||to<=from||from<0)return 0;
+ const cycle=pickaxeCycle(option),impact=cycle*PICKAXE.swing.impactAt,count=(t:number)=>Math.max(0,Math.floor((t-impact+1e-9)/cycle)+1);
+ return count(to)-count(from);
+}
 /** Count impact crossings, including a low-FPS frame crossing more than one stroke. */
 export function pickaxeWork(from:number,to:number,key:string,option=PICKAXE.defaultOption):number {
  if(!Number.isFinite(from)||!Number.isFinite(to)||to<=from||from<0)return 0;

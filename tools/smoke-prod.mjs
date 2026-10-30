@@ -55,6 +55,8 @@ for (const [path, wantType] of [
   ["/backgrounds/craftyap-sunny-village-alive-v1-mobile.webm", "video/webm"],
   ["/backgrounds/craftyap-sunny-village-alive-v1-mobile.mp4", "video/mp4"],
   ["/audio/bgm-tower.mp3", "audio/mpeg"],
+  ["/audio/sfx/manifest.json", "application/json"],
+  ["/audio/sfx/break-stone-1.mp3", "audio/mpeg"],
   ["/textures/blocks/water.png", "image/png"],
   ["/robots.txt", "text/plain"],
   ["/llms.txt", "text/plain"],

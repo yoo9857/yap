@@ -1,4 +1,5 @@
-import {pickaxeCycle,PICKAXE} from "./toolDefinitions.js";
+import {pickaxeCycle,pickaxeImpacts,PICKAXE} from "./toolDefinitions.js";
+import { surfaceStyle } from "./blockMaterials.js";
 import type { FurnitureLayout } from "./furniture/layout.js";
 import * as THREE from "three";
 import type { ClassEdit, ClassMember, ClassSettings, ClassAnim, ClassServerMessage, CharacterPresentation, BonkCandidate } from "@robo/shared";
@@ -7,7 +8,7 @@ import { CharacterRig, disposeRig } from "../player/rig.js";
 import type { ClassClient, ClassSession } from "../net/classClient.js";
 import { ClassHud } from "./classHud.js";
 import { turnToward } from "./smoothing.js";
-import { SOLID_ID } from "./blocks.js";
+import { SOLID_ID, blockById } from "./blocks.js";
 import type { FieldWindow } from "./fieldWorld.js";
 import type { VoxelView } from "./voxelView.js";
 import { t } from "../ui/i18n.js";
@@ -33,6 +34,10 @@ interface Remote {
   toolPhase?:number;
   toolOption?:string;
   attacking?:boolean;
+  /** Last drawn gait / dig / swing times, to sound the frame a foot plants or a blow lands. */
+  cuePhase?: number;
+  cueDig?: number;
+  toolT?: number;
 }
 
 export interface ClassSyncHooks {
@@ -45,7 +50,11 @@ export interface ClassSyncHooks {
   bonked?(push: { vx: number; vz: number; vy: number }): void;
   /** The connect sound, for everyone who can see it. */
   impact?(): void;
+  /** A classmate's sound at a grid position (their steps, digs, blows, bricks). */
+  sound?: (kind: ClassmateSound, family: string, x: number, y: number, z: number, wet?: boolean) => void;
 }
+
+export type ClassmateSound = "step" | "hit" | "break" | "place" | "swing";
 
 function nameTag(name: string, teacher: boolean): THREE.Sprite {
   const canvas = document.createElement("canvas");
@@ -132,7 +141,7 @@ export class ClassSync {
       }
     };
     client.onSnap = (players) => this.applySnap(players);
-    client.onEdit = (edits) => this.applyEdits(edits);
+    client.onEdit = (edits, by) => this.applyEdits(edits, by);
     client.onFurniture = (items, rejected) => {
       furniture.load(items, true);
       if (rejected) hooks.toast(t("🛋️ 다른 변경이나 건축 잠금 때문에 가구 작업을 적용하지 못했어요", "🛋️ That furniture change didn't go through (someone else changed it, or building is locked)"));
@@ -293,7 +302,8 @@ export class ClassSync {
     remote?.rig.pop(-1.3);
     const [x, z] = this.field.toGrid(msg.at[0], msg.at[2]);
     this.fx.burst(x, msg.at[1], z, msg.vx, msg.vz);
-    this.hooks.impact?.();
+    // the tapper already heard it on their own swing's contact frame
+    if (msg.by !== this.session.you) this.hooks.impact?.();
   }
 
   /** Per rendered frame: place remote robots in local grid space. */
@@ -319,9 +329,60 @@ export class ClassSync {
       r.rig.root.position.set(x, r.pos.y, z);
       r.drawnYaw = turnToward(r.drawnYaw, r.yaw, frameDt, 0.06, 20);
       r.rig.root.rotation.y = r.drawnYaw;
-      r.rig.update(r.anim, r.speed, frameDt,{swimming:r.swimming,toolTime:r.attacking?(r.toolPhase??0)*pickaxeCycle(r.toolOption)+(now-r.seenAt)/1000:undefined});
+      const toolTime=r.attacking?(r.toolPhase??0)*pickaxeCycle(r.toolOption)+(now-r.seenAt)/1000:undefined;
+      r.rig.update(r.anim, r.speed, frameDt,{swimming:r.swimming,toolTime});
+      this.remoteSounds(r, x, z, toolTime);
     }
     this.fx.update(frameDt);
+  }
+
+/** The surface family of the solid block at absolute (ax, y, az), or null for air/water. */
+  private familyAt(ax: number, y: number, az: number): string | null {
+    const [id] = this.field.cellAt(Math.floor(ax), Math.floor(y), Math.floor(az));
+    if (!id || SOLID_ID[id] === 0) return null;
+    const def = blockById(id);
+    return def ? surfaceStyle(def.key).family : null;
+  }
+
+  /** What a classmate is hitting: the first solid cell in front of them at waist or foot height. */
+  private facedFamily(r: Remote): string | null {
+    const fx = Math.sin(r.drawnYaw), fz = Math.cos(r.drawnYaw);
+    for (const reach of [0.9, 1.6]) for (const h of [0.6, 0.1, 1.2]) {
+      const fam = this.familyAt(r.pos.x + fx * reach, r.pos.y + h, r.pos.z + fz * reach);
+      if (fam) return fam;
+    }
+    return null;
+  }
+
+  /**
+   * A classmate's steps, digs and pickaxe blows, from the same drawn motion
+   * that makes ours (CharacterRig.motionCue / the tool time): heard where they
+   * stand, quieter with distance, panned by direction (CraftGame forwards to Sfx.at).
+   */
+  private remoteSounds(r: Remote, gx: number, gz: number, toolTime: number | undefined): void {
+    const sound = this.hooks.sound;
+    if (!sound) return;
+    const cue = r.rig.motionCue;
+    const crossed = (prev: number | undefined, cur: number, at: number) => prev !== undefined && prev >= 0 && (prev <= cur ? prev < at && at <= cur : prev < at || at <= cur);
+    if (cue?.gait && r.speed > 0.3 && !r.swimming && (r.anim === "run" || r.anim === "idle" || r.anim === "crawl")) {
+      const plants = cue.gait === "crawl" ? [0.44, 0.94] : [0, 0.5];
+      if (plants.some((p) => crossed(r.cuePhase, cue.phase, p))) {
+        const fam = this.familyAt(r.pos.x, r.pos.y - 0.05, r.pos.z);
+        if (fam) sound("step", fam, gx, r.pos.y, gz);
+      }
+      r.cuePhase = cue.phase;
+    } else r.cuePhase = -1;
+    if (cue?.digPhase != null) {
+      if (crossed(r.cueDig, cue.digPhase, 0.5)) { const fam = this.facedFamily(r); if (fam) sound("hit", fam, gx, r.pos.y + 0.6, gz); }
+      r.cueDig = cue.digPhase;
+    } else r.cueDig = -1;
+    if (toolTime !== undefined) {
+      const prev = r.toolT ?? toolTime;
+      const cycle = pickaxeCycle(r.toolOption);
+      if (toolTime > prev && Math.floor(prev / cycle - PICKAXE.swing.impactAt + 0.2) !== Math.floor(toolTime / cycle - PICKAXE.swing.impactAt + 0.2)) sound("swing", "", gx, r.pos.y + 1, gz);
+      if (pickaxeImpacts(prev, toolTime, r.toolOption) > 0) { const fam = this.facedFamily(r); if (fam) sound("hit", fam, gx, r.pos.y + 0.6, gz); }
+      r.toolT = toolTime;
+    } else r.toolT = undefined;
   }
 
   private applySnap(players: Extract<ClassServerMessage, {t: "s-k-snap"}>["players"]): void {
@@ -360,12 +421,22 @@ export class ClassSync {
     }
   }
 
-  private applyEdits(edits: ClassEdit[]): void {
+  private applyEdits(edits: ClassEdit[], by = ""): void {
+    // a classmate's bricks are heard where they land; the server's water ("") and our own echoes are silent,
+    // and a big stamp or a field reset sounds once, not hundreds of times
+    let voiced = 0;
+    const voice = by !== "" && by !== this.session.you && edits.length <= 32;
     for (const [ax, y, az, block, shape] of edits) {
       this.pending.delete(`${ax},${y},${az}`); // someone else's write supersedes ours
       const [prev] = this.field.cellAt(ax, y, az);
+      const was = voice && voiced < 2 ? this.familyAt(ax, y, az) : null;
       const cell = this.field.applyRemote(ax, y, az, block, shape);
       if (!cell) continue;
+      if (voice && voiced < 2) {
+        const now = this.familyAt(ax, y, az);
+        if (was && !now) { this.hooks.sound?.("break", was, cell[0] + 0.5, cell[1] + 0.5, cell[2] + 0.5); voiced++; }
+        else if (!was && now) { this.hooks.sound?.("place", now, cell[0] + 0.5, cell[1] + 0.5, cell[2] + 0.5); voiced++; }
+      }
       // the server's water flowing (water ↔ air) never changes a brick
       if (SOLID_ID[prev] === 0 && SOLID_ID[block] === 0) this.view.markWaterDirty(cell[0], cell[1], cell[2]);
       else { this.view.markCellDirty(cell[0], cell[1], cell[2]); this.view.markWaterDirty(cell[0], cell[1], cell[2]); }

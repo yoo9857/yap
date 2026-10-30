@@ -1,0 +1,177 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>10월 30일 패치 노트 (2) — 블록마다 다른 소리, 동작에 맞춘 효과음, 친구의 소리 | 크래프트얍 개발 노트</title>
+    <meta name="description" content="실제로 녹음한 효과음으로 블록 캐기·부수기, 발소리, 곡괭이, 친구 밀기, 물소리를 새로 만들었습니다. 소리가 캐릭터 동작과 같은 순간에 나도록 맞추고, 교실에서는 친구의 발소리와 블록 소리가 친구가 있는 쪽에서 들립니다." />
+    <meta name="robots" content="index, follow, max-image-preview:large" />
+    <meta name="theme-color" content="#ffd21c" />
+    <meta name="generator" content="tools/build-notes.mjs" />
+    <link rel="canonical" href="https://craftyap.com/note/patch-2026-10-30-2/" />
+    <link rel="alternate" type="application/rss+xml" title="크래프트얍 개발 노트" href="/feed.xml" />
+    <link rel="alternate" type="application/atom+xml" title="크래프트얍 개발 노트 (Atom)" href="/note/feed.xml" />
+    <link rel="icon" type="image/png" href="/craftyap-logo.png" />
+    <link rel="stylesheet" href="/guide/guide.css?v=0f9762e0f8" />
+    <link rel="stylesheet" href="/note/note.css?v=e5352788b0" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Jua&family=Noto+Sans+KR:wght@400;700;900&display=swap" rel="stylesheet" />
+    <meta property="og:type" content="article" />
+    <meta property="og:locale" content="ko_KR" />
+    <meta property="og:site_name" content="크래프트얍(CraftYap)" />
+    <meta property="og:title" content="10월 30일 패치 노트 (2) — 블록마다 다른 소리, 동작에 맞춘 효과음, 친구의 소리 | 크래프트얍 개발 노트" />
+    <meta property="og:description" content="실제로 녹음한 효과음으로 블록 캐기·부수기, 발소리, 곡괭이, 친구 밀기, 물소리를 새로 만들었습니다. 소리가 캐릭터 동작과 같은 순간에 나도록 맞추고, 교실에서는 친구의 발소리와 블록 소리가 친구가 있는 쪽에서 들립니다." />
+    <meta property="og:url" content="https://craftyap.com/note/patch-2026-10-30-2/" />
+    <meta property="og:image" content="https://craftyap.com/craftyap-banner.jpg" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="675" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="10월 30일 패치 노트 (2) — 블록마다 다른 소리, 동작에 맞춘 효과음, 친구의 소리 | 크래프트얍 개발 노트" />
+    <meta name="twitter:description" content="실제로 녹음한 효과음으로 블록 캐기·부수기, 발소리, 곡괭이, 친구 밀기, 물소리를 새로 만들었습니다. 소리가 캐릭터 동작과 같은 순간에 나도록 맞추고, 교실에서는 친구의 발소리와 블록 소리가 친구가 있는 쪽에서 들립니다." />
+    <meta name="twitter:image" content="https://craftyap.com/craftyap-banner.jpg" />
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "BlogPosting",
+      "@id": "https://craftyap.com/note/patch-2026-10-30-2/#post",
+      "url": "https://craftyap.com/note/patch-2026-10-30-2/",
+      "headline": "10월 30일 패치 노트 (2) — 블록마다 다른 소리, 동작에 맞춘 효과음, 친구의 소리",
+      "description": "실제로 녹음한 효과음으로 블록 캐기·부수기, 발소리, 곡괭이, 친구 밀기, 물소리를 새로 만들었습니다. 소리가 캐릭터 동작과 같은 순간에 나도록 맞추고, 교실에서는 친구의 발소리와 블록 소리가 친구가 있는 쪽에서 들립니다.",
+      "datePublished": "2026-10-30",
+      "dateModified": "2026-10-30",
+      "inLanguage": "ko",
+      "keywords": "패치 노트, 효과음, 교실, 곡괭이",
+      "image": "https://craftyap.com/craftyap-banner.jpg",
+      "isPartOf": {
+        "@id": "https://craftyap.com/note/#blog"
+      },
+      "author": {
+        "@type": "Organization",
+        "name": "크래프트얍(CraftYap)",
+        "url": "https://craftyap.com/"
+      },
+      "about": {
+        "@id": "https://craftyap.com/#game"
+      }
+    },
+    {
+      "@type": "BreadcrumbList",
+      "itemListElement": [
+        {
+          "@type": "ListItem",
+          "position": 1,
+          "name": "크래프트얍",
+          "item": "https://craftyap.com/"
+        },
+        {
+          "@type": "ListItem",
+          "position": 2,
+          "name": "개발 노트",
+          "item": "https://craftyap.com/note/"
+        },
+        {
+          "@type": "ListItem",
+          "position": 3,
+          "name": "10월 30일 패치 노트 (2) — 블록마다 다른 소리, 동작에 맞춘 효과음, 친구의 소리",
+          "item": "https://craftyap.com/note/patch-2026-10-30-2/"
+        }
+      ]
+    }
+  ]
+}
+    </script>
+    <script src="/guide/guide.js?v=b6f46abba1" defer></script>
+  </head>
+
+  <body>
+    <a class="skip-link" href="#content">본문으로 이동</a>
+    <header class="site-header"><div class="header-inner">
+      <a class="brand" href="/" aria-label="크래프트얍 게임 홈"><img src="/craftyap-logo.png" width="64" height="64" alt="" /><span>크래프트얍<small>CRAFTYAP</small></span></a>
+      <nav class="header-nav" id="site-nav" aria-label="주요 메뉴"><a href="/note/">개발 노트</a><a href="/guide/">게임 안내</a><a href="/guide/#controls">조작법</a><a href="/guide/#faq">FAQ</a></nav>
+      <a class="button button-dark header-play" href="/">지금 플레이 <span aria-hidden="true">↗</span></a>
+      <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="site-nav" aria-label="메뉴 열기" hidden><span></span><span></span></button>
+    </div></header>
+    <main id="content" class="note-main section-shell">
+      <article class="note-article" aria-labelledby="post-title">
+        <nav class="note-crumb" aria-label="현재 위치"><a href="/note/">← 개발 노트</a></nav>
+        <header class="note-head">
+          <p class="note-date"><time datetime="2026-10-30">2026.10.30</time></p>
+          <h1 id="post-title">10월 30일 패치 노트 (2) — 블록마다 다른 소리, 동작에 맞춘 효과음, 친구의 소리</h1>
+          <p class="note-summary">실제로 녹음한 효과음으로 블록 캐기·부수기, 발소리, 곡괭이, 친구 밀기, 물소리를 새로 만들었습니다. 소리가 캐릭터 동작과 같은 순간에 나도록 맞추고, 교실에서는 친구의 발소리와 블록 소리가 친구가 있는 쪽에서 들립니다.</p>
+          <ul class="note-tags" aria-label="태그"><li>패치 노트</li><li>효과음</li><li>교실</li><li>곡괭이</li></ul>
+          <nav class="note-chips" aria-label="이번 노트의 변경 사항"><a class="note-chip note-chip--new" href="#new">신규 <b>7</b></a><a class="note-chip note-chip--up" href="#up">개선 <b>7</b></a><a class="note-chip note-chip--fix" href="#fix">수정 <b>4</b></a><a class="note-chip note-chip--known" href="#known">알려진 문제 <b>3</b></a></nav>
+        </header>
+        <div class="note-body">
+<blockquote>
+<p>소리는 사진으로 보여 드릴 수 없어서, BEFORE / AFTER는 같은 동작의 소리를 파형(위)과 주파수(아래)로 그린 그림입니다.</p>
+</blockquote>
+<section class="note-sec note-sec--summary" id="s1" aria-labelledby="s1-h">
+<h2 id="s1-h"><span class="note-badge" aria-hidden="true">요약</span>한눈에 보기</h2>
+<div class="note-sec-body">
+<p>블록을 캐고 부술 때 나던 <strong>똑같은 &#39;치익&#39; 소리를 재질마다 다른 실제 소리</strong>로 바꿨습니다. 돌은 부서지며 우르르, 나무는 쩍 갈라지고, 유리는 쨍그랑 깨집니다. 소리가 <strong>캐릭터의 손과 발이 닿는 순간</strong>에 나도록 맞췄고, 교실에서는 <strong>친구의 소리도 친구가 있는 방향</strong>에서 들립니다.</p>
+</div>
+</section>
+<section class="note-sec">
+<h2>BEFORE / AFTER</h2>
+<p><strong>돌 캐기와 부수기</strong> — 이전에는 모든 블록이 같은 잡음(왼쪽의 네모난 덩어리)으로 끝났어요. 이제 캘 때마다 짧은 타격음이 나고, 마지막에 돌이 부서지며 흩어지는 소리가 이어져요.</p>
+<p><img src="/note/assets/20261030-sound-ba.webp" alt="돌 캐기와 부수기 소리의 파형과 주파수: 왼쪽은 같은 잡음이 반복되던 이전 소리, 오른쪽은 타격과 부서짐이 구분되는 새 소리"></p>
+</section>
+<section class="note-sec note-sec--new" id="new" aria-labelledby="new-h">
+<h2 id="new-h"><span class="note-badge" aria-hidden="true">NEW</span>새로 추가 <small>7</small></h2>
+<div class="note-sec-body">
+<ul>
+<li><strong class="item-title">블록마다 다른 소리</strong>돌 · 광석 · 나무 · 금속 · 유리 · 보석 · 흙 · 모래 · 눈과 양털이 각자 다른 소리로 깨져요. 부순 뒤에는 가방에 들어가는 작은 &#39;뽁&#39; 소리가 나요.</li>
+<li><strong class="item-title">캐는 소리</strong>손으로 캘 때는 손이 블록에 닿는 순간, 곡괭이는 날이 내려찍히는 순간에 소리가 나요.</li>
+<li><strong class="item-title">발소리</strong>밟고 있는 블록에 따라 잔디 · 돌 · 나무 · 눈 발소리가 나고, 얕은 물에서는 젖은 발소리가 나요.</li>
+<li><strong class="item-title">곡괭이 휘두르기</strong>내려찍기 직전에 &#39;휙&#39; 소리가 나요.</li>
+<li><strong class="item-title">친구 밀기</strong>미는 순간 &#39;휙&#39; 하고 &#39;퍽&#39; 맞는 소리가 나요.</li>
+<li><strong class="item-title">물소리</strong>물에 빠질 때 첨벙, 물을 뜨고 부을 때 보글 소리가 나요.</li>
+<li><strong class="item-title">교실 친구의 소리</strong>친구의 발소리, 캐고 부수고 놓는 소리가 친구가 있는 곳에서 들려요. 멀수록 작아지고, 왼쪽에 있는 친구 소리는 왼쪽에서 들려요.</li>
+</ul>
+</div>
+</section>
+<section class="note-sec note-sec--up" id="up" aria-labelledby="up-h">
+<h2 id="up-h"><span class="note-badge" aria-hidden="true">UP</span>개선 <small>7</small></h2>
+<div class="note-sec-body">
+<ul>
+<li><strong class="item-title">동작과 같은 순간에</strong>발소리는 캐릭터의 발이 바닥에 닿는 순간에, 캐는 소리는 손이나 곡괭이가 닿는 순간에 맞췄어요.</li>
+<li><strong class="item-title">바로 들리는 소리</strong>녹음 앞부분의 빈 시간을 잘라, 블록이 깨지는 순간 소리가 늦지 않아요.</li>
+<li><strong class="item-title">친구 밀기의 반응</strong>미는 사람은 서버의 응답을 기다리지 않고, 손이 닿는 순간 바로 소리를 들어요.</li>
+<li><strong class="item-title">같은 소리 반복 줄이기</strong>블록마다 여러 녹음을 돌아가며 쓰고, 음높이도 조금씩 달라져요.</li>
+<li><strong class="item-title">조용한 발소리</strong>발소리는 다른 소리보다 훨씬 작고 부드럽게 했어요. 빨리 달릴수록 더 작아져요.</li>
+<li><strong class="item-title">겹쳐도 깨지지 않게</strong>여러 소리가 한꺼번에 나도 찢어지지 않도록 음량을 다듬었어요.</li>
+<li><strong class="item-title">가벼운 소리 파일</strong>효과음 114개가 모두 약 0.5MB예요. 처음 클릭한 뒤에 따로 불러와 게임 시작이 느려지지 않아요.</li>
+</ul>
+</div>
+</section>
+<section class="note-sec note-sec--fix" id="fix" aria-labelledby="fix-h">
+<h2 id="fix-h"><span class="note-badge" aria-hidden="true">FIX</span>버그 수정 <small>4</small></h2>
+<div class="note-sec-body">
+<ul>
+<li>곡괭이를 휘두르는 동안 타격음이 끊임없이 겹쳐 나던 문제를 고쳤어요. 이제 날이 닿을 때만 소리가 나요.</li>
+<li>블록이 부서지는 마지막 타격에서 타격음과 부서지는 소리가 겹치던 문제를 고쳤어요.</li>
+<li>점프 후 착지할 때 발소리가 두 번 나던 문제를 고쳤어요.</li>
+<li>흙을 캘 때 발소리 녹음이 함께 나서 걷는 소리처럼 들리던 문제를 고쳤어요.</li>
+</ul>
+</div>
+</section>
+<section class="note-sec note-sec--known" id="known" aria-labelledby="known-h">
+<h2 id="known-h"><span class="note-badge" aria-hidden="true">!</span>알려진 문제 <small>3</small></h2>
+<div class="note-sec-body">
+<ul>
+<li>헤엄치는 동안의 물소리는 아직 없어요.</li>
+<li>업데이트 직후 열려 있던 교실 화면은 새로고침해야 친구의 소리가 들려요.</li>
+<li>효과음 녹음은 모두 CC0(자유 이용) 자료를 다듬어 썼어요. 출처는 게임 파일의 <code>audio/sfx/CREDITS.txt</code>에 정리했어요.</li>
+</ul>
+</div>
+</section>
+        </div>
+      </article>
+      <nav class="note-pager" aria-label="다른 노트"><a class="note-prev" href="/note/patch-2026-10-30/"><small>이전 노트</small>10월 30일 패치 노트 — 포근한 곡괭이, 자연스러운 도구 동작, 새 잔디 질감</a><span></span></nav>
+    </main>
+    <footer class="site-footer section-shell"><div><a class="footer-brand" href="/">크래프트얍 <span>CraftYap</span></a><p>블록 하나에서 시작되는, 네가 만드는 세상.</p></div><nav aria-label="하단 메뉴"><a href="/">게임 홈</a><a href="/note/">개발 노트</a><a href="/guide/">게임 안내</a><a href="/feed.xml">RSS</a><a href="#content">맨 위로 ↑</a></nav><small>크래프트얍 개발 노트 · <time datetime="2026-10-30">2026.10.30 업데이트</time></small></footer>
+  </body>
+</html>

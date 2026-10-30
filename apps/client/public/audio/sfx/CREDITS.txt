@@ -1,0 +1,30 @@
+CraftYap sound bank — sources
+
+Every recording in this folder is cut, trimmed and level-matched from packs
+released under CC0 1.0 (public domain dedication,
+https://creativecommons.org/publicdomain/zero/1.0/). Attribution is not
+required; it is listed here so the origin of each sound stays traceable.
+
+step-grass, step-stone   Fantozzi's Footsteps (Grass/Sand & Stone) — Fantozzi
+                         https://opengameart.org/content/fantozzis-footsteps-grasssand-stone
+step-grass, step-stone,
+step-wood, step-gravel   Different steps on wood, stone, leaves, gravel and mud — TinyWorlds
+                         https://opengameart.org/content/different-steps-on-wood-stone-leaves-gravel-and-mud
+step-snow                42 Snow and Gravel Footsteps — Corsica_S (submitted by qubodup)
+                         https://opengameart.org/content/42-snow-and-gravel-footsteps
+step-wood, step-wet,
+hit-*, break-stone,
+break-metal, break-glass,
+land                     100 CC0 SFX #2 — rubberduck
+                         https://opengameart.org/content/100-cc0-sfx-2
+hit-stone, hit-wood,
+hit-metal, punch         Impact — qubodup
+                         https://opengameart.org/content/impact
+hit-wood, break-wood     35 wooden cracks/hits/destructions — Independent.nu (submitted by qubodup)
+                         https://opengameart.org/content/35-wooden-crackshitsdestructions
+punch                    37 hits/punches — Independent.nu (submitted by qubodup)
+                         https://opengameart.org/content/37-hitspunches
+swing                    Swishes Sound Pack — artisticdude
+                         https://opengameart.org/content/swishes-sound-pack
+splash, bubble           40 CC0 water / splash / slime SFX — rubberduck
+                         https://opengameart.org/node/86789

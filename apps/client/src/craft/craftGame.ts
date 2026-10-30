@@ -50,10 +50,11 @@ import {
 } from "./brickGeometry.js";
 import { VoxelView } from "./voxelView.js";
 import {preloadHeldItems} from "../player/heldItem.js";
-import {PICKAXE,pickaxeWork,pickaxeInReach,pickaxeCycle} from "./toolDefinitions.js";
+import {PICKAXE,pickaxeWork,pickaxeInReach,pickaxeCycle,pickaxeImpacts} from "./toolDefinitions.js";
 import {selectedTool,toolByKey,withStarterTools,itemByKey} from "./itemCatalog.js";
 import {ItemAttack,type ItemAttackStep} from "./itemAttack.js";
 import {MiningEffects} from "./miningEffects.js";
+import {surfaceStyle} from "./blockMaterials.js";
 import { CraftCamera } from "./craftCamera.js";
 import { CraftHud } from "./craftHud.js";
 import { MachineWorkshop } from "./machines/workshop.js";
@@ -152,6 +153,15 @@ export class CraftGame {
   private placing = false;
   private miningTarget: [number, number, number] | null = null;
   private miningProgress = 0;
+  /** Hand digging taps the block on a steady beat (the pickaxe taps on its own strike frame). */
+  private hitBeat = 0;
+  /** Last rendered gait / dig phases, to catch the frame a foot lands or the hand meets the block. */
+  private cuePhase = -1;
+  private stepQuietUntil = 0;
+  private cueDig = -1;
+  /** Metres walked since the last footstep, and whether the body was on the ground last tick. */
+  private stepDistance = 0;
+  private wasGrounded = true;
   private miningFrac: number | null = null;
   private selected = 0;
   /** Q: nothing in hand. Mining, doors and seats still work; nothing is placed
@@ -312,6 +322,11 @@ export class CraftGame {
           },
           bonked: (push) => this.receiveBonk(push),
           impact: () => this.sfx.play("bonk"),
+          sound: (kind, family, x, y, z, wet) => this.sfx.at(x, y, z, () => {
+            if (kind === "step") this.sfx.step(family, wet, 0.8);
+            else if (kind === "swing") this.sfx.swing(0.12);
+            else this.sfx.material(kind, family);
+          }),
           toast: (text) => this.hud.toast(text),
           clearKeys: () => {
             this.keys.clear();
@@ -747,6 +762,7 @@ export class CraftGame {
     this.knockX *= knockKeep;
     this.knockZ *= knockKeep;
     if (this.knockX * this.knockX + this.knockZ * this.knockZ < 0.04) this.knockX = this.knockZ = 0;
+    this.footsteps(dt);
     // hard landings thump the camera a little
     if (this.body.grounded && this.prevVy < -11) {
       this.camera.addShake(Math.min(0.11, -this.prevVy * 0.006));
@@ -814,6 +830,63 @@ export class CraftGame {
     );
   }
 
+  /**
+   * Footsteps on whatever block is underfoot: one every ~1.6 m running (closer
+   * when crawling, none while swimming or seated), and one on touching down.
+   */
+  private footsteps(dt: number): void {
+    const b = this.body;
+    const under = () => {
+      const id = this.state.world.get(Math.floor(b.x), Math.floor(b.y - 0.05), Math.floor(b.z));
+      const def = id ? blockById(id) : undefined;
+      return def ? surfaceStyle(def.key).family : "grass";
+    };
+    const wet = (b.wet ?? 0) > 0;
+    // a touch-down is one step: the gait cue planting a foot in the same instant is not a second one
+    if (b.grounded && !this.wasGrounded && this.prevVy < -3) { this.sfx.step(under(), wet); this.stepDistance = 0; this.stepQuietUntil = performance.now() + 160; }
+    this.wasGrounded = b.grounded;
+    if (!b.grounded || this.seated || this.isSwimming()) { this.stepDistance = 0; return; }
+    const speed = Math.hypot(b.vx, b.vz);
+    if (speed < 0.6) { this.stepDistance = Math.min(this.stepDistance, 0.9); return; }
+    this.stepDistance += speed * dt;
+    const stride = this.posture === "crawl" || this.posture === "lie" ? 0.9 : 1.6;
+    if (this.rig.motionCue) return; // the rig's own foot plants drive the steps (cueSounds)
+    if (this.stepDistance >= stride) { this.stepDistance -= stride; this.sfx.step(under(), wet); }
+  }
+
+  /**
+   * Per rendered frame, after the rig moves: a footstep on the frame a foot
+   * plants (Walk/Run 0 and 0.5 of the gait, Crawl ~0.44 and ~0.94) and a dig tap
+   * on the frame the digging hand meets the block (0.5 of the Interact loop).
+   * Sound follows what is drawn, not a separate timer, so it never drifts.
+   */
+  private cueSounds(): void {
+    const cue = this.rig.motionCue;
+    if (!cue) return;
+    const crossed = (prev: number, cur: number, at: number) => prev >= 0 && (prev <= cur ? prev < at && at <= cur : prev < at || at <= cur);
+    const b = this.body;
+    const moving = cue.gait && b.grounded && !this.seated && !this.isSwimming() && Math.hypot(b.vx, b.vz) > 0.3;
+    if (moving) {
+      const plants = cue.gait === "crawl" ? [0.44, 0.94] : [0, 0.5];
+      if (plants.some((p) => crossed(this.cuePhase, cue.phase, p)) && performance.now() >= this.stepQuietUntil) {
+        const id = this.state.world.get(Math.floor(b.x), Math.floor(b.y - 0.05), Math.floor(b.z));
+        const def = id ? blockById(id) : undefined;
+        // a toy's short legs plant ~8 times a second at a run: every plant sounds (it is what
+        // is drawn), lighter and a touch higher the faster the feet go, so it patters, not rattles
+        const run = Math.min(1, Math.max(0, (Math.hypot(b.vx, b.vz) - 2) / 3));
+        this.sfx.step(def ? surfaceStyle(def.key).family : "grass", (b.wet ?? 0) > 0, cue.gait === "crawl" ? 0.6 : 1 - run * 0.5, 1 + run * 0.12);
+      }
+      this.cuePhase = cue.phase;
+    } else this.cuePhase = -1;
+    if (cue.digPhase !== null && this.mining && this.miningTarget) {
+      if (crossed(this.cueDig, cue.digPhase, 0.5)) {
+        const def = blockById(this.state.world.get(...this.miningTarget));
+        if (def) this.sfx.material("hit", surfaceStyle(def.key).family);
+      }
+      this.cueDig = cue.digPhase;
+    } else this.cueDig = -1;
+  }
+
   private heldTool(){return this.furniture.active?null:selectedTool(this.state.inventory,this.state.hotbar,this.selected,this.emptyHands);}
   private usingPickaxe():boolean {return !!this.heldTool()&&this.posture==="stand"&&!this.seated&&!this.isSwimming()&&this.body.grounded&&!this.rig.postureBusy;}
   private attackIdentity():string|null {return this.usingPickaxe()?this.heldTool()+"/"+this.toolOption:null;}
@@ -821,7 +894,13 @@ export class CraftGame {
   private stepInteraction(dt:number):void {
     const key=this.locked?this.attackIdentity():null;
     const wasAttacking=this.itemAttack.active;
-    const step=this.itemAttack.step(dt,this.mining,key,pickaxeCycle(this.toolOption));this.toolElapsed=this.itemAttack.time;
+    const cycle=pickaxeCycle(this.toolOption);
+    const step=this.itemAttack.step(dt,this.mining,key,cycle);this.toolElapsed=this.itemAttack.time;
+    // each stroke's whoosh is scheduled from its start so it crests just before that stroke's blade impact
+    if(step.to>step.from&&(step.started||Math.floor(step.from/cycle)!==Math.floor(step.to/cycle))){
+      const impactIn=(Math.floor(step.to/cycle)+PICKAXE.swing.impactAt)*cycle-step.to;
+      if(impactIn>0)this.sfx.swing(impactIn);
+    }
     if(step.changed)this.clearMiningTarget();
     if(step.started){this.clearEmote();this.beginWork("none");}
     if(step.active){this.actionHold=ACTION_FACE_TIME;this.beginWork("interact",true);}
@@ -866,6 +945,12 @@ export class CraftGame {
       if(this.usingPickaxe())this.miningEffects.primeTarget([x,y,z],def,shape,()=>this.view.miningShape(shape,def.id,[x,y,z],this.state.world));
     }
     if(strike)this.miningProgress+=pickaxeWork(strike.from,strike.to,def.key,this.toolOption);else this.miningProgress+=dt;
+    const family=surfaceStyle(def.key).family;
+    // the pickaxe sounds only on its blade-impact frames (strike is every tick of the swing), and the
+    // breaking blow plays the break, not a hit and a break on top of each other
+    if(strike&&pickaxeImpacts(strike.from,strike.to,this.toolOption)>0&&this.miningProgress<def.hardness)this.sfx.material("hit",family);
+    // hand digging taps when the hand meets the block (render-side cue); a rig without cues taps on a beat
+    if(!strike&&!this.rig.motionCue&&(this.hitBeat-=dt)<=0){this.hitBeat=.35;if(this.miningProgress<def.hardness)this.sfx.material("hit",family);}
     this.miningFrac = this.miningProgress/def.hardness;
     if (this.miningProgress >= def.hardness) {
       this.miningEffects.burst([x,y,z],def,shape,()=>this.view.miningShape(shape,def.id,[x,y,z],this.state.world));
@@ -874,7 +959,7 @@ export class CraftGame {
       this.miningTarget = null;
       this.miningProgress = 0;
       this.miningFrac = null;
-      this.sfx.play("crumble");
+      this.sfx.material("break",family);
       this.camera.addShake(0.04);
     }
   }
@@ -902,7 +987,10 @@ export class CraftGame {
     this.bonkAt = performance.now() + BONK_COOLDOWN_MS;
     this.actionHold = ACTION_FACE_TIME;
     this.beginWork("hit");
-    this.sfx.play("tap");
+    // the Hit clip's hand reaches the friend 0.216 s in: hear the swing and the bump there, not at
+    // the click or a network round trip later (the server echo is silent for the tapper, see ClassSync)
+    this.sfx.swing(0.216);
+    this.sfx.punch(0.216);
     this.sync.reportNow(this.body, this.facing, this.characterAnimation(), this.presentation());
     this.sync.sendBonk(hit.id, this.yaw, this.pitch, this.workSeq);
     return true;
@@ -1106,7 +1194,7 @@ export class CraftGame {
       return;
     }
     const held = this.heldKey();
-    if (held && this.stampPiece(this.aim.before, held)) { this.sfx.play("land"); this.beginWork("place"); }
+    if (held && this.stampPiece(this.aim.before, held)) { this.sfx.material("place", surfaceStyle(held).family); this.beginWork("place"); }
   }
 
   /** Try to place the active piece with anchor at `before`; true if it landed. */
@@ -1475,6 +1563,8 @@ export class CraftGame {
     this.rig.setEmote(this.emote, this.emoteSeq);
     this.rig.performAction(this.workAction,this.workSeq,this.workLoop);
     this.rig.update(anim, planar, frameDt,{swimming:this.isSwimming(),toolTime:this.itemAttack.active?this.toolElapsed:undefined});
+    this.cueSounds();
+    { const cam = this.renderer.camera; this.sfx.setListener(cam.position.x, cam.position.y, cam.position.z, this.viewYaw); }
 
     const eye = this.tmpEye.set(drawn.x, this.smoothedEyeY(drawn.y, frameDt), drawn.z);
     const t0 = performance.now();

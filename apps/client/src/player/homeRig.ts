@@ -69,6 +69,8 @@ interface Blend {
 }
 /** Feet stay in the caller's coordinate system. Clip clocks are explicit so low FPS,
  * mirrored posture changes and upper-body layers share a single time source. */
+export interface MotionCue { gait: "walk" | "crawl" | null; phase: number; digPhase: number | null }
+
 export class HomeRig {
     readonly root = new THREE.Group();
     readonly seatContactHeight = .127415;
@@ -118,6 +120,17 @@ export class HomeRig {
     private heldItem:HeldItemInstance|null=null;
     private readonly itemGrip:ReturnType<typeof handGrip>;
     get postureBusy(): boolean { return this.posture.transition !== null || this.poseBridge.active; }
+    /**
+     * Where the visible motion is, for sounds that must land on it: the gait
+     * phase (Walk/Run feet strike at 0 and 0.5, Crawl hands/knees at ~0.44 and
+     * ~0.94) and the hand-dig loop phase (the hand meets the block at 0.5).
+     */
+    get motionCue(): MotionCue {
+        const motion = String(this.root.userData.homeMotion ?? "");
+        const gait = motion === "Walk" || motion === "Run" ? "walk" : motion === "Crawl" ? "crawl" : null;
+        const dig = this.work === "interact" && this.workLoop && !this.heldItem ? this.actions.get("Interact")?.getClip().duration ?? 0 : 0;
+        return { gait, phase: this.phase, digPhase: dig > 0 ? (this.workAge % dig) / dig : null };
+    }
     constructor(source: HomeAssets, variant: HomeVariant) {
         this.root.name = source.character;
         this.root.userData.characterModel = source.character + "-v1.2.1";

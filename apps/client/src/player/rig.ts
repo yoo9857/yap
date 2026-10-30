@@ -340,6 +340,8 @@ export class CharacterRig {
     if (this.implementation && "setEmote" in this.implementation) this.implementation.setEmote(id,seq);
     this.root.userData.emote=id; this.root.userData.emoteSeq=seq;
   }
+  /** See HomeRig.motionCue. The code-built fallback mascot has none (footsteps then go by distance). */
+  get motionCue(): import("./homeRig.js").MotionCue | null { return this.implementation && "motionCue" in this.implementation ? this.implementation.motionCue : null; }
   get postureBusy(): boolean { return this.implementation instanceof Object && "postureBusy" in this.implementation ? this.implementation.postureBusy : false; }
   get seatContactHeight(): number { return this.implementation && "seatContactHeight" in this.implementation ? this.implementation.seatContactHeight : .38; }
   performAction(id: CharacterAction, seq: number, loop=false): void { if(this.implementation && "performAction" in this.implementation)this.implementation.performAction(id,seq,loop); }

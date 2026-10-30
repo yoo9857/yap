@@ -25,9 +25,10 @@ function setup() {
   const changed = vi.fn();
   const bonked = vi.fn();
   const impact = vi.fn();
+  const sound = vi.fn();
   const sync = new ClassSync(client, session, field, { markDirty() {}, markCellDirty() {}, markWaterDirty() {} } as unknown as VoxelView,
-    scene, { teleport() {}, toast() {}, clearKeys() {}, worldChanged: changed, bonked, impact }, new FurnitureLayout());
-  return { client, field, scene, session, sync, changed, bonked, impact };
+    scene, { teleport() {}, toast() {}, clearKeys() {}, worldChanged: changed, bonked, impact, sound }, new FurnitureLayout());
+  return { client, field, scene, session, sync, changed, bonked, impact, sound };
 }
 const robots = (scene: THREE.Scene) => scene.children.filter((child) => child.name !== "CraftYap bonk");
 describe("classroom player synchronisation", () => {
@@ -72,4 +73,20 @@ describe("classroom player synchronisation", () => {
     client.onSnap!([{id:"other",pos:[2,4,0],yaw:0,anim:"idle",heldItem:null,action:"none"}]);sync.render(1/60);expect(friend.userData.heldItem).toBeNull();sync.dispose();
   });
 
+  it("voices a classmate's bricks where they land, but not our echoes, the server's water or a big stamp", () => {
+    const { client, sync, sound } = setup();
+    const stone = 3;
+    client.onEdit!([[0, 4, 0, stone, 0]], "other");
+    expect(sound).toHaveBeenLastCalledWith("place", "stone", expect.any(Number), 4.5, expect.any(Number));
+    client.onEdit!([[0, 4, 0, 0, 0]], "other");
+    expect(sound).toHaveBeenLastCalledWith("break", "stone", expect.any(Number), 4.5, expect.any(Number));
+    sound.mockClear();
+    client.onEdit!([[1, 4, 0, stone, 0]], "old");
+    client.onEdit!([[2, 4, 0, stone, 0]], "");
+    client.onEdit!(Array.from({ length: 40 }, (_, i) => [10 + i, 4, 5, stone, 0] as [number, number, number, number, number]), "other");
+    expect(sound).not.toHaveBeenCalled();
+    client.onEdit!(Array.from({ length: 6 }, (_, i) => [3 + i, 4, 9, stone, 0] as [number, number, number, number, number]), "other");
+    expect(sound).toHaveBeenCalledTimes(2);
+    sync.dispose();
+  });
 });
