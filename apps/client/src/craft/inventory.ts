@@ -1,4 +1,5 @@
-import { BLOCKS, blockByKey, isPlaceableItem, type BlockDef } from "./blocks.js";
+import {itemByKey,canStoreItem} from "./itemCatalog.js";
+import { BLOCKS, isPlaceableItem, type BlockDef } from "./blocks.js";
 
 /**
  * Inventory + hotbar loadout + recipes. Counts stay one pile per block key.
@@ -44,10 +45,11 @@ export const FIELD_HOTBAR: string[] = [
   "water",
 ];
 
-export type BlockGroup = "earth" | "wood" | "stone" | "ore" | "color" | "light" | "special";
+export type BlockGroup = "earth" | "wood" | "stone" | "ore" | "color" | "light" | "special" | "tools";
 
 export const BLOCK_GROUPS: { id: BlockGroup | "all"; ko: string; en: string }[] = [
   { id: "all", ko: "전체", en: "All" },
+  { id: "tools", ko: "도구", en: "Tools" },
   { id: "earth", ko: "땅", en: "Earth" },
   { id: "wood", ko: "나무", en: "Wood" },
   { id: "stone", ko: "돌", en: "Stone" },
@@ -58,6 +60,7 @@ export const BLOCK_GROUPS: { id: BlockGroup | "all"; ko: string; en: string }[] 
 ];
 
 const GROUP: Record<string, BlockGroup> = {
+  "pickaxe-basic": "tools",
   grass: "earth",
   "flower-grass": "earth",
   dirt: "earth",
@@ -191,9 +194,9 @@ export function countOf(counts: Counts, key: string): number {
 }
 
 export function addItem(counts: Counts, key: string, n = 1): void {
-  const def = blockByKey(key);
-  if (!def || !isPlaceableItem(def)) return;
-  counts[key] = Math.min(countOf(counts, key) + n, 9999);
+  const def = itemByKey(key);
+  if (!def || !canStoreItem(key) || !Number.isFinite(n) || n <= 0) return;
+  counts[key] = Math.min(countOf(counts, key) + Math.floor(n), def.maxStack);
 }
 
 export function removeItem(counts: Counts, key: string, n = 1): boolean {
@@ -226,8 +229,7 @@ export function craftBatch(counts: Counts, recipe: CraftRecipe, times: number): 
 }
 
 function canHold(key: string): boolean {
-  const def = blockByKey(key);
-  return !!def && isPlaceableItem(def);
+  return canStoreItem(key);
 }
 
 /** Sanitize a loaded record: placeable keys, integer counts, clamped. */
@@ -236,7 +238,7 @@ export function sanitizeCounts(raw: Record<string, unknown>): Counts {
   for (const [key, value] of Object.entries(raw)) {
     if (!canHold(key)) continue;
     const n = typeof value === "number" && Number.isFinite(value) ? Math.floor(value) : 0;
-    if (n > 0) out[key] = Math.min(n, 9999);
+    if (n > 0) out[key] = Math.min(n, itemByKey(key)!.maxStack);
   }
   return out;
 }
@@ -296,7 +298,7 @@ export function clearHotbarSlot(hotbar: string[], slot: number): boolean {
 export function ensureFieldStacks(counts: Counts): Counts {
   const out = sanitizeCounts(counts);
   for (const key of Object.keys(GROUP)) {
-    if (out[key] === undefined) out[key] = 999;
+    if (out[key] === undefined) out[key] = Math.min(999, itemByKey(key)?.maxStack ?? 9999);
   }
   return out;
 }

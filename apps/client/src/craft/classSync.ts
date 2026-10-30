@@ -1,3 +1,4 @@
+import {pickaxeCycle,PICKAXE} from "./toolDefinitions.js";
 import type { FurnitureLayout } from "./furniture/layout.js";
 import * as THREE from "three";
 import type { ClassEdit, ClassMember, ClassSettings, ClassAnim, ClassServerMessage, CharacterPresentation, BonkCandidate } from "@robo/shared";
@@ -29,6 +30,9 @@ interface Remote {
   speed: number;
   seenAt: number;
   swimming?: boolean;
+  toolPhase?:number;
+  toolOption?:string;
+  attacking?:boolean;
 }
 
 export interface ClassSyncHooks {
@@ -315,7 +319,7 @@ export class ClassSync {
       r.rig.root.position.set(x, r.pos.y, z);
       r.drawnYaw = turnToward(r.drawnYaw, r.yaw, frameDt, 0.06, 20);
       r.rig.root.rotation.y = r.drawnYaw;
-      r.rig.update(r.anim, r.speed, frameDt,{swimming:r.swimming});
+      r.rig.update(r.anim, r.speed, frameDt,{swimming:r.swimming,toolTime:r.attacking?(r.toolPhase??0)*pickaxeCycle(r.toolOption)+(now-r.seenAt)/1000:undefined});
     }
     this.fx.update(frameDt);
   }
@@ -344,6 +348,8 @@ export class ClassSync {
         this.remotes.set(p.id, r);
       }
       r.rig.setCharacter(p.character ?? "mascot");
+      r.rig.setHeldItem(p.heldItem??null,p.toolOption??PICKAXE.defaultOption);
+      r.toolOption=p.toolOption;r.toolPhase=p.toolPhase;r.attacking=!!p.heldItem&&p.action==="interact";
       r.rig.setEmote(p.emote ?? "none", p.emoteSeq ?? 0);
       r.rig.performAction(p.action??"none",p.actionSeq??0,p.actionLoop??false);
       r.swimming=p.swimming;

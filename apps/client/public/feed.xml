@@ -6,7 +6,14 @@
     <atom:link href="https://craftyap.com/feed.xml" rel="self" type="application/rss+xml" />
     <description>크래프트얍(CraftYap) 패치 노트와 개발 이야기</description>
     <language>ko</language>
-    <lastBuildDate>Wed, 28 Oct 2026 15:00:00 +0000</lastBuildDate>
+    <lastBuildDate>Thu, 29 Oct 2026 15:00:00 +0000</lastBuildDate>
+    <item>
+      <title>10월 30일 패치 노트 — 포근한 곡괭이, 자연스러운 도구 동작, 새 잔디 질감</title>
+      <link>https://craftyap.com/note/patch-2026-10-30/</link>
+      <guid isPermaLink="true">https://craftyap.com/note/patch-2026-10-30/</guid>
+      <pubDate>Thu, 29 Oct 2026 15:00:00 +0000</pubDate>
+      <description>포근한 곡괭이를 가방의 도구 아이템으로 추가했습니다. 몸 가까이 쥐고 앞으로 내려찍는 동작을 다듬고, 장착을 풀 때의 팔 튐과 연속 클릭 누락을 고쳤습니다. 잔디는 풀잎이 보이는 새 질감으로 바뀌었습니다.</description>
+    </item>
     <item>
       <title>10월 29일 패치 노트 (4) — 새 가방, 교실 친구 밀기, 부드러워진 채굴과 선명한 캐릭터</title>
       <link>https://craftyap.com/note/patch-2026-10-29-4/</link>

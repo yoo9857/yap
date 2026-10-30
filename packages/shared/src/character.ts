@@ -47,6 +47,10 @@ export const EMOTES: readonly EmoteDef[] = [
     { id: "stand", ko: "일어나기", en: "Stand up", icon: "🧍", face: "neutral", seconds: 0, posture: "stand" },
 ];
 export const emoteDef = (id: EmoteId): EmoteDef | undefined => EMOTES.find(e => e.id === id);
+export const heldItemSchema=z.enum(["pickaxe-basic"]);
+export const toolOptionSchema=z.enum(["balanced","light-grip","stone-focus","precise-tip"]);
+export type EquippedItemId=z.infer<typeof heldItemSchema>;
+export type ToolOptionId=z.infer<typeof toolOptionSchema>;
 export interface CharacterPresentation {
     character: CharacterId;
     emote: EmoteId;
@@ -55,6 +59,9 @@ export interface CharacterPresentation {
     actionSeq?: number;
     actionLoop?: boolean;
     swimming?: boolean;
+    heldItem?: EquippedItemId | null;
+    toolOption?: ToolOptionId;
+    toolPhase?: number;
 }
 
 

@@ -1,0 +1,107 @@
+{
+  "id": "pickaxe-basic",
+  "version": "1.2.3",
+  "origin": "Original custom geometry modelled in Blender; original procedural texture atlas; no third-party model.",
+  "unit": "metre",
+  "up": "+Y (glTF)",
+  "headAxis": "+X",
+  "grip": "Grip_Main at local origin",
+  "anchors": [
+    "Grip_Main",
+    "Grip_Offhand",
+    "Head_Center",
+    "Impact_Left",
+    "Impact_Right"
+  ],
+  "triangles": 2540,
+  "primitives": 1,
+  "texturesEmbedded": true,
+  "textureSize": 512,
+  "materialMaps": [
+    "albedo sRGB",
+    "tangent normal OpenGL +Y",
+    "ORM: occlusion / roughness / metallic"
+  ],
+  "runtimeSha256": "4ac0f414fc2ea6c2ab79631d829b45a76116a74462418f416726ed177ebb2bc4",
+  "authoring": "source/PickaxeBasic.blend",
+  "runtime": "runtime/pickaxe-basic.glb",
+  "gameRuntime": "C:/craftyap/apps/client/public/models/items/tools/pickaxe-basic/pickaxe-basic.glb",
+  "settings": "C:/craftyap/assets/items/tools/pickaxe-basic/item.json",
+  "status": "Registered game item: owned selected hotbar slot equips attack mode; no preview URL flag required",
+  "gripRevision": {
+    "date": "2026-10-30",
+    "socket": "Thumb/palm cleft; existing hand geometry unchanged",
+    "arm": "Small additive lift; original arm roll preserved",
+    "handle": "Diagonal along the actual grasp channel; 0.0252m slide up",
+    "strikingEnd": "Impact_Left",
+    "facing": "Forward in character space; downward/forward at impact"
+  },
+  "motionRevision": {
+    "date": "2026-10-30",
+    "version": "1.1.0",
+    "definition": "item.json grip.motion and swing tracks",
+    "runtime": "apps/client/src/player/heldItem.ts",
+    "stance": "Approved per-character Idle calibration; source arm motion attenuated while holding",
+    "sway": "Gait-phase, speed, bounded turn and acceleration lag; shared hand/tool transform",
+    "attack": "Reduced movement sway, explicit impact phase, release from last offset",
+    "review": "previews/motion-v3/",
+    "tests": 438
+  },
+  "forwardStrikeRevision": {
+    "date": "2026-10-30",
+    "version": "1.1.2",
+    "fix": "Actual active tip travels forward/down at damage time, instead of retracting; larger arc and added upper-body weight transfer",
+    "swingSeconds": 0.72,
+    "impactAt": 0.58,
+    "tests": 441,
+    "review": "previews/forward-strike/"
+  },
+  "inventoryRevision": {
+    "date": "2026-10-30",
+    "version": "1.2.0",
+    "starter": 1,
+    "stackLimit": 1,
+    "category": "tools",
+    "equipment": "owned hotbar selection",
+    "attack": "single click completes cycle; hold repeats; actual impact clock gates mining",
+    "options": "R while equipped",
+    "replication": "validated optional equipment/option/phase in classroom snapshots",
+    "tests": 575
+  },
+  "motionPolishRevision": {
+    "date": "2026-10-30",
+    "version": "1.2.1",
+    "description": "Continuous preparation/recovery, modest coupled arm roll and upper-body twist; approved rigid grip and impact clock preserved",
+    "clientTests": 461,
+    "review": "previews/motion-polish/"
+  },
+  "compactCarryRevision": {
+    "date": "2026-10-30",
+    "version": "1.2.2",
+    "liftRotation": [
+      -0.28,
+      0.1,
+      -0.44
+    ],
+    "frontProjectedShaftDegrees": {
+      "before": 50.98153410833609,
+      "after": 29.770601834411938
+    },
+    "headLateralShiftMetres": 0.08209619004867874,
+    "tests": 60,
+    "review": "previews/compact-carry/"
+  },
+  "detailAuditRevision": {
+    "date": "2026-10-30",
+    "version": "1.2.3",
+    "fixes": [
+      "Smooth 0.18s arm/torso return on unequip; resume same rigid socket on rapid reselection",
+      "Queue at most one following click, cancel on equipment/posture change, do not append an extra stroke after a long hold",
+      "No depth writes, shadow or ink for an invisible/fading tool; free per-instance resources after release",
+      "Only the selected water bucket may scoop water; tools/blocks/empty hands do not"
+    ],
+    "clientTests": 467,
+    "newRegressionTests": 6,
+    "review": "previews/detail-audit/"
+  }
+}

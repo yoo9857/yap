@@ -1,3 +1,4 @@
+import {inventoryItems} from "../src/craft/itemCatalog.js";
 import { describe, expect, it } from "vitest";
 import { existsSync } from "node:fs";
 import { MAX_SOLID_ID, PLAYER_SOLID_IDS, WATER, isPlayerBlock } from "@robo/shared";
@@ -258,7 +259,7 @@ describe("inventory + recipes", () => {
     expect(blockBagOrder("ice")).toBeLessThan(blockBagOrder("question-block"));
     for (const group of BLOCK_GROUPS) {
       if (group.id === "all") continue;
-      expect(placeableBlocks().some((def) => blockGroup(def.key) === group.id)).toBe(true);
+      expect(inventoryItems().some((def) => blockGroup(def.key) === group.id)).toBe(true);
     }
   });
 

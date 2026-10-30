@@ -66,6 +66,9 @@ interface Member {
   actionSeq?: number;
   actionLoop?: boolean;
   swimming?: boolean;
+  heldItem?: "pickaxe-basic" | null;
+  toolOption?: "balanced" | "light-grip" | "stone-focus" | "precise-tip";
+  toolPhase?: number;
   /** Wall-clock ms of the last tap that connected. */
   bonkAt?: number;
 }
@@ -353,6 +356,7 @@ export class ClassRoom {
         me.emote = msg.emote ?? "none";
         me.emoteSeq = msg.emoteSeq ?? 0;
         me.action=msg.action??"none";me.actionSeq=msg.actionSeq??0;me.actionLoop=msg.actionLoop??false;me.swimming=msg.swimming??false;
+        me.heldItem=msg.heldItem??null;me.toolOption=msg.toolOption??"balanced";me.toolPhase=msg.toolPhase??0;
         return;
       case "k-edit":
         this.applyEdits(me, peer, msg.edits);
@@ -548,7 +552,7 @@ export class ClassRoom {
   snapshot(): void {
     const players = [];
     for (const m of this.byPeer.values()) {
-      if (m.pos) players.push({ id: m.id, pos: m.pos, yaw: m.yaw, anim: m.anim, character: m.character ?? "mascot", emote: m.emote ?? "none", emoteSeq: m.emoteSeq ?? 0, action:m.action??"none",actionSeq:m.actionSeq??0,actionLoop:m.actionLoop??false,swimming:m.swimming??false });
+      if (m.pos) players.push({ id: m.id, pos: m.pos, yaw: m.yaw, anim: m.anim, character: m.character ?? "mascot", emote: m.emote ?? "none", emoteSeq: m.emoteSeq ?? 0, action:m.action??"none",actionSeq:m.actionSeq??0,actionLoop:m.actionLoop??false,swimming:m.swimming??false,heldItem:m.heldItem??null,toolOption:m.toolOption??"balanced",toolPhase:m.toolPhase??0 });
     }
     if (players.length < 2) return; // nobody to show anybody
     this.broadcast({ t: "s-k-snap", players });

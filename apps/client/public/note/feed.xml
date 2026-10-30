@@ -4,8 +4,121 @@
   <link href="https://craftyap.com/note/" />
   <link rel="self" href="https://craftyap.com/note/feed.xml" />
   <id>https://craftyap.com/note/</id>
-  <updated>2026-10-29T00:00:00+09:00</updated>
+  <updated>2026-10-30T00:00:00+09:00</updated>
   <author><name>크래프트얍(CraftYap)</name></author>
+  <entry>
+    <title>10월 30일 패치 노트 — 포근한 곡괭이, 자연스러운 도구 동작, 새 잔디 질감</title>
+    <link href="https://craftyap.com/note/patch-2026-10-30/" />
+    <id>https://craftyap.com/note/patch-2026-10-30/</id>
+    <published>2026-10-30T00:00:00+09:00</published>
+    <updated>2026-10-30T00:00:00+09:00</updated>
+    <summary>포근한 곡괭이를 가방의 도구 아이템으로 추가했습니다. 몸 가까이 쥐고 앞으로 내려찍는 동작을 다듬고, 장착을 풀 때의 팔 튐과 연속 클릭 누락을 고쳤습니다. 잔디는 풀잎이 보이는 새 질감으로 바뀌었습니다.</summary>
+    <content type="html">&lt;blockquote&gt;
+&lt;p&gt;곡괭이 비교 사진과 동작은 같은 카메라·시간으로 만든 실제 게임 모델의 검수 렌더입니다. 잔디 비교 사진은 이번 배포 코드로 같은 장면을 이전 표면과 새 표면으로 그린 실제 게임 화면입니다.&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;h2&gt;한눈에 보기&lt;/h2&gt;
+&lt;p&gt;&lt;strong&gt;포근한 곡괭이&lt;/strong&gt;를 가방에서 꺼내 쓸 수 있는 도구 아이템으로 추가했습니다. HOME과 TT가 몸 가까이 쥐고, 준비한 뒤 앞으로 내려찍도록 다듬었습니다. 빠르게 다시 공격하거나 도구를 내려놓을 때 생기던 어색함도 줄였습니다. 들판과 섬의 &lt;strong&gt;잔디는 풀잎이 보이는 새 질감&lt;/strong&gt;으로 바뀌었습니다.&lt;/p&gt;
+&lt;h2&gt;BEFORE / AFTER&lt;/h2&gt;
+&lt;h3&gt;들고 있는 자세 — 몸 옆으로 벌어지던 곡괭이를 가까이&lt;/h3&gt;
+&lt;p&gt;&lt;img src=&quot;/note/assets/20261030-pickaxe-grip-ba.webp&quot; alt=&quot;정면 비교: 왼쪽은 이전의 넓게 벌어진 손잡이, 오른쪽은 몸 가까이 더 세워 쥐는 최종 자세&quot;&gt;&lt;/p&gt;
+&lt;p&gt;손잡이가 옆으로 길게 뻗어 보이던 각도를 줄였습니다. 손잡이를 손에서 따로 옮기지 않고 &lt;strong&gt;팔·손·도구를 함께 돌려&lt;/strong&gt;, 엄지와 손바닥 사이의 접점을 유지했습니다.&lt;/p&gt;
+&lt;p&gt;&lt;img src=&quot;/note/assets/20261030-pickaxe-game-ba.webp&quot; alt=&quot;위에서 비스듬히 보는 같은 시점의 자세 비교: 왼쪽 이전 개발본, 오른쪽 최종 곡괭이 자세&quot;&gt;&lt;/p&gt;
+&lt;p&gt;게임에서 주로 보는 위쪽 시점에서도 곡괭이가 몸과 동떨어져 보이지 않도록 맞췄습니다. 정면에 투영한 손잡이의 벌어짐은 약 **51°에서 30°**로 줄었고, 머리 중심은 옆으로 약 &lt;strong&gt;8cm 덜 벌어집니다&lt;/strong&gt;. 같은 HOME 대기 자세를 기준으로 잰 값입니다.&lt;/p&gt;
+&lt;h3&gt;도구 내려놓기 — 팔이 순간적으로 돌아오던 부분 개선&lt;/h3&gt;
+&lt;p&gt;&lt;img src=&quot;/note/assets/20261030-pickaxe-release-ba.webp&quot; alt=&quot;같은 타이밍의 장착 해제 동작 비교: 왼쪽은 팔이 즉시 돌아오는 이전 개발본, 오른쪽은 짧게 이어서 복귀하는 수정본&quot;&gt;&lt;/p&gt;
+&lt;p&gt;다른 슬롯이나 빈손으로 바꾸면 공격은 바로 멈추고, 팔은 짧게 이어서 자연스럽게 내려옵니다. 도구를 빠르게 다시 선택해도 현재 손 자세에서 이어집니다.&lt;/p&gt;
+&lt;h3&gt;잔디 표면 — 매끈한 초록에서 풀잎이 보이는 연두로&lt;/h3&gt;
+&lt;p&gt;&lt;img src=&quot;/note/assets/20261030-grass-surface-ba.webp&quot; alt=&quot;같은 장면 비교: 왼쪽은 이전의 매끈한 초록 잔디, 오른쪽은 풀잎 질감이 보이는 새 연두 잔디&quot;&gt;&lt;/p&gt;
+&lt;p&gt;블록 검수 화면에서 다듬어 온 새 잔디 질감을 게임에도 적용했습니다. 돌 · 나무 · 책장 · 물음표 블록처럼 무늬가 있는 블록은 지금의 그림을 그대로 씁니다.&lt;/p&gt;
+&lt;h2&gt;새로 추가&lt;/h2&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;도구 아이템: 포근한 곡괭이&lt;/strong&gt; — &lt;code&gt;E → 도구&lt;/code&gt;에서 꺼내 핫바에 넣고 선택할 수 있어요. 새 게임과 기존 저장 모두 기본 곡괭이 1개를 제공하며, 원래 핫바 칸은 유지해요.&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;곡괭이 공격 모드&lt;/strong&gt; — 곡괭이 슬롯을 선택하면 손에 장착되고 HUD에 공격 모드가 표시돼요. 다른 아이템을 고르거나 &lt;code&gt;Q&lt;/code&gt;로 빈손을 선택하면 해제돼요.&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;클릭과 연속 공격&lt;/strong&gt; — 왼쪽 클릭으로 한 번 내려찍고, 길게 누르면 반복해요. 버튼을 놓으면 진행 중인 동작을 끝내요. 장비나 자세를 바꾸면 공격을 취소해요.&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;네 가지 옵션&lt;/strong&gt; — 곡괭이를 든 상태에서 &lt;code&gt;R&lt;/code&gt;로 기본·가벼운 손잡이·석재 집중·정밀한 날을 바꿀 수 있어요.&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3&gt;사용 방법&lt;/h3&gt;
+&lt;table&gt;
+&lt;thead&gt;
+&lt;tr&gt;
+&lt;th&gt;조작&lt;/th&gt;
+&lt;th&gt;동작&lt;/th&gt;
+&lt;/tr&gt;
+&lt;/thead&gt;
+&lt;tbody&gt;&lt;tr&gt;
+&lt;td&gt;E → 도구&lt;/td&gt;
+&lt;td&gt;포근한 곡괭이를 찾아 원하는 핫바 칸에 넣기&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;1–9 또는 마우스 휠&lt;/td&gt;
+&lt;td&gt;곡괭이를 넣은 칸 선택&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;왼쪽 클릭&lt;/td&gt;
+&lt;td&gt;한 번 공격&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;왼쪽 버튼 길게 누르기&lt;/td&gt;
+&lt;td&gt;연속 공격·채굴&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;R&lt;/td&gt;
+&lt;td&gt;곡괭이 옵션 변경&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;Q 또는 다른 아이템 칸&lt;/td&gt;
+&lt;td&gt;빈손으로 바꾸거나 다른 아이템 선택&lt;/td&gt;
+&lt;/tr&gt;
+&lt;/tbody&gt;&lt;/table&gt;
+&lt;p&gt;&lt;code&gt;H&lt;/code&gt;는 기존 조작법 메뉴로 유지합니다.&lt;/p&gt;
+&lt;h2&gt;개선&lt;/h2&gt;
+&lt;h3&gt;손과 도구의 동작&lt;/h3&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;몸 가까이 드는 자세&lt;/strong&gt; — 손잡이의 바깥 기울기를 줄였어요. HOME과 TT에 같은 기준으로 적용했어요.&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;손과 손잡이의 접점&lt;/strong&gt; — 대기·걷기·달리기·방향 전환 중에도 엄지와 손바닥 사이에 손잡이가 붙어 있도록 맞췄어요.&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;앞으로 내려찍기&lt;/strong&gt; — 팔만 작게 움직이지 않고, 준비한 곡괭이 머리가 몸 앞으로 내려오도록 했어요. 상체도 작게 따라 움직여 무게가 실리는 느낌을 더했어요.&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;이어지는 준비와 복귀&lt;/strong&gt; — 동작 중간마다 멈칫하던 구간을 줄이고, 연속 공격이 자연스럽게 이어지도록 다듬었어요.&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;작은 이동 흔들림&lt;/strong&gt; — 걷고 달릴 때 손과 도구가 함께 작게 흔들려요. 방향을 바꾸거나 멈춘 뒤에는 흔들림이 가라앉아요.&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;장착 해제 후 복귀&lt;/strong&gt; — 도구를 내려놓을 때 팔과 상체가 즉시 원위치로 튀지 않고 짧게 이어서 돌아와요.&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;&lt;img src=&quot;/note/assets/20261030-pickaxe-strike.webp&quot; alt=&quot;같은 실제 게임 리그로 본 최종 곡괭이 공격: 준비하고 앞으로 내려찍은 뒤 복귀하는 측면 동작&quot;&gt;&lt;/p&gt;
+&lt;p&gt;측면에서는 화면 오른쪽이 캐릭터 앞입니다. 곡괭이 날이 실제로 앞으로 내려오는 구간에 블록 타격이 들어갑니다.&lt;/p&gt;
+&lt;p&gt;&lt;img src=&quot;/note/assets/20261030-pickaxe-stages.webp&quot; alt=&quot;왼쪽부터 곡괭이를 드는 준비, 몸 앞으로 내려찍기, 손을 되돌리는 복귀 자세&quot;&gt;&lt;/p&gt;
+&lt;h3&gt;블록 표면&lt;/h3&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;새 잔디 · 눈 · 보석 질감&lt;/strong&gt; — 잔디는 풀잎이 보이는 연두색, 눈과 보석 블록도 새 질감으로 바뀌었어요. 게임 조명에서 어둡게 보이지 않도록 밝기를 맞췄어요.&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;가까운 곳과 먼 곳이 같은 질감&lt;/strong&gt; — 멀리 있는 땅도 가까운 땅과 같은 새 질감으로 이어져요.&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;가벼운 질감 파일&lt;/strong&gt; — 질감 파일 용량을 약 85% 줄여 처음 불러오는 시간이 늘지 않도록 했어요.&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3&gt;아이템과 채굴&lt;/h3&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;장착과 저장 연결&lt;/strong&gt; — 가방의 보유 수량과 선택한 핫바 칸으로 장착을 결정해요. 저장을 불러오면 도구와 핫바도 함께 복원돼요.&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;동작과 판정의 타이밍 일치&lt;/strong&gt; — 기본 주기 0.72초의 58% 지점에서 블록에 채굴량을 적용해요. 허공에서는 공격 동작만 재생해요.&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;첫 블록에만 타격&lt;/strong&gt; — 조준한 첫 고체 블록이 사거리와 정면 범위 안에 있을 때만 채굴해요. 기본 사거리는 2.4m예요.&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;가방 안내&lt;/strong&gt; — 도구 분류와 아이콘, 사거리·공격 주기·조작 안내를 추가했어요. 곡괭이를 든 동안에는 블록 설치 미리보기가 나타나지 않아요.&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;교실 장비 표시&lt;/strong&gt; — 친구가 선택한 곡괭이와 옵션·공격 동작을 중계하도록 연결했어요. 선생님의 건축 잠금은 유지되며 곡괭이로 친구에게 피해를 주지 않아요.&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2&gt;버그 수정&lt;/h2&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;빠른 연속 클릭 누락&lt;/strong&gt; — 공격이 끝나기 전에 다시 누른 클릭이 빠지던 문제를 고쳤어요. 다음 공격 한 번까지 기억하며, 여러 번 눌러도 동작이 길게 쌓이지 않아요.&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;장착 해제 때 팔 튐&lt;/strong&gt; — 공격 중 도구를 내려놓거나 바로 다시 선택할 때 팔이 갑자기 돌아가던 문제를 줄였어요.&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;투명 도구의 잔상&lt;/strong&gt; — 도구가 나타나는 도중 윤곽선과 그림자만 먼저 생기거나, 투명한 도구가 뒤의 캐릭터를 가릴 수 있던 설정을 고쳤어요.&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;도구로 물을 떠버리던 문제&lt;/strong&gt; — 곡괭이나 블록을 들고 물을 클릭했을 때 물통 동작으로 들어가던 문제를 고쳤어요. 이제 물통을 선택했을 때만 물을 떠요.&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2&gt;알려진 문제&lt;/h2&gt;
+&lt;ul&gt;
+&lt;li&gt;곡괭이 공격은 &lt;strong&gt;지상에서 선 자세&lt;/strong&gt;를 기준으로 동작합니다. 점프·수영·앉기·눕기·기어가기와 자세 전환 중에는 공격을 중지합니다.&lt;/li&gt;
+&lt;li&gt;업데이트 직후 열려 있던 교실 화면은 새로고침해야 친구의 곡괭이가 보여요.&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2&gt;검증&lt;/h2&gt;
+&lt;ul&gt;
+&lt;li&gt;전체 클라이언트 자동 검사 &lt;strong&gt;467개 통과&lt;/strong&gt;. 이 중 손·어깨 연결, 아이템 장착과 실제 공격, 입력 누락을 확인하는 관련 검사 66개를 포함합니다.&lt;/li&gt;
+&lt;li&gt;타입 검사, 변경 파일 린트, 프로덕션 번들 빌드 통과.&lt;/li&gt;
+&lt;li&gt;HOME·TT의 네 방향·네 옵션·정지/달리기 &lt;strong&gt;64개 조합&lt;/strong&gt;에서 타격 날이 앞으로 내려가는지 확인했습니다. 30·60·144fps에서도 타격 프레임의 방향을 검사했습니다.&lt;/li&gt;
+&lt;li&gt;브라우저 두 개로 교실을 열어, 선생님이 가방에서 곡괭이를 꺼내 들면 학생 화면에 보이고 빈손으로 바꾸면 사라지는 것을 확인했습니다. 교실 자동 검사 45개 · 섬 자동 검사 7개 통과.&lt;/li&gt;
+&lt;/ul&gt;
+</content>
+  </entry>
   <entry>
     <title>10월 29일 패치 노트 (4) — 새 가방, 교실 친구 밀기, 부드러워진 채굴과 선명한 캐릭터</title>
     <link href="https://craftyap.com/note/patch-2026-10-29-4/" />
@@ -87,6 +200,10 @@
 &lt;/details&gt;
 
 &lt;p&gt;흙 옆면에 동그란 자갈이 박혀 보이던 무늬를 없애고, 모래의 요철과 색 대비를 낮췄습니다. 아래의 확대 사진에서 최종 질감을 확인할 수 있습니다.&lt;/p&gt;
+&lt;h3&gt;균열 패턴 — 반복되던 모양을 블록마다 다르게&lt;/h3&gt;
+&lt;p&gt;&lt;img src=&quot;/note/assets/20261029-stone-fracture-ba.webp&quot; alt=&quot;같은 구도에서 본 돌 균열: 왼쪽은 반복되던 모서리 배치, 오른쪽은 작은 조각과 큰 덩어리가 섞인 새 패턴&quot;&gt;&lt;/p&gt;
+&lt;p&gt;&lt;img src=&quot;/note/assets/20261029-wood-fracture-ba.webp&quot; alt=&quot;같은 구도에서 본 나무 균열: 왼쪽은 일정하던 분할, 오른쪽은 결 방향을 유지하면서 달라진 조각 폭&quot;&gt;&lt;/p&gt;
+&lt;p&gt;고정된 세 패턴을 재사용하던 구조에서 &lt;strong&gt;32개 패턴 중 블록 위치에 따라 선택하는 방식&lt;/strong&gt;으로 바꿨습니다. 돌은 균열 경로와 조각 수·크기가 달라지고, 나무는 결을 유지하면서 쪼개지는 폭이 달라집니다. 같은 블록을 파는 도중에는 패턴을 유지합니다.&lt;/p&gt;
 &lt;h2&gt;새로 추가&lt;/h2&gt;
 &lt;ul&gt;
 &lt;li&gt;&lt;strong&gt;모래의 중력 낙하&lt;/strong&gt; — 싱글 모드에서 모래·붉은 모래의 받침을 없애면 아래로 떨어져 다시 쌓입니다. 바닥과 가구에 막히며, 플레이어·동물이 아래에 있으면 이동을 기다립니다. 흙과 사암은 낙하 대상이 아닙니다.&lt;/li&gt;
@@ -148,6 +265,8 @@
 &lt;p&gt;&lt;img src=&quot;/note/assets/20261029-mining-stages.webp&quot; alt=&quot;위쪽은 돌, 아래쪽은 통나무의 정상 상태·균열 성장·조각 분리 단계&quot;&gt;&lt;/p&gt;
 &lt;p&gt;위쪽은 돌, 아래쪽은 통나무입니다. 왼쪽의 온전한 블록에서 가운데의 균열을 거쳐 오른쪽의 조각 분리로 진행합니다. 최종 블록 모양을 적용한 실제 파손 코드의 단계별 상태입니다.&lt;/p&gt;
 &lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;반복감이 줄어든 균열&lt;/strong&gt; — 시작점, 작은 조각의 위치, 큰 덩어리의 비율을 바꿨습니다. 작은 조각이 모이는 부분과 큰 덩어리가 남는 부분을 섞었습니다.&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;안정적인 무작위성&lt;/strong&gt; — 같은 위치는 채굴 취소·재개 후에도 같은 형태로 갈라집니다. 파편의 분리 지연·회전·낙하 속도는 조금씩 달라지고, 손상 중이던 실제 조각은 그대로 이어집니다.&lt;/li&gt;
 &lt;li&gt;&lt;strong&gt;돌의 균열&lt;/strong&gt; — 맞은 지점에서 금이 뻗고, 균열 가장자리가 패인 뒤 모서리부터 떨어지도록 다듬었습니다. 몸체 전체가 동시에 부풀어 벌어지던 느낌을 줄였습니다.&lt;/li&gt;
 &lt;li&gt;&lt;strong&gt;나무의 결과 속살&lt;/strong&gt; — 결을 따라 금이 내려가고, 밝은 속살과 가는 나뭇조각이 먼저 드러납니다. 마지막에는 긴 조각이 순서대로 분리됩니다.&lt;/li&gt;
 &lt;li&gt;&lt;strong&gt;연속되는 파편&lt;/strong&gt; — 완전히 부서질 때 새 정육면체 파편으로 갑자기 바뀌지 않고, 손상 중이던 조각의 위치와 회전을 이어서 낙하합니다.&lt;/li&gt;
@@ -162,6 +281,8 @@
 &lt;li&gt;청크 경계와 월드 밖 좌표에서 낙하 셀을 숨기는 처리가 다른 셀의 표시에 영향을 줄 수 있던 문제를 수정했습니다.&lt;/li&gt;
 &lt;li&gt;월드가 스크롤된 뒤 모래 데이터는 남아 있는데 화면에서 빈칸처럼 보일 수 있던 문제를 수정했습니다.&lt;/li&gt;
 &lt;li&gt;높은 쌓임을 볼 때 검수 카메라가 모델을 제대로 담지 못하던 부분을 조정했습니다.&lt;/li&gt;
+&lt;li&gt;검수 화면에 &lt;strong&gt;다른 균열 보기&lt;/strong&gt;를 추가했습니다. 일시정지 중 선택해도 계산 완료 후 새 패턴이 나타나며, 계산 중에는 원래 블록이 유지됩니다.&lt;/li&gt;
+&lt;li&gt;드물게 체적이 맞지 않는 절단 결과는 그대로 사용하지 않고 다른 시드로 다시 계산하도록 개선했습니다.&lt;/li&gt;
 &lt;li&gt;모래 낙하를 다시 확인할 수 있도록 &lt;strong&gt;다시 배치하기&lt;/strong&gt;를 추가하고, 받침 제거 버튼의 상태를 정리했습니다.&lt;/li&gt;
 &lt;/ul&gt;
 &lt;h2&gt;알려진 문제&lt;/h2&gt;
@@ -171,11 +292,11 @@
 &lt;/ul&gt;
 &lt;h2&gt;검증&lt;/h2&gt;
 &lt;ul&gt;
-&lt;li&gt;최종 클라이언트 자동 검사 &lt;strong&gt;414개 통과&lt;/strong&gt;.&lt;/li&gt;
+&lt;li&gt;최종 클라이언트 자동 검사 &lt;strong&gt;421개 통과&lt;/strong&gt;.&lt;/li&gt;
 &lt;li&gt;타입 검사, 변경 파일 린트, 프로덕션 빌드 통과.&lt;/li&gt;
 &lt;li&gt;재질·연결·쌓임·파손·모래 낙하의 모델 렌더와 동작 검사 수행.&lt;/li&gt;
 &lt;/ul&gt;
-&lt;p&gt;사진 6장에는 모델 모양 비교, 표면 질감 비교, 최종 재질 확대, 옆면 연결, 단계별 파손, 모래 낙하 과정을 담았습니다.&lt;/p&gt;
+&lt;p&gt;돌 큐브·통나무 큐브·돌 경사의 32개 패턴, 총 &lt;strong&gt;96개 조합&lt;/strong&gt;에서 원래 형상의 체적이 유지되는지 확인했습니다. 사진에는 블록·표면·균열의 전후 비교와 연결·파손·모래 낙하 과정을 담았습니다.&lt;/p&gt;
 </content>
   </entry>
   <entry>

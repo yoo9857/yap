@@ -102,7 +102,7 @@
           <h1 id="post-title">10월 29일 패치 노트 (3) — 블록의 모양과 질감, 채굴과 모래 낙하</h1>
           <p class="note-summary">작은 원형 돌기로 블록의 조립감을 살리고, 흙과 모래의 질감과 쌓임을 다듬었습니다. 돌·통나무의 단계별 파손과 싱글 모드의 모래 낙하를 개선했습니다.</p>
           <ul class="note-tags" aria-label="태그"><li>패치 노트</li><li>블록</li><li>지형</li><li>채굴</li></ul>
-          <nav class="note-chips" aria-label="이번 노트의 변경 사항"><a class="note-chip note-chip--new" href="#new">신규 <b>3</b></a><a class="note-chip note-chip--up" href="#up">개선 <b>13</b></a><a class="note-chip note-chip--fix" href="#fix">수정 <b>7</b></a><a class="note-chip note-chip--known" href="#known">알려진 문제 <b>2</b></a></nav>
+          <nav class="note-chips" aria-label="이번 노트의 변경 사항"><a class="note-chip note-chip--new" href="#new">신규 <b>3</b></a><a class="note-chip note-chip--up" href="#up">개선 <b>15</b></a><a class="note-chip note-chip--fix" href="#fix">수정 <b>9</b></a><a class="note-chip note-chip--known" href="#known">알려진 문제 <b>2</b></a></nav>
         </header>
         <div class="note-body">
 <blockquote>
@@ -127,6 +127,10 @@
 </details>
 
 <p>흙 옆면에 동그란 자갈이 박혀 보이던 무늬를 없애고, 모래의 요철과 색 대비를 낮췄습니다. 아래의 확대 사진에서 최종 질감을 확인할 수 있습니다.</p>
+<h3>균열 패턴 — 반복되던 모양을 블록마다 다르게</h3>
+<p><img src="/note/assets/20261029-stone-fracture-ba.webp" alt="같은 구도에서 본 돌 균열: 왼쪽은 반복되던 모서리 배치, 오른쪽은 작은 조각과 큰 덩어리가 섞인 새 패턴"></p>
+<p><img src="/note/assets/20261029-wood-fracture-ba.webp" alt="같은 구도에서 본 나무 균열: 왼쪽은 일정하던 분할, 오른쪽은 결 방향을 유지하면서 달라진 조각 폭"></p>
+<p>고정된 세 패턴을 재사용하던 구조에서 <strong>32개 패턴 중 블록 위치에 따라 선택하는 방식</strong>으로 바꿨습니다. 돌은 균열 경로와 조각 수·크기가 달라지고, 나무는 결을 유지하면서 쪼개지는 폭이 달라집니다. 같은 블록을 파는 도중에는 패턴을 유지합니다.</p>
 </section>
 <section class="note-sec note-sec--new" id="new" aria-labelledby="new-h">
 <h2 id="new-h"><span class="note-badge" aria-hidden="true">NEW</span>새로 추가 <small>3</small></h2>
@@ -142,7 +146,7 @@
 </div>
 </section>
 <section class="note-sec note-sec--up" id="up" aria-labelledby="up-h">
-<h2 id="up-h"><span class="note-badge" aria-hidden="true">UP</span>개선 <small>13</small></h2>
+<h2 id="up-h"><span class="note-badge" aria-hidden="true">UP</span>개선 <small>15</small></h2>
 <div class="note-sec-body">
 <h3>블록 모양과 연결</h3>
 <ul>
@@ -195,6 +199,8 @@
 <p><img src="/note/assets/20261029-mining-stages.webp" alt="위쪽은 돌, 아래쪽은 통나무의 정상 상태·균열 성장·조각 분리 단계"></p>
 <p>위쪽은 돌, 아래쪽은 통나무입니다. 왼쪽의 온전한 블록에서 가운데의 균열을 거쳐 오른쪽의 조각 분리로 진행합니다. 최종 블록 모양을 적용한 실제 파손 코드의 단계별 상태입니다.</p>
 <ul>
+<li><strong class="item-title">반복감이 줄어든 균열</strong>시작점, 작은 조각의 위치, 큰 덩어리의 비율을 바꿨습니다. 작은 조각이 모이는 부분과 큰 덩어리가 남는 부분을 섞었습니다.</li>
+<li><strong class="item-title">안정적인 무작위성</strong>같은 위치는 채굴 취소·재개 후에도 같은 형태로 갈라집니다. 파편의 분리 지연·회전·낙하 속도는 조금씩 달라지고, 손상 중이던 실제 조각은 그대로 이어집니다.</li>
 <li><strong class="item-title">돌의 균열</strong>맞은 지점에서 금이 뻗고, 균열 가장자리가 패인 뒤 모서리부터 떨어지도록 다듬었습니다. 몸체 전체가 동시에 부풀어 벌어지던 느낌을 줄였습니다.</li>
 <li><strong class="item-title">나무의 결과 속살</strong>결을 따라 금이 내려가고, 밝은 속살과 가는 나뭇조각이 먼저 드러납니다. 마지막에는 긴 조각이 순서대로 분리됩니다.</li>
 <li><strong class="item-title">연속되는 파편</strong>완전히 부서질 때 새 정육면체 파편으로 갑자기 바뀌지 않고, 손상 중이던 조각의 위치와 회전을 이어서 낙하합니다.</li>
@@ -204,7 +210,7 @@
 </div>
 </section>
 <section class="note-sec note-sec--fix" id="fix" aria-labelledby="fix-h">
-<h2 id="fix-h"><span class="note-badge" aria-hidden="true">FIX</span>버그 수정 <small>7</small></h2>
+<h2 id="fix-h"><span class="note-badge" aria-hidden="true">FIX</span>버그 수정 <small>9</small></h2>
 <div class="note-sec-body">
 <ul>
 <li>절단면이 돌출부와 홈 사이의 빈 공간까지 잘못 연결해, 초반부터 크게 찢어진 것처럼 보이던 문제를 수정했습니다.</li>
@@ -213,6 +219,8 @@
 <li>청크 경계와 월드 밖 좌표에서 낙하 셀을 숨기는 처리가 다른 셀의 표시에 영향을 줄 수 있던 문제를 수정했습니다.</li>
 <li>월드가 스크롤된 뒤 모래 데이터는 남아 있는데 화면에서 빈칸처럼 보일 수 있던 문제를 수정했습니다.</li>
 <li>높은 쌓임을 볼 때 검수 카메라가 모델을 제대로 담지 못하던 부분을 조정했습니다.</li>
+<li>검수 화면에 <strong>다른 균열 보기</strong>를 추가했습니다. 일시정지 중 선택해도 계산 완료 후 새 패턴이 나타나며, 계산 중에는 원래 블록이 유지됩니다.</li>
+<li>드물게 체적이 맞지 않는 절단 결과는 그대로 사용하지 않고 다른 시드로 다시 계산하도록 개선했습니다.</li>
 <li>모래 낙하를 다시 확인할 수 있도록 <strong>다시 배치하기</strong>를 추가하고, 받침 제거 버튼의 상태를 정리했습니다.</li>
 </ul>
 </div>
@@ -229,16 +237,16 @@
 <section class="note-sec">
 <h2>검증</h2>
 <ul>
-<li>최종 클라이언트 자동 검사 <strong>414개 통과</strong>.</li>
+<li>최종 클라이언트 자동 검사 <strong>421개 통과</strong>.</li>
 <li>타입 검사, 변경 파일 린트, 프로덕션 빌드 통과.</li>
 <li>재질·연결·쌓임·파손·모래 낙하의 모델 렌더와 동작 검사 수행.</li>
 </ul>
-<p>사진 6장에는 모델 모양 비교, 표면 질감 비교, 최종 재질 확대, 옆면 연결, 단계별 파손, 모래 낙하 과정을 담았습니다.</p>
+<p>돌 큐브·통나무 큐브·돌 경사의 32개 패턴, 총 <strong>96개 조합</strong>에서 원래 형상의 체적이 유지되는지 확인했습니다. 사진에는 블록·표면·균열의 전후 비교와 연결·파손·모래 낙하 과정을 담았습니다.</p>
 </section>
         </div>
       </article>
       <nav class="note-pager" aria-label="다른 노트"><a class="note-prev" href="/note/patch-2026-10-29-2/"><small>이전 노트</small>10월 29일 패치 노트 (2) — 새 첫 화면 게시판, 교육 모드 화면, 로딩창</a><a class="note-next" href="/note/patch-2026-10-29-4/"><small>다음 노트</small>10월 29일 패치 노트 (4) — 새 가방, 교실 친구 밀기, 부드러워진 채굴과 선명한 캐릭터</a></nav>
     </main>
-    <footer class="site-footer section-shell"><div><a class="footer-brand" href="/">크래프트얍 <span>CraftYap</span></a><p>블록 하나에서 시작되는, 네가 만드는 세상.</p></div><nav aria-label="하단 메뉴"><a href="/">게임 홈</a><a href="/note/">개발 노트</a><a href="/guide/">게임 안내</a><a href="/feed.xml">RSS</a><a href="#content">맨 위로 ↑</a></nav><small>크래프트얍 개발 노트 · <time datetime="2026-10-29">2026.10.29 업데이트</time></small></footer>
+    <footer class="site-footer section-shell"><div><a class="footer-brand" href="/">크래프트얍 <span>CraftYap</span></a><p>블록 하나에서 시작되는, 네가 만드는 세상.</p></div><nav aria-label="하단 메뉴"><a href="/">게임 홈</a><a href="/note/">개발 노트</a><a href="/guide/">게임 안내</a><a href="/feed.xml">RSS</a><a href="#content">맨 위로 ↑</a></nav><small>크래프트얍 개발 노트 · <time datetime="2026-10-30">2026.10.30 업데이트</time></small></footer>
   </body>
 </html>

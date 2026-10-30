@@ -1,6 +1,6 @@
 {
   "id": "pickaxe-basic",
-  "version": "1.0.0",
+  "version": "1.2.3",
   "name": "포근한 곡괭이",
   "kind": "pickaxe",
   "modelUrl": "/models/items/tools/pickaxe-basic/pickaxe-basic.glb",
@@ -9,21 +9,114 @@
     "node": "Grip_Main",
     "scale": 0.72,
     "rotation": [
-      0,
-      1.5707963267948966,
-      -0.12
-    ]
+      -1.5707963267948961,
+      0.7910670236280682,
+      0
+    ],
+    "bindOffset": [
+      0.0078,
+      0.1192,
+      -0.026
+    ],
+    "liftRotation": [
+      -0.28,
+      0.1,
+      -0.44
+    ],
+    "equipSeconds": 0.36,
+    "handleSlide": 0.035,
+    "note": "Bind-space thumb/palm cleft offset from handR; liftRotation is a small XYZ additive offset relative to the character root, preserving the approved arm roll. Compact carry revision: reduce the outward shaft angle by rotating the whole grasped arm/tool together; bind socket and model scale unchanged.",
+    "motion": {
+      "sourceArmWeight": 0.22,
+      "attackArmWeight": 0.04,
+      "airArmWeight": 0.3,
+      "walkSway": [
+        0.045,
+        0.018,
+        0.028
+      ],
+      "runSway": [
+        0.065,
+        0.026,
+        0.038
+      ],
+      "idleSway": [
+        0.008,
+        0.004,
+        0.006
+      ],
+      "turnLag": 0.018,
+      "maxTurnLag": 0.07,
+      "accelerationLag": 0.005,
+      "maxAccelerationLag": 0.04,
+      "attackSwayWeight": 0.12,
+      "response": 12
+    },
+    "unequipSeconds": 0.18
   },
   "targeting": {
     "mode": "crosshair-first-solid",
     "reach": 2.4,
     "contactRadius": 0.12,
     "arcDegrees": 70,
-    "maxTargets": 1
+    "maxTargets": 1,
+    "contactNote": "Head marker / impact VFX radius; targeting uses first solid, reach and forward arc."
   },
   "swing": {
-    "seconds": 0.62,
-    "impactAt": 0.58
+    "seconds": 0.72,
+    "impactAt": 0.58,
+    "impactNode": "Impact_Left",
+    "facing": "Impact_Left faces forward; at impact phase .58 its actual trajectory travels forward (+Z) and down (-Y), before follow-through and recovery.",
+    "phases": [
+      0,
+      0.2,
+      0.38,
+      0.66,
+      0.74,
+      1
+    ],
+    "pitch": [
+      0,
+      -0.45,
+      -1.05,
+      0.4,
+      0.24,
+      0
+    ],
+    "side": [
+      0,
+      -0.08,
+      -0.14,
+      0.58,
+      0.48,
+      0
+    ],
+    "lean": [
+      0,
+      -0.02,
+      -0.035,
+      0.15,
+      0.08,
+      0
+    ],
+    "interpolation": "monotone-hermite",
+    "roll": [
+      0,
+      0.012,
+      0.025,
+      -0.035,
+      -0.02,
+      0
+    ],
+    "twist": [
+      0,
+      -0.018,
+      -0.045,
+      0.055,
+      0.035,
+      0
+    ],
+    "motionNote": "Continuous velocity through intermediate preparation/recovery keys; modest coupled hand roll and upper-body twist, no wrist-only tool rotation. Existing grip, reach, impact time and cycle length preserved."
   },
   "efficiency": {
     "stone": 1.6,
@@ -46,29 +139,53 @@
       "name": "기본",
       "speed": 1,
       "mining": 1,
-      "radius": 1
+      "radius": 1,
+      "arc": 1,
+      "affinity": []
     },
     {
       "id": "light-grip",
       "name": "가벼운 손잡이",
       "speed": 1.15,
       "mining": 0.9,
-      "radius": 1
+      "radius": 1,
+      "arc": 1,
+      "affinity": []
     },
     {
       "id": "stone-focus",
       "name": "석재 집중",
       "speed": 0.9,
       "mining": 1.2,
-      "radius": 1
+      "radius": 1,
+      "arc": 1,
+      "affinity": [
+        "stone",
+        "ore"
+      ]
     },
     {
       "id": "precise-tip",
       "name": "정밀한 날",
       "speed": 1,
       "mining": 1.05,
-      "radius": 0.7
+      "radius": 0.7,
+      "arc": 0.7,
+      "affinity": []
     }
   ],
-  "defaultOption": "balanced"
+  "defaultOption": "balanced",
+  "nameEn": "Cozy Pickaxe",
+  "inventory": {
+    "category": "tools",
+    "maxStack": 1,
+    "starter": true,
+    "placeable": false
+  },
+  "input": {
+    "primary": "attack",
+    "holdToRepeat": true,
+    "finishStrokeOnRelease": true,
+    "optionKey": "R"
+  }
 }

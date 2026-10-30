@@ -2,7 +2,7 @@ import {kitCubeGeometry,kitRampGeometry,kitConnectorGeometry,kitRoundGeometry,ki
 import * as THREE from "three";
 import {mergeGeometries} from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import {repeatingKitTexture} from "./kitSurface.js";
-import {BlockMaterialLibrary,materialFaceGroups,needsCatalogTexture} from "./blockMaterials.js";
+import {BlockMaterialLibrary,linkSurfaceTwin,materialFaceGroups,needsCatalogTexture} from "./blockMaterials.js";
 import { castsInstancedShadow } from "../render/instancedDepth.js";
 import { BLOCKS, SOLID_ID, blockById, textureUrl, type BlockDef } from "./blocks.js";
 import { animateWater, buildWaterGeometry, makeWaterMaterial, prepareWaterTransition } from "./waterMesh.js";
@@ -162,6 +162,17 @@ interface FarBuffers {
  * WebGL and draws black — that was the studs and every far chunk. White = no
  * tint; one byte per channel keeps it cheap on the big merged meshes.
  */
+/**
+ * The generated grass top is painted for a bright studio and reads olive under
+ * the game's sky light and fog; lift it toward the yellow-green of the block
+ * review page. A colour above 1 is a plain multiplier in the shader.
+ */
+const GRASS_TINT: [number, number, number] = (() => {
+  const raw = typeof location !== "undefined" ? new URLSearchParams(location.search).get("grassTint") : null;
+  const v = raw?.split(",").map(Number);
+  return v && v.length === 3 && v.every(Number.isFinite) ? [v[0]!, v[1]!, v[2]!] : [1.18, 1.3, 0.92];
+})();
+
 function whiteVertexColors<T extends THREE.BufferGeometry>(geometry: T): T {
   if (!geometry.getAttribute("color")) {
     const count = geometry.getAttribute("position").count;
@@ -175,7 +186,7 @@ export class VoxelView {
   private readonly fallingHidden=new Set<number>();
   private miningHidden:readonly [number,number,number]|null=null;
   private readonly miningPriority=new Set<number>();
-  private readonly blockSurfaces=new BlockMaterialLibrary();
+  private readonly blockSurfaces:BlockMaterialLibrary;
   private readonly clonedBlockTextures=new Set<THREE.Texture>();
   private readonly faceMaterialIndices=new Map<number,number[]>();
   private readonly kitCapGeo=kitConnectorGeometry();
@@ -209,14 +220,16 @@ export class VoxelView {
   private studsDirty = true;
   private renderDistance = Infinity;
 
-  constructor(private readonly scene: THREE.Scene,private readonly options:{catalogTextures?:boolean}={}) {
+  constructor(private readonly scene: THREE.Scene,private readonly options:{catalogTextures?:boolean;generatedSurfaces?:boolean}={}) {
+    this.blockSurfaces=new BlockMaterialLibrary(options.generatedSurfaces===true);
     for (const def of BLOCKS) {
       if (def.fluid) continue; // drawn by the water mesh, never as a brick
       const [material, merged] = this.makeMaterials(def);
       this.materials.set(def.id, material);
       const kit=this.blockSurfaces.get(def.key,def.color,material as THREE.MeshStandardMaterial);
       this.kitMaterials.set(def.id,kit);
-      const far=kit.map(m=>m.clone());this.materialIndex.set(def.id,this.materialList.length);this.faceMaterialIndices.set(def.id,far.map((_,i)=>this.materialList.length+i));this.materialList.push(...far);merged.dispose();
+      for(const m of kit)if(m.name.endsWith("/ grass"))m.color.setRGB(...GRASS_TINT);
+      const far=kit.map(m=>{const twin=m.clone();linkSurfaceTwin(m,twin);return twin;});this.materialIndex.set(def.id,this.materialList.length);this.faceMaterialIndices.set(def.id,far.map((_,i)=>this.materialList.length+i));this.materialList.push(...far);merged.dispose();
       if(options.catalogTextures!==false&&needsCatalogTexture(def))void loadTexture(textureUrl(def)).then(tex=>{if(this.disposed||!tex)return;const map=repeatingKitTexture(tex);this.clonedBlockTextures.add(map);for(const m of [...kit,...far]){m.map=map;m.color.set(0xffffff);if(def.emissive)m.emissiveMap=map;m.needsUpdate=true;}});
       if (def.seeThrough) this.seeThrough.add(def.id);
     }

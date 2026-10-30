@@ -50,9 +50,9 @@ import {
 } from "./brickGeometry.js";
 import { VoxelView } from "./voxelView.js";
 import {preloadHeldItems} from "../player/heldItem.js";
-import {PICKAXE,pickaxeWork,pickaxeInReach} from "./toolDefinitions.js";
-/** The held pickaxe is still being built: off unless the page is opened with `?pickaxe`. */
-const HELD_ITEMS = typeof location !== "undefined" && new URLSearchParams(location.search).has("pickaxe");
+import {PICKAXE,pickaxeWork,pickaxeInReach,pickaxeCycle} from "./toolDefinitions.js";
+import {selectedTool,toolByKey,withStarterTools,itemByKey} from "./itemCatalog.js";
+import {ItemAttack,type ItemAttackStep} from "./itemAttack.js";
 import {MiningEffects} from "./miningEffects.js";
 import { CraftCamera } from "./craftCamera.js";
 import { CraftHud } from "./craftHud.js";
@@ -101,8 +101,8 @@ export class CraftGame {
   private readonly view: VoxelView;
   private readonly miningEffects:MiningEffects;
   private miningIdentity="";
-  private toolEnabled=HELD_ITEMS;
-  private toolOption=PICKAXE.defaultOption;
+  private readonly itemAttack=new ItemAttack();
+  private toolOption:import("@robo/shared").ToolOptionId=PICKAXE.defaultOption as import("@robo/shared").ToolOptionId;
   private toolElapsed=0;
   private sand:SandSim|null=null;
   private readonly hud: CraftHud;
@@ -194,7 +194,8 @@ export class CraftGame {
     this.renderer.scene.fog = new THREE.Fog(FOG_COLOR, 95, 245);
     this.sky = new SkyDome(this.renderer.scene, SKY_TOP, FOG_COLOR);
     this.camera = new CraftCamera(this.renderer.camera);
-    this.view = new VoxelView(this.renderer.scene);
+    // ?blocks=classic draws the pre-v4 surfaces, for comparison
+    this.view = new VoxelView(this.renderer.scene, { generatedSurfaces: new URLSearchParams(location.search).get("blocks") !== "classic" });
     this.skyEnvironment = createSkyEnvironment(this.renderer.renderer, SKY_TOP, FOG_COLOR, 0x9a8f78);
     this.view.setEnvironment(this.skyEnvironment.texture);
     this.miningEffects=new MiningEffects(this.renderer.scene,cell=>this.view.setMiningHidden(cell));
@@ -255,6 +256,7 @@ export class CraftGame {
       this.field = null;
       this.state = loadCraft(localStorage, DEFAULT_SEED);
     }
+    this.state.inventory=withStarterTools(this.state.inventory);
     // Before the first unstick: the player must not spawn inside a sofa. The
     // host reads the game's fields lazily, since some are built further down.
     const classroomClient = opts.classroom?.client;
@@ -454,8 +456,8 @@ export class CraftGame {
    */
   async prepare(setMessage: (text: string) => void = () => {}): Promise<void> {
     setMessage(t("텍스처 불러오는 중…", "Loading textures…"));
-    await Promise.all([texturesReady(),HELD_ITEMS?preloadHeldItems():Promise.resolve(false)]);
-    if(!this.disposed)this.rig.setHeldItem(this.toolEnabled?"pickaxe-basic":null,this.toolOption);
+    await Promise.all([texturesReady(),preloadHeldItems()]);
+    if(!this.disposed)this.rig.setHeldItem(this.heldTool(),this.toolOption);
     if (this.disposed) return;
     setMessage(t("그래픽 준비하는 중…", "Preparing graphics…"));
     this.furniture.setWarm(true);
@@ -571,7 +573,8 @@ export class CraftGame {
     on("mousedown", (e) => {
       if (!this.locked) return;
       if (e.button === 0) {
-        if (!this.tryBonk()) this.mining = true;
+        if(!this.emptyHands&&toolByKey(this.heldKey())){const key=this.attackIdentity();if(key)this.itemAttack.request(key);this.mining=true;}
+        else if (!this.tryBonk()) this.mining = true;
       }
       if (e.button === 2) this.placing = true;
       if (e.button === 1) {
@@ -623,7 +626,11 @@ export class CraftGame {
         if (this.hud.recipesOpen) this.hud.armBag(this.selected);
       }
       if (key === "0") { this.selected = WATER_SLOT; this.emptyHands = false; }
-      if(HELD_ITEMS&&key==="h"&&!e.repeat&&!e.ctrlKey&&!e.metaKey){if(e.shiftKey){const index=PICKAXE.options.findIndex(o=>o.id===this.toolOption);this.toolOption=PICKAXE.options[(index+1)%PICKAXE.options.length]!.id;this.toolEnabled=true;}else this.toolEnabled=!this.toolEnabled;this.mining=false;this.miningTarget=null;this.miningProgress=0;this.toolElapsed=0;this.hud.toast(this.toolEnabled?t(`곡괭이 · ${PICKAXE.options.find(o=>o.id===this.toolOption)!.name} · Shift+H 옵션`,`Pickaxe · ${this.toolOption} · Shift+H options`):t("곡괭이 해제 · H로 장착","Pickaxe unequipped · H to equip"));}
+      if(key==="r"&&!e.repeat&&!e.ctrlKey&&!e.metaKey&&this.heldTool()){
+        const index=PICKAXE.options.findIndex(o=>o.id===this.toolOption);this.toolOption=PICKAXE.options[(index+1)%PICKAXE.options.length]!.id as import("@robo/shared").ToolOptionId;
+        this.itemAttack.reset();this.beginWork("none");this.mining=false;this.clearMiningTarget();
+        this.hud.toast(t(`곡괭이 · ${PICKAXE.options.find(o=>o.id===this.toolOption)!.name}`,`Pickaxe · ${this.toolOption}`));return;
+      }
       // Q (furniture mode keeps Q for its categories, handled above)
       if (key === "q" && !e.repeat) {
         this.emptyHands = !this.emptyHands;
@@ -684,7 +691,7 @@ export class CraftGame {
     if (this.sync) {
       this.sync.tick(1 / 60, this.body, this.facing, this.characterAnimation(), this.presentation());
     }
-    if (this.workshop.active) { this.knockX = this.knockZ = 0; this.workshop.fixedUpdate(); return; }
+    if (this.workshop.active) { this.knockX = this.knockZ = 0;this.itemAttack.reset();this.beginWork("none");this.clearMiningTarget();this.workshop.fixedUpdate(); return; }
     const dt = 1 / 60;
     if(this.sand)this.perf.time("sand",()=>this.sand!.update(dt));
     this.postureDelay = Math.max(0, this.postureDelay-dt);
@@ -700,7 +707,7 @@ export class CraftGame {
     if (this.seated && this.stepSeated()) {
       this.perf.time("pet", () => this.pet.fixedUpdate(this.state.world, dt, this.body));
       this.perf.time("aim", () => this.updateAim());
-      if (this.mining) this.stepMining(dt);
+      this.stepInteraction(dt);
       if (this.placing) {
         this.tryPlace();
         this.placing = false;
@@ -784,13 +791,7 @@ export class CraftGame {
     this.perf.time("pet", () => this.pet.fixedUpdate(this.state.world, dt, this.body));
 
     this.perf.time("aim", () => this.updateAim());
-    if (this.mining) this.stepMining(dt);
-    else {
-      this.miningTarget = null;
-      this.pickupTarget = null;
-      this.miningProgress = 0;
-      this.miningFrac = null;
-    }
+    this.stepInteraction(dt);
     if (this.placing) {
       this.tryPlace();
       this.placing = false; // one block per press
@@ -813,14 +814,31 @@ export class CraftGame {
     );
   }
 
-  private usingPickaxe():boolean {return this.toolEnabled&&!this.emptyHands&&!this.holdingWater()&&!this.furniture.active&&this.posture==="stand"&&!this.isSwimming();}
-  private stepMining(dt: number): void {
+  private heldTool(){return this.furniture.active?null:selectedTool(this.state.inventory,this.state.hotbar,this.selected,this.emptyHands);}
+  private usingPickaxe():boolean {return !!this.heldTool()&&this.posture==="stand"&&!this.seated&&!this.isSwimming()&&this.body.grounded&&!this.rig.postureBusy;}
+  private attackIdentity():string|null {return this.usingPickaxe()?this.heldTool()+"/"+this.toolOption:null;}
+  private clearMiningTarget():void {this.miningTarget=null;this.pickupTarget=null;this.miningProgress=0;this.miningFrac=null;this.miningIdentity="";}
+  private stepInteraction(dt:number):void {
+    const key=this.locked?this.attackIdentity():null;
+    const wasAttacking=this.itemAttack.active;
+    const step=this.itemAttack.step(dt,this.mining,key,pickaxeCycle(this.toolOption));this.toolElapsed=this.itemAttack.time;
+    if(step.changed)this.clearMiningTarget();
+    if(step.started){this.clearEmote();this.beginWork("none");}
+    if(step.active){this.actionHold=ACTION_FACE_TIME;this.beginWork("interact",true);}
+    if(step.active||step.completed)this.stepMining(dt,step);
+    else if(!this.emptyHands&&toolByKey(this.heldKey()))this.clearMiningTarget();
+    else if(this.mining)this.stepMining(dt);
+    else this.clearMiningTarget();
+    if(step.completed||wasAttacking&&step.changed&&!step.active)this.beginWork("none");
+  }
+  private stepMining(dt: number,strike?:ItemAttackStep): void {
     if (this.aimFurniture) {
-      this.stepPickup(this.aimFurniture, dt);
+      if(!this.heldTool())this.stepPickup(this.aimFurniture, dt);
+      else this.clearMiningTarget();
       return;
     }
     this.pickupTarget = null;
-    if (!this.aim || this.usingPickaxe()&&!pickaxeInReach(this.aim.dist,this.yaw-this.facing)) {
+    if (!this.aim || this.usingPickaxe()&&!pickaxeInReach(this.aim.dist,this.yaw-this.facing,this.toolOption)) {
       this.miningTarget = null;
       this.miningProgress = 0;
       this.miningFrac = null;
@@ -829,8 +847,8 @@ export class CraftGame {
     const [x, y, z] = this.aim.voxel;
     const cellId = this.state.world.get(x, y, z);
     if (isWater(cellId)) {
-      // scooping is the bucket's job; empty hands just pass over water
-      if (this.emptyHands) { this.mining = false; return; }
+      // Only the bucket may remove water; tools and block items leave it intact.
+      if (!this.holdingWater()) { this.clearMiningTarget(); return; }
       this.scoop(x, y, z, cellId);
       return;
     }
@@ -839,16 +857,16 @@ export class CraftGame {
       this.miningFrac = null;this.miningTarget=null;this.miningProgress=0;this.miningIdentity=""; // bedrock or build lock cancels accumulated damage
       return;
     }
-    this.beginWork("interact",true);
+    if(!strike)this.beginWork("interact",true);
     const t = this.miningTarget,shape=this.state.world.getShape(x,y,z),identity=cellId+":"+shape;
     if (!t || t[0] !== x || t[1] !== y || t[2] !== z || identity!==this.miningIdentity) {
       this.miningIdentity=identity;
       this.miningTarget = [x, y, z];
-      this.miningProgress = 0;this.toolElapsed=0;
-      if(this.usingPickaxe()){this.workSeq=(this.workSeq+1)%1_000_000_000;}
+      this.miningProgress = 0;
+      if(this.usingPickaxe())this.miningEffects.primeTarget([x,y,z],def,shape,()=>this.view.miningShape(shape,def.id,[x,y,z],this.state.world));
     }
-    if(this.usingPickaxe()){this.miningProgress+=pickaxeWork(this.toolElapsed,this.toolElapsed+dt,def.key,this.toolOption);this.toolElapsed+=dt;}else this.miningProgress += dt;
-    this.miningFrac = this.usingPickaxe()?Math.max(.05,this.miningProgress/def.hardness):this.miningProgress/def.hardness;
+    if(strike)this.miningProgress+=pickaxeWork(strike.from,strike.to,def.key,this.toolOption);else this.miningProgress+=dt;
+    this.miningFrac = this.miningProgress/def.hardness;
     if (this.miningProgress >= def.hardness) {
       this.miningEffects.burst([x,y,z],def,shape,()=>this.view.miningShape(shape,def.id,[x,y,z],this.state.world));
       this.writeCell(x, y, z, AIR, 0);
@@ -863,7 +881,7 @@ export class CraftGame {
 
   private isSwimming(): boolean { return !this.seated && (this.body.wet ?? 0) >= SWIM_DEPTH; }
   private presentation(): CharacterPresentation {
-    return { character: this.character, emote: this.emote, emoteSeq: this.emoteSeq, action: this.workAction, actionSeq: this.workSeq, actionLoop: this.workLoop, swimming: this.isSwimming() };
+    return { character: this.character, emote: this.emote, emoteSeq: this.emoteSeq, action: this.workAction, actionSeq: this.workSeq, actionLoop: this.workLoop, swimming: this.isSwimming(), heldItem:this.heldTool(), toolOption:this.toolOption, toolPhase:this.itemAttack.active?this.toolElapsed/pickaxeCycle(this.toolOption)%1:0 };
   }
 
   /**
@@ -1073,7 +1091,7 @@ export class CraftGame {
     // ...and on a chair, sofa or bed you sit down — unless you are placing
     // furniture, where the click means "put the piece here"
     if (this.aimFurniture && !this.furniture.active && this.trySit(this.aimFurniture)) return;
-    if (this.emptyHands && !this.furniture.active) return;
+    if ((this.emptyHands||!!this.heldTool()) && !this.furniture.active) return;
     if (!this.aim) return;
     if (!this.canBuild()) {
       this.hud.toast(t("🧱 지금은 건축이 잠겨 있어요", "🧱 Building is locked right now"));
@@ -1160,7 +1178,7 @@ export class CraftGame {
       return;
     }
     // furniture mode draws its own ghost (FurnitureController.render)
-    if (!this.locked || !this.aim || this.mining || this.furniture.active || this.emptyHands) {
+    if (!this.locked || !this.aim || this.mining || this.furniture.active || this.emptyHands || !!this.heldTool()) {
       for (const m of this.ghostMeshes) m.visible = false;
       return;
     }
@@ -1208,7 +1226,7 @@ export class CraftGame {
     this.sfx.play("checkpoint");
     this.holdCrafted(outKey);
     const gained = countOf(this.state.inventory, outKey) - before;
-    const def = blockByKey(outKey);
+    const def = itemByKey(outKey);
     this.hud.toast(t(`🛠️ ${def?.ko ?? recipe.name} ${gained}개 만들었어요`, `🛠️ Crafted ${gained} ${def?.name ?? recipe.name}`));
   }
 
@@ -1404,7 +1422,7 @@ export class CraftGame {
   private render(alpha: number, frameDt: number): void {
     this.syncLock();
     const target=this.miningTarget,progress=this.miningFrac;
-    if(this.locked&&this.mining&&!this.workshop.active&&target&&progress!==null&&!this.aimFurniture){
+    if(this.locked&&(this.mining||this.itemAttack.active)&&!this.workshop.active&&target&&progress!==null&&!this.aimFurniture){
       const def=blockById(this.state.world.get(...target));if(def){const shape=this.state.world.getShape(...target);this.miningEffects.setProgress(target,def,shape,progress,()=>this.view.miningShape(shape,def.id,target,this.state.world));}else this.miningEffects.clearTarget();
     }else this.miningEffects.clearTarget();
     this.miningEffects.update(frameDt,this.state.world);
@@ -1453,10 +1471,10 @@ export class CraftGame {
     const planar = Math.hypot(this.body.vx, this.body.vz);
     // swimming is paddling (run) or treading water (idle) — not a jump pose
     const anim = this.characterAnimation();
-    this.rig.setHeldItem(this.toolEnabled&&!this.emptyHands&&!this.holdingWater()&&!this.furniture.active?"pickaxe-basic":null,this.toolOption);
+    this.rig.setHeldItem(this.heldTool(),this.toolOption);
     this.rig.setEmote(this.emote, this.emoteSeq);
     this.rig.performAction(this.workAction,this.workSeq,this.workLoop);
-    this.rig.update(anim, planar, frameDt,{swimming:this.isSwimming()});
+    this.rig.update(anim, planar, frameDt,{swimming:this.isSwimming(),toolTime:this.itemAttack.active?this.toolElapsed:undefined});
 
     const eye = this.tmpEye.set(drawn.x, this.smoothedEyeY(drawn.y, frameDt), drawn.z);
     const t0 = performance.now();
@@ -1479,7 +1497,7 @@ export class CraftGame {
     this.perf.phase("camera", performance.now() - t0);
     this.perf.time("furniture", () => this.furniture.render(this.aim, this.yaw, this.locked && !this.mining, this.ghostOk, this.ghostBad));
     if (!this.furniture.active) {
-      if(this.usingPickaxe()&&this.mining)this.hud.setPiece(t(`곡괭이 · 사거리 ${PICKAXE.targeting.reach}m · H로 해제`,`Pickaxe · ${PICKAXE.targeting.reach}m reach · H to unequip`),0,0,"⛏️");
+      if(this.heldTool())this.hud.setPiece(t(`공격 모드 · 곡괭이 · ${PICKAXE.options.find(o=>o.id===this.toolOption)!.name} · R 옵션 · ${PICKAXE.targeting.reach}m`,`Attack · Pickaxe · ${this.toolOption} · R options · ${PICKAXE.targeting.reach}m`),0,0,"⛏️");
       else if (this.emptyHands) this.hud.setPiece(t("빈손 · Q로 블록 들기", "Empty hands · Q to hold blocks"), 0, 0, "✋");
       else this.hud.setPiece(PIECES[this.pieceIndex]!, this.pieceRot, this.pieceTilt);
     }
@@ -1619,6 +1637,11 @@ export class CraftGame {
         seed: this.state.seed,
         selected: this.selected,
         emptyHands: this.emptyHands,
+        heldItem: this.heldTool(),
+        attackMode: !!this.heldTool(),
+        attacking: this.itemAttack.active,
+        toolOption: this.toolOption,
+        toolTime: this.toolElapsed,
         pitch: this.pitch,
         yaw: this.yaw,
         inventory: { ...this.state.inventory },

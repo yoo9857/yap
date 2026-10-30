@@ -1,4 +1,5 @@
-import { blockByKey, textureUrl, type BlockDef } from "./blocks.js";
+import {itemByKey, itemIcon, inventoryItems, type InventoryItem} from "./itemCatalog.js";
+import {PICKAXE} from "./toolDefinitions.js";
 import {
   BLOCK_GROUPS,
   CRAFT_RECIPES,
@@ -7,7 +8,6 @@ import {
   blockGroup,
   canCraftRecipe,
   countOf,
-  placeableBlocks,
   type BlockGroup,
   type Counts,
   type CraftRecipe,
@@ -17,7 +17,7 @@ import "./bag.css";
 
 export type BagTab = "blocks" | "craft";
 
-const blockLabel = (def: BlockDef): string => (isEnglish() ? def.name : def.ko);
+const blockLabel = (def: InventoryItem): string => (isEnglish() ? def.name : def.ko);
 const groupLabel = (id: string): string => {
   const meta = BLOCK_GROUPS.find((entry) => entry.id === id);
   return meta ? (isEnglish() ? meta.en : meta.ko) : id;
@@ -108,7 +108,7 @@ export class BagPanel {
         <div class="bag-tools">
           <label class="bag-find">
             <svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="8.5" cy="8.5" r="5.5"/><path d="M13 13l4.5 4.5"/></svg>
-            <input class="bag-search" data-id="bag-search" type="text" autocomplete="off" spellcheck="false" placeholder="${t("블록 이름으로 찾기", "Find a block by name")}" aria-label="${t("블록 이름으로 찾기", "Find a block by name")}" />
+            <input class="bag-search" data-id="bag-search" type="text" autocomplete="off" spellcheck="false" placeholder="${t("아이템 이름으로 찾기", "Find an item by name")}" aria-label="${t("아이템 이름으로 찾기", "Find an item by name")}" />
             <button type="button" class="bag-find-clear" data-id="bag-search-clear" aria-label="${t("검색 지우기", "Clear search")}" hidden>✕</button>
           </label>
           <label class="bag-only" data-id="bag-only" hidden><input type="checkbox" /><span>${t("만들 수 있는 것만", "Craftable only")}</span></label>
@@ -347,7 +347,7 @@ export class BagPanel {
     this.root.remove();
   }
 
-  /** Hover a block and press 1–9: it goes straight into that slot. The game's own key handler then holds the slot. */
+  /** Hover an item and press 1–9: it goes straight into that slot. The game's own key handler then holds the slot. */
   private quickLoad(event: KeyboardEvent): void {
     if (!this.open || this.tab !== "blocks" || !this.hoverKey) return;
     if (event.ctrlKey || event.metaKey || event.altKey || event.repeat) return;
@@ -462,7 +462,7 @@ export class BagPanel {
   }
 
   private showGhost(key: string): void {
-    const def = blockByKey(key);
+    const def = itemByKey(key);
     if (!def) return;
     if (!this.ghost) {
       this.ghost = document.createElement("div");
@@ -471,7 +471,7 @@ export class BagPanel {
       document.body.appendChild(this.ghost);
     }
     const img = this.ghost.querySelector("img");
-    if (img) img.src = textureUrl(def);
+    if (img) img.src = itemIcon(def);
     this.ghost.hidden = false;
   }
 
@@ -491,8 +491,8 @@ export class BagPanel {
   }
 
   /** Blocks this bag lists: everything in creative, only what you own otherwise. */
-  private pool(): BlockDef[] {
-    return placeableBlocks()
+  private pool(): InventoryItem[] {
+    return inventoryItems()
       .filter((def) => this.creative || countOf(this.counts, def.key) > 0)
       .sort((a, b) => blockBagOrder(a.key) - blockBagOrder(b.key));
   }
@@ -517,7 +517,7 @@ export class BagPanel {
     this.onlyBox.checked = this.onlyCraftable;
     this.grid.classList.toggle("hidden", craft);
     this.recipes.classList.toggle("hidden", !craft);
-    this.search.placeholder = craft ? t("만들 블록이나 재료로 찾기", "Find by result or ingredient") : t("블록 이름으로 찾기", "Find a block by name");
+    this.search.placeholder = craft ? t("만들 아이템이나 재료로 찾기", "Find by result or ingredient") : t("아이템 이름으로 찾기", "Find an item by name");
     this.tip.innerHTML = craft
       ? t("<kbd>Shift</kbd>+클릭은 한꺼번에 · 만든 블록은 고른 칸으로 와요",
         "<kbd>Shift</kbd>+click crafts a batch · new blocks land in the picked slot")
@@ -531,7 +531,7 @@ export class BagPanel {
     this.paintDetail();
   }
 
-  private matches(def: BlockDef): boolean {
+  private matches(def: InventoryItem): boolean {
     if (this.group !== "all" && blockGroup(def.key) !== this.group) return false;
     if (!this.query) return true;
     return `${def.ko} ${def.name} ${def.key}`.toLowerCase().includes(this.query);
@@ -558,7 +558,7 @@ export class BagPanel {
     }
     this.paintCats(perGroup, pool.length);
     this.summary.innerHTML = this.creative
-      ? t(`<b>${pool.length}</b>종 · 블록마다 <b>${formatCount(999)}</b>개`, `<b>${pool.length}</b> kinds · <b>${formatCount(999)}</b> of each`)
+      ? t(`<b>${pool.length}</b>종 · 블록 <b>${formatCount(999)}</b>개 · 도구 1개`, `<b>${pool.length}</b> kinds · <b>${formatCount(999)}</b> per block · 1 per tool`)
       : t(`<b>${pool.length}</b>종 · 모두 <b>${formatCount(owned)}</b>개`, `<b>${pool.length}</b> kinds · <b>${formatCount(owned)}</b> blocks`);
 
     const nav = `${this.group}|${this.query}`;
@@ -571,7 +571,7 @@ export class BagPanel {
     }
     const shown = pool.filter((def) => this.matches(def)).length;
     const note = shown === 0
-      ? `<div class="bag-empty"><b>${t("찾는 블록이 없어요", "No block matches")}</b>${t("다른 이름이나 종류로 찾아보세요.", "Try another name or category.")}</div>`
+      ? `<div class="bag-empty"><b>${t("찾는 아이템이 없어요", "No item matches")}</b>${t("다른 이름이나 종류로 찾아보세요.", "Try another name or category.")}</div>`
       : "";
     let lastGroup = "";
     const cells = pool.map((def) => {
@@ -589,7 +589,7 @@ export class BagPanel {
       const aria = held ? t(`${label}, ${n}개, 핫바 ${slot + 1}번`, `${label}, ${n}, hotbar ${slot + 1}`) : t(`${label}, ${n}개`, `${label}, ${n}`);
       const dim = this.matches(def) ? "" : " bag-dim";
       return `${head}<button type="button" class="bag-tile${dim}${held ? " held" : ""}" data-key="${def.key}" aria-label="${aria}">
-        <span class="bag-tile-art"><img src="${textureUrl(def)}" alt="" draggable="false" />${held ? `<i class="bag-equipped">${slot + 1}</i>` : ""}<b class="bag-count">${formatCount(n)}</b></span>
+        <span class="bag-tile-art"><img src="${itemIcon(def)}" alt="" draggable="false" />${held ? `<i class="bag-equipped">${slot + 1}</i>` : ""}<b class="bag-count">${formatCount(n)}</b></span>
         <span class="bag-tile-name">${label}</span>
       </button>`;
     }).join("");
@@ -613,12 +613,12 @@ export class BagPanel {
     this.grid.scrollTop = anchor ? Math.max(0, anchor.offsetTop - 12) : 0;
   }
 
-  private recipeMatches(recipe: CraftRecipe, def: BlockDef): boolean {
+  private recipeMatches(recipe: CraftRecipe, def: InventoryItem): boolean {
     if (this.group !== "all" && blockGroup(def.key) !== this.group) return false;
     if (this.onlyCraftable && !canCraftRecipe(this.counts, recipe)) return false;
     if (!this.query) return true;
     const hay = [blockLabel(def), def.name, def.ko, ...Object.keys(recipe.input).map((item) => {
-      const input = blockByKey(item);
+      const input = itemByKey(item);
       return input ? `${input.ko} ${input.name}` : item;
     })].join(" ").toLowerCase();
     return hay.includes(this.query);
@@ -627,12 +627,12 @@ export class BagPanel {
   /** Ingredient chips: have/need, red where short. */
   private needChips(recipe: CraftRecipe): string {
     return Object.entries(recipe.input).map(([key, need]) => {
-      const def = blockByKey(key);
+      const def = itemByKey(key);
       if (!def) return "";
       const have = countOf(this.counts, key);
       const ok = have >= need;
       return `<span class="bag-need ${ok ? "ok" : "short"}" title="${blockLabel(def)}">
-        <img src="${textureUrl(def)}" alt="" /><b>${blockLabel(def)}</b><small>${formatCount(have)}/${need}</small>
+        <img src="${itemIcon(def)}" alt="" /><b>${blockLabel(def)}</b><small>${formatCount(have)}/${need}</small>
       </span>`;
     }).join("");
   }
@@ -640,7 +640,7 @@ export class BagPanel {
   /** "모래 2개가 더 필요해요" — the first thing that stops this craft. */
   private missing(recipe: CraftRecipe): string {
     const short = Object.entries(recipe.input)
-      .map(([key, need]) => ({ def: blockByKey(key), more: need - countOf(this.counts, key) }))
+      .map(([key, need]) => ({ def: itemByKey(key), more: need - countOf(this.counts, key) }))
       .filter((entry) => entry.def && entry.more > 0);
     return short.map(({ def, more }) => t(`${blockLabel(def!)} ${more}개`, `${more} ${blockLabel(def!)}`)).join(", ");
   }
@@ -653,8 +653,8 @@ export class BagPanel {
 
   private paintRecipes(): void {
     const all = CRAFT_RECIPES
-      .map((recipe) => ({ recipe, def: blockByKey(outputKey(recipe)) }))
-      .filter((entry): entry is { recipe: CraftRecipe; def: BlockDef } => !!entry.def)
+      .map((recipe) => ({ recipe, def: itemByKey(outputKey(recipe)) }))
+      .filter((entry): entry is { recipe: CraftRecipe; def: InventoryItem } => !!entry.def)
       .sort((a, b) => blockBagOrder(a.def.key) - blockBagOrder(b.def.key));
     const perGroup = new Map<string, number>();
     let ready = 0;
@@ -678,7 +678,7 @@ export class BagPanel {
         ? `<small class="bag-state ok">${t(`만들 수 있어요 · 최대 ${times}번`, `Ready · up to ${times}×`)}</small>`
         : `<small class="bag-state short">${t(`${this.missing(recipe)}가 더 필요해요`, `Need ${this.missing(recipe)} more`)}</small>`;
       return `<article class="bag-recipe ${times > 0 ? "ready" : "blocked"}${recipe.id === this.focusRecipe ? " focus" : ""}" data-recipe-card="${recipe.id}">
-        <div class="bag-recipe-out"><img src="${textureUrl(def)}" alt="" /><b>×${amount}</b></div>
+        <div class="bag-recipe-out"><img src="${itemIcon(def)}" alt="" /><b>×${amount}</b></div>
         <strong class="bag-recipe-name">${blockLabel(def)}</strong>
         <div class="bag-recipe-act">${this.makeButtons(recipe, times)}</div>
         <div class="bag-recipe-in">${this.needChips(recipe)}</div>
@@ -704,7 +704,7 @@ export class BagPanel {
     this.detailSig = sig;
     if (craft) {
       const recipe = CRAFT_RECIPES.find((entry) => entry.id === recipeId);
-      const def = recipe ? blockByKey(outputKey(recipe)) : undefined;
+      const def = recipe ? itemByKey(outputKey(recipe)) : undefined;
       if (!recipe || !def) {
         this.detail.innerHTML = `<div class="bag-detail-empty">${t("조합에 마우스를 올리면<br>재료와 만들 수 있는 수를 자세히 보여 줘요.", "Hover a recipe to see<br>its ingredients in detail.")}</div>`;
         return;
@@ -712,7 +712,7 @@ export class BagPanel {
       const times = craftableTimes(this.counts, recipe);
       const amount = recipe.output[def.key] ?? 1;
       this.detail.innerHTML = `
-        <div class="bag-detail-art"><img src="${textureUrl(def)}" alt="" /></div>
+        <div class="bag-detail-art"><img src="${itemIcon(def)}" alt="" /></div>
         <h2>${blockLabel(def)}</h2>
         <p class="bag-detail-group">${groupLabel(blockGroup(def.key) ?? "special")} · ${t(`한 번에 ${amount}개`, `${amount} per craft`)}</p>
         <h3>${t("재료", "Ingredients")}</h3>
@@ -723,22 +723,26 @@ export class BagPanel {
         <div class="bag-detail-acts">${this.makeButtons(recipe, times)}</div>`;
       return;
     }
-    const def = key ? blockByKey(key) : undefined;
+    const def = key ? itemByKey(key) : undefined;
     if (!def) {
-      this.detail.innerHTML = `<div class="bag-detail-empty">${t("블록에 마우스를 올리면<br>자세히 보여 줘요.", "Hover a block<br>to see it in detail.")}</div>`;
+      this.detail.innerHTML = `<div class="bag-detail-empty">${t("아이템에 마우스를 올리면<br>자세히 보여 줘요.", "Hover an item<br>to see it in detail.")}</div>`;
       return;
     }
     const n = countOf(this.counts, def.key);
     const slot = this.slots.indexOf(def.key);
     const held = slot >= 0 && slot < WATER_SLOT;
+    if(def.kind==="tool"){
+      this.detail.innerHTML=`<div class="bag-detail-art"><img src="${itemIcon(def)}" alt="" />${held?`<i class="bag-equipped">${slot+1}</i>`:""}</div><h2>${blockLabel(def)}</h2><p class="bag-detail-group">${t("도구 · 공격 / 채굴","Tool · attack / mining")}</p><dl class="bag-detail-stats"><div><dt>${t("가진 수","Owned")}</dt><dd>${formatCount(n)}</dd></div><div><dt>${t("사거리","Reach")}</dt><dd>${PICKAXE.targeting.reach}m</dd></div><div><dt>${t("스윙","Swing")}</dt><dd>${PICKAXE.swing.seconds}${t("초","s")}</dd></div></dl><button type="button" class="bag-cta" data-load="${def.key}" ${n>0||this.creative?"":"disabled"}>${held?t(`${slot+1}번 칸 들기`,`Hold slot ${slot+1}`):t(`${this.armed+1}번 칸에 넣기`,`Load into slot ${this.armed+1}`)}</button><p class="bag-detail-note">${t("핫바에서 선택하면 공격 모드로 전환합니다. 왼쪽 클릭으로 내려찍기, 길게 눌러 연속 채굴, R로 옵션을 바꿉니다.","Select its hotbar slot to enter attack mode. Left click swings, hold repeats mining, R cycles options.")}</p>`;
+      return;
+    }
     const makes = CRAFT_RECIPES.filter((recipe) => recipe.output[def.key]);
     const uses = CRAFT_RECIPES.filter((recipe) => recipe.input[def.key]);
     const recipeLink = (recipe: CraftRecipe, ofKey: string): string => {
-      const out = blockByKey(ofKey);
-      return out ? `<button type="button" class="bag-link" data-jump="${recipe.id}"><img src="${textureUrl(out)}" alt="" />${blockLabel(out)}</button>` : "";
+      const out = itemByKey(ofKey);
+      return out ? `<button type="button" class="bag-link" data-jump="${recipe.id}"><img src="${itemIcon(out)}" alt="" />${blockLabel(out)}</button>` : "";
     };
     this.detail.innerHTML = `
-      <div class="bag-detail-art"><img src="${textureUrl(def)}" alt="" />${held ? `<i class="bag-equipped">${slot + 1}</i>` : ""}</div>
+      <div class="bag-detail-art"><img src="${itemIcon(def)}" alt="" />${held ? `<i class="bag-equipped">${slot + 1}</i>` : ""}</div>
       <h2>${blockLabel(def)}</h2>
       <p class="bag-detail-group">${groupLabel(blockGroup(def.key) ?? "special")}</p>
       <dl class="bag-detail-stats">
@@ -748,21 +752,21 @@ export class BagPanel {
       <button type="button" class="bag-cta" data-load="${def.key}" ${n > 0 || this.creative ? "" : "disabled"}>${held
         ? t(`${slot + 1}번 칸 들기`, `Hold slot ${slot + 1}`)
         : t(`${this.armed + 1}번 칸에 넣기`, `Load into slot ${this.armed + 1}`)}</button>
-      ${makes.length ? `<h3>${t("만드는 법", "Made from")}</h3><div class="bag-links">${makes.map((recipe) => `<button type="button" class="bag-link" data-jump="${recipe.id}">${Object.entries(recipe.input).map(([k, need]) => { const d = blockByKey(k); return d ? `<img src="${textureUrl(d)}" alt="" />${blockLabel(d)} ×${need}` : ""; }).join(" + ")}</button>`).join("")}</div>` : ""}
+      ${makes.length ? `<h3>${t("만드는 법", "Made from")}</h3><div class="bag-links">${makes.map((recipe) => `<button type="button" class="bag-link" data-jump="${recipe.id}">${Object.entries(recipe.input).map(([k, need]) => { const d = itemByKey(k); return d ? `<img src="${itemIcon(d)}" alt="" />${blockLabel(d)} ×${need}` : ""; }).join(" + ")}</button>`).join("")}</div>` : ""}
       ${uses.length ? `<h3>${t("재료로 쓰여요", "Used to make")}</h3><div class="bag-links">${uses.map((recipe) => recipeLink(recipe, outputKey(recipe))).join("")}</div>` : ""}`;
   }
 
   private paintHotbar(): void {
     const armedKey = this.slots[this.armed];
-    const armedDef = armedKey ? blockByKey(armedKey) : undefined;
+    const armedDef = armedKey ? itemByKey(armedKey) : undefined;
     this.armedLabel.textContent = armedDef
       ? t(`고른 칸 ${this.armed + 1}번 · ${blockLabel(armedDef)}`, `Picked slot ${this.armed + 1} · ${blockLabel(armedDef)}`)
       : t(`고른 칸 ${this.armed + 1}번 · 비어 있어요`, `Picked slot ${this.armed + 1} · empty`);
     this.hotbar.innerHTML = this.slots.map((key, index) => {
-      const def = key ? blockByKey(key) : undefined;
+      const def = key ? itemByKey(key) : undefined;
       const endless = def?.fluid === true;
       const n = def && !endless ? countOf(this.counts, key) : 0;
-      const img = def ? `<img src="${textureUrl(def)}" alt="${blockLabel(def)}" draggable="false" />` : "";
+      const img = def ? `<img src="${itemIcon(def)}" alt="${blockLabel(def)}" draggable="false" />` : "";
       const classes = [
         "bag-slot",
         index === this.armed ? "armed" : "",

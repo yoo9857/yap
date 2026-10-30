@@ -129,8 +129,8 @@
     {
       "id": "pickaxe-basic",
       "category": "items/tools",
-      "version": "1.0.0",
-      "workflow": "Blender source -> checked export -> runtime copy",
+      "version": "1.2.3",
+      "workflow": "Blender source -> checked GLB -> inventory/hotbar item -> attack mode",
       "files": [
         {
           "path": "assets/items/tools/pickaxe-basic/source/PickaxeBasic.blend",
@@ -163,6 +163,26 @@
         {
           "path": "apps/client/public/models/items/tools/pickaxe-basic/icon.png",
           "role": "icon"
+        },
+        {
+          "path": "assets/items/tools/pickaxe-basic/manifest.json",
+          "role": "manifest"
+        },
+        {
+          "path": "assets/items/tools/pickaxe-basic/source/create-textures.mjs",
+          "role": "generator"
+        },
+        {
+          "path": "apps/client/src/craft/itemCatalog.ts",
+          "role": "registry"
+        },
+        {
+          "path": "apps/client/src/craft/itemAttack.ts",
+          "role": "source"
+        },
+        {
+          "path": "apps/client/public/models/items/catalog.json",
+          "role": "runtime-registry"
         }
       ],
       "mirrors": [

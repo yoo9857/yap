@@ -30,7 +30,8 @@ export default tseslint.config(
   {
     // dev/e2e scripts: node + puppeteer-evaluated browser code in one file,
     // exercised by running them — static no-undef only produces noise here
-    files: ["tools/**/*.mjs"],
+    // (asset source folders keep their own Node generators beside the art)
+    files: ["tools/**/*.mjs", "assets/**/*.mjs"],
     rules: { "no-undef": "off" },
   },
 );

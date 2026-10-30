@@ -1,0 +1,48 @@
+{
+  "size": 512,
+  "origin": "UV bottom-left",
+  "padding": 0.015,
+  "regions": {
+    "wood": [
+      0,
+      0.5,
+      0.5,
+      1
+    ],
+    "iron": [
+      0.5,
+      0.5,
+      1,
+      1
+    ],
+    "grip": [
+      0,
+      0,
+      0.25,
+      0.5
+    ],
+    "brass": [
+      0.25,
+      0,
+      0.5,
+      0.5
+    ],
+    "edge": [
+      0.5,
+      0,
+      0.75,
+      0.5
+    ],
+    "endgrain": [
+      0.75,
+      0,
+      1,
+      0.5
+    ]
+  },
+  "channels": {
+    "albedo": "sRGB",
+    "normal": "tangent-space OpenGL +Y",
+    "orm": "R occlusion=1, G roughness, B metallic"
+  }
+}

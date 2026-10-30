@@ -63,6 +63,10 @@ export class MiningEffects {
   this.current?.setProgress(progress);
   if(nextStage!==this.stage){this.stage=nextStage;this.chips(cell,def,shape,nextStage);}
  }
+ /** Prepare geometry during the wind-up without showing cracks or hiding the intact block. */
+ primeTarget(cell:readonly [number,number,number],def:BlockDef,shape:number,makeShape:()=>DamageShape):void {
+  if(this.disposed)return;const waiting=this.waiting;this.prepare(cell,def,shape,makeShape());this.waiting=waiting;
+ }
  /** Review-only salt changes the next cut; gameplay keeps the stable coordinate-based pattern. */
  setVariation(salt:number):void {if(this.variationSalt===(salt|0))return;this.clearTarget();this.variationSalt=salt|0;}
  /** Thirty-two seeded topologies per shape, still held in the same bounded worker cache. */

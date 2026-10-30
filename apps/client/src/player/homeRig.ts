@@ -14,6 +14,7 @@ export type HomeVariant = "mascot" | "blue" | "purple" | "tt";
 export type HomeAnim = AnimState | "carry" | "place" | "sit" | "wave" | "lie" | "crawl";
 export interface MotionContext {
     swimming?: boolean;
+    toolTime?:number;
 }
 export interface HomeAssets {
     scene: THREE.Group;
@@ -115,6 +116,7 @@ export class HomeRig {
     private itemId:HeldItemId|null=null;
     private itemOption=PICKAXE.defaultOption;
     private heldItem:HeldItemInstance|null=null;
+    private readonly itemGrip:ReturnType<typeof handGrip>;
     get postureBusy(): boolean { return this.posture.transition !== null || this.poseBridge.active; }
     constructor(source: HomeAssets, variant: HomeVariant) {
         this.root.name = source.character;
@@ -191,6 +193,7 @@ export class HomeRig {
         this.applyBlend(0);
         this.mixer.update(0);
         this.model.updateMatrixWorld(true);
+        this.itemGrip = handGrip(this.solids);
         this.attachments = bindArmAttachments(this.solids);
         this.poseBridge = new PoseBridge([...new Set(this.solids.flatMap(m => m.skeleton.bones))]);
         this.ears = new EarDynamics(this.root, this.solids);
@@ -199,10 +202,16 @@ export class HomeRig {
     setHeldOpacity(opacity:number):void {this.heldItem?.setOpacity(opacity);}
     setHeldItem(id:HeldItemId|null,option=PICKAXE.defaultOption):void {
         if(this.disposed||this.itemId===id&&this.itemOption===option&&(!id||this.heldItem))return;
+        if(id===PICKAXE.id&&this.heldItem){this.itemId=id;this.itemOption=option;this.heldItem.setOption(option);this.heldItem.resume();return;}
+        if(!id&&this.heldItem){
+            this.itemId=null;this.itemOption=option;this.heldItem.release();
+            if(this.heldItem.released){this.heldItem.dispose();this.heldItem=null;}
+            return;
+        }
         this.heldItem?.dispose();this.heldItem=null;this.itemId=id;this.itemOption=option;
         if(!id)return;
-        const source=heldItemPrototype(id),grip=handGrip(this.solids);
-        if(source&&grip)this.heldItem=new HeldItemInstance(source,grip,option);
+        const source=heldItemPrototype(id),grip=this.itemGrip;
+        if(source&&grip)this.heldItem=new HeldItemInstance(source,grip,option,this.root);
         else if(!source)void preloadHeldItems().then(ok=>{if(ok&&!this.disposed&&this.itemId===id)this.setHeldItem(id,this.itemOption);});
     }
     pop(impulse: number): void {
@@ -296,6 +305,7 @@ export class HomeRig {
         if (this.disposed || !Number.isFinite(dt) || dt <= 0)
             return;
         dt = Math.min(dt, .25);
+        this.heldItem?.removePose();
         this.ears.removeOffset();
         const speed = Number.isFinite(planarSpeed) ? Math.max(0, planarSpeed) : 0;
         const swimming = !!context.swimming, air = !swimming && (anim === "jump" || anim === "fall"), wasAir = this.previous === "jump" || this.previous === "fall";
@@ -398,11 +408,12 @@ export class HomeRig {
         this.applyBlend(dt);
         // Work has priority over gestures. Crawl uses a supporting reach instead of lifting both hands.
         let overlay = "", overlayAge = 0, overlayLoop = false;
-        const workClip = this.work === "interact" ? "Interact" : this.work === "place" ? "Place" : this.work === "hit" ? "Hit" : "";
+        const pickaxeWork = !!this.itemId&&!!this.heldItem&&this.work==="interact"&&wanted==="stand"&&!air&&!swimming&&!step&&anim!=="dead";
+        const workClip = this.work === "interact" ? (pickaxeWork?"":"Interact") : this.work === "place" ? "Place" : this.work === "hit" ? "Hit" : "";
         if (!air && !swimming && !step && wanted !== "lie" && anim !== "dead") {
             if (workClip && (this.workLoop || this.workAge < (this.actions.get(workClip)?.getClip().duration ?? 0))) {
                 overlay = wanted === "crawl" ? "CrawlReach" : workClip;
-                overlayAge = this.workAge*(this.heldItem&&this.work==="interact"?(this.actions.get(workClip)?.getClip().duration??pickaxeCycle(this.itemOption))/pickaxeCycle(this.itemOption):1);
+                overlayAge = this.workAge*(this.itemId&&this.heldItem&&this.work==="interact"?(this.actions.get(workClip)?.getClip().duration??pickaxeCycle(this.itemOption))/pickaxeCycle(this.itemOption):1);
                 overlayLoop = this.workLoop;
             }
             else if (emoting && def?.clip && (moving || wanted === "sit")) {
@@ -427,6 +438,8 @@ export class HomeRig {
         this.overlay = target;
         this.mixer.update(0);
         this.poseBridge.apply(dt);
+        this.heldItem?.updatePose(dt,pickaxeWork&&(this.workLoop||this.workAge<pickaxeCycle(this.itemOption))?(context.toolTime??this.workAge)/pickaxeCycle(this.itemOption):null,wanted==="stand"&&!swimming&&anim!=="dead"&&!step&&!(emoting&&!!def?.clip)&&this.work!=="place"&&this.work!=="hit",{speed,gaitPhase:this.phase,grounded:!air});
+        if(this.heldItem?.released){this.heldItem.dispose();this.heldItem=null;}
         constrainArms(this.attachments);
         this.ears.update(dt, speed, air, wanted !== "stand" || !!step || anim === "dead");
         const priority = anim === "dead" ? "dead" : air ? "oh" : wanted === "lie" && !emoting ? "sleep" : "normal";
@@ -442,7 +455,7 @@ export class HomeRig {
             this.emote = "none";
             this.face.set(wanted === "lie" ? "sleep" : "neutral");
         }
-        if(this.heldItem)this.heldItem.root.visible=wanted==="stand"&&!swimming&&anim!=="dead"&&!step;
+        
         this.face.update(dt);
         for (let remaining = dt; remaining > 1e-8;) {
             const h = Math.min(remaining, 1 / 120);

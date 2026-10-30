@@ -1,7 +1,7 @@
 import { MAX_BLOCK_SHAPE } from "../blockShapes.js";
 import { z } from "zod";
 import { playerNameSchema } from "./messages.js";
-import { characterIdSchema, emoteIdSchema, characterActionSchema } from "../character.js";
+import { characterIdSchema, emoteIdSchema, characterActionSchema, heldItemSchema, toolOptionSchema } from "../character.js";
 
 /**
  * Classroom protocol — the education field's live multiplayer. A teacher
@@ -44,7 +44,7 @@ export const classRoleSchema = z.enum(["teacher", "student"]);
 export type ClassRole = z.infer<typeof classRoleSchema>;
 export const classAnimSchema = z.enum(["idle", "run", "jump", "fall", "sit", "lie", "crawl"]);
 export type ClassAnim = z.infer<typeof classAnimSchema>;
-const presentationShape = { action:characterActionSchema.optional(), actionSeq:z.number().int().min(0).max(1_000_000_000).optional(), actionLoop:z.boolean().optional(), swimming:z.boolean().optional(), character: characterIdSchema.optional(), emote: emoteIdSchema.optional(), emoteSeq: z.number().int().min(0).max(1_000_000_000).optional() };
+const presentationShape = { heldItem:heldItemSchema.nullable().optional(), toolOption:toolOptionSchema.optional(), toolPhase:z.number().finite().min(0).max(1).optional(), action:characterActionSchema.optional(), actionSeq:z.number().int().min(0).max(1_000_000_000).optional(), actionLoop:z.boolean().optional(), swimming:z.boolean().optional(), character: characterIdSchema.optional(), emote: emoteIdSchema.optional(), emoteSeq: z.number().int().min(0).max(1_000_000_000).optional() };
 
 /** One block write: absolute x/z, y, block id (0 = air), brick shape. */
 export const classEditSchema = z.tuple([

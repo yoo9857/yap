@@ -45,6 +45,14 @@ export function createMaterialMaps(family:SurfaceFamily|"grass-side",size=128):M
  const tex=(data:Uint8Array,name:string,srgb=false)=>{const t=new THREE.DataTexture(data,size,size,THREE.RGBAFormat);t.name="CraftYap "+family+" "+name;t.colorSpace=srgb?THREE.SRGBColorSpace:THREE.NoColorSpace;t.wrapS=t.wrapT=THREE.RepeatWrapping;t.generateMipmaps=true;t.minFilter=THREE.LinearMipmapLinearFilter;t.magFilter=THREE.LinearFilter;t.needsUpdate=true;return t;};
  return {map:tex(colour,"colour",true),normal:tex(normals,"normal"),roughness:tex(rough,"roughness-metalness")};
 }
+/**
+ * Copies of a library material that must follow it when its generated maps
+ * arrive (the game clones each block material for the merged far chunks; a
+ * clone made before the maps load would keep the placeholder surface, and the
+ * far terrain would read differently from the near terrain).
+ */
+const twins=new WeakMap<THREE.Material,THREE.MeshPhysicalMaterial[]>();
+export function linkSurfaceTwin(source:THREE.Material,twin:THREE.MeshPhysicalMaterial):void {let list=twins.get(source);if(!list)twins.set(source,list=[]);list.push(twin);}
 /** Only three draw groups, keeping different grass faces inexpensive in a voxel world. */
 export function materialFaceGroups(geometry:THREE.BufferGeometry,q?:THREE.Quaternion):THREE.BufferGeometry {
  const n=geometry.getAttribute("normal"),index=geometry.index,source=index?Array.from(index.array):Array.from({length:n.count},(_,i)=>i),groups:[number[],number[],number[]]=[[],[],[]],v=new THREE.Vector3();
@@ -72,7 +80,7 @@ export class BlockMaterialLibrary {
     void Promise.all([loadTexture(generated.albedo,{repeat:true}),loadTexture(generated.normal,{repeat:true,srgb:false}),loadTexture(generated.roughness,{repeat:true,srgb:false})]).then(([colour,normal,roughness])=>{
       if(this.disposed)return;
       for(const map of [colour,normal,roughness])if(map){map.flipY=false;map.anisotropy=4;map.needsUpdate=true;}
-      if(colour)material.map=colour;if(normal)material.normalMap=normal;if(roughness){material.roughnessMap=roughness;material.metalnessMap=roughness;}
+      for(const target of [material,...(twins.get(material)??[])]){if(colour)target.map=colour;if(normal)target.normalMap=normal;if(roughness){target.roughnessMap=roughness;target.metalnessMap=roughness;}target.userData.texture_source="image_gen v3";target.needsUpdate=true;}
       material.userData.texture_source="image_gen v3";material.needsUpdate=true;
     });
    }

@@ -1,4 +1,4 @@
-import { blockByKey, textureUrl, type BlockDef } from "./blocks.js";
+import {itemByKey, itemIcon, type InventoryItem} from "./itemCatalog.js";
 import {
   HOTBAR_SLOTS,
   countOf,
@@ -10,13 +10,13 @@ import { GameMenu, keyBarHtml, type HelpGroup, type KeyHelp } from "../ui/gameMe
 import { isEnglish, t } from "../ui/i18n.js";
 import { KEY_WASD, MOUSE_LEFT, MOUSE_MIDDLE, MOUSE_MOVE, MOUSE_RIGHT, MOUSE_WHEEL } from "../ui/inputGlyphs.js";
 
-const blockName = (def: BlockDef | undefined): string => (def ? (isEnglish() ? def.name : def.ko) : "");
+const blockName = (def: InventoryItem | undefined): string => (def ? (isEnglish() ? def.name : def.ko) : "");
 
 const ESSENTIALS = (): KeyHelp[] => [
   { keys: [KEY_WASD], label: t("걷기", "Walk") },
   { keys: ["Shift"], label: t("달리기", "Run") },
   { keys: ["Space"], label: t("점프", "Jump") },
-  { keys: [MOUSE_LEFT], label: t("꾹 눌러 캐기", "Hold to mine") },
+  { keys: [MOUSE_LEFT], label: t("도구 공격 / 꾹 눌러 캐기", "Attack / hold to mine") },
   { keys: [MOUSE_RIGHT], label: t("블록 놓기", "Place block") },
 ];
 
@@ -41,8 +41,7 @@ function helpGroups(furniture: boolean): HelpGroup[] {
         { keys: [MOUSE_LEFT], label: t("꾹 눌러 블록 캐기", "Hold to mine a block") },
         { keys: [MOUSE_RIGHT], label: t("블록 놓기", "Place a block") },
         { keys: ["E"], label: t("가방 — 넣기 · 끌어다 옮기기", "Bag — load a block, or drag it to a slot") },
-        { keys: ["H"], label: t("곡괭이 장착 / 해제", "Equip / unequip pickaxe") },
-        { keys: ["Shift", "H"], label: t("곡괭이 옵션 바꾸기", "Cycle pickaxe options") },
+        { keys: ["R"], label: t("곡괭이를 들었을 때 옵션 바꾸기", "Cycle options while holding a pickaxe") },
         { keys: ["I"], label: t("조합 · Shift+클릭은 여러 개", "Crafting · Shift+click makes a batch") },
         { keys: ["1–9", MOUSE_WHEEL], label: t("핫바에서 고르기", "Pick from the hotbar") },
         { keys: ["0"], label: t("물 양동이", "Water bucket") },
@@ -250,7 +249,7 @@ export class CraftHud {
     hotbar.forEach((slotKey, index) => {
       const el = this.slots[index];
       if (!el) return;
-      const def = slotKey ? blockByKey(slotKey) : undefined;
+      const def = slotKey ? itemByKey(slotKey) : undefined;
       const endless = def?.fluid === true;
       const n = def && !endless ? countOf(counts, slotKey) : 0;
       el.classList.toggle("selected", index === selected);
@@ -260,7 +259,7 @@ export class CraftHud {
       if (img && this.slotKeys[index] !== slotKey) {
         this.slotKeys[index] = slotKey;
         if (def) {
-          img.src = textureUrl(def);
+          img.src = itemIcon(def);
           img.alt = blockName(def);
           img.hidden = false;
           el.title = blockName(def);
@@ -286,7 +285,7 @@ export class CraftHud {
 
   /** The selected block's name over the hotbar, briefly, each time it changes. */
   private showSlotLabel(key: string, counts: Counts): void {
-    const def = key ? blockByKey(key) : undefined;
+    const def = key ? itemByKey(key) : undefined;
     if (!def) {
       this.flashSlotLabel(t("빈 칸 · E로 가방에서 넣어요", "Empty slot · E opens the bag"));
       return;

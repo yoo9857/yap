@@ -10,7 +10,7 @@ vi.mock("../src/craft/classHud.js", () => ({ ClassHud: class {
 } }));
 vi.mock("../src/player/rig.js", async () => {
   const THREE = await import("three");
-  return { CharacterRig: class { root = new THREE.Group(); update() {} flashHit() { this.root.userData.flashed = (Number(this.root.userData.flashed) || 0) + 1; } pop() { this.root.userData.popped = (Number(this.root.userData.popped) || 0) + 1; } performAction(id: string, seq: number) { this.root.userData.action = id; this.root.userData.actionSeq = seq; } setCharacter(id: string) { this.root.userData.characterId=id; } setEmote(id: string,seq: number) { this.root.userData.emote=id; this.root.userData.emoteSeq=seq; } }, disposeRig: (root: THREE.Object3D) => {
+  return { CharacterRig: class { root = new THREE.Group(); update(_anim:string,_speed:number,_dt:number,context:unknown) {this.root.userData.motionContext=context;} setHeldItem(id:string|null,option:string){this.root.userData.heldItem=id;this.root.userData.toolOption=option;} flashHit() { this.root.userData.flashed = (Number(this.root.userData.flashed) || 0) + 1; } pop() { this.root.userData.popped = (Number(this.root.userData.popped) || 0) + 1; } performAction(id: string, seq: number) { this.root.userData.action = id; this.root.userData.actionSeq = seq; } setCharacter(id: string) { this.root.userData.characterId=id; } setEmote(id: string,seq: number) { this.root.userData.emote=id; this.root.userData.emoteSeq=seq; } }, disposeRig: (root: THREE.Object3D) => {
     root.traverse((o) => { if (o instanceof THREE.Sprite) { o.material.map?.dispose(); o.material.dispose(); } });
   } };
 });
@@ -67,4 +67,9 @@ describe("classroom player synchronisation", () => {
     expect(scene.getObjectByName("CraftYap bonk")!.children.some((chip) => chip.visible)).toBe(true);
     sync.dispose();
   });
+  it("shows a classmate's actual equipped item and removes it on a block switch",()=>{
+    const {client,scene,sync}=setup();client.onSnap!([{id:"other",pos:[2,4,0],yaw:0,anim:"idle",heldItem:"pickaxe-basic",toolOption:"precise-tip",toolPhase:.58,action:"interact",actionSeq:7,actionLoop:true}]);sync.render(1/60);const friend=robots(scene)[0]!;expect(friend.userData).toMatchObject({heldItem:"pickaxe-basic",toolOption:"precise-tip",action:"interact"});expect((friend.userData.motionContext as {toolTime:number}).toolTime).toBeGreaterThan(0);
+    client.onSnap!([{id:"other",pos:[2,4,0],yaw:0,anim:"idle",heldItem:null,action:"none"}]);sync.render(1/60);expect(friend.userData.heldItem).toBeNull();sync.dispose();
+  });
+
 });
