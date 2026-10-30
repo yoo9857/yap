@@ -48,8 +48,8 @@ export interface ClassSyncHooks {
   worldChanged?(): void;
   /** The tap connected and we are the one who was hit. */
   bonked?(push: { vx: number; vz: number; vy: number }): void;
-  /** The connect sound, for everyone who can see it. */
-  impact?(): void;
+  /** The connect sound, for everyone who can see it, at the chest that was hit (grid metres). */
+  impact?(x?: number, y?: number, z?: number): void;
   /** A classmate's sound at a grid position (their steps, digs, blows, bricks). */
   sound?: (kind: ClassmateSound, family: string, x: number, y: number, z: number, wet?: boolean) => void;
 }
@@ -303,7 +303,7 @@ export class ClassSync {
     const [x, z] = this.field.toGrid(msg.at[0], msg.at[2]);
     this.fx.burst(x, msg.at[1], z, msg.vx, msg.vz);
     // the tapper already heard it on their own swing's contact frame
-    if (msg.by !== this.session.you) this.hooks.impact?.();
+    if (msg.by !== this.session.you) this.hooks.impact?.(x, msg.at[1], z);
   }
 
   /** Per rendered frame: place remote robots in local grid space. */

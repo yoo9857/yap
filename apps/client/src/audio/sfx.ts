@@ -1,4 +1,5 @@
 import { settings } from "../ui/settings.js";
+import { occlusion, roomEcho, type CellDamping, type Room } from "./acoustics.js";
 import { collectSound, materialSound, sampleBank, stepBank, type SampleBankId, type SoundKind, type SoundLayer } from "./materialSounds.js";
 
 /**
@@ -65,6 +66,23 @@ export function placeSound(l: { x: number; y: number; z: number; yaw: number }, 
   return { gain, pan: Math.max(-0.8, Math.min(0.8, right * 0.8)) };
 }
 
+/** A synthetic room impulse: decaying stereo noise, darker as it fades (walls soak up the highs). */
+function impulse(ctx: BaseAudioContext, seconds: number): AudioBuffer {
+  const rate = ctx.sampleRate, length = Math.max(1, Math.floor(rate * seconds));
+  const buffer = ctx.createBuffer(2, length, rate);
+  for (let ch = 0; ch < 2; ch++) {
+    const data = buffer.getChannelData(ch);
+    let lp = 0;
+    for (let i = 0; i < length; i++) {
+      const t = i / length;
+      const k = 0.15 + 0.8 * t; // smoothing grows: the tail loses its treble first
+      lp = lp * k + (Math.random() * 2 - 1) * (1 - k);
+      data[i] = lp * Math.pow(1 - t, 2.2) * (i < rate * 0.012 ? i / (rate * 0.012) : 1);
+    }
+  }
+  return buffer;
+}
+
 export class Sfx {
   private readonly events = new AbortController();
   private disposed = false;
@@ -81,6 +99,14 @@ export class Sfx {
   private readonly lastPick = new Map<string, number[]>();
   /** Where the ears are (the camera) and which way they face, for classmates' sounds. */
   private readonly listener = { x: 0, y: 0, z: 0, yaw: 0 };
+  /** After the compressor: the underwater low-pass, then the speakers. */
+  private master: BiquadFilterNode | null = null;
+  /** Room echo: a send from the mix into a convolver whose tail follows the room's size. */
+  private reverbSend: GainNode | null = null;
+  private convolver: ConvolverNode | null = null;
+  private reverbDecay = 0;
+  /** The world as an acoustic space (set by the game): what each cell does to a sound passing through. */
+  private damping: CellDamping | null = null;
   /** Set only for the duration of one positioned sound: every layer of it goes through this gain + pan. */
   private bus: AudioNode | null = null;
   /** Live layers. Past the cap new layers are dropped: a sand avalanche must not become a wall of sound. */
@@ -115,7 +141,21 @@ export class Sfx {
       comp.threshold.value = -18;
       comp.knee.value = 12;
       comp.ratio.value = 4;
-      comp.connect(this.ctx.destination);
+      // compressor → master low-pass (opens fully on land, closes underwater) → speakers,
+      // with a send from the compressor into the room echo that also lands on the master
+      const master = this.ctx.createBiquadFilter();
+      master.type = "lowpass";
+      master.frequency.value = 20000;
+      master.Q.value = 0.4;
+      master.connect(this.ctx.destination);
+      comp.connect(master);
+      const send = this.ctx.createGain();
+      send.gain.value = 0;
+      const convolver = this.ctx.createConvolver();
+      comp.connect(send).connect(convolver).connect(master);
+      this.master = master;
+      this.reverbSend = send;
+      this.convolver = convolver;
       this.out = comp;
       const frames = this.ctx.sampleRate;
       this.noiseBuffer = this.ctx.createBuffer(1, frames, frames);
@@ -144,8 +184,63 @@ export class Sfx {
   }
 
   /** The camera, each frame: classmates' sounds are placed against it. */
-  setListener(x: number, y: number, z: number, yaw: number): void {
+  setListener(x: number, y: number, z: number, yaw: number, pitch = 0): void {
     this.listener.x = x; this.listener.y = y; this.listener.z = z; this.listener.yaw = yaw;
+    const l = this.ctx?.listener;
+    if (!l) return;
+    const fx = Math.sin(yaw) * Math.cos(pitch), fy = Math.sin(pitch), fz = Math.cos(yaw) * Math.cos(pitch);
+    if (l.positionX) {
+      const t = this.ctx!.currentTime;
+      l.positionX.setTargetAtTime(x, t, 0.015); l.positionY.setTargetAtTime(y, t, 0.015); l.positionZ.setTargetAtTime(z, t, 0.015);
+      l.forwardX.setTargetAtTime(fx, t, 0.015); l.forwardY.setTargetAtTime(fy, t, 0.015); l.forwardZ.setTargetAtTime(fz, t, 0.015);
+      l.upX.value = 0; l.upY.value = 1; l.upZ.value = 0;
+    } else {
+      l.setPosition(x, y, z);
+      l.setOrientation(fx, fy, fz, 0, 1, 0);
+    }
+  }
+
+  /** What each cell does to sound (1 solid wall, ~0.35 glass/leaves, 0 air/water), in the same grid as `at`. */
+  setAcoustics(damping: CellDamping | null): void {
+    this.damping = damping;
+  }
+
+  /**
+   * How enclosed the listener is (acoustics.measureRoom, a few times a second):
+   * open fields stay dry, a house rings a little, a cave hall rings long.
+   */
+  setRoom(room: Room): void {
+    const ctx = this.ctx;
+    if (!ctx || !this.reverbSend || !this.convolver) return;
+    const { wet, decay } = roomEcho(room);
+    this.reverbSend.gain.setTargetAtTime(wet * settings.sfx, ctx.currentTime, 0.25);
+    // a new impulse only when the room changes character (≥0.25 s of tail), never every probe
+    const rounded = Math.round(decay * 4) / 4;
+    if (wet > 0.01 && Math.abs(rounded - this.reverbDecay) >= 0.25) {
+      this.reverbDecay = rounded;
+      this.convolver.buffer = impulse(ctx, rounded);
+    }
+  }
+
+  /** State for debug hooks and tests: what the listener hears right now. */
+  debug(): { running: boolean; banks: number; echo: number; echoTail: number; masterCutoff: number; voices: number; wallTo: (x: number, y: number, z: number) => number } {
+    const l = this.listener;
+    return {
+      running: this.ctx?.state === "running",
+      banks: this.banks.size,
+      echo: this.reverbSend?.gain.value ?? 0,
+      echoTail: this.reverbDecay,
+      masterCutoff: this.master?.frequency.value ?? 20000,
+      voices: this.voices,
+      wallTo: (x, y, z) => (this.damping ? occlusion([l.x, l.y, l.z], [x, y, z], this.damping).amount : 0),
+    };
+  }
+
+  /** Head under water: everything turns dull and close. */
+  setUnderwater(under: boolean): void {
+    const ctx = this.ctx;
+    if (!ctx || !this.master) return;
+    this.master.frequency.setTargetAtTime(under ? 650 : 20000, ctx.currentTime, 0.08);
   }
 
   /**
@@ -156,21 +251,46 @@ export class Sfx {
   at(x: number, y: number, z: number, play: () => void): void {
     const ctx = this.ready();
     if (!ctx) return;
-    const { gain, pan: side } = placeSound(this.listener, x, y, z);
-    if (gain < 0.03) return;
+    const { gain: reach, pan: side } = placeSound(this.listener, x, y, z);
+    if (reach < 0.03) return; // beyond ~22 m: not worth a voice
+    const l = this.listener;
+    const dist = Math.hypot(x - l.x, y - l.y, z - l.z);
+    // walls between us: quieter and duller, the way a neighbour's hammering comes through
+    const wall = this.damping ? occlusion([l.x, l.y, l.z], [x, y, z], this.damping) : { gain: 1, cutoff: 20000 };
     const g = ctx.createGain();
-    g.gain.value = gain;
-    let node: AudioNode = g;
-    if (typeof ctx.createStereoPanner === "function") {
+    g.gain.value = wall.gain;
+    const tone = ctx.createBiquadFilter();
+    tone.type = "lowpass";
+    // air takes the top off far sounds as well (about 0.5 kHz per metre past 4 m)
+    tone.frequency.value = Math.min(wall.cutoff, Math.max(2500, 20000 - Math.max(0, dist - 4) * 500));
+    tone.Q.value = 0.5;
+    g.connect(tone);
+    const nodes: AudioNode[] = [g, tone];
+    let tail: AudioNode = tone;
+    if (typeof ctx.createPanner === "function") {
+      // HRTF: front/back/up/down, not just left/right. Distance follows the inverse law past 2 m.
+      const p = ctx.createPanner();
+      p.panningModel = "HRTF";
+      p.distanceModel = "inverse";
+      p.refDistance = 2;
+      p.maxDistance = 40;
+      p.rolloffFactor = 1.1;
+      if (p.positionX) { p.positionX.value = x; p.positionY.value = y; p.positionZ.value = z; } else p.setPosition(x, y, z);
+      tail.connect(p);
+      tail = p;
+      nodes.push(p);
+    } else {
       const pan = ctx.createStereoPanner();
       pan.pan.value = side;
-      g.connect(pan);
-      node = pan;
+      g.gain.value *= reach;
+      tail.connect(pan);
+      tail = pan;
+      nodes.push(pan);
     }
-    node.connect(this.out ?? ctx.destination);
+    tail.connect(this.out ?? ctx.destination);
     this.bus = g;
     try { play(); } finally { this.bus = null; }
-    setTimeout(() => { g.disconnect(); node.disconnect(); }, 2500);
+    setTimeout(() => { for (const n of nodes) n.disconnect(); }, 2500);
   }
 
   /** One footstep on a block of this surface family (`wet`: in shallow water). Played on the frame the foot lands. */
@@ -365,6 +485,9 @@ export class Sfx {
     if (this.ctx) void this.ctx.close().catch(() => {});
     this.ctx = null;
     this.out = null;
+    this.master = null;
+    this.reverbSend = null;
+    this.convolver = null;
     this.noiseBuffer = null;
     this.banks.clear();
   }

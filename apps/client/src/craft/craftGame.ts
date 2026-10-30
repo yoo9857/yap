@@ -55,6 +55,7 @@ import {selectedTool,toolByKey,withStarterTools,itemByKey} from "./itemCatalog.j
 import {ItemAttack,type ItemAttackStep} from "./itemAttack.js";
 import {MiningEffects} from "./miningEffects.js";
 import {surfaceStyle} from "./blockMaterials.js";
+import {measureRoom} from "../audio/acoustics.js";
 import { CraftCamera } from "./craftCamera.js";
 import { CraftHud } from "./craftHud.js";
 import { MachineWorkshop } from "./machines/workshop.js";
@@ -158,6 +159,7 @@ export class CraftGame {
   /** Last rendered gait / dig phases, to catch the frame a foot lands or the hand meets the block. */
   private cuePhase = -1;
   private stepQuietUntil = 0;
+  private roomProbeIn = 0;
   private cueDig = -1;
   /** Metres walked since the last footstep, and whether the body was on the ground last tick. */
   private stepDistance = 0;
@@ -209,6 +211,17 @@ export class CraftGame {
     this.skyEnvironment = createSkyEnvironment(this.renderer.renderer, SKY_TOP, FOG_COLOR, 0x9a8f78);
     this.view.setEnvironment(this.skyEnvironment.texture);
     this.miningEffects=new MiningEffects(this.renderer.scene,cell=>this.view.setMiningHidden(cell));
+    // the world as an acoustic space: bricks block sound, glass/ice/leaves let most of it through,
+    // water damps a little (read live, so field scrolls and classroom resyncs need nothing)
+    this.sfx.setAcoustics((x, y, z) => {
+      const id = this.state.world.get(x, y, z);
+      if (!id) return 0;
+      const def = blockById(id);
+      if (!def) return 0;
+      if (def.fluid) return 0.15;
+      if (def.seeThrough || def.key.endsWith("leaves")) return 0.35;
+      return SOLID_ID[id] ? 1 : 0;
+    });
     this.hud = new CraftHud(document.body, (recipe, many) => this.handleCraft(recipe, many), {
       furniture: true,
       creative: opts.field === true || opts.classroom !== undefined,
@@ -321,7 +334,7 @@ export class CraftGame {
             unstick(this.state.world, this.body);
           },
           bonked: (push) => this.receiveBonk(push),
-          impact: () => this.sfx.play("bonk"),
+          impact: (x, y, z) => x === undefined ? this.sfx.play("bonk") : this.sfx.at(x, y!, z!, () => this.sfx.play("bonk")),
           sound: (kind, family, x, y, z, wet) => this.sfx.at(x, y, z, () => {
             if (kind === "step") this.sfx.step(family, wet, 0.8);
             else if (kind === "swing") this.sfx.swing(0.12);
@@ -1564,7 +1577,9 @@ export class CraftGame {
     this.rig.performAction(this.workAction,this.workSeq,this.workLoop);
     this.rig.update(anim, planar, frameDt,{swimming:this.isSwimming(),toolTime:this.itemAttack.active?this.toolElapsed:undefined});
     this.cueSounds();
-    { const cam = this.renderer.camera; this.sfx.setListener(cam.position.x, cam.position.y, cam.position.z, this.viewYaw); }
+    { const cam = this.renderer.camera; this.sfx.setListener(cam.position.x, cam.position.y, cam.position.z, this.viewYaw, this.viewPitch);
+      // how enclosed the ears are, a few times a second: the echo follows from the room's size
+      if ((this.roomProbeIn -= frameDt) <= 0) { this.roomProbeIn = 0.25; this.sfx.setRoom(measureRoom([cam.position.x, cam.position.y, cam.position.z], (x, y, z) => this.state.world.isSolid(x, y, z))); } }
 
     const eye = this.tmpEye.set(drawn.x, this.smoothedEyeY(drawn.y, frameDt), drawn.z);
     const t0 = performance.now();
@@ -1688,6 +1703,7 @@ export class CraftGame {
     const under = pointInWater(this.state.world, p.x, p.y + (this.underwater ? -0.07 : 0.07), p.z);
     if (under === this.underwater) return;
     this.underwater = under;
+    this.sfx.setUnderwater(under);
     this.underwaterTint.classList.toggle("on", under);
     const fog = this.renderer.scene.fog as THREE.Fog;
     if (under) {
@@ -1832,6 +1848,7 @@ export class CraftGame {
       waterStats: () => ({ ...this.view.waterStats(), simulation: this.water?.stats() ?? null }),
       chunks: () => this.view.chunkStats(),
       miningVisual:()=>this.miningEffects.stats(),
+      audio: () => this.sfx.debug(),
       dispose: () => this.dispose(),
       machine: () => this.workshop.snapshot(),
       classroom: () => this.sync?.debug() ?? null,

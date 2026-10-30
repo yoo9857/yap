@@ -8,6 +8,13 @@
     <language>ko</language>
     <lastBuildDate>Thu, 29 Oct 2026 15:00:00 +0000</lastBuildDate>
     <item>
+      <title>10월 30일 패치 노트 (3) — 입체 음향, 벽 너머의 소리, 동굴의 울림</title>
+      <link>https://craftyap.com/note/patch-2026-10-30-3/</link>
+      <guid isPermaLink="true">https://craftyap.com/note/patch-2026-10-30-3/</guid>
+      <pubDate>Thu, 29 Oct 2026 15:00:00 +0000</pubDate>
+      <description>친구의 소리가 앞뒤·위아래 방향과 거리에 따라 들립니다. 벽 너머의 소리는 작고 먹먹해지고, 동굴이나 집 안에서는 소리가 울리며, 물속에서는 모든 소리가 둔해집니다. 발소리도 한 번 더 작고 부드럽게 줄였습니다.</description>
+    </item>
+    <item>
       <title>10월 30일 패치 노트 (2) — 블록마다 다른 소리, 동작에 맞춘 효과음, 친구의 소리</title>
       <link>https://craftyap.com/note/patch-2026-10-30-2/</link>
       <guid isPermaLink="true">https://craftyap.com/note/patch-2026-10-30-2/</guid>
@@ -139,13 +146,6 @@
       <guid isPermaLink="true">https://craftyap.com/note/network-2026-07-18/</guid>
       <pubDate>Fri, 17 Jul 2026 15:00:00 +0000</pubDate>
       <description>7월 18일 오전, craftyap.com 온라인 서버가 가동을 시작했습니다. Daily Tower 실시간 멀티플레이와 일일 순위표가 서버를 통해 운영됩니다.</description>
-    </item>
-    <item>
-      <title>크래프트얍 오픈 안내 — 블록 하나에서 시작하는 세상</title>
-      <link>https://craftyap.com/note/launch-2026-07-18/</link>
-      <guid isPermaLink="true">https://craftyap.com/note/launch-2026-07-18/</guid>
-      <pubDate>Fri, 17 Jul 2026 15:00:00 +0000</pubDate>
-      <description>브라우저에서 바로 즐기는 무료 블록 게임 크래프트얍이 문을 열었습니다. 네 가지 게임과 시작하는 방법을 소개합니다.</description>
     </item>
   </channel>
 </rss>
