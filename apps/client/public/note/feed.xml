@@ -6,7 +6,7 @@
   <id>https://craftyap.com/note/</id>
   <updated>2026-10-30T00:00:00+09:00</updated>
   <author><name>크래프트얍(CraftYap)</name></author>
-  <entry>
+  <entry xml:base="https://craftyap.com/">
     <title>10월 30일 패치 노트 (4) — 내 소리도 입체로, 가구가 소리를 막아요, 일시정지 화면 수정</title>
     <link href="https://craftyap.com/note/patch-2026-10-30-4/" />
     <id>https://craftyap.com/note/patch-2026-10-30-4/</id>
@@ -33,7 +33,7 @@
 &lt;/ul&gt;
 </content>
   </entry>
-  <entry>
+  <entry xml:base="https://craftyap.com/">
     <title>10월 30일 패치 노트 (3) — 입체 음향, 벽 너머의 소리, 동굴의 울림</title>
     <link href="https://craftyap.com/note/patch-2026-10-30-3/" />
     <id>https://craftyap.com/note/patch-2026-10-30-3/</id>
@@ -68,7 +68,7 @@
 &lt;/ul&gt;
 </content>
   </entry>
-  <entry>
+  <entry xml:base="https://craftyap.com/">
     <title>10월 30일 패치 노트 (2) — 블록마다 다른 소리, 동작에 맞춘 효과음, 친구의 소리</title>
     <link href="https://craftyap.com/note/patch-2026-10-30-2/" />
     <id>https://craftyap.com/note/patch-2026-10-30-2/</id>
@@ -118,7 +118,7 @@
 &lt;/ul&gt;
 </content>
   </entry>
-  <entry>
+  <entry xml:base="https://craftyap.com/">
     <title>10월 30일 패치 노트 — 포근한 곡괭이, 자연스러운 도구 동작, 새 잔디 질감</title>
     <link href="https://craftyap.com/note/patch-2026-10-30/" />
     <id>https://craftyap.com/note/patch-2026-10-30/</id>
@@ -231,7 +231,7 @@
 &lt;/ul&gt;
 </content>
   </entry>
-  <entry>
+  <entry xml:base="https://craftyap.com/">
     <title>10월 29일 패치 노트 (4) — 새 가방, 교실 친구 밀기, 부드러워진 채굴과 선명한 캐릭터</title>
     <link href="https://craftyap.com/note/patch-2026-10-29-4/" />
     <id>https://craftyap.com/note/patch-2026-10-29-4/</id>
@@ -288,7 +288,7 @@
 &lt;/ul&gt;
 </content>
   </entry>
-  <entry>
+  <entry xml:base="https://craftyap.com/">
     <title>10월 29일 패치 노트 (3) — 블록의 모양과 질감, 채굴과 모래 낙하</title>
     <link href="https://craftyap.com/note/patch-2026-10-29-3/" />
     <id>https://craftyap.com/note/patch-2026-10-29-3/</id>
@@ -411,7 +411,7 @@
 &lt;p&gt;돌 큐브·통나무 큐브·돌 경사의 32개 패턴, 총 &lt;strong&gt;96개 조합&lt;/strong&gt;에서 원래 형상의 체적이 유지되는지 확인했습니다. 사진에는 블록·표면·균열의 전후 비교와 연결·파손·모래 낙하 과정을 담았습니다.&lt;/p&gt;
 </content>
   </entry>
-  <entry>
+  <entry xml:base="https://craftyap.com/">
     <title>10월 29일 패치 노트 (2) — 새 첫 화면 게시판, 교육 모드 화면, 로딩창</title>
     <link href="https://craftyap.com/note/patch-2026-10-29-2/" />
     <id>https://craftyap.com/note/patch-2026-10-29-2/</id>
@@ -454,7 +454,7 @@
 &lt;/ul&gt;
 </content>
   </entry>
-  <entry>
+  <entry xml:base="https://craftyap.com/">
     <title>10월 29일 패치 노트 — 감정표현, 새 캐릭터 TT, 기어가기</title>
     <link href="https://craftyap.com/note/patch-2026-10-29/" />
     <id>https://craftyap.com/note/patch-2026-10-29/</id>
@@ -487,7 +487,7 @@
 &lt;/ul&gt;
 </content>
   </entry>
-  <entry>
+  <entry xml:base="https://craftyap.com/">
     <title>10월 28일 패치 노트 — 새 게임 화면, HOME 캐릭터, 한국어 첫 화면</title>
     <link href="https://craftyap.com/note/patch-2026-10-28/" />
     <id>https://craftyap.com/note/patch-2026-10-28/</id>
@@ -534,7 +534,7 @@
 &lt;/ul&gt;
 </content>
   </entry>
-  <entry>
+  <entry xml:base="https://craftyap.com/">
     <title>개발 노트를 시작합니다</title>
     <link href="https://craftyap.com/note/hello-dev-notes/" />
     <id>https://craftyap.com/note/hello-dev-notes/</id>
@@ -572,7 +572,7 @@
 최신 소식은 &lt;a href=&quot;/note/feed.xml&quot;&gt;RSS 피드&lt;/a&gt;로도 받아 볼 수 있습니다.&lt;/p&gt;
 </content>
   </entry>
-  <entry>
+  <entry xml:base="https://craftyap.com/">
     <title>10월 26일 패치 노트 — 물이 흐릅니다</title>
     <link href="https://craftyap.com/note/patch-2026-10-26/" />
     <id>https://craftyap.com/note/patch-2026-10-26/</id>
@@ -614,7 +614,7 @@
 &lt;/ul&gt;
 </content>
   </entry>
-  <entry>
+  <entry xml:base="https://craftyap.com/">
     <title>10월 23일 패치 노트 — 반려동물, 가구, 반 이름 교실</title>
     <link href="https://craftyap.com/note/patch-2026-10-23/" />
     <id>https://craftyap.com/note/patch-2026-10-23/</id>
@@ -664,7 +664,7 @@
 &lt;/ul&gt;
 </content>
   </entry>
-  <entry>
+  <entry xml:base="https://craftyap.com/">
     <title>10월 22일 패치 노트 — 교육 모드와 함께 만드는 교실</title>
     <link href="https://craftyap.com/note/patch-2026-10-22/" />
     <id>https://craftyap.com/note/patch-2026-10-22/</id>
@@ -697,7 +697,7 @@
 &lt;/ul&gt;
 </content>
   </entry>
-  <entry>
+  <entry xml:base="https://craftyap.com/">
     <title>실시간 교실 네트워크 오픈 안내</title>
     <link href="https://craftyap.com/note/network-2026-10-22/" />
     <id>https://craftyap.com/note/network-2026-10-22/</id>
@@ -733,7 +733,7 @@
 &lt;/blockquote&gt;
 </content>
   </entry>
-  <entry>
+  <entry xml:base="https://craftyap.com/">
     <title>10월 15일 패치 노트 — 처음 타는 사람도 날 수 있게</title>
     <link href="https://craftyap.com/note/patch-2026-10-15/" />
     <id>https://craftyap.com/note/patch-2026-10-15/</id>
@@ -766,7 +766,7 @@
 &lt;/ul&gt;
 </content>
   </entry>
-  <entry>
+  <entry xml:base="https://craftyap.com/">
     <title>10월 14일 패치 노트 — 기계 작업실 오픈, 섬이 네 배로</title>
     <link href="https://craftyap.com/note/patch-2026-10-14/" />
     <id>https://craftyap.com/note/patch-2026-10-14/</id>
@@ -801,7 +801,7 @@
 &lt;/ul&gt;
 </content>
   </entry>
-  <entry>
+  <entry xml:base="https://craftyap.com/">
     <title>8월 5일 패치 노트 — Robo Builder VR</title>
     <link href="https://craftyap.com/note/patch-2026-08-05/" />
     <id>https://craftyap.com/note/patch-2026-08-05/</id>
@@ -837,7 +837,7 @@
 &lt;/ul&gt;
 </content>
   </entry>
-  <entry>
+  <entry xml:base="https://craftyap.com/">
     <title>7월 22일 패치 노트 — 방송 후원과 연동되는 Robo Builder</title>
     <link href="https://craftyap.com/note/patch-2026-07-22/" />
     <id>https://craftyap.com/note/patch-2026-07-22/</id>
@@ -862,7 +862,7 @@
 &lt;/ul&gt;
 </content>
   </entry>
-  <entry>
+  <entry xml:base="https://craftyap.com/">
     <title>7월 19일 패치 노트 — 모든 모드를 같은 장난감 블록으로</title>
     <link href="https://craftyap.com/note/patch-2026-07-19/" />
     <id>https://craftyap.com/note/patch-2026-07-19/</id>
@@ -899,7 +899,7 @@
 &lt;/ul&gt;
 </content>
   </entry>
-  <entry>
+  <entry xml:base="https://craftyap.com/">
     <title>7월 18일 패치 노트 — 크래프트얍 첫 공개</title>
     <link href="https://craftyap.com/note/patch-2026-07-18/" />
     <id>https://craftyap.com/note/patch-2026-07-18/</id>

@@ -4,7 +4,7 @@ import { voxelCoordinates, voxelKey, type VoxelKey } from "@robo/shared";
 import { blockByKey, isKnownCell } from "./blocks.js";
 import { ensureFieldStacks, fieldStarterHotbar, sanitizeCounts, sanitizeHotbar, type Counts } from "./inventory.js";
 import { VoxelWorld, WORLD_X, WORLD_Y, WORLD_Z } from "./voxelWorld.js";
-import type { KeyValueStorage } from "./craftSave.js";
+import { isQuotaError, keepUnreadable, saveStatus, type KeyValueStorage } from "./craftSave.js";
 import { furnitureSaveSchema, type FurnitureTuple } from "./furniture/layout.js";
 
 /**
@@ -28,7 +28,8 @@ const STEP = 16;
 const RECENTER = 8;
 /** Farthest render distance the scrolling window can back. */
 export const FIELD_MAX_VIEW = 72;
-const SAVE_KEY = "craftyap-field-save-v1";
+export const FIELD_SAVE_KEY = "craftyap-field-save-v1";
+const SAVE_KEY = FIELD_SAVE_KEY;
 const MAX_SAVED_EDITS = 400_000;
 const CENTER_X = WORLD_X / 2;
 const CENTER_Z = WORLD_Z / 2;
@@ -211,8 +212,12 @@ export class FieldWindow {
     hotbar?: readonly string[],
   ): boolean {
     this.bank();
+    saveStatus.tooBig = false;
     // Never overwrite a readable save with one the loader would reject.
-    if (this.edits.size > MAX_SAVED_EDITS) return false;
+    if (this.edits.size > MAX_SAVED_EDITS) {
+      saveStatus.tooBig = true;
+      return false;
+    }
     const edits = [...this.edits].map(([key, [block, shape]]) => [...voxelCoordinates(key), block, shape]);
     try {
       storage.setItem(
@@ -220,7 +225,10 @@ export class FieldWindow {
         JSON.stringify({ v: 1, originX: this.originX, originZ: this.originZ, edits, inventory, player, pet, furniture, ...(hotbar ? { hotbar: [...hotbar] } : {}) }),
       );
       return true;
-    } catch {
+    } catch (e) {
+      // ~20 characters an edit: the browser's ~5M-character quota runs out
+      // around 250k edits, before the cap above
+      saveStatus.tooBig = isQuotaError(e);
       return false;
     }
   }
@@ -229,16 +237,25 @@ export class FieldWindow {
   load(
     storage: KeyValueStorage,
   ): { inventory: Counts; hotbar: string[]; player: { x: number; y: number; z: number }; pet?: string; furniture?: unknown[] } | null {
-    let parsed: unknown;
+    let raw: string | null;
     try {
-      const raw = storage.getItem(SAVE_KEY);
-      if (!raw) return null;
-      parsed = JSON.parse(raw);
+      raw = storage.getItem(SAVE_KEY);
     } catch {
       return null;
     }
+    if (!raw) return null;
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(raw);
+    } catch {
+      keepUnreadable(storage, SAVE_KEY, raw);
+      return null;
+    }
     const result = saveSchema.safeParse(parsed);
-    if (!result.success) return null;
+    if (!result.success) {
+      keepUnreadable(storage, SAVE_KEY, raw);
+      return null;
+    }
     const d = result.data;
     this.originX = d.originX;
     this.originZ = d.originZ;

@@ -287,7 +287,9 @@ ${body}
 }
 
 function feed() {
-  const entries = notes.slice(0, 20).map((n) => `  <entry>
+  // xml:base: post bodies use root-relative links (/note/assets/…), which a
+  // feed reader cannot resolve without it
+  const entries = notes.slice(0, 20).map((n) => `  <entry xml:base="${ORIGIN}/">
     <title>${esc(n.title)}</title>
     <link href="${n.url}" />
     <id>${n.url}</id>
@@ -351,7 +353,7 @@ const want = new Map([
   ["note/feed.xml", feed()],
   ["feed.xml", rss()],
   // the home page's "새 소식" pin reads this
-  ["note/latest.json", `${JSON.stringify({ title: notes[0].title, url: `/note/${notes[0].slug}/`, date: notes[0].date })}\n`],
+  ["note/latest.json", `${JSON.stringify(notes.length ? { title: notes[0].title, url: `/note/${notes[0].slug}/`, date: notes[0].date } : {})}\n`],
   ["sitemap.xml", sitemap()],
   ...notes.map((n, i) => [`note/${n.slug}/index.html`, postPage(n, i)]),
 ]);

@@ -74,12 +74,13 @@ function makeDoodleRingTexture(): THREE.Texture | null {
 export class Effects {
   private readonly pool: Particle[] = [];
   private readonly rings: Ring[] = [];
-  private readonly materials = new Map<number, THREE.MeshLambertMaterial>();
 
   constructor(private readonly scene: THREE.Scene) {
     const geo = new THREE.BoxGeometry(1, 1, 1);
     for (let i = 0; i < POOL_SIZE; i++) {
-      const mesh = new THREE.Mesh(geo, this.material(0xffffff));
+      // its own material: each particle fades on its own clock, and a material
+      // shared per colour made a fresh burst take the last particle's opacity
+      const mesh = new THREE.Mesh(geo, new THREE.MeshLambertMaterial({ color: 0xffffff, transparent: true }));
       mesh.visible = false;
       scene.add(mesh);
       this.pool.push({
@@ -128,15 +129,6 @@ export class Effects {
     ring.mesh.scale.setScalar(from);
   }
 
-  private material(color: number): THREE.MeshLambertMaterial {
-    let m = this.materials.get(color);
-    if (!m) {
-      m = new THREE.MeshLambertMaterial({ color, transparent: true });
-      this.materials.set(color, m);
-    }
-    return m;
-  }
-
   private spawn(
     pos: THREE.Vector3,
     color: number,
@@ -152,7 +144,9 @@ export class Effects {
       if (!p) return; // pool exhausted — drop, never allocate
       p.active = true;
       p.mesh.visible = true;
-      p.mesh.material = this.material(color);
+      const material = p.mesh.material as THREE.MeshLambertMaterial;
+      material.color.setHex(color);
+      material.opacity = 1;
       p.mesh.position.copy(pos);
       const angle = Math.random() * Math.PI * 2;
       const r = Math.random() * speed;

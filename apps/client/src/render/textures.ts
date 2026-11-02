@@ -70,9 +70,32 @@ export function warmupGpu(
   renderer: THREE.WebGLRenderer,
   scene: THREE.Scene,
   camera: THREE.Camera,
+  targets: readonly (THREE.WebGLRenderTarget | null)[] = [null],
 ): void {
   uploadAllTextures(renderer);
-  renderer.compile(scene, camera);
+  compileFor(renderer, scene, camera, targets);
+}
+
+/** `renderer.compile` once per target the game draws into (see `GameRenderer.compileTargets`). */
+export function compileFor(
+  renderer: THREE.WebGLRenderer,
+  scene: THREE.Scene,
+  camera: THREE.Camera,
+  targets: readonly (THREE.WebGLRenderTarget | null)[],
+): void {
+  if (targets.length === 1 && targets[0] === null && renderer.getRenderTarget?.() == null) {
+    renderer.compile(scene, camera); // the canvas only, already bound
+    return;
+  }
+  const prev = renderer.getRenderTarget();
+  try {
+    for (const target of targets) {
+      renderer.setRenderTarget(target);
+      renderer.compile(scene, camera);
+    }
+  } finally {
+    renderer.setRenderTarget(prev);
+  }
 }
 
 /**
@@ -97,6 +120,7 @@ export async function warmupGpuAsync(
   renderFrame: () => void,
   frames = 2,
   signal?: AbortSignal,
+  targets: readonly (THREE.WebGLRenderTarget | null)[] = [null],
 ): Promise<void> {
   if (signal?.aborted) return;
   uploadAllTextures(renderer);
@@ -104,7 +128,7 @@ export async function warmupGpuAsync(
   // properties. A mode disposing those materials mid-compile can leave that
   // poll reading a deleted program. Poll the public GL completion flag here
   // and cancel waits before disposing the renderer instead.
-  renderer.compile(scene, camera);
+  compileFor(renderer, scene, camera, targets);
   const gl = renderer.getContext(), parallel = gl.getExtension("KHR_parallel_shader_compile");
   if (parallel) while (!signal?.aborted && !gl.isContextLost()) {
     const ready = (renderer.info.programs ?? []).every((p) => {

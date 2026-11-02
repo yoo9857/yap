@@ -12,18 +12,24 @@ export interface SandHost {
 }
 interface Grain {x:number;cellY:number;z:number;y:number;velocity:number;block:number;shape:number;mesh:THREE.Mesh}
 const loose=new Set([blockByKey("sand")!.id,blockByKey("red-sand")!.id]);
+const SCAN_PER_UPDATE=180_000;
 export const isLooseSand=(block:number,shape:number):boolean=>loose.has(block)&&isFullCubeShape(shape);
 /** Logical cells stay in the world throughout motion, so saving or stopping a fall never loses material. */
 export class SandSim {
  private readonly pending=new Set<number>();private readonly active=new Map<number,Grain>();private disposed=false;
+ /** Next cell of a time-sliced wake (-1: none running). A full scan is 1.4M cells, too much for the frame a field scroll lands on. */
+ private scan=-1;
  constructor(private readonly world:VoxelWorld,private readonly host:SandHost){}
  touch(x:number,y:number,z:number):void {for(const py of [y,y+1])if(this.world.inBounds(x,py,z)&&isLooseSand(this.world.get(x,py,z),this.world.getShape(x,py,z)))this.pending.add(VoxelWorld.index(x,py,z));}
- wakeAll():void {for(let i=0;i<this.world.cells.length;i++)if(isLooseSand(this.world.cells[i]!,this.world.shapes[i]!))this.pending.add(i);}
+ wakeAll():void {this.scan=-1;this.wakeRange(0,this.world.cells.length);}
+ private wakeRange(from:number,to:number):void {const cells=this.world.cells,shapes=this.world.shapes;for(let i=from;i<to;i++){const id=cells[i]!;if(loose.has(id)&&isLooseSand(id,shapes[i]!))this.pending.add(i);}}
  private decode(index:number):[number,number,number] {return [index%WORLD_X,Math.floor(index/(WORLD_X*WORLD_Z)),Math.floor(index/WORLD_X)%WORLD_Z];}
  private canFall(x:number,y:number,z:number):boolean {return y>0&&!this.world.isBlocked(x,y-1,z)&&(this.host.canEnter?.(x,y-1,z)??true);}
  private syncHidden():void {this.host.hidden([...this.active.values()].map(g=>[g.x,g.cellY,g.z] as const));}
  update(dt:number):void {
-  if(this.disposed)return;const step=Math.max(0,Math.min(.05,dt));let checked=0,changed=false;const retry:number[]=[];
+  if(this.disposed)return;
+  if(this.scan>=0){const end=Math.min(this.world.cells.length,this.scan+SCAN_PER_UPDATE);this.wakeRange(this.scan,end);this.scan=end>=this.world.cells.length?-1:end;}
+  const step=Math.max(0,Math.min(.05,dt));let checked=0,changed=false;const retry:number[]=[];
   for(const index of this.pending){if(this.active.size>=32||checked++>=256)break;this.pending.delete(index);if(this.active.has(index))continue;const [x,y,z]=this.decode(index),block=this.world.get(x,y,z),shape=this.world.getShape(x,y,z);
    if(!isLooseSand(block,shape))continue;if(!this.canFall(x,y,z)){if(y>0&&!this.world.isBlocked(x,y-1,z))retry.push(index);continue;}const model=this.host.shape(block,shape,[x,y,z]),mesh=new THREE.Mesh(model.geometry,model.materials.length===1?model.materials[0]:model.materials);mesh.name="Falling loose sand";mesh.quaternion.copy(model.rotation);mesh.position.set(x+.5,y+.5,z+.5);mesh.castShadow=true;mesh.receiveShadow=true;this.host.scene.add(mesh);this.active.set(index,{x,cellY:y,z,y,velocity:0,block,shape,mesh});changed=true;
   }
@@ -46,8 +52,8 @@ export class SandSim {
   if(changed)this.syncHidden();
  }
  /** Field scrolling retains the logical sand cells; restart their visual fall in the new coordinate window. */
- shift():void {this.clear();this.wakeAll();}
- stats():{falling:number;queued:number}{return {falling:this.active.size,queued:this.pending.size};}
+ shift():void {this.clear();this.scan=0;}
+ stats():{falling:number;queued:number;scanning:boolean}{return {falling:this.active.size,queued:this.pending.size,scanning:this.scan>=0};}
  clear():void {for(const g of this.active.values()){g.mesh.removeFromParent();g.mesh.geometry.dispose();}this.active.clear();this.pending.clear();this.host.hidden([]);}
  dispose():void {if(this.disposed)return;this.clear();this.disposed=true;}
 }

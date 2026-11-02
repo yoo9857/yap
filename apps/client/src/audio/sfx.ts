@@ -123,8 +123,9 @@ export class Sfx {
   constructor() {
     const unlock = () => {
       this.ensureContext();
-      if (this.ctx && this.ctx.state === "suspended") {
-        void this.ctx.resume();
+      // not only "suspended": Safari parks a context as "interrupted" after a call
+      if (this.ctx && this.ctx.state !== "running" && this.ctx.state !== "closed") {
+        void this.ctx.resume().catch(() => {});
       }
       this.unlocked = true;
       void this.loadBanks();
@@ -375,7 +376,7 @@ export class Sfx {
       // every file at once (they are a few KB each): one round trip instead of 115 in a row,
       // so the recordings replace the synth fallback within a moment of the first click
       const ctx = this.ctx;
-      if (!ctx || this.disposed) return;
+      if (!ctx || this.disposed) { this.retryBanksLater(); return; }
       const load = async (file: string): Promise<Clip | null> => {
         try {
           const data = await (await fetch("/audio/sfx/" + file)).arrayBuffer();
@@ -386,6 +387,8 @@ export class Sfx {
         const clips = (await Promise.all(files.map(load))).filter((c): c is Clip => c !== null);
         if (clips.length && !this.disposed) this.banks.set(id, clips);
       }));
+      // the manifest came but no file did (the link dropped right after): try again later
+      if (this.banks.size === 0) this.retryBanksLater();
     } catch { this.retryBanksLater(); /* offline or blocked: the synth recipes keep playing meanwhile */ }
   }
 

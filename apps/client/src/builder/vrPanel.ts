@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { t } from "../ui/i18n.js";
 
 /**
  * The wrist shop panel: the one piece of VR that is INPUT, not just view.
@@ -29,11 +30,11 @@ export const PANEL_H = 384;
 
 /** Player-facing names, shared by the buttons and the confirmation toasts. */
 export const VR_ACTION_LABELS: Record<VrPanelAction, string> = {
-  worker: "Crew",
-  speed: "Speed",
-  value: "Value",
-  crane: "Crane",
-  next: "Next view",
+  worker: t("일꾼", "Crew"),
+  speed: t("속도", "Speed"),
+  value: t("가치", "Value"),
+  crane: t("크레인", "Crane"),
+  next: t("다음 시점", "Next view"),
 };
 
 const BTN_TOP = 250;
@@ -177,7 +178,7 @@ export class VrShopPanel {
     c.fillStyle = "#b8860b";
     c.fillText(`${Math.floor(info.gold).toLocaleString()} G`, 24, 108);
     c.fillStyle = "#3d6b3d";
-    c.fillText(`${info.workers} crew`, 210, 108);
+    c.fillText(t(`일꾼 ${info.workers}명`, `${info.workers} crew`), 210, 108);
     c.fillStyle = "#5b6670";
     c.fillText(`${pct.toFixed(1)}%`, 360, 108);
 
@@ -188,7 +189,7 @@ export class VrShopPanel {
       c.fillText(info.toast, 24, 150, PANEL_W - 48);
     } else {
       c.fillStyle = "#5b6670";
-      c.fillText(`Goal: ${info.goalTitle}`, 24, 150, PANEL_W - 48);
+      c.fillText(`${t("목표", "Goal")}: ${info.goalTitle}`, 24, 150, PANEL_W - 48);
     }
 
     for (const b of PANEL_BUTTONS) {
@@ -218,7 +219,7 @@ export class VrShopPanel {
       c.font = '700 26px "Jua", system-ui, sans-serif';
       c.fillText(b.label, b.x + b.w / 2, b.y + 22, b.w - 12);
       c.font = '700 22px "Jua", system-ui, sans-serif';
-      const sub = b.id === "next" ? "free" : owned ? "owned" : `${Math.round(cost)}G`;
+      const sub = b.id === "next" ? t("무료", "free") : owned ? t("보유", "owned") : `${Math.round(cost)}G`;
       c.fillText(sub, b.x + b.w / 2, b.y + 62, b.w - 12);
       c.textAlign = "left";
     }

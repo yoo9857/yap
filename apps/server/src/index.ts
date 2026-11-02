@@ -35,6 +35,7 @@ const MIME: Record<string, string> = {
   ".webm": "video/webm",
   ".txt": "text/plain; charset=utf-8",
   ".xml": "application/xml; charset=utf-8",
+  ".glb": "model/gltf-binary",
 };
 
 const staticRoot = config.SERVE_STATIC ? resolve(entryDir, config.STATIC_DIR) : null;
@@ -65,6 +66,9 @@ const httpServer = createServer((req, res) => {
   }
   try {
     const url = new URL(req.url ?? "/", "http://localhost");
+    // "/.//evil.com/index.html" parses to the path "//evil.com/index.html", and a
+    // redirect to that is protocol-relative: another site. Paths start with one slash.
+    url.pathname = url.pathname.replace(/^\/{2,}/, "/");
     // Retire the unrelated editorial URLs without discarding game/class links.
     let redirect = false;
     if (url.pathname === "/") {
@@ -110,7 +114,22 @@ const httpServer = createServer((req, res) => {
     const sessionPage = extname(filePath) === ".html" &&
       ["room", "host", "teacher", "student", "pass", "preview"].some((key) => url.searchParams.has(key));
     const contentType = MIME[extname(filePath)] ?? "application/octet-stream";
-    const size = statSync(filePath).size;
+    const stat = statSync(filePath);
+    const size = stat.size;
+    // validators, so a revalidation (index.html is no-cache) can be a 304
+    const etag = `W/"${size.toString(16)}-${Math.floor(stat.mtimeMs).toString(16)}"`;
+    const lastModified = stat.mtime.toUTCString();
+    if (!sessionPage && (req.method === "GET" || req.method === "HEAD")) {
+      const inm = req.headers["if-none-match"];
+      const ims = req.headers["if-modified-since"];
+      const fresh = inm !== undefined
+        ? inm.split(",").some((tag) => tag.trim() === etag || tag.trim() === "*")
+        : ims !== undefined && Date.parse(ims) >= Math.floor(stat.mtimeMs / 1000) * 1000;
+      if (fresh) {
+        res.writeHead(304, { etag, "last-modified": lastModified, "cache-control": cacheControlFor(rawPath, filePath) }).end();
+        return;
+      }
+    }
     const media = contentType.startsWith("video/");
     let start = 0;
     let end = size - 1;
@@ -134,6 +153,7 @@ const httpServer = createServer((req, res) => {
       ...(media ? { "accept-ranges": "bytes" } : {}),
       ...(partial ? { "content-range": `bytes ${start}-${end}/${size}` } : {}),
       "cache-control": sessionPage ? "no-store" : cacheControlFor(rawPath, filePath),
+      ...(sessionPage ? {} : { etag, "last-modified": lastModified }),
       // Class/player links and internal previews are not public search pages.
       ...(sessionPage ? { "x-robots-tag": "noindex, nofollow" } : {}),
     });
@@ -174,13 +194,22 @@ function shutdown(reason: string, code: number): void {
   if (shuttingDown) return;
   shuttingDown = true;
   log.info({ reason }, "shutting down");
-  closeWs();
-  rooms.shutdown();
-  classes.shutdown();
-  records.close();
-  httpServer.close(() => process.exit(code));
-  // hard exit if graceful close hangs
+  // hard exit if graceful close hangs — armed first, so a step that throws
+  // below cannot leave the process lingering until docker's SIGKILL
   setTimeout(() => process.exit(code), 3000).unref();
+  for (const [name, step] of [
+    ["ws", closeWs],
+    ["rooms", () => rooms.shutdown()],
+    ["classes", () => classes.shutdown()],
+    ["records", () => records.close()],
+  ] as const) {
+    try {
+      step();
+    } catch (err) {
+      log.error({ err, step: name }, "shutdown step failed");
+    }
+  }
+  httpServer.close(() => process.exit(code));
 }
 
 process.on("SIGINT", () => shutdown("SIGINT", 0));

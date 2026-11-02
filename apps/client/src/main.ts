@@ -53,6 +53,18 @@ function hideOverlay(): void {
 
 retryBtn?.addEventListener("click", () => window.location.reload());
 
+// A GPU reset takes the WebGL context away; three.js asks for it back and the
+// browser usually restores it within a moment. When it never comes back the
+// canvas just freezes, so after a grace period say so and offer the reload.
+let contextLostTimer = 0;
+document.addEventListener("webglcontextlost", () => {
+  clearTimeout(contextLostTimer);
+  contextLostTimer = window.setTimeout(() => {
+    showFatal(t("그래픽 연결이 끊겼어요. 다시 시도하면 이어서 할 수 있어요.", "The graphics connection was lost. Try again to carry on."));
+  }, 5000);
+}, true);
+document.addEventListener("webglcontextrestored", () => clearTimeout(contextLostTimer), true);
+
 async function withTimeout<T>(promise: Promise<T>, ms: number, what: string): Promise<T> {
   let timer: ReturnType<typeof setTimeout>;
   const timeout = new Promise<never>((_, reject) => {
@@ -135,6 +147,8 @@ async function boot(): Promise<void> {
     document.getElementById("mode-select")?.remove();
     const { bootCharPreview } = await import("./app/charPreview.js");
     await bootCharPreview(mount);
+    // like any mode: the menu art and video otherwise stay over the turntable
+    document.body.classList.add("in-game");
     return;
   }
 

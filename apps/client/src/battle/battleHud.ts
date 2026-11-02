@@ -152,7 +152,7 @@ export class BattleHud {
     this.endCard.classList.remove("hidden");
     this.endCard.innerHTML = `
       <div class="screen-card">
-        <h1>${won ? "🏆 VICTORY ROYALE!" : `💥 ${t("탈락!", "ELIMINATED")}`}</h1>
+        <h1>${won ? t("🏆 최후의 1인!", "🏆 VICTORY ROYALE!") : `💥 ${t("탈락!", "ELIMINATED")}`}</h1>
         <p class="subtitle">${won
           ? t("마지막까지 살아남은 로봇이 됐어요!", "Last robot standing.")
           : aliveBots === 0

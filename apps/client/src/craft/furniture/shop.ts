@@ -89,7 +89,7 @@ export class FurnitureShop {
     this.search = document.createElement("input");
     this.search.className = "furn-search";
     this.search.type = "search";
-    this.search.placeholder = t("🔍 가구 찾기 (예: 의자)", "🔍 Find furniture (e.g. 의자 = chair)");
+    this.search.placeholder = t("🔍 가구 찾기 (예: 의자)", "🔍 Find furniture (e.g. chair)");
     this.search.dataset.id = "furniture-search";
     this.search.addEventListener("input", () => this.renderGrid());
     this.panel.appendChild(this.search);

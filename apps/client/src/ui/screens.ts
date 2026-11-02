@@ -76,7 +76,7 @@ export class Screens {
     }
 
     this.titleEl.querySelector('[data-id="start"]')?.addEventListener("click", () => {
-      const name = this.nameInput.value.trim() || t("플레이어", "Player");
+      const name = cleanName(this.nameInput.value) || t("플레이어", "Player");
       try {
         localStorage.setItem("robo-name", name);
       } catch {
@@ -152,4 +152,18 @@ export class Screens {
 
 function escapeHtml(s: string): string {
   return s.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
+}
+
+/**
+ * What the server's name rule accepts: no control or invisible format
+ * characters (an emoji joined with U+200D was refused silently, and the tab
+ * reconnected forever) and at most 16 UTF-16 units, cut on a whole character.
+ */
+export function cleanName(raw: string): string {
+  let out = "";
+  for (const ch of raw.replace(/\p{C}/gu, "").trim()) {
+    if (out.length + ch.length > 16) break;
+    out += ch;
+  }
+  return out.trim();
 }

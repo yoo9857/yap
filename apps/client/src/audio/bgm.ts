@@ -33,10 +33,18 @@ export class Bgm {
     this.el.loop = this.tracks.length <= 1; // single track loops; a playlist advances
     this.el.src = this.tracks[this.nextIndex()]!;
     if (this.tracks.length > 1) {
-      this.el.addEventListener("ended", () => {
+      const advance = () => {
         this.el.src = this.tracks[this.nextIndex()]!;
         if (!this.muted) void this.el.play().catch(() => {});
+      };
+      this.el.addEventListener("ended", advance, { signal: this.events.signal });
+      // a track that fails to load never ends: skip it, but give up after a
+      // whole playlist of failures rather than spin through it forever
+      let failures = 0;
+      this.el.addEventListener("error", () => {
+        if (++failures < this.tracks.length) advance();
       }, { signal: this.events.signal });
+      this.el.addEventListener("playing", () => { failures = 0; }, { signal: this.events.signal });
     }
 
     const tryPlay = () => {

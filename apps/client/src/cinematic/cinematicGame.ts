@@ -212,7 +212,7 @@ export class CinematicGame {
   start(): void {
     this.loop.start();
     void texturesReady().then(() => {
-      warmupGpu(this.renderer.renderer, this.renderer.scene, this.renderer.camera);
+      warmupGpu(this.renderer.renderer, this.renderer.scene, this.renderer.camera, this.renderer.compileTargets());
     });
   }
 

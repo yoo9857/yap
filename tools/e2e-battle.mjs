@@ -57,7 +57,7 @@ await sleep(400);
 const s3 = await page.evaluate(() => globalThis.__roboBattle.snapshot());
 check("last robot standing wins", s3.phase === "won", s3.phase);
 const endText = await page.evaluate(() => document.querySelector(".battle-end")?.textContent ?? "");
-check("victory card shown", endText.includes("VICTORY"), endText.slice(0, 40));
+check("victory card shown", endText.includes("VICTORY") || endText.includes("최후의 1인"), endText.slice(0, 40));
 
 // lose path on a fresh match
 await page.goto("http://localhost:5173/?mode=battle", { waitUntil: "networkidle2", timeout: 30000 });

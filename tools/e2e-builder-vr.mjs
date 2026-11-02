@@ -127,19 +127,18 @@ async function canvasLuma() {
 }
 const clearLuma = await canvasLuma();
 
+// A screenshot takes longer than the whole 0.5 s fade-out, so polling for the
+// peak sampled it past its darkest frame: hold the fade once it is dark, measure
+// that very frame, then let it go.
+await page.evaluate(() => globalThis.__roboBuilder.vrHoldAtBlind(0.95));
 await page.evaluate(() => globalThis.__roboBuilder.vrSkip());
-// sample fast enough to catch the fade-out peak (0.5 s)
-let peakBlind = 0;
-let peakLuma = null;
-for (let i = 0; i < 60; i++) {
-  const s = await status();
-  if (s.blind > peakBlind) {
-    peakBlind = s.blind;
-    peakLuma = await canvasLuma();
-  }
-  if (s.blind > 0.98) break;
-  await sleep(10);
-}
+await page
+  .waitForFunction(() => globalThis.__roboBuilder.vrStatus().blind >= 0.95, { timeout: 5000 })
+  .catch(() => {});
+await sleep(100); // let the held frame reach the screen
+const peakBlind = (await status()).blind;
+const peakLuma = await canvasLuma();
+await page.evaluate(() => globalThis.__roboBuilder.vrHoldAtBlind(null));
 check("the cut is hidden behind a black blinder", peakBlind > 0.9, `peak=${peakBlind.toFixed(2)}`);
 // a truly opaque overlay at opacity `blind` leaves clearLuma * (1 - blind)
 const expectedLuma = clearLuma * (1 - peakBlind);
@@ -262,14 +261,13 @@ check(
 
 // the "next view" button must cut the viewpoint, behind the blinder as always
 const stationBeforePress = (await status()).station;
+await page.evaluate(() => globalThis.__roboBuilder.vrHoldAtBlind(0.95));
 await page.evaluate(() => globalThis.__roboBuilder.vrPress("next"));
-let pressPeakBlind = 0;
-for (let i = 0; i < 60; i++) {
-  const s = await status();
-  pressPeakBlind = Math.max(pressPeakBlind, s.blind);
-  if (s.blind > 0.98) break;
-  await sleep(10);
-}
+await page
+  .waitForFunction(() => globalThis.__roboBuilder.vrStatus().blind >= 0.95, { timeout: 5000 })
+  .catch(() => {});
+const pressPeakBlind = (await status()).blind;
+await page.evaluate(() => globalThis.__roboBuilder.vrHoldAtBlind(null));
 await sleep(1200);
 const stationAfterPress = (await status()).station;
 check(

@@ -36,7 +36,9 @@ elif docker compose ps --status running --services 2>/dev/null | grep -qx app; t
     const Database = require("better-sqlite3");
     const db = new Database(process.argv[1], { readonly: true, fileMustExist: true });
     db.backup(process.argv[2]).then(() => { db.close(); }, (err) => { console.error(err); process.exit(1); });
-  ' "/app/apps/server/data/records.db" "/app/apps/server/data/pre-deploy/${NAME}"
+  ' "/app/apps/server/data/records.db" "/app/apps/server/data/pre-deploy/${NAME}" </dev/null
+  # ^ </dev/null: the deploy script itself arrives on stdin (ssh 'bash -se'), and
+  #   `exec -T` would otherwise read the rest of it into the container
 else
   echo "pre-deploy backup: no sqlite3 on the host and the app container is not running — refusing to deploy unprotected" >&2
   exit 1
@@ -45,6 +47,16 @@ fi
 # a snapshot that is empty or fails SQLite's own check is not a rollback point
 SNAP="${OUT_DIR}/${NAME}"
 [[ -s "${SNAP}" ]] || { echo "pre-deploy backup: empty snapshot" >&2; exit 1; }
+if command -v sqlite3 >/dev/null 2>&1; then
+  check="$(sqlite3 "${SNAP}" 'PRAGMA quick_check;' 2>&1 || true)"
+else
+  check="$(docker compose exec -T -w /app/apps/server app node -e '
+    const Database = require("better-sqlite3");
+    const db = new Database(process.argv[1], { readonly: true, fileMustExist: true });
+    process.stdout.write(String(db.pragma("quick_check", { simple: true })));
+  ' "/app/apps/server/data/pre-deploy/${NAME}" </dev/null 2>&1 || true)"
+fi
+[[ "${check}" == "ok" ]] || { echo "pre-deploy backup: snapshot failed quick_check: ${check}" >&2; exit 1; }
 gzip -f "${SNAP}"
 echo "pre-deploy backup → ${SNAP}.gz ($(du -h "${SNAP}.gz" | cut -f1))"
 

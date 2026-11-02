@@ -13,7 +13,8 @@ import { VoxelWorld, WORLD_X, WORLD_Y, WORLD_Z, CRAFT_SPAWN, generateIsland, sur
  * fall back to a fresh island — never a crash.
  */
 
-const SAVE_KEY = "craftyap-craft-save-v1";
+export const CRAFT_SAVE_KEY = "craftyap-craft-save-v1";
+const SAVE_KEY = CRAFT_SAVE_KEY;
 
 const saveSchema = z.object({
   // v1 saves have no `shapes` (all cubes); v2 adds the brick-shape diff
@@ -115,12 +116,38 @@ export function serializeCraft(state: CraftGameState, nowMs: number): string {
   });
 }
 
+/**
+ * Why the last solo save failed: `tooBig` means the world no longer fits in
+ * the browser's storage (or past the field's edit cap), which keeping the tab
+ * open will not fix — the toast says so instead of "keep this tab open".
+ */
+export const saveStatus = { tooBig: false };
+
+export function isQuotaError(e: unknown): boolean {
+  return e instanceof DOMException && (e.name === "QuotaExceededError" || e.name === "NS_ERROR_DOM_QUOTA_REACHED");
+}
+
 export function saveCraft(state: CraftGameState, storage: KeyValueStorage, nowMs: number): boolean {
+  saveStatus.tooBig = false;
   try {
     storage.setItem(SAVE_KEY, serializeCraft(state, nowMs));
     return true;
-  } catch {
+  } catch (e) {
+    saveStatus.tooBig = isQuotaError(e);
     return false;
+  }
+}
+
+/**
+ * A save the loader cannot read (a newer build's after a rollback, a damaged
+ * one) is set aside before the fresh world's first autosave replaces it, so a
+ * newer build — or a person — can still bring it back.
+ */
+export function keepUnreadable(storage: KeyValueStorage, key: string, raw: string): void {
+  try {
+    storage.setItem(`${key}.unreadable`, raw);
+  } catch {
+    /* storage full — nothing more we can do */
   }
 }
 
@@ -145,10 +172,14 @@ export function loadCraft(storage: KeyValueStorage, defaultSeed: number): CraftG
   try {
     parsed = JSON.parse(raw);
   } catch {
+    keepUnreadable(storage, SAVE_KEY, raw);
     return freshState(defaultSeed);
   }
   const result = saveSchema.safeParse(parsed);
-  if (!result.success) return freshState(defaultSeed);
+  if (!result.success) {
+    keepUnreadable(storage, SAVE_KEY, raw);
+    return freshState(defaultSeed);
+  }
 
   const d = result.data;
   const state = freshState(d.seed);

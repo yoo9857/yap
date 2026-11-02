@@ -97,12 +97,20 @@ writeFileSync(SERVER_ENTRY, original); // restore (triggers one more clean resta
 
 // while (re)connecting, solo play must continue: hold W and confirm movement
 await honest.click("#app");
-const posBefore = await honest.evaluate(() => globalThis.__robo.snapshot().feet);
+// Sum the walk in small samples: the reconnect can land inside this window,
+// and a rejoin restarts the run (a teleport back to the start), which made a
+// single before/after distance read as "barely moved" about half the time.
+let moved = 0;
+let last = await honest.evaluate(() => globalThis.__robo.snapshot().feet);
 await honest.keyboard.down("KeyW");
-await sleep(800);
+for (let i = 0; i < 16; i++) {
+  await sleep(50);
+  const now = await honest.evaluate(() => globalThis.__robo.snapshot().feet);
+  const step = Math.hypot(now[0] - last[0], now[2] - last[2]);
+  if (step < 1.5) moved += step; // a larger jump is the restart's teleport, not walking
+  last = now;
+}
 await honest.keyboard.up("KeyW");
-const posAfter = await honest.evaluate(() => globalThis.__robo.snapshot().feet);
-const moved = Math.hypot(posAfter[0] - posBefore[0], posAfter[2] - posBefore[2]);
 check("solo play continues through the outage", moved > 2, `moved=${moved.toFixed(1)} m`);
 
 // wait for auto-reconnect (backoff 0.5→8 s)

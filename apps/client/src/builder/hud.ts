@@ -25,6 +25,7 @@ const LANDMARK_KO: Record<string, [string, string]> = {
   liberty: ["자유의 여신상", "미국"],
 };
 export const landmarkName = (lm: Landmark): string => (isEnglish() ? lm.name : (LANDMARK_KO[lm.id]?.[0] ?? lm.name));
+export const landmarkCountry = (lm: Landmark): string => (isEnglish() ? lm.country : (LANDMARK_KO[lm.id]?.[1] ?? lm.country));
 
 /** A goal's line in the player's language. Goals are data (and unit-tested in
  *  English), so Korean is derived from the kind and target, not stored. */
@@ -227,7 +228,7 @@ export class BuilderHud {
           ? t(" (화면엔 12명까지)", " (12 shown on screen)")
           : "";
       // a greyed-out button says what it is waiting for, so it never looks broken
-      const price = short > 0 ? t(`💰 ${fmt(short)}G 더 필요`, `💰 ${fmt(short)}G more`) : `${fmt(cost)}G${extra}`;
+      const price = short > 0 ? t(`💰 ${fmt(Math.ceil(short))}G 더 필요`, `💰 ${fmt(Math.ceil(short))}G more`) : `${fmt(cost)}G${extra}`;
       btn.innerHTML = `<img class="ui-icon" src="${meta.icon}" alt="" /><b>${meta.label(state)}</b><small>${price}</small>`;
     }
   }

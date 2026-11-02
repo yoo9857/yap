@@ -17,6 +17,9 @@ export class VrControllers {
   private readonly rays: THREE.Line[] = [];
   private readonly raycaster = new THREE.Raycaster();
   private selectPending = false;
+  private readonly origin = new THREE.Vector3();
+  private readonly direction = new THREE.Vector3();
+  private readonly quat = new THREE.Quaternion();
   private readonly cleanups: (() => void)[] = [];
 
   constructor(
@@ -24,6 +27,9 @@ export class VrControllers {
     rig: THREE.Group,
     /** Called once a hand is known, so the caller can mount the wrist UI. */
     private readonly onWristReady: (controller: THREE.Group) => void,
+    /** Called when that hand goes away (battery sleep, switch to hand
+     *  tracking): a panel left on an invisible controller is unreachable. */
+    private readonly onWristLost?: () => void,
   ) {
     for (let i = 0; i < 2; i++) {
       const controller = this.renderer.xr.getController(i);
@@ -56,10 +62,15 @@ export class VrControllers {
       const onDisconnected = (): void => {
         ray.visible = false;
         if (this.pointer === controller) this.pointer = null;
-        if (this.wrist === controller) this.wrist = null;
+        if (this.wrist === controller) {
+          this.wrist = null;
+          this.onWristLost?.();
+        }
       };
+      // only the aiming hand presses: a squeeze on the wrist hand while the
+      // ray rests on a button must not buy it
       const onSelect = (): void => {
-        this.selectPending = true;
+        if (this.pointer === controller) this.selectPending = true;
       };
       controller.addEventListener("connected", onConnected);
       controller.addEventListener("disconnected", onDisconnected);
@@ -89,10 +100,9 @@ export class VrControllers {
   pick(target: THREE.Object3D): THREE.Vector2 | null {
     const pointer = this.pointer;
     if (!pointer || !target.visible) return null;
-    const origin = new THREE.Vector3();
-    const direction = new THREE.Vector3(0, 0, -1);
-    pointer.getWorldPosition(origin);
-    direction.applyQuaternion(pointer.getWorldQuaternion(new THREE.Quaternion()));
+    // scratch objects: this runs every XR frame, and a GC pause in a headset is felt
+    const origin = pointer.getWorldPosition(this.origin);
+    const direction = this.direction.set(0, 0, -1).applyQuaternion(pointer.getWorldQuaternion(this.quat));
     this.raycaster.set(origin, direction);
     const hit = this.raycaster.intersectObject(target, false)[0];
     // shorten the ray to the panel so it reads as a laser touching a surface

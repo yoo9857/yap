@@ -13,6 +13,8 @@ async function open(query) {
   page.on("console", (m) => { if (m.type() === "error") errors.push(m.text()); });
   await page.goto(`${BASE}/?mode=field${query}`, { waitUntil: "load", timeout: 60000 });
   await page.waitForFunction(() => !!globalThis.__roboCraft, { timeout: 60000 });
+  // the hook exists before the warm-up ends: a click while the loader is up never captures the mouse
+  await page.waitForFunction(() => document.getElementById("boot-overlay")?.classList.contains("hidden"), { timeout: 60000 });
   await page.evaluate(() => {
     const game = globalThis.__roboCraft, p = game.snapshot().pos, a = game.absolute();
     const origin = [a[0] - p[0], a[1] - p[2]];

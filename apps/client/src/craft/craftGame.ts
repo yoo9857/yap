@@ -29,8 +29,8 @@ import {
   removeItem,
   type CraftRecipe,
 } from "./inventory.js";
-import { clearCraftSave, loadCraft, saveCraft, type CraftGameState } from "./craftSave.js";
-import { FIELD_MAX_VIEW, FieldWindow, clearFieldSave, fieldStarterInventory } from "./fieldWorld.js";
+import { CRAFT_SAVE_KEY, clearCraftSave, loadCraft, saveCraft, saveStatus, type CraftGameState } from "./craftSave.js";
+import { FIELD_MAX_VIEW, FIELD_SAVE_KEY, FieldWindow, clearFieldSave, fieldStarterInventory } from "./fieldWorld.js";
 import { SkyDome } from "./skyDome.js";
 import { createSkyEnvironment } from "../render/skyEnvironment.js";
 import { ClassSync } from "./classSync.js";
@@ -410,6 +410,16 @@ export class CraftGame {
     document.addEventListener("visibilitychange", () => {
       if (document.visibilityState === "hidden") this.persist();
     }, { signal: this.events.signal });
+    // Another tab of the same mode wrote this save: from now on this tab's
+    // world is the stale one, and writing it would erase that tab's work.
+    window.addEventListener("storage", (e) => {
+      if (this.sync || this.savedElsewhere || e.key !== (this.field ? FIELD_SAVE_KEY : CRAFT_SAVE_KEY)) return;
+      this.savedElsewhere = true;
+      this.hud.toast(t(
+        "💾 다른 탭에서 이 세계를 저장했어요. 이 탭은 더 저장하지 않아요 — 새로고침하면 최신 상태를 불러와요",
+        "💾 This world was saved in another tab. This tab stops saving — reload to pick up the latest",
+      ));
+    }, { signal: this.events.signal });
 
     // solo play runs the water itself; a classroom's water is the server's
     this.water = this.sync ? null : new WaterSim(this.state.world, this.view, this.field);
@@ -438,6 +448,11 @@ export class CraftGame {
   }
 
   /** Is the selected hotbar slot the water bucket? */
+  /** Cells a placed block may not take: solid furniture, and the pet (a block
+   *  dropped on it buried it until the recall teleported it out). */
+  private readonly buildBlocked = (x: number, y: number, z: number): boolean =>
+    this.furniture.blocksCell(x, y, z) || overlapsShapedVoxel(this.pet.body, x, y, z, 0);
+
   private holdingWater(): boolean {
     return !this.emptyHands && blockByKey(this.heldKey())?.fluid === true;
   }
@@ -533,7 +548,7 @@ export class CraftGame {
     try {
       await warmupGpuAsync(this.renderer.renderer, this.renderer.scene, this.renderer.camera, () => {
         if (!this.disposed && !this.started) this.render(1, 1 / 60); // once playing, the loop draws
-      }, 2, this.events.signal);
+      }, 2, this.events.signal, this.renderer.compileTargets());
     } catch (error) { if (!this.disposed) throw error; }
     if (this.disposed || this.started) return;
     this.endWarm();
@@ -682,7 +697,7 @@ export class CraftGame {
         this.keys.clear(); this.mining = this.placing = false;
         this.emoteMenu.setOpen(true); document.exitPointerLock(); return;
       }
-      if (key === "b" && !e.repeat) { this.workshop.toggle(); return; }
+      if (key === "b" && !e.repeat && !e.ctrlKey && !e.metaKey && !e.altKey) { this.workshop.toggle(); return; }
       if (this.workshop.active) return;
       this.keys.add(e.code);
       // Ctrl+Z / Ctrl+Y (and Ctrl+Shift+Z) undo and redo furniture work
@@ -696,6 +711,9 @@ export class CraftGame {
         e.preventDefault(); if (e.repeat) return;
         this.changePosture(this.posture === "stand" || this.posture === "sit" ? "crawl" : "stand"); return;
       }
+      // past undo/redo, a Ctrl/Alt/Meta chord belongs to the browser: Ctrl+F is
+      // find, not "next shape", and Ctrl+R a reload, not a rotation
+      if (e.ctrlKey || e.metaKey || e.altKey) return;
       // an open bag owns E / I (furniture mode would take E for its categories and the bag could not be closed)
       if (this.hud.recipesOpen && (key === "e" || key === "i") && !e.repeat) { this.toggleBag(key); return; }
       // G from the bag goes straight to furniture: one panel at a time
@@ -881,7 +899,10 @@ export class CraftGame {
     const [dx, dy, dz] = lookDirection(this.yaw, this.pitch);
     // furniture stops the ray too: you aim at a chair, not the floor under it
     // holding the bucket, water is a target too (to scoop it back up)
-    this.aim = this.state.world.raycast(this.body.x, eyeY, this.body.z, dx, dy, dz, REACH, true, this.holdingWater());
+    // — but not with the eye under water: the ray stopped in the cell around
+    // our own head, so nothing else could be aimed at, mined or built on
+    const fluids = this.holdingWater() && !pointInWater(this.state.world, this.body.x, eyeY, this.body.z);
+    this.aim = this.state.world.raycast(this.body.x, eyeY, this.body.z, dx, dy, dz, REACH, true, fluids);
     this.aimFurniture = this.furniture.aimAt(
       { x: this.body.x, y: eyeY, z: this.body.z },
       { x: dx, y: dy, z: dz },
@@ -971,7 +992,9 @@ export class CraftGame {
     if(step.started){this.clearEmote();this.beginWork("none");}
     if(step.active){this.actionHold=ACTION_FACE_TIME;this.beginWork("interact",true);}
     if(step.active||step.completed)this.stepMining(dt,step);
-    else if(!this.emptyHands&&toolByKey(this.heldKey()))this.clearMiningTarget();
+    // heldTool(), not the raw slot: furniture mode puts the pickaxe away, and
+    // the slot alone blocked holding left click to put a piece away
+    else if(this.heldTool())this.clearMiningTarget();
     else if(this.mining)this.stepMining(dt);
     else this.clearMiningTarget();
     if(step.completed||wasAttacking&&step.changed&&!step.active)this.beginWork("none");
@@ -1300,7 +1323,7 @@ export class CraftGame {
   /** Try to place the active piece with anchor at `before`; true if it landed. */
   private stampPiece(before:[number,number,number],key:string):boolean {
     if(!key||!blockByKey(key))return false;
-    const plan=planPiecePlacement(this.state.world,this.body,PIECES[this.pieceIndex]!,this.pieceRot,this.pieceTilt,before,countOf(this.state.inventory,key),(x,y,z)=>this.furniture.blocksCell(x,y,z));
+    const plan=planPiecePlacement(this.state.world,this.body,PIECES[this.pieceIndex]!,this.pieceRot,this.pieceTilt,before,countOf(this.state.inventory,key),this.buildBlocked);
     if(!plan)return false;const id=blockByKey(key)!.id;
     // education fields are free building (999 of everything, never running out); the island spends its blocks
     for(const [x,y,z] of plan.cells){if(!this.field)removeItem(this.state.inventory,key);this.writeCell(x,y,z,id,plan.shape);}
@@ -1378,7 +1401,7 @@ export class CraftGame {
     if(isOrientedShape(shape))brickOrientation(this.pieceRot,this.pieceTilt,this.ghostQuat);else this.ghostQuat.identity();
     const cells = this.holdingWater() ? [[0, 0, 0] as const] : pieceCells(piece, this.pieceRot, this.pieceTilt);
     const [ax, ay, az] = this.aim.before;
-    const valid=this.canBuild() && (this.holdingWater() ? this.state.world.inBounds(ax,ay,az)&&this.state.world.isReplaceable(ax,ay,az)&&!this.furniture.blocksCell(ax,ay,az) : planPiecePlacement(this.state.world,this.body,piece,this.pieceRot,this.pieceTilt,[ax,ay,az],countOf(this.state.inventory,this.heldKey()),(x,y,z)=>this.furniture.blocksCell(x,y,z))!==null);
+    const valid=this.canBuild() && (this.holdingWater() ? this.state.world.inBounds(ax,ay,az)&&this.state.world.isReplaceable(ax,ay,az)&&!this.furniture.blocksCell(ax,ay,az) : planPiecePlacement(this.state.world,this.body,piece,this.pieceRot,this.pieceTilt,[ax,ay,az],countOf(this.state.inventory,this.heldKey()),this.buildBlocked)!==null);
     if(!this.holdingWater()&&shape===KIT_CUBE){
       const cacheKey=piece.key+"/"+this.pieceRot+"/"+this.pieceTilt;
       if(cacheKey!==this.ghostShellKey){this.ghostShellGeo?.dispose();this.ghostShellGeo=kitCellsGeometry(cells);this.ghostShellGeo.translate(-.5,-.5,-.5);this.ghostShellKey=cacheKey;}
@@ -1443,6 +1466,10 @@ export class CraftGame {
     // a hidden or minimised window cannot take the mouse; the card waits for its return
     if (this.locked || this.workshop.active || document.hidden) return;
     this.resumeUntil = performance.now() + 800;
+    // the chip or button that closed the panel keeps focus otherwise, and the
+    // next Space (jump) or Enter "clicks" it and opens the panel again
+    const focused = document.activeElement;
+    if (focused instanceof HTMLElement && focused !== document.body) focused.blur();
     const canvas = this.renderer.renderer.domElement;
     try {
       // newer browsers return a promise that rejects instead of throwing
@@ -1454,9 +1481,11 @@ export class CraftGame {
 
   private lastSaveSignature = "";
   private saveFailed = false;
+  private savedElsewhere = false;
   private persist(): void {
     this.lastSaveAt = Date.now();
     if (this.sync) return; // the class's field lives on the server
+    if (this.savedElsewhere) return; // another tab owns the save now
     // standing still with no edits: nothing to write, skip the serialise +
     // synchronous localStorage write entirely
     const signature = `${this.field?.absOriginX ?? 0},${this.field?.absOriginZ ?? 0}|${this.state.world.version}|${Math.round(this.body.x * 2)},${Math.round(this.body.y * 2)},${Math.round(this.body.z * 2)}|${JSON.stringify(this.state.inventory)}|${this.state.hotbar.join(",")}|${this.pet.species}|${this.state.furniture.version}`;
@@ -1473,7 +1502,9 @@ export class CraftGame {
       this.lastSaveSignature = signature;
       if (this.saveFailed) this.hud.toast(t("💾 자동 저장이 다시 정상 작동해요", "💾 Autosave is working again"));
     } else if (!this.saveFailed) {
-      this.hud.toast(t("💾 자동 저장에 실패했어요. 최근 변경사항이 저장되지 않았으니 이 탭을 닫지 마세요", "💾 Autosave failed. Recent changes are not saved yet — please keep this tab open"));
+      this.hud.toast(saveStatus.tooBig
+        ? t("💾 자동 저장에 실패했어요 — 브라우저 저장 공간이 꽉 찼어요. 지은 것을 조금 치우면 다시 저장돼요", "💾 Autosave failed — the browser's storage is full. Take down some of your builds and it will save again")
+        : t("💾 자동 저장에 실패했어요. 최근 변경사항이 저장되지 않았으니 이 탭을 닫지 마세요", "💾 Autosave failed. Recent changes are not saved yet — please keep this tab open"));
     }
     this.saveFailed = !saved;
   }

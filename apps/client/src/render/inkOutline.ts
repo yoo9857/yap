@@ -232,6 +232,12 @@ export class InkOutline {
     this.quadScene.add(new THREE.Mesh(this.quadGeometry, this.composite));
   }
 
+  /** Where the world is drawn: shaders must be compiled against it (no tone
+   *  mapping, linear output), not against the canvas. */
+  get compileTarget(): THREE.WebGLRenderTarget {
+    return this.sceneRT;
+  }
+
   setSize(width: number, height: number): void {
     const w = Math.max(1, Math.round(width));
     const h = Math.max(1, Math.round(height));
@@ -242,6 +248,8 @@ export class InkOutline {
     this.maskRT.setSize(w, h);
     (this.composite.uniforms.texel!.value as THREE.Vector2).set(1 / w, 1 / h);
   }
+
+  private readonly prevClearColor = new THREE.Color();
 
   render(renderer: THREE.WebGLRenderer, scene: THREE.Scene, camera: THREE.PerspectiveCamera): void {
     this.composite.uniforms.cameraNear!.value = camera.near;
@@ -266,10 +274,15 @@ export class InkOutline {
     // 2. the characters alone, flat white on black, with their own depth so
     //    the silhouette is solid.
     this.maskCamera.copy(camera);
+    // copy() takes the LOCAL transform and the copy has no parent: a camera
+    // riding a rig (builder VR preview) would be masked from near the origin
+    camera.matrixWorld.decompose(this.maskCamera.position, this.maskCamera.quaternion, this.maskCamera.scale);
     this.maskCamera.layers.set(INK_LAYER);
     scene.overrideMaterial = this.maskMaterial;
     scene.background = null;
     renderer.setRenderTarget(this.maskRT);
+    renderer.getClearColor(this.prevClearColor);
+    const prevClearAlpha = renderer.getClearAlpha();
     renderer.setClearColor(0x000000, 1);
     renderer.clear();
     const prevAutoClear = renderer.autoClear;
@@ -282,6 +295,7 @@ export class InkOutline {
     scene.overrideMaterial = this.maskMaterialSkinned;
     renderer.render(scene, this.maskCamera);
     renderer.autoClear = prevAutoClear;
+    renderer.setClearColor(this.prevClearColor, prevClearAlpha);
     scene.overrideMaterial = prevOverride;
     scene.background = prevBackground;
 

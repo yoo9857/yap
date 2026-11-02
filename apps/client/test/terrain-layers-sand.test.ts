@@ -44,4 +44,9 @@ describe("loose sand support and falling motion",()=>{
   occupied=false;for(let i=0;i<160;i++)sim.update(1/60);expect(world.get(8,1,8)).toBe(sand);sim.dispose();material.dispose();
  });
 
+ it("wakes sand after a field scroll over a few frames instead of in one full-grid scan",()=>{
+  const {world,material,sim}=setup();world.set(8,0,8,3);world.setShaped(8,6,8,sand,18);sim.shift();expect(sim.stats().scanning).toBe(true);
+  for(let i=0;i<240;i++)sim.update(1/60);expect(sim.stats().scanning).toBe(false);expect(world.get(8,1,8)).toBe(sand);expect(count(world)).toBe(1);sim.dispose();material.dispose();
+ });
+
 });

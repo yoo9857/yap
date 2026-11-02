@@ -75,6 +75,27 @@ describe("protocol", () => {
     expect(decodeClientMessage("x".repeat(5000)).ok).toBe(false);
   });
 
+  it("reads a full day's welcome even when quote-heavy names push it past 4 KB", () => {
+    const name = '""""""""""""""""';
+    const welcome: ServerMessage = {
+      t: "s-welcome",
+      playerId: "p1",
+      roomId: "r1",
+      seed: 123,
+      serverTimeMs: 1000,
+      snapshotHz: 15,
+      players: Array.from({ length: 7 }, (_, i) => ({ id: `p${i + 2}`, name, checkpoint: -1 })),
+      dateStr: "2026-07-17",
+      dayNumber: 1,
+      dayStartMs: 1_784_646_000_000,
+      nextDayStartMs: 1_784_732_400_000,
+      board: Array.from({ length: 50 }, (_, i) => ({ name, timeMs: 42_000 + i, rank: i + 1 })),
+    };
+    const frame = encodeMessage(welcome);
+    expect(frame.length).toBeGreaterThan(4096);
+    expect(decodeServerMessage(frame)).toEqual({ ok: true, msg: welcome });
+  });
+
   it("rejects non-finite vectors (NaN never crosses the wire)", () => {
     const bad = `{"t":"c-move","seq":1,"pos":[null,0,0],"vel":[0,0,0],"yaw":0,"anim":"run","grounded":true}`;
     expect(decodeClientMessage(bad).ok).toBe(false);

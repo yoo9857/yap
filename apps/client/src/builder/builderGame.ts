@@ -11,6 +11,7 @@ import { loadTexture, texturesReady, uploadAllTextures } from "../render/texture
 import { Sfx } from "../audio/sfx.js";
 import { Bgm, BGM_PLAYLIST } from "../audio/bgm.js";
 import {
+  OFFLINE_CAP_HOURS,
   buy,
   createInitialState,
   currentLandmark,
@@ -19,7 +20,7 @@ import {
   itemCost,
   type ShopItem,
 } from "./state.js";
-import { tick } from "./sim.js";
+import { settleOffline, tick } from "./sim.js";
 import { goalAt, tryCompleteGoal } from "./goals.js";
 import { t } from "../ui/i18n.js";
 import { LANDMARKS, landmarkAt, type Landmark } from "./landmarks.js";
@@ -27,7 +28,7 @@ import { clearSave, load, save } from "./save.js";
 import { LandmarkView } from "./landmarkView.js";
 import { WorkersView } from "./workersView.js";
 import { BlockFlights } from "./blockFlights.js";
-import { BuilderHud, goalTitle, landmarkName } from "./hud.js";
+import { BuilderHud, goalTitle, landmarkCountry, landmarkName } from "./hud.js";
 import { PerfMonitor } from "../ui/perf.js";
 import { BuilderEnvironment } from "./environment.js";
 import { CameraDirector, type ShotName } from "./cameraDirector.js";
@@ -72,7 +73,7 @@ export class BuilderGame {
   private readonly perf = new PerfMonitor(document.body);
   private readonly pile = new THREE.Group();
   private ground: THREE.Mesh | null = null;
-  private lastSaveAt = 0;
+  private lastSaveAt = -Infinity;
   private lastBlockSfxAt = 0;
   private paused = false;
   // live-stream integration (opt-in via ?stream=1) — donations/cheers speed
@@ -87,6 +88,7 @@ export class BuilderGame {
   private vrUnmount: (() => void) | null = null;
   private flatFrustum: { near: number; far: number; fov: number } | null = null;
   private vrBlind = 0;
+  private vrHoldAtBlind: number | null = null;
 
   constructor(mount: HTMLElement) {
     this.renderer = new GameRenderer(mount);
@@ -115,10 +117,29 @@ export class BuilderGame {
       });
     }
 
+    // the loop drops time that passed while hidden (rAF stops), so a tab in
+    // the background is settled like a closed one when it comes back
+    let hiddenAt: number | null = null;
     window.addEventListener("visibilitychange", () => {
       if (document.visibilityState === "hidden") {
-        save(this.state, localStorage, Date.now());
+        hiddenAt = Date.now();
+        save(this.state, localStorage, hiddenAt);
+        return;
       }
+      if (hiddenAt === null) return;
+      const away = Date.now() - hiddenAt;
+      hiddenAt = null;
+      // a modal is already holding time still: being away behind it earns nothing
+      if (away < 5000 || this.paused) return;
+      const gains = settleOffline(this.state, away, OFFLINE_CAP_HOURS * 3_600_000);
+      this.lastSaveAt = -Infinity; // persist the settled state right away
+      // no DOM modal in a headset (see startVrView): the gains just land
+      if (gains.blocks <= 0 || this.vrView) return;
+      this.paused = true;
+      this.hud.showOfflineModal(gains, () => {
+        this.paused = false;
+        this.sfx.play("checkpoint");
+      });
     });
 
     this.loop = new GameLoop(
@@ -142,7 +163,18 @@ export class BuilderGame {
       // compileAsync, not compile: the builder is already running, and a
       // synchronous compile of every program froze its opening seconds
       uploadAllTextures(this.renderer.renderer);
-      await this.renderer.renderer.compileAsync(this.renderer.scene, this.renderer.camera);
+      // the ink target for flat play, and the canvas for a headset later on;
+      // compileAsync starts each compile synchronously, so the target can be
+      // restored before awaiting
+      const gl = this.renderer.renderer;
+      const prev = gl.getRenderTarget();
+      const pending = this.renderer.compileTargets(true).map((target) => {
+        gl.setRenderTarget(target);
+        const done = gl.compileAsync(this.renderer.scene, this.renderer.camera);
+        gl.setRenderTarget(prev);
+        return done;
+      });
+      await Promise.all(pending);
       // offer VR only AFTER the warmup: a shader compile inside a live session
       // drops frames, and dropped frames in a headset are felt, not just seen
       void this.initVr();
@@ -211,6 +243,10 @@ export class BuilderGame {
       // a wrist panel spends most of its time out of view, so the always-on
       // plaque earns its place again
       this.vrView?.setPlaqueVisible(true);
+    }, () => {
+      // back to the no-left-hand layout until a left hand returns
+      this.vrPanel?.attachToRig(rig);
+      this.vrView?.setPlaqueVisible(false);
     });
     // Controllers only report their handedness asynchronously, so start in the
     // no-left-hand layout: panel on the rig, plaque hidden as a duplicate. The
@@ -230,20 +266,20 @@ export class BuilderGame {
     // and say the RIGHT thing: a refused purchase has two very different causes
     const label = VR_ACTION_LABELS[action];
     if (action === "crane" && this.state.crane) {
-      this.vrToast = { text: `${label} already owned`, untilMs: Date.now() + 1800 };
+      this.vrToast = { text: t(`${label} 이미 있어요`, `${label} already owned`), untilMs: Date.now() + 1800 };
       return;
     }
     const cost = itemCost(this.state, action);
     if (this.state.gold < cost) {
       this.vrToast = {
-        text: `${label} costs ${Math.round(cost).toLocaleString()}G`,
+        text: t(`${label} ${Math.round(cost).toLocaleString()}G 필요`, `${label} costs ${Math.round(cost).toLocaleString()}G`),
         untilMs: Date.now() + 1800,
       };
       this.sfx.play("click");
       return;
     }
     this.handleBuy(action);
-    this.vrToast = { text: `${label} upgraded!`, untilMs: Date.now() + 2500 };
+    this.vrToast = { text: t(`${label} 올렸어요!`, `${label} upgraded!`), untilMs: Date.now() + 2500 };
   }
 
   private vrPanel: VrShopPanel | null = null;
@@ -289,13 +325,13 @@ export class BuilderGame {
     if (this.vrToast && nowMs > this.vrToast.untilMs) this.vrToast = null;
     panel.draw(
       {
-        landmarkName: `${landmark.emoji} ${landmark.name}`,
-        country: landmark.country,
+        landmarkName: `${landmark.emoji} ${landmarkName(landmark)}`,
+        country: landmarkCountry(landmark),
         placedBlocks: viewPlaced,
         totalBlocks: landmark.blocks.length,
         gold: this.state.gold,
         workers: this.state.workers,
-        goalTitle: goalAt(this.state.goalIndex).title,
+        goalTitle: goalTitle(goalAt(this.state.goalIndex)),
         costs: {
           worker: itemCost(this.state, "worker"),
           speed: itemCost(this.state, "speed"),
@@ -591,8 +627,9 @@ export class BuilderGame {
       );
     }
 
-    if (Date.now() - this.lastSaveAt > SAVE_INTERVAL_MS) {
-      this.lastSaveAt = Date.now();
+    // a monotonic clock: a wall clock stepped backwards would stop autosaving
+    if (performance.now() - this.lastSaveAt > SAVE_INTERVAL_MS) {
+      this.lastSaveAt = performance.now();
       save(this.state, localStorage, Date.now());
     }
   }
@@ -604,6 +641,19 @@ export class BuilderGame {
   private dwellStartSec: number | null = null;
   private static readonly COMPLETION_DWELL_S = 4.5;
 
+  /** Blocks shown for the view landmark: all of them once the sim is past it. */
+  private viewPlaced(landmark: Landmark): number {
+    return this.viewLandmarkIndex === this.state.landmarkIndex ? this.state.placedBlocks : landmark.blocks.length;
+  }
+
+  /** In a headset the world may only change behind the blinder: ask for a
+   *  fade and switch on the frame it is fully black. */
+  private readyToSwitchLandmark(): boolean {
+    if (!this.vrDirector || this.vrBlind >= 1) return true;
+    this.vrDirector.requestCut();
+    return false;
+  }
+
   private render(frameDt: number): void {
     const timeSec = performance.now() / 1000;
     if (this.viewLandmarkIndex < 0) this.viewLandmarkIndex = this.state.landmarkIndex;
@@ -613,25 +663,33 @@ export class BuilderGame {
     // DEDICATED camera scene, then cut to a fresh scene for the next one
     let landmark = landmarkAt(this.viewLandmarkIndex);
     if (this.viewLandmarkIndex !== this.state.landmarkIndex) {
-      if (this.state.landmarkIndex - this.viewLandmarkIndex > 1) {
-        // offline settle skipped ahead — no parade, jump straight there
-        this.director.pin(null);
-        this.flights.clear();
-        this.viewLandmarkIndex = this.state.landmarkIndex;
-        landmark = landmarkAt(this.viewLandmarkIndex);
-        this.landmarkView.update(landmark, this.state.placedBlocks, frameDt, pourRate);
+      if (this.state.landmarkIndex - this.viewLandmarkIndex > 2) {
+        // a long absence skipped ahead — no parades, jump straight there
+        if (this.readyToSwitchLandmark()) {
+          this.dwellStartSec = null;
+          this.director.pin(null);
+          this.flights.clear();
+          this.viewLandmarkIndex = this.state.landmarkIndex;
+          landmark = landmarkAt(this.viewLandmarkIndex);
+        }
+        this.landmarkView.update(landmark, this.viewPlaced(landmark), frameDt, pourRate);
       } else {
         this.director.pin("craneRise"); // rise along the finished monument
         this.landmarkView.update(landmark, landmark.blocks.length, frameDt, pourRate);
         if (this.landmarkView.isFullyPoured(landmark)) {
           this.dwellStartSec ??= timeSec;
-          if (timeSec - this.dwellStartSec > BuilderGame.COMPLETION_DWELL_S) {
+          if (
+            timeSec - this.dwellStartSec > BuilderGame.COMPLETION_DWELL_S &&
+            this.readyToSwitchLandmark()
+          ) {
             this.dwellStartSec = null;
             this.director.pin(null); // the new landmark opens its own scene
             this.flights.clear(); // in-flight blocks belong to the old monument
-            this.viewLandmarkIndex = this.state.landmarkIndex;
+            // one landmark at a time: a fast late-game crew can finish the
+            // next one during this parade, and it gets its own parade too
+            this.viewLandmarkIndex++;
             landmark = landmarkAt(this.viewLandmarkIndex);
-            this.landmarkView.update(landmark, this.state.placedBlocks, frameDt, pourRate);
+            this.landmarkView.update(landmark, this.viewPlaced(landmark), frameDt, pourRate);
           }
         }
       }
@@ -682,16 +740,20 @@ export class BuilderGame {
       const viewPlaced = parade
         ? landmark.blocks.length
         : Math.min(this.state.placedBlocks, landmark.blocks.length);
-      const vrFrame = this.vrDirector.update(frameDt, {
+      // a test hook can hold the fade once it is dark enough to measure, since
+      // a screenshot takes longer than the whole half-second fade-out
+      const vrDt = this.vrHoldAtBlind !== null && this.vrBlind >= this.vrHoldAtBlind ? 0 : frameDt;
+      const vrFrame = this.vrDirector.update(vrDt, {
         heightM: landmark.heightM,
         radiusM: landmark.radiusM,
         frontierY: (viewPlaced / landmark.blocks.length) * landmark.heightM,
         radiusAt: this.radiusProfileFor(landmark),
+        key: landmark.id,
       });
       this.vrBlind = vrFrame.blind;
       this.vrView.update(vrFrame, {
-        landmarkName: `${landmark.emoji} ${landmark.name}`,
-        country: landmark.country,
+        landmarkName: `${landmark.emoji} ${landmarkName(landmark)}`,
+        country: landmarkCountry(landmark),
         placedBlocks: viewPlaced,
         totalBlocks: landmark.blocks.length,
         gold: this.state.gold,
@@ -768,6 +830,10 @@ export class BuilderGame {
       },
       /** Cut to the next VR viewpoint immediately. */
       vrSkip: () => this.vrDirector?.skip(),
+      /** Freeze the VR fade once the blinder reaches `blind` (null releases it). */
+      vrHoldAtBlind: (blind: number | null) => {
+        this.vrHoldAtBlind = blind;
+      },
       /** Blueprint extent + radius profile, for tuning the VR stations. */
       blueprintProbe: (i: number) => {
         const l = landmarkAt(i);

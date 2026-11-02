@@ -71,6 +71,12 @@ export interface VrDirectorContext {
    * back to `radiusM` is the conservative choice.
    */
   radiusAt?: (y: number) => number;
+  /**
+   * Which monument this is. When it changes the pose is thrown away and the
+   * next frame starts blind: a station chosen for the old monument can stand
+   * inside the new one (Liberty's yard is inside the pyramid).
+   */
+  key?: string;
 }
 
 /**
@@ -202,6 +208,7 @@ export class VrDirector {
   private deck: VrStationName[] = [];
   private phase: "in" | "dwell" | "out" = "in";
   private elapsed = 0;
+  private key: string | undefined;
 
   /** rng injected so the station order is deterministic under test. */
   constructor(private readonly rng: () => number = Math.random) {}
@@ -215,6 +222,14 @@ export class VrDirector {
    * and how black the blinder should be.
    */
   update(dt: number, ctx: VrDirectorContext): VrFrame {
+    if (ctx.key !== this.key) {
+      if (this.key !== undefined) {
+        this.pose = null;
+        this.phase = "in";
+        this.elapsed = 0;
+      }
+      this.key = ctx.key;
+    }
     if (!this.pose) {
       // first frame: pick the opening viewpoint and show pure black. Spending
       // this frame's dt on the fade-in would let a sliver of the world through
@@ -265,6 +280,19 @@ export class VrDirector {
     if (this.phase === "dwell") {
       this.phase = "out";
       this.elapsed = 0;
+    }
+  }
+
+  /** Start fading out now, from wherever the fade is, so the caller can swap
+   *  the world once `blind` reaches 1 (the landmark switch). */
+  requestCut(): void {
+    if (this.phase === "dwell") {
+      this.phase = "out";
+      this.elapsed = 0;
+    } else if (this.phase === "in") {
+      const blind = 1 - clamp(this.elapsed / FADE_IN_S, 0, 1);
+      this.phase = "out";
+      this.elapsed = blind * FADE_OUT_S;
     }
   }
 

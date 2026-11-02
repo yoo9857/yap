@@ -250,4 +250,27 @@ describe("builder save", () => {
     );
     expect(load(storage, 5_000_000).state.gold).toBe(0);
   });
+
+  it("sets an unreadable save aside before the fresh game's autosave replaces it", () => {
+    const storage = memoryStorage();
+    const newer = JSON.stringify({ v: 3, gold: 5 });
+    storage.setItem("robo-builder-save-v1", newer);
+    load(storage, 5_000_000);
+    expect(storage.data.get("robo-builder-save-v1.unreadable")).toBe(newer);
+  });
+
+  it("refuses a landmark index so large the tour bonus overflows", () => {
+    const storage = memoryStorage();
+    const s = createInitialState();
+    save(s, storage, 1_000_000);
+    const raw = JSON.parse(storage.data.get("robo-builder-save-v1")!) as Record<string, unknown>;
+    storage.setItem("robo-builder-save-v1", JSON.stringify({ ...raw, landmarkIndex: 1e300 }));
+    expect(load(storage, 1_000_000).state.landmarkIndex).toBe(0);
+  });
+
+  it("names the endless goals with the same tour the HUD shows", () => {
+    const first = goalAt(GOALS.length);
+    // the first endless goal completes the first landmark of the second tour
+    expect(first.title).toContain("tour 2");
+  });
 });

@@ -14,9 +14,10 @@ export type DecodeResult<T> =
 function decode<T>(
   raw: unknown,
   schema: { safeParse(v: unknown): { success: boolean; data?: T; error?: unknown } },
+  maxLength: number,
 ): DecodeResult<T> {
   if (typeof raw !== "string") return { ok: false, error: "non-string frame" };
-  if (raw.length > 4096) return { ok: false, error: "frame too large" };
+  if (raw.length > maxLength) return { ok: false, error: "frame too large" };
   let json: unknown;
   try {
     json = JSON.parse(raw);
@@ -31,11 +32,13 @@ function decode<T>(
 }
 
 export function decodeClientMessage(raw: unknown): DecodeResult<ClientMessage> {
-  return decode(raw, clientMessageSchema);
+  return decode(raw, clientMessageSchema, 4096);
 }
 
 export function decodeServerMessage(raw: unknown): DecodeResult<ServerMessage> {
-  return decode(raw, serverMessageSchema);
+  // the welcome carries the day's board (50 rows of escaped names), which
+  // can pass 4 KB; the client trusts its own server's frame sizes
+  return decode(raw, serverMessageSchema, 65_536);
 }
 
 export function encodeMessage(msg: ClientMessage | ServerMessage): string {

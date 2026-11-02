@@ -25,7 +25,8 @@ function makeBucket(cfg: { ratePerSec: number; burst: number }): Bucket {
 }
 
 function takeToken(b: Bucket, now: number): boolean {
-  b.tokens = Math.min(b.burst, b.tokens + ((now - b.last) / 1000) * b.ratePerSec);
+  // a wall clock stepped backwards must not drain the bucket
+  b.tokens = Math.min(b.burst, b.tokens + (Math.max(0, now - b.last) / 1000) * b.ratePerSec);
   b.last = now;
   if (b.tokens < 1) return false;
   b.tokens -= 1;

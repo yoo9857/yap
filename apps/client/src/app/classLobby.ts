@@ -188,7 +188,17 @@ export function chooseClass(parent: HTMLElement): Promise<ClassEntry | null> {
     screen.querySelectorAll<HTMLButtonElement>("[data-go]").forEach((btn) =>
       btn.addEventListener("click", () => (btn.dataset.go === "solo" ? done(null) : show(btn.dataset.go!))),
     );
-    screen.querySelectorAll<HTMLButtonElement>(".mode-back").forEach((btn) => btn.addEventListener("click", () => { cancelConnect(); show("pick"); }));
+    /** Bumped whenever a class lookup's answer would no longer be wanted. */
+    let peekSeq = 0;
+    screen.querySelectorAll<HTMLButtonElement>(".mode-back").forEach((btn) => btn.addEventListener("click", () => {
+      cancelConnect();
+      peekSeq++;
+      // a cancelled connect or lookup never answers its step: hand the steps
+      // back ready to use, or 반 열기 stays disabled after 뒤로 until a reload
+      screen.querySelectorAll<HTMLButtonElement>('button[type="submit"], [data-id="confirm-yes"]').forEach((b) => { b.disabled = false; });
+      screen.querySelectorAll<HTMLElement>('[data-id="error"]').forEach((el) => { el.textContent = ""; });
+      show("pick");
+    }));
 
     const namesOk = (join: ClassJoin): boolean => {
       const room = join.room.length >= 1 && join.room.length <= 20;
@@ -250,8 +260,10 @@ export function chooseClass(parent: HTMLElement): Promise<ClassEntry | null> {
       }
       error.textContent = t("반을 찾는 중…", "Looking for the class…");
       button.disabled = true;
+      const seq = ++peekSeq;
       void peekClass(join.room)
         .then((info) => {
+          if (seq !== peekSeq) return; // left the step while it looked: never jump to the card
           button.disabled = false;
           if (!info.exists) {
             error.textContent = t(`'${join.room}' 반을 찾을 수 없어요. 반 이름을 다시 확인해주세요.`, `There is no class called '${join.room}'. Please check the class name.`);
@@ -271,6 +283,7 @@ export function chooseClass(parent: HTMLElement): Promise<ClassEntry | null> {
           show("confirm");
         })
         .catch((code: unknown) => {
+          if (seq !== peekSeq) return;
           button.disabled = false;
           error.textContent = CLASS_ERROR_TEXT[code as keyof typeof CLASS_ERROR_TEXT] ?? t("연결하지 못했어요.", "Couldn't connect.");
         });

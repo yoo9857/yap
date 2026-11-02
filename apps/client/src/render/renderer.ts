@@ -101,6 +101,8 @@ export class GameRenderer {
   enableXr(): void {
     this.renderer.xr.enabled = true;
     this.renderer.xr.setReferenceSpaceType("local-floor");
+    // resizes are skipped while presenting; catch up with them afterwards
+    this.renderer.xr.addEventListener("sessionend", this.onResize);
   }
 
   /**
@@ -167,11 +169,26 @@ export class GameRenderer {
 
   private readonly tmpSize = new THREE.Vector2();
 
+  /**
+   * The targets a shader warm-up must compile for. Three picks tone mapping
+   * and output colour space from the bound target, so a compile against the
+   * canvas builds variants the ink path never draws with — and the real ones
+   * then compiled in the first frames of play. The canvas is included when
+   * nothing else draws or a headset may (XR renders straight to it).
+   */
+  compileTargets(withXr = this.renderer.xr.enabled): (THREE.WebGLRenderTarget | null)[] {
+    if (!this.ink) return [null];
+    const size = this.renderer.getDrawingBufferSize(this.tmpSize);
+    this.ink.setSize(size.x, size.y);
+    return withXr ? [this.ink.compileTarget, null] : [this.ink.compileTarget];
+  }
+
   /** Stop resize callbacks and release the WebGL context when a mode closes. */
   dispose(): void {
     this.ink?.dispose();
     this.ink = null;
     window.removeEventListener("resize", this.onResize);
+    this.renderer.xr.removeEventListener("sessionend", this.onResize);
     this.renderer.setAnimationLoop(null);
     this.renderer.dispose();
     this.renderer.forceContextLoss();
@@ -183,6 +200,8 @@ export class GameRenderer {
     // while presenting, the headset owns the drawing buffer size and three
     // rejects setSize with a console warning — don't even ask
     if (this.renderer.xr.isPresenting) return;
+    // browser zoom or a move to another monitor changes the ratio too
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
     this.renderer.setSize(window.innerWidth, window.innerHeight);
     this.camera.aspect = window.innerWidth / window.innerHeight;
     this.camera.updateProjectionMatrix();

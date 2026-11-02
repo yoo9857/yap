@@ -12,13 +12,13 @@ const SAVE_KEY = "robo-builder-save-v1"; // key stays; payload carries `v`
 const saveSchemaV2 = z.object({
   v: z.literal(2),
   gold: z.number().finite().nonnegative(),
-  landmarkIndex: z.number().int().nonnegative(),
+  landmarkIndex: z.number().int().nonnegative().max(1_000_000),
   placedBlocks: z.number().int().nonnegative(),
   workers: z.number().int().positive().max(10_000),
   speedLevel: z.number().int().nonnegative().max(1000),
   valueLevel: z.number().int().nonnegative().max(1000),
   crane: z.boolean(),
-  goalIndex: z.number().int().nonnegative(),
+  goalIndex: z.number().int().nonnegative().max(1_000_000),
   totalBlocks: z.number().int().nonnegative(),
   savedAtMs: z.number().finite().positive(),
 });
@@ -77,6 +77,16 @@ export function save(state: BuilderState, storage: KeyValueStorage, nowMs: numbe
   }
 }
 
+/** A save we could not read is kept beside the live key before the fresh
+ *  game's first autosave writes over it (a rollback can still read it back). */
+function keepUnreadable(storage: KeyValueStorage, raw: string): void {
+  try {
+    storage.setItem(`${SAVE_KEY}.unreadable`, raw);
+  } catch {
+    /* storage full — nothing more we can do */
+  }
+}
+
 export interface LoadResult {
   state: BuilderState;
   /** Non-null when time passed since the save — show the welcome-back modal. */
@@ -101,6 +111,7 @@ export function load(storage: KeyValueStorage, nowMs: number): LoadResult {
   try {
     parsed = JSON.parse(raw);
   } catch {
+    keepUnreadable(storage, raw);
     return { state: createInitialState(), offline: null };
   }
 
@@ -125,7 +136,10 @@ export function load(storage: KeyValueStorage, nowMs: number): LoadResult {
     savedAtMs = d.savedAtMs;
   } else {
     const v1 = saveSchemaV1.safeParse(parsed);
-    if (!v1.success) return { state: createInitialState(), offline: null };
+    if (!v1.success) {
+      keepUnreadable(storage, raw);
+      return { state: createInitialState(), offline: null };
+    }
     const d = v1.data;
     state = {
       ...createInitialState(),

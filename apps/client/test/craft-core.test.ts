@@ -340,6 +340,14 @@ describe("craft save", () => {
     }
   });
 
+  it("sets an unreadable save aside instead of letting the fresh world's autosave erase it", () => {
+    const storage = memoryStorage();
+    const newer = JSON.stringify({ v: 4, seed: 42, edits: [] });
+    storage.setItem("craftyap-craft-save-v1", newer);
+    expect(loadCraft(storage, 999).seed).toBe(999);
+    expect(storage.getItem("craftyap-craft-save-v1.unreadable")).toBe(newer);
+  });
+
   it("reloads a large legitimate water build written by the serializer", () => {
     const state = freshState(42), storage = memoryStorage();
     for (let i = 0; i < 200_001; i++) {

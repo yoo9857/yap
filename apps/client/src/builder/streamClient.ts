@@ -20,6 +20,7 @@ export class StreamClient {
   ) {}
 
   start(): void {
+    if (this.ws || this.timer) return; // already running: a second socket would double every boost
     this.closed = false;
     this.connect();
   }
@@ -27,11 +28,14 @@ export class StreamClient {
   stop(): void {
     this.closed = true;
     if (this.timer) clearTimeout(this.timer);
-    this.ws?.close();
+    this.timer = null;
+    const ws = this.ws;
     this.ws = null;
+    ws?.close(); // its onclose sees it is no longer current and stays quiet
   }
 
   private connect(): void {
+    this.timer = null;
     if (this.closed) return;
     let ws: WebSocket;
     try {
@@ -42,10 +46,12 @@ export class StreamClient {
     }
     this.ws = ws;
     ws.onopen = () => {
+      if (this.ws !== ws) return;
       this.retryMs = 1_000;
       this.onStatus?.(true);
     };
     ws.onmessage = (ev) => {
+      if (this.ws !== ws) return;
       let json: unknown;
       try {
         json = JSON.parse(String(ev.data));
@@ -56,6 +62,8 @@ export class StreamClient {
       if (parsed.success) this.onEvent(parsed.data.event);
     };
     ws.onclose = () => {
+      if (this.ws !== ws) return; // a socket stop() already let go of
+      this.ws = null;
       this.onStatus?.(false);
       this.scheduleRetry();
     };

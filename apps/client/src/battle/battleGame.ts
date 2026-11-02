@@ -10,7 +10,8 @@ import { t } from "../ui/i18n.js";
 import { settings } from "../ui/settings.js";
 import { lookDelta } from "../input/mouseLook.js";
 import { Effects } from "../render/effects.js";
-import { generateIsland, surfaceY, CASTLE_CENTER } from "../craft/voxelWorld.js";
+import { generateIsland, surfaceY } from "../craft/voxelWorld.js";
+import { pickArena } from "./arena.js";
 import { stepBody, SWIM_DEPTH, unstick, wishFromInput, type Body } from "../craft/voxelBody.js";
 import { moveScale } from "../craft/posture.js";
 import { approach } from "../craft/smoothing.js";
@@ -19,12 +20,10 @@ import { VoxelView } from "../craft/voxelView.js";
 import { CraftCamera } from "../craft/craftCamera.js";
 import { EYE_HEIGHT, FIRE_COOLDOWN, MAX_HP, resolveShot, type Fighter } from "./combat.js";
 import { BOT_COUNT, botFighter, makeBot, stepBot, type Bot } from "./bots.js";
-import { insideZone, zoneNextEventIn, zoneRadiusAt, zoneTicksBetween } from "./zone.js";
+import { ZONE_START_RADIUS, insideZone, zoneNextEventIn, zoneRadiusAt, zoneTicksBetween } from "./zone.js";
 import { BattleHud } from "./battleHud.js";
 import { ViewModel } from "./viewModel.js";
 
-const ZONE_CX = CASTLE_CENTER;
-const ZONE_CZ = CASTLE_CENTER;
 /** Weapons-free warm-up right after the drop — spawns sit within hunt range
  *  of each other, so without this half the lobby dies in the first seconds. */
 const GRACE_SECONDS = 4;
@@ -57,6 +56,8 @@ export class BattleGame {
   private readonly bots: Bot[] = [];
   private readonly player: Body;
   private playerHp = MAX_HP;
+  private readonly zoneCx: number;
+  private readonly zoneCz: number;
 
   private phase: Phase = "live";
   /** The match only runs while the player is in control: it waits for the
@@ -94,16 +95,12 @@ export class BattleGame {
       void Promise.resolve(this.renderer.renderer.domElement.requestPointerLock()).catch(() => {});
     });
 
-    // everyone drops on a ring around the island edge; slot 0 is the player
-    const spawns: [number, number][] = [];
-    for (let i = 0; i < BOT_COUNT + 1; i++) {
-      const a = (i / (BOT_COUNT + 1)) * Math.PI * 2;
-      // drop on a wide ring around the castle so fights close in on it — must
-      // sit OUTSIDE the castle footprint (outer≈26) or players spawn on its
-      // roof (surfaceY returns the tower height), still inside the island edge.
-      const r = CASTLE_CENTER * 2 * 0.42;
-      spawns.push([ZONE_CX + Math.cos(a) * r, ZONE_CZ + Math.sin(a) * r]);
-    }
+    // everyone drops on a ring around the storm's centre, on ground that can
+    // walk to it (see arena.ts); slot 0 is the player
+    const arena = pickArena(this.world, BOT_COUNT + 1, ZONE_START_RADIUS * 0.82);
+    this.zoneCx = arena.cx;
+    this.zoneCz = arena.cz;
+    const spawns = arena.spawns;
     const [px, pz] = spawns[0]!;
     this.player = {
       x: px, y: surfaceY(this.world, Math.floor(px), Math.floor(pz)) + 1.2, z: pz,
@@ -112,7 +109,7 @@ export class BattleGame {
     unstick(this.world, this.player); // never spawn embedded (tree/castle edge)
     // face the island center, but if a hill is right there, face the open
     // side instead — nobody should spawn staring into a wall
-    this.yaw = this.bestFacing(px, this.player.y, pz, Math.atan2(ZONE_CX - px, ZONE_CZ - pz));
+    this.yaw = this.bestFacing(px, this.player.y, pz, Math.atan2(this.zoneCx - px, this.zoneCz - pz));
     this.pitch = -0.05;
     this.renderer.scene.add(this.playerRig.root);
     for (let i = 0; i < BOT_COUNT; i++) {
@@ -136,7 +133,7 @@ export class BattleGame {
         depthWrite: false,
       }),
     );
-    this.zoneMesh.position.set(ZONE_CX, 20, ZONE_CZ);
+    this.zoneMesh.position.set(this.zoneCx, 20, this.zoneCz);
     this.renderer.scene.add(this.zoneMesh);
 
     for (let i = 0; i < TRACER_POOL; i++) {
@@ -174,7 +171,7 @@ export class BattleGame {
     await texturesReady();
     setMessage(t("그래픽 준비하는 중…", "Preparing graphics…"));
     this.warming = true; // a start() after main.ts's timeout must not warm up a second time
-    await warmupGpuAsync(this.renderer.renderer, this.renderer.scene, this.renderer.camera, () => this.renderer.render());
+    await warmupGpuAsync(this.renderer.renderer, this.renderer.scene, this.renderer.camera, () => this.renderer.render(), 2, undefined, this.renderer.compileTargets());
     this.warmed = true;
   }
 
@@ -183,7 +180,7 @@ export class BattleGame {
     // started without `prepare` (a test harness): warm up the old way
     if (!this.warmed && !this.warming) {
       void texturesReady().then(() => {
-        warmupGpu(this.renderer.renderer, this.renderer.scene, this.renderer.camera);
+        warmupGpu(this.renderer.renderer, this.renderer.scene, this.renderer.camera, this.renderer.compileTargets());
       });
     }
   }
@@ -223,7 +220,8 @@ export class BattleGame {
     document.addEventListener("contextmenu", (e) => e.preventDefault());
     document.addEventListener("keydown", (e) => {
       this.keys.add(e.code);
-      if (e.key.toLowerCase() === "v") this.camera.toggleView();
+      // by code: with the Korean IME on, e.key is "ㅍ"
+      if (e.code === "KeyV" && !e.repeat) this.camera.toggleView();
     });
     document.addEventListener("keyup", (e) => this.keys.delete(e.code));
     window.addEventListener("blur", () => this.keys.clear());
@@ -260,8 +258,9 @@ export class BattleGame {
     const targetRatio = moveScale("stand", sprint, swimming);
     if (swimming) this.moveRatio = targetRatio;
     else this.moveRatio += (targetRatio - this.moveRatio) * approach(dt, sprint ? 0.06 : 0.09);
-    stepBody(this.world, this.player, dt, wishX * this.moveRatio, wishZ * this.moveRatio, this.locked && this.keys.has("Space"));
-    if (this.player.y < -12) {
+    // a downed robot stays where it fell (it used to drop through the void forever)
+    if (this.playerHp > 0) stepBody(this.world, this.player, dt, wishX * this.moveRatio, wishZ * this.moveRatio, this.locked && this.keys.has("Space"));
+    if (this.playerHp > 0 && this.player.y < -12) {
       // fell off the island — the storm doesn't forgive that either
       this.hurtPlayer(this.playerHp, t("낭떠러지", "The void"));
     }
@@ -287,7 +286,7 @@ export class BattleGame {
 
     // bots
     const fighters = this.fighters();
-    const zone = { cx: ZONE_CX, cz: ZONE_CZ, radius };
+    const zone = { cx: this.zoneCx, cz: this.zoneCz, radius };
     for (const bot of this.bots) {
       const shot = stepBot(this.world, bot, fighters, zone, dt, this.rng);
       if (shot && weaponsFree && this.phase === "live") {
@@ -304,11 +303,11 @@ export class BattleGame {
     // storm damage (player + bots share the same rule)
     const ticks = zoneTicksBetween(prevElapsed, this.elapsed);
     if (ticks > 0 && this.phase === "live") {
-      if (this.playerHp > 0 && !insideZone(this.player.x, this.player.z, ZONE_CX, ZONE_CZ, radius)) {
+      if (this.playerHp > 0 && !insideZone(this.player.x, this.player.z, this.zoneCx, this.zoneCz, radius)) {
         this.hurtPlayer(ticks, t("폭풍", "The storm"));
       }
       for (const bot of this.bots) {
-        if (bot.hp > 0 && !insideZone(bot.body.x, bot.body.z, ZONE_CX, ZONE_CZ, radius)) {
+        if (bot.hp > 0 && !insideZone(bot.body.x, bot.body.z, this.zoneCx, this.zoneCz, radius)) {
           bot.hp -= ticks;
           if (bot.hp <= 0) this.onBotDown(bot, t("폭풍", "The storm"));
         }
@@ -463,7 +462,7 @@ export class BattleGame {
         ? t(`🌀 안전 구역 줄어드는 중 · ${Math.ceil(next.seconds)}초`, `🌀 Safe zone shrinking · ${Math.ceil(next.seconds)}s`)
         : t(`🌀 ${Math.ceil(next.seconds)}초 뒤 안전 구역이 줄어요`, `🌀 Safe zone shrinks in ${Math.ceil(next.seconds)}s`)
       : t("🌀 안전 구역 최소", "🌀 Safe zone at its smallest");
-    const outside = !insideZone(this.player.x, this.player.z, ZONE_CX, ZONE_CZ, radius);
+    const outside = !insideZone(this.player.x, this.player.z, this.zoneCx, this.zoneCz, radius);
     this.hud.update(this.playerHp, this.bots.filter((b) => b.hp > 0).length, zoneLabel, outside);
     this.hud.syncMenu(this.locked, this.phase === "live");
 

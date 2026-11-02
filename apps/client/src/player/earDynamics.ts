@@ -31,6 +31,8 @@ export class EarDynamics {
     private readonly deltaRotation = new THREE.Quaternion();
     private readonly direction = new THREE.Vector3();
     private readonly point = new THREE.Vector3();
+    private readonly base = new THREE.Quaternion();
+    private readonly tipBase = new THREE.Quaternion();
     constructor(private readonly root: THREE.Object3D, meshes: readonly THREE.SkinnedMesh[]) {
         for (const mesh of meshes)
             for (const side of ["L", "R"]) {
@@ -107,7 +109,8 @@ export class EarDynamics {
             if (low)
                 for (const index of ear.samples)
                     floor = Math.min(floor, ear.mesh.getVertexPosition(index, this.point).y);
-            const base = ear.bone.quaternion.clone(), tipBase = ear.tip?.quaternion.clone();
+            // scratch copies, not clone(): this runs per ear, per rig, per frame
+            const base = this.base.copy(ear.bone.quaternion), tipBase = ear.tip ? this.tipBase.copy(ear.tip.quaternion) : undefined;
             let gain = low ? .3 : 1;
             for (let attempt = 0; attempt < 8; attempt++) {
                 this.pitchRotation.setFromAxisAngle(this.axisX, ear.pitch * gain);
@@ -118,9 +121,10 @@ export class EarDynamics {
                     ear.tipApplied.copy(this.tipRotation.setFromAxisAngle(this.axisX, ear.fold * gain * .55));
                     ear.tip.quaternion.copy(tipBase).multiply(ear.tipApplied).normalize();
                 }
-                this.root.updateMatrixWorld(true);
+                // only the low pose samples vertices; the renderer updates matrices anyway
                 if (!low)
                     break;
+                this.root.updateMatrixWorld(true);
                 let min = Infinity;
                 for (const index of ear.samples)
                     min = Math.min(min, ear.mesh.getVertexPosition(index, this.point).y);

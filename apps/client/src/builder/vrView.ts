@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import type { VrFrame } from "./vrDirector.js";
+import { t } from "../ui/i18n.js";
 
 /** What the in-world plaque reads out. */
 export interface VrPanelInfo {
@@ -210,7 +211,7 @@ export class VrView {
     c.fillStyle = "#b8860b";
     c.fillText(`${Math.floor(info.gold).toLocaleString()} G`, 30, 202);
     c.fillStyle = "#3d6b3d";
-    c.fillText(`${info.workers} crew`, 250, 202);
+    c.fillText(t(`일꾼 ${info.workers}명`, `${info.workers} crew`), 250, 202);
 
     this.texture.needsUpdate = true;
   }

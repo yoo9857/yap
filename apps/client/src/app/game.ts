@@ -152,6 +152,7 @@ export class Game {
         this.correctionCount++;
         // a refused finish: say so, instead of a clear screen waiting forever for its rank
         if (this.state === "clear" && FINISH_REFUSALS.has(reason)) {
+          this.finishAnswered = true;
           showNotice(reason === "finish-unrecorded"
             ? t("기록을 저장하지 못했어요. 다시 도전해 주세요.", "Your time couldn't be saved. Please try again.")
             : t("이번 기록은 인정되지 않았어요 (체크포인트를 확인해 주세요).", "This run wasn't counted (check the checkpoints)."));
@@ -164,6 +165,7 @@ export class Game {
       onNewDay: () => this.onNewDayNotice(),
       onFinishResult: (entry, isLocal) => {
         if (isLocal) {
+          this.finishAnswered = true;
           this.screens.updateClearResult(entry.timeMs, this.world.player.falls, entry.rank);
         } else {
           showNotice(t(`🏁 ${entry.name} 님이 오늘 ${entry.rank}등으로 완주했어요!`, `🏁 ${entry.name} finished at #${entry.rank} today!`));
@@ -212,7 +214,10 @@ export class Game {
     setMessage?.(t("텍스처 불러오는 중…", "Loading textures…"));
     await texturesReady();
     setMessage?.(t("그래픽 준비하는 중…", "Warming up GPU…"));
-    warmupGpu(this.renderer.renderer, this.renderer.scene, this.renderer.camera);
+    warmupGpu(this.renderer.renderer, this.renderer.scene, this.renderer.camera, this.renderer.compileTargets());
+    // one real frame compiles what compile() cannot see: shadow depth, the ink
+    // mask overrides and the composite
+    this.renderer.render();
   }
 
   start(): void {
@@ -318,6 +323,9 @@ export class Game {
 
   // ---------------------------------------------------------------- daily
 
+  /** A clear screen's finish got a rank or a refusal (else a reconnect lost it). */
+  private finishAnswered = true;
+
   private onWelcome(daily: DailyInfo, rejoin = false): void {
     const seedChanged = daily.seed !== this.daily.seed;
     this.daily = daily;
@@ -332,6 +340,11 @@ export class Game {
       // refuse every checkpoint and the finish, and the first death after it kicked the player.
       showNotice(t("🔌 다시 연결됐어요 — 이번 판은 처음부터 다시 해요.", "🔌 Reconnected — this run starts over."));
       this.startRun();
+    } else if (rejoin && this.state === "clear" && !this.finishAnswered) {
+      // the finish (or its answer) was lost with the link — a queued finish is
+      // cleared by the new session: say so rather than wait for a rank forever
+      this.finishAnswered = true;
+      showNotice(t("🔌 연결이 끊겨서 이번 기록을 확인하지 못했어요. 순위표를 보거나 다시 도전해 주세요.", "🔌 The connection dropped before this time was confirmed. Check the board or try again."));
     }
   }
 
@@ -387,6 +400,7 @@ export class Game {
     this.effects.goalConfetti(new THREE.Vector3(...this.world.level.goal.center));
     this.net.sendFinish(this.finalTimeMs);
     this.state = "clear";
+    this.finishAnswered = false;
     this.screens.setBoard(this.net.board);
     this.screens.showClear(this.finalTimeMs, this.world.player.falls, null);
   }

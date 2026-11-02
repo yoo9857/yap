@@ -101,7 +101,11 @@ export class NetworkClient {
     return 1 + (this.joined ? this.remotes.size : 0);
   }
 
+  /** Kicked or out of date: no more connects until the page reloads. */
+  private refused = false;
+
   connect(name: string): void {
+    if (this.refused) return;
     if (this.name !== name && this.joined) {
       // rename = rejoin (the protocol has no rename message on purpose)
       this.name = name;
@@ -114,6 +118,7 @@ export class NetworkClient {
 
   /** Rejoin (e.g. the tower day rolled over and our room is stale). */
   reconnect(): void {
+    if (this.refused) return;
     this.socket.forceReconnect();
   }
 
@@ -241,6 +246,9 @@ export class NetworkClient {
         break;
       case "s-error":
         if (msg.code === "kicked" || msg.code === "room-full" || msg.code === "bad-version") {
+          // a kick or an out-of-date page stays offline for the visit: the next
+          // run's connect() would otherwise hand a kicked player a clean session
+          if (msg.code !== "room-full") this.refused = true;
           this.socket.stop();
           // offline for good: free the ghosts now, not on a welcome that will never come
           for (const r of this.remotes.values()) r.dispose();

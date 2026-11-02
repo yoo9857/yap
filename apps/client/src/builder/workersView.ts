@@ -54,6 +54,8 @@ export class WorkersView {
     while (this.workers.length > n) {
       const w = this.workers.pop()!;
       this.scene.remove(w.rig.root);
+      w.brick.removeFromParent();
+      (w.brick.material as THREE.Material).dispose(); // its own; the geometry is shared
       disposeRig(w.rig.root);
     }
   }

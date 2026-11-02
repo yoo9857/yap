@@ -235,12 +235,20 @@ export class CraftHud {
   }
 
   /** Mining progress under the crosshair (null hides the gauge). */
+  private mineBar: HTMLElement | null | undefined;
+  private mineFill: HTMLElement | null | undefined;
+  private lastMineWidth = "";
+
+  /** Called every frame: the elements are looked up once, and the bar is only touched when it changes. */
   setMineProgress(frac: number | null): void {
-    const bar = this.root.querySelector<HTMLElement>(".craft-mine-bar");
-    const fill = this.root.querySelector<HTMLElement>('[data-id="mine-fill"]');
+    this.mineBar ??= this.root.querySelector<HTMLElement>(".craft-mine-bar");
+    this.mineFill ??= this.root.querySelector<HTMLElement>('[data-id="mine-fill"]');
+    const bar = this.mineBar, fill = this.mineFill;
     if (!bar || !fill) return;
     bar.classList.toggle("hidden", frac === null);
-    if (frac !== null) fill.style.width = `${Math.min(100, frac * 100).toFixed(0)}%`;
+    if (frac === null) return;
+    const width = `${Math.min(100, frac * 100).toFixed(0)}%`;
+    if (width !== this.lastMineWidth) fill.style.width = this.lastMineWidth = width;
   }
 
   update(counts: Counts, selected: number, hotbar: readonly string[]): void {

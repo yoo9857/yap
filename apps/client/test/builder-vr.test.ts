@@ -261,6 +261,21 @@ describe("radiusProfile", () => {
 });
 
 describe("VR director comfort contract", () => {
+  it("never shows a new monument from the old monument's viewpoint", () => {
+    const d = new VrDirector(seededRng(5));
+    run(d, 3, { ...CTX, key: "eiffel" }); // settled into a visible dwell
+    d.requestCut();
+    const dt = 1 / 90;
+    let frame = d.update(dt, { ...CTX, key: "eiffel" });
+    for (let i = 0; i < 900 && frame.blind < 1; i++) frame = d.update(dt, { ...CTX, key: "eiffel" });
+    expect(frame.blind).toBe(1);
+    // the caller swaps the landmark on the blind frame: it opens blind, re-posed for it
+    const next = d.update(dt, { heightM: 48, radiusM: 96, frontierY: 0, key: "colosseum" });
+    expect(next.blind).toBe(1);
+    expect(next.cut).toBe(true);
+    expect(next.pose).not.toBe(frame.pose);
+  });
+
   it("holds the viewpoint perfectly still while it is visible", () => {
     const d = new VrDirector(seededRng());
     const frames = run(d, DWELL_S * 3);

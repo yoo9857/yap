@@ -53,7 +53,7 @@ export function goalAt(index: number): Goal {
   const tour = Math.floor(landmarkIndex / LANDMARKS.length) + 1;
   return {
     ...landmarkGoal(landmarkIndex, Math.round(1000 * tour * 1.5)),
-    title: `${landmarkAt(landmarkIndex).emoji} ${landmarkAt(landmarkIndex).name} — tour ${tour + 1}`,
+    title: `${landmarkAt(landmarkIndex).emoji} ${landmarkAt(landmarkIndex).name} — tour ${tour}`,
   };
 }
 

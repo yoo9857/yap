@@ -25,6 +25,10 @@ export function initMenuBackground(): void {
   let format = "";
   let frame = 0;
   let releaseTimer = 0;
+  // the game never goes back to the menu without a reload, so once play has
+  // begun every listener and the body observer below are dropped for good
+  const events = new AbortController();
+  const signal = events.signal;
 
   video.muted = video.defaultMuted = true;
   // The whole way from the picker to the first game frame counts as "menu": the
@@ -82,10 +86,15 @@ export function initMenuBackground(): void {
     document.body.classList.toggle("menu-video-ready", active && ready);
     if (!active) {
       video!.pause();
-      if (!allowed() || failed) release();
-      else if (!visible && !releaseTimer) releaseTimer = window.setTimeout(() => {
+      if (!allowed() || failed) {
+        release();
+        if (!visible) retire();
+      } else if (!visible && !releaseTimer) releaseTimer = window.setTimeout(() => {
         releaseTimer = 0;
-        if (!menuVisible()) release();
+        if (!menuVisible()) {
+          release();
+          retire();
+        }
       }, 250);
       return;
     }
@@ -102,19 +111,26 @@ export function initMenuBackground(): void {
     if (!frame) frame = requestAnimationFrame(update);
   }
 
-  video.addEventListener("playing", () => { ready = true; schedule(); });
+  function retire(): void {
+    events.abort();
+    observer.disconnect();
+    cancelAnimationFrame(frame);
+    frame = 0;
+  }
+
+  video.addEventListener("playing", () => { ready = true; schedule(); }, { signal });
   video.addEventListener("error", () => {
     if (!video.hasAttribute("src")) return;
     if (format === "webm" && allowed() && menuVisible()) load(size, "mp4");
     else { failed = true; schedule(); }
-  });
+  }, { signal });
   toggle.addEventListener("click", () => {
     userPaused = gestureNeeded ? false : !userPaused;
     gestureNeeded = false;
     try { localStorage.setItem(PAUSE_KEY, userPaused ? "1" : "0"); } catch { /* optional */ }
     // Stay in the click's activation context on browsers that require a gesture.
     update();
-  });
+  }, { signal });
   const retryGesture = (event: Event) => {
     if (event.target instanceof Node && toggle.contains(event.target)) return;
     if (gestureNeeded && !userPaused && allowed() && menuVisible()) {
@@ -123,13 +139,13 @@ export function initMenuBackground(): void {
       schedule();
     }
   };
-  document.addEventListener("pointerdown", retryGesture, { passive: true });
-  document.addEventListener("keydown", retryGesture);
+  document.addEventListener("pointerdown", retryGesture, { passive: true, signal });
+  document.addEventListener("keydown", retryGesture, { signal });
   // Hidden tabs suspend animation frames; pause synchronously on this event.
-  document.addEventListener("visibilitychange", () => { cancelAnimationFrame(frame); update(); });
-  reduced.addEventListener("change", schedule);
-  mobile.addEventListener("change", schedule);
-  connection?.addEventListener("change", schedule);
+  document.addEventListener("visibilitychange", () => { cancelAnimationFrame(frame); update(); }, { signal });
+  reduced.addEventListener("change", schedule, { signal });
+  mobile.addEventListener("change", schedule, { signal });
+  connection?.addEventListener("change", schedule, { signal });
   const observer = new MutationObserver(schedule);
   observer.observe(document.body, { childList: true, attributes: true, attributeFilter: ["class"] });
   if (overlay) observer.observe(overlay, { attributes: true, attributeFilter: ["class"] });

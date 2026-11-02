@@ -112,7 +112,9 @@ for (const mode of ["field", "craft", "battle", "builder"]) {
       });
       await page.mouse.click(400, 300);
       await page.waitForFunction(() => !!document.pointerLockElement, { timeout: 5000 });
-      await page.mouse.move(400, 500, { steps: 3 }); // aim at reachable ground
+      // the game drops look input for 150 ms after a capture (mouseLook.ts LOCK_SETTLE_MS)
+      await sleep(300);
+      await page.mouse.move(400, 500, { steps: 4 }); // aim at reachable ground
       await sleep(150);
       await page.keyboard.press("Digit0");
       await page.mouse.down({ button: "right" }); await sleep(100); await page.mouse.up({ button: "right" });
