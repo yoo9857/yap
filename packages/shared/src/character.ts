@@ -47,6 +47,8 @@ export const EMOTES: readonly EmoteDef[] = [
     { id: "stand", ko: "일어나기", en: "Stand up", icon: "🧍", face: "neutral", seconds: 0, posture: "stand" },
 ];
 export const emoteDef = (id: EmoteId): EmoteDef | undefined => EMOTES.find(e => e.id === id);
+// Strict on purpose, so a new item or option is a protocol change: bump CLASS_PROTOCOL_VERSION with it,
+// or older peers reject the whole k-move / s-k-snap that carries the unknown id.
 export const heldItemSchema=z.enum(["pickaxe-basic"]);
 export const toolOptionSchema=z.enum(["balanced","light-grip","stone-focus","precise-tip"]);
 export type EquippedItemId=z.infer<typeof heldItemSchema>;

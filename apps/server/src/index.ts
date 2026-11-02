@@ -155,7 +155,10 @@ const httpServer = createServer((req, res) => {
 // classes live in the same SQLite file as the records, so the existing
 // bind-mount and daily backup cover them too
 const classes = new ClassManager(createClassStore(resolve(entryDir, config.DB_PATH)));
-const closeWs = attachWsServer(httpServer, rooms, classes);
+const closeWs = attachWsServer(httpServer, rooms, classes, {
+  perAddress: config.MAX_CONN_PER_IP,
+  total: config.MAX_CONNECTIONS,
+});
 
 httpServer.listen(config.PORT, config.HOST, () => {
   log.info(

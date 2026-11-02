@@ -40,12 +40,14 @@ export interface DailyInfo {
 
 export interface NetworkEvents {
   onConnectionState?(state: ConnectionState): void;
-  onCorrection?(pos: Vec3): void;
+  /** `reason` is the server's: a move rejected, or a finish it would not record. */
+  onCorrection?(pos: Vec3, reason: string): void;
   onFinishResult?(entry: FinishEntry, isLocal: boolean): void;
   onRemoteCheckpoint?(playerId: string, index: number): void;
   onKicked?(msg: string): void;
   /** Fired on every (re)join with the server-authoritative daily tower. */
-  onWelcome?(daily: DailyInfo): void;
+  /** `rejoin`: a later welcome on a new session (reconnect) — the server's run state starts over. */
+  onWelcome?(daily: DailyInfo, rejoin: boolean): void;
   onBoard?(entries: DailyBoardEntry[]): void;
   onNewDay?(dateStr: string): void;
 }
@@ -59,6 +61,8 @@ export class NetworkClient {
   /** Today's persisted leaderboard (server-authoritative, deduped). */
   board: DailyBoardEntry[] = [];
   daily: DailyInfo | null = null;
+  /** Has any session welcomed us yet? (The next one is a rejoin.) */
+  private welcomed = false;
   private readonly socket = new GameSocket();
   private readonly clock = new ServerClock();
   private readonly remotes = new Map<string, RemotePlayer>();
@@ -151,6 +155,8 @@ export class NetworkClient {
   }
 
   sendRespawn(reason: "death" | "restart"): void {
+    // a checkpoint/finish still queued from the run being thrown away must not follow the restart
+    if (reason === "restart") this.progressQueue.length = 0;
     if (this.joined) this.socket.send({ t: "c-respawn", reason });
   }
 
@@ -178,7 +184,9 @@ export class NetworkClient {
         for (const r of this.remotes.values()) r.dispose();
         this.remotes.clear();
         for (const p of msg.players) this.addRemote(p.id, p.name);
-        this.events.onWelcome?.(this.daily);
+        const rejoin = this.welcomed;
+        this.welcomed = true;
+        this.events.onWelcome?.(this.daily, rejoin);
         this.events.onBoard?.(this.board);
         break;
       }
@@ -204,7 +212,7 @@ export class NetworkClient {
         this.socket.send({ t: "c-pong", nonce: msg.nonce });
         break;
       case "s-correction":
-        this.events.onCorrection?.(msg.pos);
+        this.events.onCorrection?.(msg.pos, msg.reason);
         break;
       case "s-checkpoint-ok":
         if (msg.playerId !== this.playerId) {
@@ -222,6 +230,9 @@ export class NetworkClient {
         break;
       }
       case "s-daily-board":
+        // a run finished in a room still on yesterday's tower is recorded on yesterday's board:
+        // that board is not today's and must not replace it
+        if (this.daily && msg.dateStr !== this.daily.dateStr) break;
         this.board = msg.entries;
         this.events.onBoard?.(this.board);
         break;
@@ -231,6 +242,9 @@ export class NetworkClient {
       case "s-error":
         if (msg.code === "kicked" || msg.code === "room-full" || msg.code === "bad-version") {
           this.socket.stop();
+          // offline for good: free the ghosts now, not on a welcome that will never come
+          for (const r of this.remotes.values()) r.dispose();
+          this.remotes.clear();
           this.events.onKicked?.(msg.msg);
         }
         break;

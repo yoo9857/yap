@@ -26,7 +26,8 @@ const saveSchema = z.object({
     .array(z.tuple([z.number().int().nonnegative(), z.number().int().nonnegative()]))
     .max(WORLD_X * WORLD_Y * WORLD_Z)
     .optional(),
-  inventory: z.record(z.string(), z.number()),
+  /** Checked key by key in `sanitizeCounts`: one bad value must not reject (and so wipe) the whole save. */
+  inventory: z.record(z.string(), z.unknown()),
   /** Hotbar loadout. Optional: saves from before the bag keep the default bar.
    *  Unknown shapes are ignored in `sanitizeHotbar` so a bad slot cannot wipe the island. */
   hotbar: z.unknown().optional(),

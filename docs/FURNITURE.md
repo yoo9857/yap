@@ -156,8 +156,9 @@ sofa, a vase stands on a table and a clock hangs over a bed:
   under the player, so the controller converts with the window origin, and a
   scroll never touches the layout.
 - **Aiming**: solid pieces are in the voxel ray; rugs, surface and wall pieces
-  are tested against their model box (`placedBounds` + `rayBox`). The nearer
-  hit wins, so a vase on a table is picked before the table.
+  are tested part by part (`rayPiece`), so an open doorway can be clicked
+  through and still shut again. The nearer hit wins, so a vase on a table is
+  picked before the table.
 - **Rendering cost** is one draw call per *distinct look* in use, ×3 (scene,
   ink mask, shadow). Measured: 400 chairs added 3 draw calls; 200 sofas in four
   colours added 12.
@@ -179,7 +180,7 @@ sofa, a vase stands on a table and a clock hangs over a bed:
 - **The placement ghost** is drawn 1.2 % larger with `polygonOffset` and is
   hidden on the spot you just placed on until the aim moves: a translucent red
   copy in the same surfaces as the piece z-fought into a shimmering glow.
-- **Saves**: `[kind, x, y, z, rot, variant]` per piece in both the island and the
+- **Saves**: `[kind, x, y, z, rot, variant, state?]` per piece (`state` 1 = an open door/gate/curtain) in both the island and the
   field save. Entries are validated one by one; a bad entry is dropped, an
   unknown colour falls back to variant 0, five-element tuples (pre-variant
   saves) read as variant 0.
@@ -197,7 +198,13 @@ Furniture is saved beside the field diff in the class store. Welcome/reconnect
 snapshots include all furniture; resetting the field clears it. Removing supports
 cascades on the server, and blocks cannot be built through furniture. Student
 building locks also cover placement, pickup, undo/redo and door toggles. Classroom
-protocol version 2 requires a page refresh for clients from before this change.
+furniture arrived in protocol version 2 (now 8); an older tab refreshes into its class.
+A refused change (lock, rate limit, a classmate standing in the cells) sends the
+layout back to the sender only, and the client checks classmates' last reported
+positions itself, so a sofa on a friend is refused before it is drawn. The server
+skips the placer's own (≤100 ms old) position — their client checked it exactly.
+English names live in `apps/client/src/craft/furniture/names.ts` (kept complete
+by `test/furniture-catalog.test.ts`).
 Unchanged pieces keep their object identity when snapshots arrive so another
 participant's edit doesn't make a seated player stand up.
 

@@ -64,6 +64,9 @@ export class MachinePhysics {
   readonly body: RapierRigidBody;
   readonly wheels: DynamicRayCastVehicleController;
   readonly wheelParts: number[] = [];
+  /** Wheels AHEAD of the cockpit steer (PARTS.wheel.detail), so steering doesn't depend on where
+   *  the blueprint's origin happens to sit. */
+  private readonly steerFromZ: number;
   private readonly terrain = new Map<string, RapierRigidBody>();
   private readonly rotation = new Quaternion();
   private readonly force = new Vector3();
@@ -94,6 +97,7 @@ export class MachinePhysics {
   ) {
     const error = blueprintError(blueprint);
     if (error) throw new MachineFault("INVALID_BLUEPRINT", error);
+    this.steerFromZ = blueprint.parts.find((p) => p.kind === "cockpit")?.cell[2] ?? 0;
     if (![origin.x, origin.y, origin.z].every(Number.isFinite))
       throw new MachineFault("INVALID_INPUT", "출발 위치가 올바르지 않습니다.");
     this.world = new rapier.World({ x: 0, y: -RULES.gravity, z: 0 });
@@ -261,7 +265,7 @@ export class MachinePhysics {
       );
       this.wheels.setWheelSteering(
         i,
-        part.cell[2] > 0 ? input.steer * RULES.steeringAngle : 0,
+        part.cell[2] > this.steerFromZ ? input.steer * RULES.steeringAngle : 0,
       );
     }
     this.wheels.updateVehicle(

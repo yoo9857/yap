@@ -15,6 +15,9 @@ const envSchema = z.object({
   DB_PATH: z.string().default("../data/records.db"),
   /** Tower-day timezone as minutes east of UTC (default KST +9h). */
   DAY_UTC_OFFSET_MIN: z.coerce.number().int().min(-720).max(840).default(540),
+  /** Open WebSockets per client address (a whole school shares one public IP) and in total. */
+  MAX_CONN_PER_IP: z.coerce.number().int().positive().default(200),
+  MAX_CONNECTIONS: z.coerce.number().int().positive().default(4000),
   LOG_LEVEL: z.enum(["trace", "debug", "info", "warn", "error"]).default("info"),
 });
 

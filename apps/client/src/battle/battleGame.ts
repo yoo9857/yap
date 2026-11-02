@@ -173,6 +173,7 @@ export class BattleGame {
     setMessage(t("텍스처 불러오는 중…", "Loading textures…"));
     await texturesReady();
     setMessage(t("그래픽 준비하는 중…", "Preparing graphics…"));
+    this.warming = true; // a start() after main.ts's timeout must not warm up a second time
     await warmupGpuAsync(this.renderer.renderer, this.renderer.scene, this.renderer.camera, () => this.renderer.render());
     this.warmed = true;
   }
@@ -180,7 +181,7 @@ export class BattleGame {
   start(): void {
     this.loop.start();
     // started without `prepare` (a test harness): warm up the old way
-    if (!this.warmed) {
+    if (!this.warmed && !this.warming) {
       void texturesReady().then(() => {
         warmupGpu(this.renderer.renderer, this.renderer.scene, this.renderer.camera);
       });
@@ -188,6 +189,7 @@ export class BattleGame {
   }
 
   private warmed = false;
+  private warming = false;
 
   // ---------------------------------------------------------------- input
 

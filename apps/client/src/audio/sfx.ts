@@ -95,6 +95,8 @@ export class Sfx {
   /** Recorded CC0 sounds (public/audio/sfx), decoded in the background after the first gesture. Until they arrive, the synth recipes play. */
   private banks = new Map<string, Clip[]>();
   private banksLoading = false;
+  /** After a failed manifest fetch, the next gesture may retry from this time (ms), not on every key press. */
+  private banksRetryAt = 0;
   /** The last two variants each bank played: neither is picked next, so steps never stutter on one recording. */
   private readonly lastPick = new Map<string, number[]>();
   /** Where the ears are (the camera) and which way they face, for classmates' sounds. */
@@ -105,6 +107,10 @@ export class Sfx {
   private reverbSend: GainNode | null = null;
   private convolver: ConvolverNode | null = null;
   private reverbDecay = 0;
+  /** One impulse per tail length (0.25 s steps): a doorway that flips between two rooms swaps buffers, never refills one. */
+  private readonly impulses = new Map<number, AudioBuffer>();
+  /** Head under water — remembered, so a context created later (the first click) starts muffled too. */
+  private under = false;
   /** The world as an acoustic space (set by the game): what each cell does to a sound passing through. */
   private damping: CellDamping | null = null;
   /** Set only for the duration of one positioned sound: every layer of it goes through this gain + pan. */
@@ -159,6 +165,7 @@ export class Sfx {
       this.reverbSend = send;
       this.convolver = convolver;
       this.out = comp;
+      if (this.under) master.frequency.value = 650;
       const frames = this.ctx.sampleRate;
       this.noiseBuffer = this.ctx.createBuffer(1, frames, frames);
       const data = this.noiseBuffer.getChannelData(0);
@@ -185,15 +192,22 @@ export class Sfx {
     if (kind === "break" && !this.remote) this.layers(ctx, collectSound());
   }
 
-  /** The camera, each frame: classmates' sounds are placed against it. */
+  /**
+   * The camera, each frame: classmates' sounds are placed against it. A jump
+   * of more than a few metres (a field scroll, a teleport) is taken at once —
+   * gliding there would sweep every sound in flight across the head.
+   */
   setListener(x: number, y: number, z: number, yaw: number, pitch = 0): void {
+    const jump = Math.abs(x - this.listener.x) + Math.abs(y - this.listener.y) + Math.abs(z - this.listener.z) > 4;
     this.listener.x = x; this.listener.y = y; this.listener.z = z; this.listener.yaw = yaw;
     const l = this.ctx?.listener;
     if (!l) return;
     const fx = Math.sin(yaw) * Math.cos(pitch), fy = Math.sin(pitch), fz = Math.cos(yaw) * Math.cos(pitch);
     if (l.positionX) {
       const t = this.ctx!.currentTime;
-      l.positionX.setTargetAtTime(x, t, 0.015); l.positionY.setTargetAtTime(y, t, 0.015); l.positionZ.setTargetAtTime(z, t, 0.015);
+      if (jump) { l.positionX.cancelScheduledValues(t); l.positionY.cancelScheduledValues(t); l.positionZ.cancelScheduledValues(t);
+        l.positionX.setValueAtTime(x, t); l.positionY.setValueAtTime(y, t); l.positionZ.setValueAtTime(z, t); }
+      else { l.positionX.setTargetAtTime(x, t, 0.015); l.positionY.setTargetAtTime(y, t, 0.015); l.positionZ.setTargetAtTime(z, t, 0.015); }
       l.forwardX.setTargetAtTime(fx, t, 0.015); l.forwardY.setTargetAtTime(fy, t, 0.015); l.forwardZ.setTargetAtTime(fz, t, 0.015);
       l.upX.value = 0; l.upY.value = 1; l.upZ.value = 0;
     } else {
@@ -215,13 +229,18 @@ export class Sfx {
     const ctx = this.ctx;
     if (!ctx || !this.reverbSend || !this.convolver) return;
     const { wet, decay } = roomEcho(room);
-    this.reverbSend.gain.setTargetAtTime(wet * settings.sfx, ctx.currentTime, 0.25);
-    // a new impulse only when the room changes character (≥0.25 s of tail), never every probe
-    const rounded = Math.round(decay * 4) / 4;
-    if (wet > 0.01 && Math.abs(rounded - this.reverbDecay) >= 0.25) {
-      this.reverbDecay = rounded;
-      this.convolver.buffer = impulse(ctx, rounded);
-    }
+    // every source is already scaled by the effects volume: scaling the send too made the echo go as volume²
+    this.reverbSend.gain.setTargetAtTime(wet, ctx.currentTime, 0.25);
+    // A new tail only when the room changes character, with hysteresis: the decay must pass
+    // 0.15 s beyond the current step's edge, so standing in a doorway never swaps tails every probe.
+    if (wet <= 0.01) return;
+    if (this.reverbDecay > 0 && Math.abs(decay - this.reverbDecay) < 0.125 + 0.15) return;
+    const rounded = Math.max(0.25, Math.round(decay * 4) / 4);
+    if (rounded === this.reverbDecay) return;
+    this.reverbDecay = rounded;
+    let buffer = this.impulses.get(rounded);
+    if (!buffer) { buffer = impulse(ctx, rounded); this.impulses.set(rounded, buffer); }
+    this.convolver.buffer = buffer;
   }
 
   /** State for debug hooks and tests: what the listener hears right now. */
@@ -241,6 +260,7 @@ export class Sfx {
 
   /** Head under water: everything turns dull and close. */
   setUnderwater(under: boolean): void {
+    this.under = under;
     const ctx = this.ctx;
     if (!ctx || !this.master) return;
     this.master.frequency.setTargetAtTime(under ? 650 : 20000, ctx.currentTime, 0.08);
@@ -255,6 +275,9 @@ export class Sfx {
     const ctx = this.ready();
     if (!ctx) return;
     const own = opts.own === true;
+    // classmates share a smaller budget than the whole mix, so a crowd's footsteps never silence our own pickaxe
+    // early bail before building the panner chain; claim() enforces the same cap for whatever slips past
+    if (!own && this.voices >= Sfx.REMOTE_VOICES) return;
     const { gain: reach, pan: side } = placeSound(this.listener, x, y, z);
     if (!own && reach < 0.03) return; // beyond ~22 m: not worth a voice
     const l = this.listener;
@@ -294,10 +317,11 @@ export class Sfx {
       nodes.push(pan);
     }
     tail.connect(this.out ?? ctx.destination);
+    // scheduled first: a throw inside `play` must not leave the chain connected for good
+    setTimeout(() => { for (const n of nodes) n.disconnect(); }, 2500);
     this.bus = g;
     this.remote = !own;
     try { play(); } finally { this.bus = null; this.remote = false; }
-    setTimeout(() => { for (const n of nodes) n.disconnect(); }, 2500);
   }
 
   /** One footstep on a block of this surface family (`wet`: in shallow water). Played on the frame the foot lands. */
@@ -342,11 +366,11 @@ export class Sfx {
   }
 
   private async loadBanks(): Promise<void> {
-    if (this.banksLoading || this.disposed || typeof fetch === "undefined") return;
+    if (this.banksLoading || this.disposed || typeof fetch === "undefined" || performance.now() < this.banksRetryAt) return;
     this.banksLoading = true;
     try {
       const res = await fetch("/audio/sfx/manifest.json");
-      if (!res.ok) return;
+      if (!res.ok) { this.retryBanksLater(); return; }
       const manifest = (await res.json()) as Record<string, string[]>;
       // every file at once (they are a few KB each): one round trip instead of 115 in a row,
       // so the recordings replace the synth fallback within a moment of the first click
@@ -362,7 +386,13 @@ export class Sfx {
         const clips = (await Promise.all(files.map(load))).filter((c): c is Clip => c !== null);
         if (clips.length && !this.disposed) this.banks.set(id, clips);
       }));
-    } catch { /* offline or blocked: the synth recipes keep playing */ }
+    } catch { this.retryBanksLater(); /* offline or blocked: the synth recipes keep playing meanwhile */ }
+  }
+
+  /** A failed manifest is fetched again by a gesture 20 s later, so one network blip does not mean synth for the whole visit. */
+  private retryBanksLater(): void {
+    this.banksLoading = false;
+    this.banksRetryAt = performance.now() + 20_000;
   }
 
   /**
@@ -497,6 +527,7 @@ export class Sfx {
     this.convolver = null;
     this.noiseBuffer = null;
     this.banks.clear();
+    this.impulses.clear();
   }
 
   private beep(
@@ -508,6 +539,7 @@ export class Sfx {
     slideTo: number,
     delay = 0,
   ): void {
+    if (!this.claim()) return;
     const t0 = ctx.currentTime + delay;
     const osc = ctx.createOscillator();
     const gain = ctx.createGain();
@@ -518,7 +550,6 @@ export class Sfx {
     gain.gain.setValueAtTime(0.0001, t0);
     gain.gain.exponentialRampToValueAtTime(Math.max(vol * settings.sfx, 0.0001), t0 + 0.004);
     gain.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
-    if (!this.claim()) return;
     osc.connect(gain).connect(this.bus ?? this.out ?? ctx.destination);
     osc.onended = () => this.voices--;
     osc.start(t0);
@@ -526,9 +557,11 @@ export class Sfx {
   }
 
   private static readonly MAX_VOICES = 40;
+  /** Classmates' sounds stop here; the rest of the cap is kept for our own. */
+  private static readonly REMOTE_VOICES = 28;
 
   private claim(): boolean {
-    if (this.voices >= Sfx.MAX_VOICES) return false;
+    if (this.voices >= (this.remote ? Sfx.REMOTE_VOICES : Sfx.MAX_VOICES)) return false;
     this.voices++;
     return true;
   }

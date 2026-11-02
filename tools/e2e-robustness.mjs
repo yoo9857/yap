@@ -1,10 +1,12 @@
+import { fileURLToPath } from "node:url";
 // Robustness E2E: forged-move snapback, violation kick, server-restart
 // auto-reconnect (solo play continues while offline).
 import { appendFileSync, readFileSync, writeFileSync } from "node:fs";
 import puppeteer from "puppeteer-core";
 
 const EDGE = "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe";
-const SERVER_ENTRY = "C:/robo/apps/server/src/index.ts";
+// the repo moved once and this pointed at the old checkout: resolve it from this file instead
+const SERVER_ENTRY = fileURLToPath(new URL("../apps/server/src/index.ts", import.meta.url));
 const results = [];
 const check = (name, ok, detail = "") => {
   results.push(ok);

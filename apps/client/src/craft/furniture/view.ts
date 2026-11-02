@@ -204,8 +204,9 @@ export class FurnitureView {
 
   dispose(): void {
     if (this.prebuildTimer !== null) {
-      if (typeof cancelIdleCallback === "function") cancelIdleCallback(this.prebuildTimer);
-      clearTimeout(this.prebuildTimer);
+      // the id came from one scheduler or the other (see prebuild); the two number spaces overlap
+      if (typeof requestIdleCallback === "function") cancelIdleCallback(this.prebuildTimer);
+      else clearTimeout(this.prebuildTimer);
     }
     for (const mesh of this.meshes.values()) {
       this.scene.remove(mesh);

@@ -160,3 +160,14 @@ describe("furniture catalog", () => {
     expect(() => furnitureDef("throne")).toThrow();
   });
 });
+
+describe("furniture English names", () => {
+  it("names every piece, colour and category in English", async () => {
+    const { PIECE_EN, PALETTE_EN, CATEGORY_EN } = await import("../src/craft/furniture/names.js");
+    for (const def of CATALOG) {
+      expect(PIECE_EN[def.key], def.key).toBeTruthy();
+      for (const p of def.palettes ?? []) expect(PALETTE_EN[p.name], `${def.key}: ${p.name}`).toBeTruthy();
+    }
+    for (const cat of CATEGORIES) expect(CATEGORY_EN[cat.name], cat.name).toBeTruthy();
+  });
+});

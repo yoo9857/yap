@@ -9,8 +9,8 @@ import {
   type PetSense,
 } from "../player/pet.js";
 import { interpolate } from "./smoothing.js";
-import { stepBody, unstick, type Body } from "./voxelBody.js";
-import { surfaceY, type VoxelWorld } from "./voxelWorld.js";
+import { BODY_HEIGHT, canOccupy, stepBody, unstick, type Body } from "./voxelBody.js";
+import type { VoxelWorld } from "./voxelWorld.js";
 
 /**
  * The pet that tags along in Craft Island and the education field: the pure
@@ -26,6 +26,11 @@ import { surfaceY, type VoxelWorld } from "./voxelWorld.js";
  * Fixed-tick physics, variable-rate rendering, mirroring how the player is
  * driven — the rig's gait must follow real frame time or it stutters.
  */
+/** Where a recalled pet tries to land, nearest-to-behind first (never in the owner's face). */
+const RECALL_SPOTS: readonly (readonly [number, number])[] = [
+  [1.2, 1.2], [-1.2, 1.2], [1.2, -1.2], [-1.2, -1.2], [1.2, 0], [-1.2, 0], [0, 1.2], [0, -1.2],
+];
+
 export class PetCompanion {
   readonly body: Body;
   private rig: CreatureRig;
@@ -163,15 +168,22 @@ export class PetCompanion {
    * on top: landing in the player's face is the one placement that always
    * reads as a glitch. `unstick` then guarantees it is never left embedded.
    */
-  private recall(world: VoxelWorld, owner: { x: number; y: number; z: number }): void {
-    const x = owner.x + 1.2;
-    const z = owner.z + 1.2;
-    this.body.x = x;
-    this.body.z = z;
-    this.body.y = Math.max(owner.y, surfaceY(world, Math.floor(x), Math.floor(z)) + 1);
-    this.body.vx = this.body.vy = this.body.vz = 0;
-    this.body.grounded = false;
-    unstick(world, this.body);
+  /** Put the pet beside its owner at once (its own give-up recall, and a classroom gather). */
+  recall(world: VoxelWorld, owner: { x: number; y: number; z: number }): void {
+    // The first free spot beside the owner AT the owner's level. The column's top surface put a
+    // pet called into a house or a tunnel on the roof, where it idled forever within reach.
+    const b = this.body;
+    let placed = false;
+    for (const [dx, dz] of RECALL_SPOTS) {
+      b.x = owner.x + dx; b.z = owner.z + dz; b.y = owner.y;
+      if (canOccupy(world, b, b.h ?? BODY_HEIGHT)) { placed = true; break; }
+    }
+    if (!placed) { b.x = owner.x; b.y = owner.y; b.z = owner.z; } // the owner's own cell is free
+    b.vx = b.vy = b.vz = 0;
+    b.grounded = false;
+    unstick(world, b);
+    // a recall is a cut: never drawn sliding between the old spot and this one
+    this.prev.x = b.x; this.prev.y = b.y; this.prev.z = b.z;
     // A recall is a fresh start: the attempt that failed must not be held
     // against the new position, or the pet recalls again a tick later.
     this.brain.blocked = 0;

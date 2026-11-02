@@ -133,9 +133,9 @@ export class MissionRun {
     );
     this.topSpeed = Math.max(this.topSpeed, t.speed);
     this.peakAltitude = Math.max(this.peakAltitude, t.altitude);
-    this.climb = Math.max(this.climb, t.position.y - this.origin.y);
-
     const grounded = t.contacts > 0 || t.altitude <= 1.3;
+    // best height reached ON THE GROUND: the bar must not fill from a flight that never touched down up there
+    if (grounded) this.climb = Math.max(this.climb, t.position.y - this.origin.y);
     this.hoverSeconds =
       !grounded && t.altitude >= HOVER_ALTITUDE ? this.hoverSeconds + dt : 0;
     const fresh: string[] = [];
@@ -147,7 +147,8 @@ export class MissionRun {
     };
     if (this.displacement >= DISPLACEMENT_GOAL) clear("first-roll");
     if (this.topSpeed >= SPEED_GOAL) clear("speed-run");
-    if (grounded && this.climb >= CLIMB_GOAL) clear("hill-climb");
+    // on the ground up there NOW: peak height alone let a flight that landed back at the start count
+    if (this.climb >= CLIMB_GOAL) clear("hill-climb");
     if (this.hoverSeconds >= HOVER_SECONDS) clear("hover");
     if (this.distance >= DISTANCE_GOAL) clear("long-haul");
     if (grounded) {

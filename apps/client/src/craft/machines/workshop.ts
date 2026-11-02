@@ -165,7 +165,7 @@ export class MachineWorkshop {
     // that stays dead level for ~48 m straight ahead (+Z). Spawning anywhere
     // near the castle stops a build against a step within a few seconds, and a
     // sloped spawn tips a wide machine onto a wingtip before it even starts.
-    this.origin.set(79.5, surfaceY(voxels, 79, 18) + 4, 18.5);
+    this.origin.set(79.5, this.groundY() + 4, 18.5);
     this.group.visible = false;
     this.marker.visible = false;
     this.marker.renderOrder = 11;
@@ -241,7 +241,8 @@ export class MachineWorkshop {
     );
 
     this.launch.addEventListener("click", () => this.toggle(), { signal });
-    window.addEventListener("keydown", (e) => this.onKeyDown(e), { signal });
+    // capture: runs before the music's M toggle (bgm.ts), which skips a key the lab consumed
+    window.addEventListener("keydown", (e) => this.onKeyDown(e), { signal, capture: true });
     window.addEventListener("keyup", (e) => this.keys.delete(e.code), {
       signal,
     });
@@ -349,16 +350,18 @@ export class MachineWorkshop {
   }
 
   private undo(): void {
+    if (this.physics || this.loading) return; // before popping, or a step is lost
     const previous = this.undoStack.pop();
-    if (!previous || this.physics || this.loading) return;
+    if (!previous) return;
     this.redoStack.push(cloneBlueprint(this.blueprint));
     this.blueprint = previous;
     this.commit();
   }
 
   private redo(): void {
+    if (this.physics || this.loading) return;
     const next = this.redoStack.pop();
-    if (!next || this.physics || this.loading) return;
+    if (!next) return;
     this.undoStack.push(cloneBlueprint(this.blueprint));
     this.blueprint = next;
     this.commit();
@@ -534,9 +537,10 @@ export class MachineWorkshop {
     if (
       ["Space", "ArrowUp", "ArrowDown", "KeyW", "KeyS", "KeyA", "KeyD"].includes(
         event.code,
-      )
+      ) ||
+      (this.physics && (event.ctrlKey || event.metaKey) && /^Key[A-Z]$/.test(event.code))
     )
-      event.preventDefault();
+      event.preventDefault(); // while driving, no Ctrl+R/E/F browser shortcut mid-flight
     this.keys.add(event.code);
     if (event.repeat) return;
     const driving = !!this.physics;
@@ -578,6 +582,7 @@ export class MachineWorkshop {
         }
         break;
       case "KeyM":
+        event.preventDefault(); // M is mirror here, not the music
         this.mirror = !this.mirror;
         this.say(this.mirror ? t("좌우 대칭 켜짐", "Mirror on") : t("좌우 대칭 꺼짐", "Mirror off"), "info");
         break;
@@ -778,6 +783,21 @@ export class MachineWorkshop {
 
   // ------------------------------------------------------------ test run
 
+  /** Highest ground under the 7×7 test apron: blocks built there since the lab opened (or a
+   *  field/classroom that scrolled) must not leave the machine spawning inside them. */
+  private groundY(): number {
+    let top = 0;
+    for (let x = 76; x <= 82; x++) for (let z = 15; z <= 21; z++) top = Math.max(top, surfaceY(this.voxels, x, z));
+    return top;
+  }
+
+  private settleOrigin(): void {
+    const y = this.groundY() + 4;
+    if (y === this.origin.y) return;
+    this.origin.y = y;
+    this.rebuild();
+  }
+
   async runOrStop(): Promise<void> {
     if (!this.active || this.loading) return;
     if (this.physics) {
@@ -798,6 +818,7 @@ export class MachineWorkshop {
       await this.assets.ready;
       const rapier = await loadPhysics();
       if (generation !== this.generation || !this.active) return;
+      this.settleOrigin();
       this.physics = new MachinePhysics(
         rapier,
         this.voxels,
@@ -883,7 +904,8 @@ export class MachineWorkshop {
       // With assist on, Space/Ctrl are a climb REQUEST that the autopilot
       // turns into thruster throttle; with it off they are the raw lift input,
       // so switching assist off leaves the original model exactly as it was.
-      const climb = axis("Space", "ControlLeft") || -Number(this.keys.has("ControlRight"));
+      // Z descends: Ctrl did, but Ctrl+W (held with throttle) closes the tab and cannot be cancelled
+      const climb = axis("Space", "KeyZ");
       this.physics.step({
         ...IDLE_INPUT,
         throttle: axis("KeyW", "KeyS"),

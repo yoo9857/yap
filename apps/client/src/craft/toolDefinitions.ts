@@ -1,8 +1,11 @@
 import definition from "../../../../assets/items/tools/pickaxe-basic/item.json";
+import {t} from "../ui/i18n.js";
 export type HeldItemId="pickaxe-basic";
 export const PICKAXE=definition;
 export type PickaxeOption=typeof PICKAXE.options[number];
 export function pickaxeOption(id=PICKAXE.defaultOption):PickaxeOption {return PICKAXE.options.find(o=>o.id===id)??PICKAXE.options[0]!;}
+/** The option's name in the player's language (item.json keeps both). */
+export function pickaxeOptionName(id=PICKAXE.defaultOption):string {const o=pickaxeOption(id);return t(o.name,o.nameEn);}
 export function pickaxeCycle(option=PICKAXE.defaultOption):number {return PICKAXE.swing.seconds/pickaxeOption(option).speed;}
 export function pickaxeFamily(key:string):keyof typeof PICKAXE.efficiency {
  return key.endsWith("-ore")?"ore":/planks|log|bookshelf|hay/.test(key)?"wood":/grass|dirt|sand|gravel|clay/.test(key)?"ground":/iron-block|gold-block/.test(key)?"metal":/diamond-block|obsidian/.test(key)?"gem":/stone|bricks|bedrock/.test(key)?"stone":"other";

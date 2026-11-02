@@ -77,6 +77,9 @@ interface WorldBundle {
  * The world is rebuilt in place when the daily tower changes (s-welcome with
  * a different seed, or the midnight rollover notice).
  */
+/** s-correction reasons that mean "your finish was not recorded" (server game/validation.ts, room.ts). */
+const FINISH_REFUSALS = new Set(["checkpoints-skipped", "not-at-goal", "run-never-started", "impossibly-fast", "finish-unrecorded"]);
+
 export class Game {
   private readonly renderer: GameRenderer;
   private readonly physics: PhysicsWorld;
@@ -145,11 +148,18 @@ export class Game {
     });
 
     this.net = new NetworkClient(this.renderer.scene, {
-      onCorrection: (pos) => {
+      onCorrection: (pos, reason) => {
         this.correctionCount++;
+        // a refused finish: say so, instead of a clear screen waiting forever for its rank
+        if (this.state === "clear" && FINISH_REFUSALS.has(reason)) {
+          showNotice(reason === "finish-unrecorded"
+            ? t("기록을 저장하지 못했어요. 다시 도전해 주세요.", "Your time couldn't be saved. Please try again.")
+            : t("이번 기록은 인정되지 않았어요 (체크포인트를 확인해 주세요).", "This run wasn't counted (check the checkpoints)."));
+          return; // the run is over: no snap-back under the clear screen
+        }
         this.world.player.applyCorrection(pos);
       },
-      onWelcome: (daily) => this.onWelcome(daily),
+      onWelcome: (daily, rejoin) => this.onWelcome(daily, rejoin),
       onBoard: (entries) => this.screens.setBoard(entries),
       onNewDay: () => this.onNewDayNotice(),
       onFinishResult: (entry, isLocal) => {
@@ -308,15 +318,20 @@ export class Game {
 
   // ---------------------------------------------------------------- daily
 
-  private onWelcome(daily: DailyInfo): void {
+  private onWelcome(daily: DailyInfo, rejoin = false): void {
     const seedChanged = daily.seed !== this.daily.seed;
     this.daily = daily;
     this.pendingNewDay = false;
     this.screens.setDay(daily.dayNumber);
     if (seedChanged) {
       this.rebuildWorld(daily.seed);
-      showNotice(`🗼 Moved to Daily Tower #${daily.dayNumber}!`);
+      showNotice(t(`🗼 데일리 타워 #${daily.dayNumber}로 옮겼어요!`, `🗼 Moved to Daily Tower #${daily.dayNumber}!`));
       if (this.state !== "title") this.startRun();
+    } else if (rejoin && this.state === "play") {
+      // A new session knows nothing of this run (checkpoint -1, anchor at spawn). Playing on would
+      // refuse every checkpoint and the finish, and the first death after it kicked the player.
+      showNotice(t("🔌 다시 연결됐어요 — 이번 판은 처음부터 다시 해요.", "🔌 Reconnected — this run starts over."));
+      this.startRun();
     }
   }
 
@@ -325,7 +340,7 @@ export class Game {
     if (this.state === "title") {
       this.net.reconnect(); // fresh welcome → rebuild to the new tower now
     } else {
-      showNotice("🗼 A new tower has opened! Your next run starts on it.");
+      showNotice(t("🗼 새 타워가 열렸어요! 다음 판부터 새 타워예요.", "🗼 A new tower has opened! Your next run starts on it."));
     }
   }
 

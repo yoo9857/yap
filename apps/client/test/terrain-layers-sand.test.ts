@@ -20,7 +20,8 @@ describe("terrain layers",()=>{
 });
 function setup(){const world=new VoxelWorld(),scene=new THREE.Scene(),material=new THREE.MeshStandardMaterial(),hidden:SandCell[][]=[];const sim=new SandSim(world,{scene,shape:()=>({geometry:new THREE.BoxGeometry(1,1,1),rotation:new THREE.Quaternion(),materials:[material]}),write:(x,y,z,b,s)=>{world.setShaped(x,y,z,b,s);sim.touch(x,y,z);},hidden:cells=>hidden.push([...cells])});return {world,scene,material,sim,hidden};}
 const sand=blockByKey("sand")!.id,red=blockByKey("red-sand")!.id;
-const count=(world:VoxelWorld)=>world.cells.reduce((sum,id)=>sum+(id===sand||id===red?1:0),0);
+// a plain loop: reduce() over the whole grid every tick made these tests slow enough to time out under a full parallel run
+const count=(world:VoxelWorld)=>{let n=0;const cells=world.cells;for(let i=0;i<cells.length;i++){const id=cells[i];if(id===sand||id===red)n++;}return n;};
 describe("loose sand support and falling motion",()=>{
  it("falls continuously, preserves every logical block and settles at the support without tunnelling",()=>{
   const {world,scene,material,sim}=setup();world.set(8,0,8,3);world.setShaped(8,5,8,sand,18);sim.wakeAll();sim.update(1/60);const mesh=scene.children[0] as THREE.Mesh;const first=mesh.position.y;sim.update(1/60);expect(mesh.position.y).toBeLessThan(first);expect(first-mesh.position.y).toBeLessThan(.01);

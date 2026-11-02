@@ -22,6 +22,8 @@ import {
   craftBatch,
   craftRecipe,
   ensureFieldStacks,
+  roomFor,
+  slotForNew,
   fieldStarterHotbar,
   readStoredHotbar,
   removeItem,
@@ -49,8 +51,8 @@ import {
   brickOrientation,
 } from "./brickGeometry.js";
 import { VoxelView } from "./voxelView.js";
-import {preloadHeldItems} from "../player/heldItem.js";
-import {PICKAXE,pickaxeWork,pickaxeInReach,pickaxeCycle,pickaxeImpacts} from "./toolDefinitions.js";
+import {preloadHeldItemsWithin} from "../player/heldItem.js";
+import {PICKAXE,pickaxeWork,pickaxeInReach,pickaxeCycle,pickaxeImpacts,pickaxeOptionName} from "./toolDefinitions.js";
 import {selectedTool,toolByKey,withStarterTools,itemByKey} from "./itemCatalog.js";
 import {ItemAttack,type ItemAttackStep} from "./itemAttack.js";
 import {MiningEffects} from "./miningEffects.js";
@@ -88,6 +90,18 @@ const viewName = (i: number): string => [t("가깝게", "Short"), t("보통", "N
 /** After placing (or while mining) the body faces the crosshair this long (s). */
 const ACTION_FACE_TIME = 0.6;
 const VIEW_KEY = "craftyap-view-distance";
+/** No walls anywhere: the room echo goes dry. */
+const OPEN_AIR = { enclosure: 0, size: 14 } as const;
+
+/**
+ * The key a press means, by its physical position: with the Korean IME on,
+ * `e.key` arrives as "ㄱ" or "Process" and R, Q, E… would do nothing.
+ */
+function keyName(e: KeyboardEvent): string {
+  if (e.code.startsWith("Key")) return e.code.slice(3).toLowerCase();
+  if (e.code.startsWith("Digit")) return e.code.slice(5);
+  return e.key.toLowerCase();
+}
 
 /**
  * Craft mode — a small voxel island you actually PLAY: mine blocks, craft
@@ -292,6 +306,7 @@ export class CraftGame {
       originZ: () => this.field?.absOriginZ ?? 0,
       player: () => this.body,
       pet: () => this.pet.body,
+      othersIn: (x, y, z) => this.sync?.bodyIn(x, y, z) ?? false,
       hud: this.hud,
       sfx: this.sfx,
       canBuild: () => this.canBuild(),
@@ -319,7 +334,7 @@ export class CraftGame {
       this.state.pet,
     );
     this.petShop = new PetShop(document.body, this.state.pet, (species) => this.adoptPet(species),
-      () => this.furniture.closePanel(), () => this.resumePlay());
+      () => { this.furniture.closePanel(); this.hud.hideRecipes(); }, () => this.resumePlay());
     this.view.markDirty();
     this.applyViewDistance(this.loadViewPreset());
     this.buildGhost();
@@ -327,12 +342,35 @@ export class CraftGame {
       this.sync = new ClassSync(opts.classroom.client, opts.classroom.session, this.field, this.view,
         this.renderer.scene, {
           teleport: (x, y, z) => {
+            // a seated or crawling student is called over too (stepSeated would pin them to the seat)
+            if (this.seated) this.standUp();
+            if (this.posture !== "stand") this.changePosture("stand", false);
             this.body.x = x;
             this.body.y = y;
             this.body.z = z;
             this.body.vx = this.body.vy = this.body.vz = 0;
             this.knockX = this.knockZ = 0;
+            // a far teacher lies outside the voxel window: scroll it there BEFORE unsticking, or the
+            // check runs against empty ground and the class's buildings arrive around the student
+            this.scrollField();
             unstick(this.state.world, this.body);
+            this.prevBody.set(this.body.x, this.body.y, this.body.z);
+            this.pet.recall(this.state.world, this.body);
+          },
+          furnitureReset: () => this.furniture.forgetHistory(),
+          furnitureMoved: () => {
+            // a classmate's sofa can land on us (the server judges bodies at 10 Hz) or on the pet
+            if (!this.seated) {
+              const y = this.body.y;
+              unstick(this.state.world, this.body);
+              if (this.body.y !== y) this.prevBody.set(this.body.x, this.body.y, this.body.z);
+            }
+            unstick(this.state.world, this.pet.body);
+          },
+          solidPlaced: (x, y, z) => {
+            // a classmate's brick (or a refused edit rolled back) landed where we stand: step out of it
+            if (overlapsShapedVoxel(this.body, x, y, z, 0)) { unstick(this.state.world, this.body); this.prevBody.set(this.body.x, this.body.y, this.body.z); }
+            if (overlapsShapedVoxel(this.pet.body, x, y, z, 0)) unstick(this.state.world, this.pet.body);
           },
           bonked: (push) => this.receiveBonk(push),
           impact: (x, y, z) => x === undefined ? this.sfx.play("bonk") : this.sfx.at(x, y!, z!, () => this.sfx.play("bonk")),
@@ -376,7 +414,7 @@ export class CraftGame {
     // solo play runs the water itself; a classroom's water is the server's
     this.water = this.sync ? null : new WaterSim(this.state.world, this.view, this.field);
     this.water?.wakeAll();
-    this.sand=this.sync?null:new SandSim(this.state.world,{scene:this.renderer.scene,shape:(block,shape,cell)=>this.view.miningShape(shape,block,cell,this.state.world),write:(x,y,z,block,shape)=>this.writeCell(x,y,z,block,shape),hidden:cells=>this.view.setFallingHidden(cells),canEnter:(x,y,z)=>!overlapsShapedVoxel(this.body,x,y,z,0)&&!overlapsShapedVoxel(this.pet.body,x,y,z,0)});this.sand?.wakeAll();
+    this.sand=this.sync?null:new SandSim(this.state.world,{scene:this.renderer.scene,shape:(block,shape,cell)=>this.view.miningShape(shape,block,cell,this.state.world),write:(x,y,z,block,shape)=>this.writeCell(x,y,z,block,shape),hidden:cells=>this.view.setFallingHidden(cells),canEnter:(x,y,z)=>!overlapsShapedVoxel(this.body,x,y,z,0)&&!overlapsShapedVoxel(this.pet.body,x,y,z,0)&&!this.furniture.blocksCell(x,y,z)});this.sand?.wakeAll();
     this.underwaterTint.className = "craft-underwater";
     document.body.appendChild(this.underwaterTint);
 
@@ -444,7 +482,7 @@ export class CraftGame {
       if (this.hud.recipesOpen) this.hud.armBag(existing);
       return;
     }
-    const slot = this.selected < WATER_SLOT ? this.selected : 0;
+    const slot = slotForNew(this.state.hotbar, this.selected);
     if (!assignHotbar(this.state.hotbar, slot, key)) return;
     this.selected = slot;
     this.emptyHands = false;
@@ -474,8 +512,7 @@ export class CraftGame {
       this.emptyHands = false;
       return;
     }
-    const slot = this.selected < WATER_SLOT ? this.selected : 0;
-    this.assignToHotbar(slot, def.key);
+    this.assignToHotbar(slotForNew(this.state.hotbar, this.selected), def.key);
   }
 
   /**
@@ -485,9 +522,9 @@ export class CraftGame {
    */
   async prepare(setMessage: (text: string) => void = () => {}): Promise<void> {
     setMessage(t("텍스처 불러오는 중…", "Loading textures…"));
-    await Promise.all([texturesReady(),preloadHeldItems()]);
+    await Promise.all([texturesReady(),preloadHeldItemsWithin(8000)]);
     if(!this.disposed)this.rig.setHeldItem(this.heldTool(),this.toolOption);
-    if (this.disposed) return;
+    if (this.disposed || this.started) return; // timed out (main.ts): start() warmed up its own way
     setMessage(t("그래픽 준비하는 중…", "Preparing graphics…"));
     this.furniture.setWarm(true);
     this.view.setWarm(true); // the water shader, too
@@ -495,10 +532,15 @@ export class CraftGame {
     this.warming = true;
     try {
       await warmupGpuAsync(this.renderer.renderer, this.renderer.scene, this.renderer.camera, () => {
-        if (!this.disposed) this.render(1, 1 / 60);
+        if (!this.disposed && !this.started) this.render(1, 1 / 60); // once playing, the loop draws
       }, 2, this.events.signal);
     } catch (error) { if (!this.disposed) throw error; }
-    if (this.disposed) return;
+    if (this.disposed || this.started) return;
+    this.endWarm();
+  }
+
+  /** Leave the warm-up state: ghosts and the highlight back where they belong. */
+  private endWarm(): void {
     this.warming = false;
     this.furniture.setWarm(false);
     this.view.setWarm(false);
@@ -509,8 +551,12 @@ export class CraftGame {
 
   start(): void {
     if (this.disposed) return;
+    this.started = true;
     this.loop.start();
-    // started without `prepare` (a test harness): warm up the old way
+    // A slow PC's warm-up outlived main.ts's 20 s limit: its shader compiles keep going in the
+    // background, but play must not run with the ghosts parked at y = -1000.
+    if (this.warming) { this.endWarm(); return; }
+    // started without `prepare`, or before it reached the GPU step: warm up the old way
     if (!this.warmed) {
       void texturesReady().then(() => {
         if (this.disposed) return;
@@ -520,6 +566,7 @@ export class CraftGame {
   }
 
   private warmed = false;
+  private started = false;
   /** True only while `prepare` draws its warm-up frames. */
   private warming = false;
 
@@ -602,8 +649,10 @@ export class CraftGame {
     on("mousedown", (e) => {
       if (!this.locked) return;
       if (e.button === 0) {
-        if(!this.emptyHands&&toolByKey(this.heldKey())){const key=this.attackIdentity();if(key)this.itemAttack.request(key);this.mining=true;}
-        else if (!this.tryBonk()) this.mining = true;
+        // a classmate under the crosshair is tapped, whatever is in hand; otherwise the pickaxe swings or the hand digs
+        if (this.tryBonk()) return;
+        if(!this.emptyHands&&toolByKey(this.heldKey())){const key=this.attackIdentity();if(key)this.itemAttack.request(key);}
+        this.mining = true;
       }
       if (e.button === 2) this.placing = true;
       if (e.button === 1) {
@@ -626,7 +675,7 @@ export class CraftGame {
     on("keydown", (e) => {
       if (e.target instanceof HTMLElement && (/INPUT|SELECT|TEXTAREA/.test(e.target.tagName) || e.target.isContentEditable)) return;
       if (this.emoteMenu.handleKey(e)) return;
-      const key = e.key.toLowerCase();
+      const key = keyName(e);
       if (e.code === "KeyC" && !e.ctrlKey && !e.metaKey && !this.workshop.active) {
         e.preventDefault(); if (e.repeat) return;
         this.hud.hideRecipes(); this.petShop.setOpen(false); this.furniture.closePanel();
@@ -647,6 +696,10 @@ export class CraftGame {
         e.preventDefault(); if (e.repeat) return;
         this.changePosture(this.posture === "stand" || this.posture === "sit" ? "crawl" : "stand"); return;
       }
+      // an open bag owns E / I (furniture mode would take E for its categories and the bag could not be closed)
+      if (this.hud.recipesOpen && (key === "e" || key === "i") && !e.repeat) { this.toggleBag(key); return; }
+      // G from the bag goes straight to furniture: one panel at a time
+      if (key === "g" && this.hud.recipesOpen) { this.hud.hideRecipes(); this.resumePlay(); }
       // furniture's keys first: in furniture mode 1-9, Q/E, X and R are its own
       if (this.furniture.handleKey(key, e.repeat)) return;
       if (key >= "1" && key <= "9") {
@@ -655,10 +708,11 @@ export class CraftGame {
         if (this.hud.recipesOpen) this.hud.armBag(this.selected);
       }
       if (key === "0") { this.selected = WATER_SLOT; this.emptyHands = false; }
-      if(key==="r"&&!e.repeat&&!e.ctrlKey&&!e.metaKey&&this.heldTool()){
+      if(key==="r"&&!e.repeat&&!e.ctrlKey&&!e.metaKey&&!e.shiftKey&&this.heldTool()){
+        if(this.hud.recipesOpen)return; // the bag is up: R is not the pickaxe's
         const index=PICKAXE.options.findIndex(o=>o.id===this.toolOption);this.toolOption=PICKAXE.options[(index+1)%PICKAXE.options.length]!.id as import("@robo/shared").ToolOptionId;
         this.itemAttack.reset();this.beginWork("none");this.mining=false;this.clearMiningTarget();
-        this.hud.toast(t(`곡괭이 · ${PICKAXE.options.find(o=>o.id===this.toolOption)!.name}`,`Pickaxe · ${this.toolOption}`));return;
+        this.hud.toast(`${t("곡괭이", "Pickaxe")} · ${pickaxeOptionName(this.toolOption)}`);return;
       }
       // Q (furniture mode keeps Q for its categories, handled above)
       if (key === "q" && !e.repeat) {
@@ -668,26 +722,19 @@ export class CraftGame {
           ? t("✋ 빈손 — 캐기만 해요, 놓지 않아요 · Q로 다시 들기", "✋ Empty hands — mine only, nothing is placed · Q to pick blocks back up")
           : t("🧱 블록 쌓기 — 다시 놓을 수 있어요", "🧱 Building — placing again"));
       }
-      if ((key === "e" || key === "i") && !e.repeat) {
-        const open = this.hud.toggleBag(key === "i" ? "craft" : "blocks", this.selected);
-        if (open) {
-          this.keys.clear();
-          this.mining = this.placing = false;
-          document.exitPointerLock();
-        } else this.resumePlay();
-      }
+      if ((key === "e" || key === "i") && !e.repeat) this.toggleBag(key);
       if (key === "escape" && this.hud.recipesOpen) {
         this.hud.hideRecipes();
         this.resumePlay();
         return;
       }
-      if (key === "v") this.camera.toggleView();
+      if (key === "v" && !e.repeat) this.camera.toggleView();
       if (key === "p" && !e.repeat) {
         this.hud.toast(this.pet.toggleMode() === "stay" ? t("🐶 앉아! 여기서 기다려요", "🐶 Buddy: stay") : t("🐶 따라와! 다시 따라와요", "🐶 Buddy: follow"));
       }
       // Y opens and closes the adoption panel (Ctrl+Y, handled above, is redo)
-      if (key === "y" && !e.repeat) this.petShop.toggle();
-      if (key === "o") {
+      if (key === "y" && !e.repeat) this.petShop.toggle(); // its onOpen closes the bag and the furniture panel
+      if (key === "o" && !e.repeat) {
         const next = (this.viewPreset + 1) % VIEW_NAMES.length;
         this.applyViewDistance(next);
         try {
@@ -712,6 +759,18 @@ export class CraftGame {
     }, { signal: this.events.signal });
   }
 
+  /** E (blocks) / I (recipes): open that bag tab, or close the bag. Opening it closes every other panel. */
+  private toggleBag(key: "e" | "i"): void {
+    const open = this.hud.toggleBag(key === "i" ? "craft" : "blocks", this.selected);
+    if (open) {
+      this.petShop.setOpen(false);
+      this.furniture.closePanel();
+      this.keys.clear();
+      this.mining = this.placing = false;
+      document.exitPointerLock();
+    } else this.resumePlay();
+  }
+
   // ---------------------------------------------------------------- sim
 
   private fixedUpdate(): void {
@@ -730,7 +789,9 @@ export class CraftGame {
     if(this.isSwimming() && this.posture!=="stand")this.changePosture("stand",false);
     if (this.emoteLeft > 0) { this.emoteLeft -= dt; if (this.emoteLeft <= 0) this.clearEmote(); }
     const movement = this.locked && ["KeyW","KeyA","KeyS","KeyD"].some(k=>this.keys.has(k));
-    if (this.locked && this.keys.has("Space") && this.posture !== "stand") this.changePosture("stand",false);
+    // standing can fail under a low ceiling: then moving still turns lying into crawling
+    const stood = this.locked && this.keys.has("Space") && this.posture !== "stand" && this.changePosture("stand",false);
+    if (stood) { /* up */ }
     else if (movement && this.posture === "lie") this.changePosture("crawl",false);
     else if (movement && this.posture === "sit") this.changePosture("stand",false);
     if (this.seated && this.stepSeated()) {
@@ -787,22 +848,7 @@ export class CraftGame {
     if (this.water) this.perf.time("water", () => this.water!.update(dt));
 
     // walked far across the field → scroll the voxel window under the player
-    if (this.field) {
-      const shift = this.field.recenter(this.body);
-      if (shift) {
-        this.body.x -= shift.dx;
-        this.body.z -= shift.dz;
-        this.prevBody.x -= shift.dx;
-        this.prevBody.z -= shift.dz;
-        this.miningTarget = null;
-        this.miningProgress = 0;
-        this.view.shift(shift.dx, shift.dz);
-        this.sand?.shift();
-        this.miningEffects.shift(shift.dx,shift.dz);
-        this.pet.shift(shift.dx, shift.dz);
-        this.sync?.shift(shift.dx, shift.dz);
-      }
-    }
+    this.scrollField();
 
     // fell off the island → respawn on the open grass south of the castle
     // (never the castle centre), lifted clear of any block
@@ -907,7 +953,8 @@ export class CraftGame {
   }
 
   private heldTool(){return this.furniture.active?null:selectedTool(this.state.inventory,this.state.hotbar,this.selected,this.emptyHands);}
-  private usingPickaxe():boolean {return !!this.heldTool()&&this.posture==="stand"&&!this.seated&&!this.isSwimming()&&this.body.grounded&&!this.rig.postureBusy;}
+  /** A swing STARTS on the ground; one already under way finishes through a hop or a one-block step down instead of cancelling (and wiping the crack). */
+  private usingPickaxe():boolean {return !!this.heldTool()&&this.posture==="stand"&&!this.seated&&!this.isSwimming()&&(this.body.grounded||this.itemAttack.active)&&!this.rig.postureBusy;}
   private attackIdentity():string|null {return this.usingPickaxe()?this.heldTool()+"/"+this.toolOption:null;}
   private clearMiningTarget():void {this.miningTarget=null;this.pickupTarget=null;this.miningProgress=0;this.miningFrac=null;this.miningIdentity="";}
   private stepInteraction(dt:number):void {
@@ -971,6 +1018,13 @@ export class CraftGame {
     // hand digging taps when the hand meets the block (render-side cue); a rig without cues taps on a beat
     if(!strike&&!this.rig.motionCue&&(this.hitBeat-=dt)<=0){this.hitBeat=.35;if(this.miningProgress<def.hardness)this.blockSound("hit",family,[x,y,z]);}
     this.miningFrac = this.miningProgress/def.hardness;
+    if (this.miningProgress >= def.hardness && !roomFor(this.state.inventory, dropOf(def))) {
+      // a full pile would swallow the drop: the block holds, cracked, until there is room
+      this.miningProgress = def.hardness * 0.98;
+      this.miningFrac = 0.98;
+      this.bagFullToast();
+      return;
+    }
     if (this.miningProgress >= def.hardness) {
       this.miningEffects.burst([x,y,z],def,shape,()=>this.view.miningShape(shape,def.id,[x,y,z],this.state.world));
       this.writeCell(x, y, z, AIR, 0);
@@ -980,6 +1034,33 @@ export class CraftGame {
       this.miningFrac = null;
       this.blockSound("break",family,[x,y,z]);
       this.camera.addShake(0.04);
+    }
+  }
+
+  /** Next time the "bag is full" toast may show (ms), so held mining does not repeat it every tick. */
+  private fullToastAt = 0;
+  private bagFullToast(): void {
+    if (performance.now() < this.fullToastAt) return;
+    this.fullToastAt = performance.now() + 3000;
+    this.hud.toast(t("그 블록은 가방에 가득 찼어요 (9999개)", "Your bag is full of that block (9999)"));
+  }
+  /** Education field: slide the voxel window under the player (repeats until it is centred: a gather can jump far). */
+  private scrollField(): void {
+    if (!this.field) return;
+    for (let guard = 0; guard < 64; guard++) {
+      const shift = this.field.recenter(this.body);
+      if (!shift) return;
+      this.body.x -= shift.dx;
+      this.body.z -= shift.dz;
+      this.prevBody.x -= shift.dx;
+      this.prevBody.z -= shift.dz;
+      this.miningTarget = null;
+      this.miningProgress = 0;
+      this.view.shift(shift.dx, shift.dz);
+      this.sand?.shift();
+      this.miningEffects.shift(shift.dx,shift.dz);
+      this.pet.shift(shift.dx, shift.dz);
+      this.sync?.shift(shift.dx, shift.dz);
     }
   }
 
@@ -1221,7 +1302,8 @@ export class CraftGame {
     if(!key||!blockByKey(key))return false;
     const plan=planPiecePlacement(this.state.world,this.body,PIECES[this.pieceIndex]!,this.pieceRot,this.pieceTilt,before,countOf(this.state.inventory,key),(x,y,z)=>this.furniture.blocksCell(x,y,z));
     if(!plan)return false;const id=blockByKey(key)!.id;
-    for(const [x,y,z] of plan.cells){removeItem(this.state.inventory,key);this.writeCell(x,y,z,id,plan.shape);}
+    // education fields are free building (999 of everything, never running out); the island spends its blocks
+    for(const [x,y,z] of plan.cells){if(!this.field)removeItem(this.state.inventory,key);this.writeCell(x,y,z,id,plan.shape);}
     return true;
   }
 
@@ -1552,6 +1634,7 @@ export class CraftGame {
       this.furniture.setVisible(false);
       this.ghost.visible = false;
       this.view.setHighlight(null);
+      this.labAudio(frameDt);
       if (this.workshop.scienceActive) { this.workshop.renderScience(frameDt); return; }
       const target = this.workshop.render(frameDt);
       this.detailFocus.copy(target);
@@ -1608,7 +1691,7 @@ export class CraftGame {
     this.perf.phase("camera", performance.now() - t0);
     this.perf.time("furniture", () => this.furniture.render(this.aim, this.yaw, this.locked && !this.mining, this.ghostOk, this.ghostBad));
     if (!this.furniture.active) {
-      if(this.heldTool())this.hud.setPiece(t(`공격 모드 · 곡괭이 · ${PICKAXE.options.find(o=>o.id===this.toolOption)!.name} · R 옵션 · ${PICKAXE.targeting.reach}m`,`Attack · Pickaxe · ${this.toolOption} · R options · ${PICKAXE.targeting.reach}m`),0,0,"⛏️");
+      if(this.heldTool())this.hud.setPiece(this.toolLabel(),0,0,"⛏️");
       else if (this.emptyHands) this.hud.setPiece(t("빈손 · Q로 블록 들기", "Empty hands · Q to hold blocks"), 0, 0, "✋");
       else this.hud.setPiece(PIECES[this.pieceIndex]!, this.pieceRot, this.pieceTilt);
     }
@@ -1617,6 +1700,16 @@ export class CraftGame {
   }
 
   private readonly tmpEye = new THREE.Vector3();
+  /** The HUD's pickaxe line, built once per option (render() asks every frame). */
+  private toolLabelText = "";
+  private toolLabelFor = "";
+  private toolLabel(): string {
+    if (this.toolLabelFor !== this.toolOption) {
+      this.toolLabelFor = this.toolOption;
+      this.toolLabelText = `${t("공격 모드 · 곡괭이", "Attack · Pickaxe")} · ${pickaxeOptionName(this.toolOption)} · ${t("R 옵션", "R options")} · ${PICKAXE.targeting.reach}m`;
+    }
+    return this.toolLabelText;
+  }
   /** Eased movement input (see fixedUpdate). */
   private wishX = 0;
   private wishZ = 0;
@@ -1707,7 +1800,22 @@ export class CraftGame {
     // A small hysteresis band stops tiny surface waves/camera bobbing from
     // flashing between the underwater fog and the daylight fog every frame.
     const under = pointInWater(this.state.world, p.x, p.y + (this.underwater ? -0.07 : 0.07), p.z);
-    if (under === this.underwater) return;
+    if (under !== this.underwater) this.setUnderwater(under);
+  }
+
+  /**
+   * The machine lab draws its own scene and skips the world's per-frame audio:
+   * leave the water (muffle, tint, fog) and the cave echo behind, and keep the
+   * ears on the lab camera so classmates are still heard from the right side.
+   */
+  private labAudio(frameDt: number): void {
+    if (this.underwater) this.setUnderwater(false);
+    const cam = this.renderer.camera;
+    this.sfx.setListener(cam.position.x, cam.position.y, cam.position.z, this.viewYaw, this.viewPitch);
+    if ((this.roomProbeIn -= frameDt) <= 0) { this.roomProbeIn = 0.25; this.sfx.setRoom(OPEN_AIR); }
+  }
+
+  private setUnderwater(under: boolean): void {
     this.underwater = under;
     this.sfx.setUnderwater(under);
     this.underwaterTint.classList.toggle("on", under);

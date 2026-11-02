@@ -117,6 +117,7 @@ export class HomeRig {
     private disposed = false;
     private itemId:HeldItemId|null=null;
     private itemOption=PICKAXE.defaultOption;
+    private itemWaiting=false;
     private heldItem:HeldItemInstance|null=null;
     private readonly itemGrip:ReturnType<typeof handGrip>;
     get postureBusy(): boolean { return this.posture.transition !== null || this.poseBridge.active; }
@@ -214,18 +215,27 @@ export class HomeRig {
     }
     setHeldOpacity(opacity:number):void {this.heldItem?.setOpacity(opacity);}
     setHeldItem(id:HeldItemId|null,option=PICKAXE.defaultOption):void {
-        if(this.disposed||this.itemId===id&&this.itemOption===option&&(!id||this.heldItem))return;
+        // `itemWaiting`: the model is still downloading (or failed and waits out the retry), so a per-frame call costs nothing
+        if(this.disposed||this.itemId===id&&this.itemOption===option&&(!id||this.heldItem||this.itemWaiting))return;
         if(id===PICKAXE.id&&this.heldItem){this.itemId=id;this.itemOption=option;this.heldItem.setOption(option);this.heldItem.resume();return;}
         if(!id&&this.heldItem){
             this.itemId=null;this.itemOption=option;this.heldItem.release();
             if(this.heldItem.released){this.heldItem.dispose();this.heldItem=null;}
             return;
         }
-        this.heldItem?.dispose();this.heldItem=null;this.itemId=id;this.itemOption=option;
+        this.heldItem?.dispose();this.heldItem=null;this.itemId=id;this.itemOption=option;this.itemWaiting=false;
         if(!id)return;
         const source=heldItemPrototype(id),grip=this.itemGrip;
         if(source&&grip)this.heldItem=new HeldItemInstance(source,grip,option,this.root);
-        else if(!source)void preloadHeldItems().then(ok=>{if(ok&&!this.disposed&&this.itemId===id)this.setHeldItem(id,this.itemOption);});
+        else if(!grip)this.itemWaiting=true; // a model without a hand bone never gets one: stop asking
+        else {
+            this.itemWaiting=true;
+            void preloadHeldItems().then(ok=>{
+                if(this.disposed||this.itemId!==id)return;
+                if(ok){this.itemWaiting=false;this.setHeldItem(id,this.itemOption);}
+                else setTimeout(()=>{if(!this.disposed)this.itemWaiting=false;},15_000); // then the next frame asks again
+            });
+        }
     }
     pop(impulse: number): void {
         if (Number.isFinite(impulse)) {

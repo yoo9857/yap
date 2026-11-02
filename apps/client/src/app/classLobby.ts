@@ -1,4 +1,4 @@
-import { CLASS_ERROR_TEXT, ClassClient, peekClass, type ClassJoin, type ClassSession } from "../net/classClient.js";
+import { CLASS_ERROR_TEXT, ClassClient, peekClass, takeReloadPassword, type ClassJoin, type ClassSession } from "../net/classClient.js";
 import "../craft/classroom.css";
 import { t } from "../ui/i18n.js";
 
@@ -53,7 +53,7 @@ export async function classFromUrl(): Promise<ClassEntry | null> {
   const room = p.get("room") ?? host ?? p.get("teacher");
   const join: ClassJoin | null =
     host && room
-      ? { role: "teacher", room, teacher: host, password: p.get("pass") ?? undefined }
+      ? { role: "teacher", room, teacher: host, password: p.get("pass") ?? takeReloadPassword() }
       : room && student
         ? { role: "student", room, student }
         : null;
@@ -172,14 +172,23 @@ export function chooseClass(parent: HTMLElement): Promise<ClassEntry | null> {
     input("cl-room").value = last.room ?? "";
     input("cl-student").value = last.student ?? "";
 
+    /** The connect in progress. Leaving its step drops it: left running, it would join in the
+     *  background and fight the next attempt for the same seat. */
+    let connecting: ClassClient | null = null;
+    const cancelConnect = () => {
+      const client = connecting;
+      connecting = null;
+      client?.close();
+    };
     const done = (entry: ClassEntry | null) => {
+      if (!entry) cancelConnect();
       screen.remove();
       resolve(entry);
     };
     screen.querySelectorAll<HTMLButtonElement>("[data-go]").forEach((btn) =>
       btn.addEventListener("click", () => (btn.dataset.go === "solo" ? done(null) : show(btn.dataset.go!))),
     );
-    screen.querySelectorAll<HTMLButtonElement>(".mode-back").forEach((btn) => btn.addEventListener("click", () => show("pick")));
+    screen.querySelectorAll<HTMLButtonElement>(".mode-back").forEach((btn) => btn.addEventListener("click", () => { cancelConnect(); show("pick"); }));
 
     const namesOk = (join: ClassJoin): boolean => {
       const room = join.room.length >= 1 && join.room.length <= 20;
@@ -192,12 +201,18 @@ export function chooseClass(parent: HTMLElement): Promise<ClassEntry | null> {
       const button = step.querySelector<HTMLButtonElement>('button[type="submit"], [data-id="confirm-yes"]')!;
       error.textContent = t("연결하는 중…", "Connecting…");
       button.disabled = true;
+      cancelConnect();
       const client = new ClassClient(join);
+      connecting = client;
       try {
         const session = await client.connect();
+        if (connecting !== client) { client.close(); return; } // cancelled while it loaded
+        connecting = null;
         remember(join);
         done({ client, session });
       } catch (code) {
+        if (connecting !== client) return; // cancelled: its step is no longer on screen
+        connecting = null;
         error.textContent = CLASS_ERROR_TEXT[code as keyof typeof CLASS_ERROR_TEXT] ?? t("연결하지 못했어요.", "Couldn't connect.");
         button.disabled = false;
       }
@@ -263,6 +278,10 @@ export function chooseClass(parent: HTMLElement): Promise<ClassEntry | null> {
     confirmStep.querySelector<HTMLButtonElement>('[data-id="confirm-yes"]')!.addEventListener("click", () => {
       if (pending) void connect(confirmStep, pending);
     });
-    confirmStep.querySelector<HTMLButtonElement>('[data-id="confirm-no"]')!.addEventListener("click", () => show("student"));
+    confirmStep.querySelector<HTMLButtonElement>('[data-id="confirm-no"]')!.addEventListener("click", () => {
+      cancelConnect();
+      confirmStep.querySelector<HTMLButtonElement>('[data-id="confirm-yes"]')!.disabled = false;
+      show("student");
+    });
   });
 }

@@ -11,6 +11,7 @@ import {
   type ClassServerMessage,
   type ClassSettings,
 } from "@robo/shared";
+import { t } from "../ui/i18n.js";
 
 export type ClassJoin =
   | { role: "teacher"; room: string; teacher: string; password?: string }
@@ -37,19 +38,32 @@ export interface ClassSession {
   furniture: ClassFurniture[];
 }
 
+/** Getters, so each message is in the player's language when it is shown (not when this module loads). */
 export const CLASS_ERROR_TEXT: Record<ClassErrorCode | "offline", string> = {
-  "bad-version": "새 버전이 있어요. 페이지를 새로고침 해주세요.",
-  "no-class": "그 이름의 반이 지금 열려 있지 않아요. 반 이름을 확인하거나, 선생님이 반을 열 때까지 기다려 주세요.",
-  "bad-password": "비밀번호가 맞지 않아요. (새 반을 만들 때는 4자 이상)",
-  "teacher-taken": "이 반의 선생님이 이미 다른 곳에서 접속해 있어요.",
-  "room-taken": "이 반 이름은 다른 선생님이 쓰고 있어요. 다른 반 이름을 정해주세요.",
-  "name-taken": "이 반에 같은 이름의 학생이 이미 접속해 있어요.",
-  "class-full": "반 정원이 가득 찼어요.",
-  banned: "선생님이 내보내서 잠시 동안 들어갈 수 없어요.",
-  "bad-name": "반 이름은 1~20자, 이름은 1~16자로 입력해주세요.",
-  internal: "서버 오류가 났어요. 잠시 후 다시 시도해주세요.",
-  offline: "서버에 연결할 수 없어요. 인터넷 연결을 확인해주세요.",
+  get "bad-version"() { return t("새 버전이 있어요. 페이지를 새로고침 해주세요.", "A new version is out. Please refresh the page."); },
+  get "no-class"() { return t("그 이름의 반이 지금 열려 있지 않아요. 반 이름을 확인하거나, 선생님이 반을 열 때까지 기다려 주세요.", "No class is open under that name. Check the class name, or wait for the teacher to open it."); },
+  get "bad-password"() { return t("비밀번호가 맞지 않아요. 여러 번 틀리면 잠시 동안 막혀요. (새 반을 만들 때는 4자 이상)", "Wrong password. Too many wrong tries lock the class for a while. (New classes need 4+ characters.)"); },
+  get "teacher-taken"() { return t("이 반의 선생님이 이미 다른 곳에서 접속해 있어요.", "This class's teacher is already connected somewhere else."); },
+  get "room-taken"() { return t("이 반 이름은 다른 선생님이 쓰고 있어요. 다른 반 이름을 정해주세요.", "Another teacher uses this class name. Please pick a different one."); },
+  get "name-taken"() { return t("이 반에 같은 이름의 학생이 이미 접속해 있어요.", "A student with that name is already in this class."); },
+  get "class-full"() { return t("반 정원이 가득 찼어요.", "The class is full."); },
+  get banned() { return t("선생님이 내보내서 잠시 동안 들어갈 수 없어요.", "The teacher removed you, so you can't rejoin for a little while."); },
+  get "bad-name"() { return t("반 이름은 1~20자, 이름은 1~16자로 입력해주세요.", "Class names are 1–20 characters, your name 1–16."); },
+  get internal() { return t("서버 오류가 났어요. 잠시 후 다시 시도해주세요.", "Something went wrong on the server. Please try again in a moment."); },
+  get offline() { return t("서버에 연결할 수 없어요. 인터넷 연결을 확인해주세요.", "Can't reach the server. Please check your internet connection."); },
 };
+
+/** The one-shot password a version reload carries (sessionStorage, read once, then gone). */
+const RELOAD_PASS = "craftyap-class-reload-pass";
+export function takeReloadPassword(): string | undefined {
+  try {
+    const pass = sessionStorage.getItem(RELOAD_PASS) ?? undefined;
+    sessionStorage.removeItem(RELOAD_PASS);
+    return pass;
+  } catch {
+    return undefined;
+  }
+}
 
 /**
  * A deploy that changes CLASS_PROTOCOL_VERSION restarts the server; every open
@@ -69,6 +83,11 @@ export function reloadIntoClass(join: ClassJoin): boolean {
     return false;
   }
   const p = new URLSearchParams({ mode: "field", room: join.room });
+  // A teacher without a stored host key (a new class, another PC) gets in only by password:
+  // carry it across this one reload in sessionStorage — never in the URL.
+  if (join.role === "teacher" && join.password) {
+    try { sessionStorage.setItem(RELOAD_PASS, join.password); } catch { /* the teacher types it again */ }
+  }
   if (join.role === "teacher") p.set("host", join.teacher);
   else p.set("student", join.student);
   const lang = new URLSearchParams(location.search).get("lang");
@@ -78,6 +97,11 @@ export function reloadIntoClass(join: ClassJoin): boolean {
 }
 
 const RECONNECT_MAX_MS = 8000;
+/** After a server restart the class is back only once its teacher reconnects: students keep
+ *  trying ("no-class") this many times (~3 minutes at the 8 s cap) instead of ending. */
+const WAIT_FOR_TEACHER_TRIES = 25;
+/** A link silent for this many keepalive periods is dead (Wi-Fi switch, laptop lid): drop and reconnect. */
+const KEEPALIVE_MISSES = 5;
 const LOAD_IDLE_MS = 10_000;
 const LOAD_TOTAL_MS = 120_000;
 
@@ -156,8 +180,8 @@ export class ClassClient {
   onSettings: ((settings: ClassSettings) => void) | null = null;
   onResync: ((session: ClassSession) => void) | null = null;
   onWorldReset: (() => void) | null = null;
-  /** Kicked, class ended, or seat lost for good — the session is over. */
-  onEnded: ((reason: "kicked" | "closed" | ClassErrorCode) => void) | null = null;
+  /** Kicked, class ended, seat lost for good, or this seat opened in another tab — the session is over. */
+  onEnded: ((reason: "kicked" | "closed" | "replaced" | ClassErrorCode) => void) | null = null;
   onConnection: ((online: boolean) => void) | null = null;
 
   private ws: WebSocket | null = null;
@@ -170,8 +194,15 @@ export class ClassClient {
   private active = false;
   private early: ClassServerMessage[] = [];
   private earlyEdits = 0;
+  private replacedWhileLoading = false;
   private terminal: Extract<ClassServerMessage, { t: "s-k-error" | "s-k-kicked" | "s-k-closed" }> | null = null;
   private pending: { session: ClassSession; expected: number } | null = null;
+  /** A reconnect that finished before the game called `activate()`: handed to onResync then. */
+  private resynced: ClassSession | null = null;
+  /** The server's keepalive promise (s) and when we last heard anything; null = no watchdog. */
+  private keepalive: number | null = null;
+  private heardAt = 0;
+  private aliveTimer: ReturnType<typeof setInterval> | null = null;
   private first: { resolve: (s: ClassSession) => void; reject: (code: ClassErrorCode | "offline") => void } | null =
     null;
 
@@ -202,8 +233,13 @@ export class ClassClient {
    *  received during streaming/module/graphics setup now replay in order. */
   activate(): void {
     this.active = true;
-    if (this.terminal) { const msg = this.terminal; this.terminal = null; this.receive(msg); }
-    else if (!this.pending) this.drainEarly();
+    if (this.replacedWhileLoading) { this.replacedWhileLoading = false; this.onEnded?.("replaced"); return; }
+    if (this.terminal) { const msg = this.terminal; this.terminal = null; this.receive(msg); return; }
+    // the link dropped and came back while the game was still loading: its field, not the first one, is current
+    const fresh = this.resynced;
+    this.resynced = null;
+    if (fresh) { this.onConnection?.(true); this.onResync?.(fresh); }
+    if (!this.pending) this.drainEarly();
   }
 
   private drainEarly(): void {
@@ -227,12 +263,33 @@ export class ClassClient {
   close(): void {
     this.ended = true;
     if (this.timer) clearTimeout(this.timer);
-    this.timer = null; this.clearLoadTimer(); this.pending = null; this.early = []; this.earlyEdits = 0; this.terminal = null;
+    this.timer = null; this.clearLoadTimer(); this.stopWatchdog(); this.pending = null; this.resynced = null; this.early = []; this.earlyEdits = 0; this.terminal = null; this.replacedWhileLoading = false;
     this.first?.reject("offline"); this.first = null;
     const ws = this.ws; this.ws = null;
     if (ws) { ws.onopen = ws.onmessage = ws.onclose = ws.onerror = null; ws.close(1000, "left"); }
     this.onMembers = this.onSnap = this.onEdit = this.onFurniture = this.onReject = this.onChat = null;
     this.onGather = this.onBonk = this.onSettings = this.onResync = this.onWorldReset = this.onEnded = this.onConnection = null;
+  }
+
+  /** Any message proves the link alive; silence past the server's promise means it is not. */
+  private startWatchdog(ws: WebSocket): void {
+    this.stopWatchdog();
+    if (!this.keepalive) return;
+    const limit = this.keepalive * KEEPALIVE_MISSES * 1000;
+    this.aliveTimer = setInterval(() => {
+      if (this.ws !== ws || this.ended) { this.stopWatchdog(); return; }
+      if (Date.now() - this.heardAt <= limit) return;
+      // A half-open link (Wi-Fi switch, lid closed) never answers the close handshake, so its
+      // onclose can be minutes away: cut it loose and reconnect now.
+      ws.onopen = null; ws.onmessage = null; ws.onerror = null; ws.onclose = null;
+      try { ws.close(1000, "keepalive timeout"); } catch { /* already closing */ }
+      this.lost(ws, "keepalive timeout");
+    }, 1000);
+  }
+
+  private stopWatchdog(): void {
+    if (this.aliveTimer) clearInterval(this.aliveTimer);
+    this.aliveTimer = null;
   }
 
   private open(): void {
@@ -253,24 +310,40 @@ export class ClassClient {
     };
     ws.onmessage = (e) => {
       if (this.ws !== ws || this.ended) return;
+      this.heardAt = Date.now();
       const msg = decodeClassServer(e.data);
-      if (msg) this.receive(msg);
-    };
-    ws.onclose = () => {
-      if (this.ws !== ws) return;
-      this.ws = null; this.clearLoadTimer(); this.pending = null; this.early = []; this.earlyEdits = 0;
-      if (this.first) {
-        // never got in: report instead of retrying blindly
-        this.first.reject("offline");
-        this.first = null;
-        this.ended = true;
-        return;
+      if (msg) {
+        this.receive(msg);
+        if (msg.t === "s-k-welcome") this.startWatchdog(ws);
       }
-      if (this.ended) return;
-      this.onConnection?.(false);
-      const delay = Math.min(RECONNECT_MAX_MS, 500 * 2 ** this.attempts++) * (0.75 + Math.random() * 0.5);
-      this.timer = setTimeout(() => { this.timer = null; this.open(); }, delay);
     };
+    ws.onclose = (event) => this.lost(ws, event.reason);
+  }
+
+  /** The socket is gone (closed, or declared dead by the watchdog): end, or reconnect. */
+  private lost(ws: WebSocket, reason: string): void {
+    if (this.ws !== ws) return;
+    this.ws = null; this.clearLoadTimer(); this.stopWatchdog(); this.pending = null; this.early = []; this.earlyEdits = 0;
+    // Our seat was taken over by our own key (the same class opened in another tab). Reconnecting
+    // with that key would take it back, and the other tab would do the same, forever.
+    if (reason === "replaced" && !this.first) {
+      this.ended = true;
+      this.resynced = null;
+      if (this.active) this.onEnded?.("replaced");
+      else this.replacedWhileLoading = true; // told at activate(), with the right card
+      return;
+    }
+    if (this.first) {
+      // never got in: report instead of retrying blindly
+      this.first.reject("offline");
+      this.first = null;
+      this.ended = true;
+      return;
+    }
+    if (this.ended) return;
+    this.onConnection?.(false);
+    const delay = Math.min(RECONNECT_MAX_MS, 500 * 2 ** this.attempts++) * (0.75 + Math.random() * 0.5);
+    this.timer = setTimeout(() => { this.timer = null; this.open(); }, delay);
   }
 
   private receive(msg: ClassServerMessage): void {
@@ -278,6 +351,7 @@ export class ClassClient {
       case "s-k-welcome":
         storeKey(this.join, msg.key);
         this.attempts = 0;
+        this.keepalive = msg.keepalive ?? null;
         this.pending = {
           session: {
             you: msg.you,
@@ -306,9 +380,11 @@ export class ClassClient {
         // A lost teacher transport can outlive the browser's socket briefly.
         // Fresh duplicate tabs still fail immediately; an existing session
         // retries while the heartbeat retires its old transport.
-        const transientSeat = this.join.role === "teacher" && msg.code === "teacher-taken" ||
-          this.join.role === "student" && msg.code === "no-class";
-        if (!this.first && transientSeat && this.attempts < 8) {
+        // A student's "no-class" after a server restart lasts until the teacher's tab reconnects
+        // and re-opens the class: wait for it (the HUD says "reconnecting") rather than ending.
+        const transientSeat = this.join.role === "teacher" && msg.code === "teacher-taken" && this.attempts < 8 ||
+          this.join.role === "student" && msg.code === "no-class" && this.attempts < WAIT_FOR_TEACHER_TRIES;
+        if (!this.first && transientSeat) {
           this.ws?.close(1000, "retry seat"); return;
         }
         if (!this.active) this.terminal = msg;
@@ -339,10 +415,16 @@ export class ClassClient {
       if (msg.t === "s-k-snap" || msg.t === "s-k-bonk") return;
       this.earlyEdits += msg.t === "s-k-edit" || msg.t === "s-k-reject" ? msg.edits.length
         : msg.t === "s-k-furniture" ? msg.furniture.length : 0;
+      this.early.push(msg);
       if (this.early.length >= 1024 || this.earlyEdits > 65_536) {
-        this.ws?.close(1000, "resync backlog"); return;
+        // A class with running water sends edits all the time, so a slow first load used to
+        // overflow here, reconnect, load again and overflow again forever. Water rewrites the
+        // same cells, so keeping only the latest value per cell usually fits; only a backlog
+        // that is still too big after that is worth a fresh resync.
+        this.compactEarly();
+        if (this.early.length >= 1024 || this.earlyEdits > 65_536) this.ws?.close(1000, "resync backlog");
       }
-      this.early.push(msg); return;
+      return;
     }
     switch (msg.t) {
       case "s-k-members":
@@ -378,6 +460,42 @@ export class ClassClient {
     }
   }
 
+  /** Merge each run of consecutive s-k-edit messages from one author into one, last value per cell. Order across
+   *  any other message (reset, reject, furniture) is kept, so replaying gives the same field. */
+  private compactEarly(): void {
+    const out: ClassServerMessage[] = [];
+    let run: Map<string, ClassEdit> | null = null;
+    let runBy = "";
+    let edits = 0;
+    const flush = () => {
+      if (run) out.push({ t: "s-k-edit", by: runBy, edits: [...run.values()] });
+      run = null;
+    };
+    for (const msg of this.early) {
+      if (msg.t === "s-k-edit") {
+        // one run per author: a classmate's bricks keep their name (and their sound), not water's ""
+        if (run && runBy !== msg.by) flush();
+        runBy = msg.by;
+        run ??= new Map();
+        for (const e of msg.edits) {
+          const key = `${e[0]},${e[1]},${e[2]}`;
+          run.delete(key); // re-insert so the map keeps the latest write's order
+          run.set(key, e);
+        }
+        continue;
+      }
+      flush();
+      out.push(msg);
+    }
+    flush();
+    for (const msg of out) {
+      edits += msg.t === "s-k-edit" || msg.t === "s-k-reject" ? msg.edits.length
+        : msg.t === "s-k-furniture" ? msg.furniture.length : 0;
+    }
+    this.early = out;
+    this.earlyEdits = edits;
+  }
+
   private maybeReady(): void {
     const p = this.pending;
     if (!p || p.session.edits.length < p.expected) return;
@@ -386,6 +504,9 @@ export class ClassClient {
     if (this.first) {
       this.first.resolve(p.session);
       this.first = null;
+    } else if (!this.active) {
+      // nobody is listening yet (the game is still loading): keep it for activate()
+      this.resynced = p.session;
     } else {
       this.onConnection?.(true);
       this.onResync?.(p.session);

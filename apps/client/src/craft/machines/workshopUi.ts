@@ -236,7 +236,7 @@ ${part.detail}`)}">
       [t("화면에 맞추기", "Fit to screen"), "F"],
       [t("시점 회전 / 확대", "Orbit / zoom"), t("드래그 / 휠", "Drag / wheel")],
       [t("주행 · 조향", "Drive · steer"), "W S · A D"],
-      [t("상승 · 하강", "Climb · descend"), "Space · Ctrl"],
+      [t("상승 · 하강", "Climb · descend"), "Space · Z"],
       [t("방향 추진", "Directional thrust"), "Shift"],
       [t("조작 보조 켜고 끄기", "Pilot assist on/off"), "G"],
       [t("기울기 · 롤", "Pitch · roll"), "↑ ↓ · Q E"],
@@ -587,7 +587,7 @@ export class DriveHud {
     this.pips = this.element.querySelector('[data-id="pips"]')!;
     this.horizonBar = this.element.querySelector('[data-id="horizon"]')!;
     this.chips.querySelector('[data-id="live"]')!.innerHTML = MISSIONS.map(
-      (m) => `<div class="mw-row" data-live="${m.id}"><span>${m.name}</span>
+      (m) => `<div class="mw-row" data-live="${m.id}"><span>${t(m.name, m.en.name)}</span>
         <b data-live-value="${m.id}">0%</b>
         <div class="mw-track"><div class="mw-fill" data-live-fill="${m.id}"></div></div></div>`,
     ).join("");
@@ -619,7 +619,7 @@ export class DriveHud {
       readout.wheels ? t("W/S 주행 · A/D 조향", "W/S drive · A/D steer") : null,
       readout.canHover
         ? readout.assist
-          ? t("Space 상승 · Ctrl 하강", "Space climb · Ctrl descend")
+          ? t("Space 상승 · Z 하강", "Space climb · Z descend")
           : t("Space 상승 추진", "Space lift thrust")
         : null,
       readout.hasWings ? t("속도가 붙으면 날개가 떠받칩니다", "Wings carry you once you have speed") : null,
@@ -699,12 +699,13 @@ export class Toasts {
     this.element.append(toast);
     while (this.element.childElementCount > 3)
       this.element.firstElementChild!.remove();
-    this.timers.add(
-      window.setTimeout(() => {
-        toast.classList.add("fade");
-        this.timers.add(window.setTimeout(() => toast.remove(), 500));
-      }, 2600),
-    );
+    const fade: number = window.setTimeout(() => {
+      this.timers.delete(fade);
+      toast.classList.add("fade");
+      const gone: number = window.setTimeout(() => { this.timers.delete(gone); toast.remove(); }, 500);
+      this.timers.add(gone);
+    }, 2600);
+    this.timers.add(fade);
   }
 
   dispose(): void {

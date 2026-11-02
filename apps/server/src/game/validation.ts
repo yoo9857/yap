@@ -54,6 +54,9 @@ const TOLERANCE = 1.6;
 /** |x|,|z| bound: wider tower column (±14) + platform swing + slack. */
 const WORLD_XZ_BOUND = 18;
 
+/** The most movement a gap between accepted moves can bank (s). See validateMove. */
+const MAX_BANKED_SECONDS = 4;
+
 export function validateMove(
   state: ValidationState,
   move: ClientMove,
@@ -88,13 +91,17 @@ export function validateMove(
   // measured against wall-clock elapsed between ACCEPTED states, never per
   // message — a lag burst delivers stale positions, not teleports
   const elapsed = Math.max((nowMs - state.lastAcceptedAtMs) / 1000, 1 / 60);
-  const maxPlanar = (MOVE_SPEED * TOLERANCE + MAX_PLATFORM_SPEED) * elapsed + 0.75;
+  // Silence must not bank movement: an honest client that stops sending (hidden tab, paused
+  // rAF) also stops moving, while a cheater would spend 10 s of budget on one 300 m teleport.
+  // A real network stall longer than this costs one soft correction, not a kick.
+  const budget = Math.min(elapsed, MAX_BANKED_SECONDS);
+  const maxPlanar = (MOVE_SPEED * TOLERANCE + MAX_PLATFORM_SPEED) * budget + 0.75;
   if (vec3DistXZ(state.lastPos, move.pos) > maxPlanar) {
     return { ok: false, reason: "too-fast-planar" };
   }
 
   const dy = y - state.lastPos[1];
-  const maxUp = JUMP_VELOCITY * TOLERANCE * elapsed + 0.75;
+  const maxUp = JUMP_VELOCITY * TOLERANCE * budget + 0.75; // falling is never capped: a long fall is honest
   const maxDown = MAX_FALL_SPEED * TOLERANCE * elapsed + 1.5;
   if (dy > maxUp || dy < -maxDown) {
     return { ok: false, reason: "too-fast-vertical" };
@@ -108,8 +115,9 @@ function accept(state: ValidationState, pos: Vec3, nowMs: number, level: LevelDe
   state.anchor = null;
   state.lastPos = [...pos];
   state.lastAcceptedAtMs = nowMs;
-  // the run clock starts when the player first leaves the spawn area
-  if (state.runStartedAtMs === null && vec3Dist(pos, level.spawn) > 1.5) {
+  // the run clock starts when the player first leaves the spawn area — measured across the
+  // ground like the client's (game.ts), so a hop on the spawn pad starts neither clock
+  if (state.runStartedAtMs === null && vec3DistXZ(pos, level.spawn) > 1.5) {
     state.runStartedAtMs = nowMs;
   }
 }
@@ -168,4 +176,14 @@ export function applyRespawn(
   }
   const cp = level.checkpoints[state.checkpoint];
   state.anchor = cp ? [...cp.center] : [...level.spawn];
+}
+
+/**
+ * Where a soft correction sends the player. While an anchor is pending (just
+ * joined / respawned) the ONLY position the server accepts is near the anchor,
+ * so that is the target: correcting to the pre-death lastPos made every
+ * following move fail as well, and kicked an honest player within a second.
+ */
+export function correctionTarget(state: ValidationState, level: LevelDef): Vec3 {
+  return [...(state.anchor ?? state.lastPos ?? level.spawn)] as Vec3;
 }

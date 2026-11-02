@@ -13,6 +13,7 @@ import type { Session } from "../net/session.js";
 import type { RecordStore } from "./records.js";
 import {
   applyRespawn,
+  correctionTarget,
   createValidationState,
   validateCheckpoint,
   validateFinish,
@@ -86,6 +87,15 @@ export class Room {
   }
 
   join(session: Session, name: string): void {
+    // Everything that can throw (the records DB) runs BEFORE the player is registered:
+    // a failure after `players.set` left a ghost no close listener would ever remove,
+    // so the room was never collected — and a retrying client made a new ghost each time.
+    let board: ReturnType<RecordStore["board"]> = [];
+    try {
+      board = this.records.board(this.day.dateStr);
+    } catch (err) {
+      log.error({ room: this.id, err }, "daily board unavailable");
+    }
     const player: RoomPlayer = {
       session,
       info: { id: session.id, name, checkpoint: -1 },
@@ -111,7 +121,7 @@ export class Room {
       dayNumber: this.day.dayNumber,
       dayStartMs: this.day.dayStartMs,
       nextDayStartMs: this.day.nextDayStartMs,
-      board: this.records.board(this.day.dateStr),
+      board,
     });
     this.broadcastExcept(session.id, { t: "s-player-joined", player: player.info });
 
@@ -172,8 +182,6 @@ export class Room {
           this.punish(player, 2, verdict.reason);
           return;
         }
-        player.finished = true;
-
         // hybrid precision: prefer the client's tick-exact measurement when
         // it agrees with the server's authoritative wall-clock window
         let timeMs = verdict.timeMs;
@@ -184,7 +192,17 @@ export class Room {
           timeMs = msg.timeMs;
         }
 
-        const { rank } = this.records.submitBest(this.day.dateStr, player.info.name, timeMs);
+        // `finished` only once the record is in: a DB error used to leave the run finished
+        // with no result sent, and every later c-finish was ignored
+        let rank: number;
+        try {
+          ({ rank } = this.records.submitBest(this.day.dateStr, player.info.name, timeMs));
+        } catch (err) {
+          log.error({ room: this.id, player: player.info.id, err }, "finish not recorded");
+          player.session.send({ t: "s-correction", pos: [...(player.validation.lastPos ?? this.level.spawn)], reason: "finish-unrecorded" });
+          return;
+        }
+        player.finished = true;
         this.broadcast({
           t: "s-finish-result",
           playerId: player.info.id,
@@ -192,11 +210,11 @@ export class Room {
           timeMs,
           rank,
         });
-        this.broadcast({
-          t: "s-daily-board",
-          dateStr: this.day.dateStr,
-          entries: this.records.board(this.day.dateStr),
-        });
+        try {
+          this.broadcast({ t: "s-daily-board", dateStr: this.day.dateStr, entries: this.records.board(this.day.dateStr) });
+        } catch (err) {
+          log.error({ room: this.id, err }, "daily board unavailable");
+        }
         log.info({ room: this.id, player: player.info.id, timeMs, rank }, "finish recorded");
         break;
       }
@@ -221,8 +239,7 @@ export class Room {
       { room: this.id, player: player.info.id, reason, score: player.violationScore },
       "violation",
     );
-    // soft correction: snap back to the last accepted position (or anchor)
-    const pos = player.validation.lastPos ?? player.validation.anchor ?? this.level.spawn;
+    const pos = correctionTarget(player.validation, this.level);
     player.session.send({ t: "s-correction", pos: [...pos], reason });
     if (player.violationScore > KICK_SCORE) {
       player.session.send({ t: "s-error", code: "kicked", msg: "too many violations" });

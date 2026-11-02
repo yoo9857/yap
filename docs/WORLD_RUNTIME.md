@@ -87,6 +87,11 @@ Observed on the Windows/Edge test machine:
 These measurements cover the stated scenarios. Exposed geometry, simultaneous
 rooms and user hardware still determine resource cost. Saving a whole large
 classroom remains synchronous JSON/SQLite work; the transport change does not
-turn persistence into a background task. RSS can remain reserved by the memory
+turn persistence into a background task. Flowing water alone no longer marks a
+class for the 15 s save: water-only changes (`ClassRoom.waterDirty`) are written
+at most every 2 minutes, and a deploy, close or idle collection saves them at
+once. While a client is still loading, consecutive buffered `s-k-edit` messages
+are folded to the latest value per cell before the backlog limit forces a resync,
+so a busy pond no longer loops a slow joiner through reconnects. RSS can remain reserved by the memory
 allocator after objects are collected. Deployment keeps the live DB backup and
 idle-connection guard documented in `DEPLOY_KO.md`.

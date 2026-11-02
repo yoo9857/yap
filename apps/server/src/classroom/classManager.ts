@@ -13,7 +13,7 @@ import {
 } from "@robo/shared";
 import { log } from "../log.js";
 import { ClassRoom, type ClassPeer } from "./classRoom.js";
-import { checkPassword, hashPassword, type ClassStore } from "./classStore.js";
+import { checkPassword, hashPassword, sameKey, type ClassStore } from "./classStore.js";
 
 const SNAPSHOT_MS = 100; // 10 Hz is plenty for walking robots
 const HEARTBEAT_MS = 10_000;
@@ -38,8 +38,14 @@ function scheduleStreams(): void {
     scheduleStreams();
   }, 16);
 }
+/** Wrong class passwords: after this many, the class refuses every attempt for a while (doubling, capped). */
+const PASSWORD_TRIES = 5;
+const PASSWORD_LOCK_MS = 60_000;
+const PASSWORD_LOCK_MAX_MS = 15 * 60_000;
 /** Changed classes are written to the store this often (and on end/exit). */
 const SAVE_MS = 15_000;
+/** Water-only changes (see ClassRoom.waterDirty) are saved at most this often. */
+const WATER_SAVE_MS = 120_000;
 
 /** Token buckets per message family. */
 const LIMITS: Record<string, { rate: number; burst: number }> = {
@@ -47,10 +53,13 @@ const LIMITS: Record<string, { rate: number; burst: number }> = {
   edit: { rate: 40, burst: 80 }, // dragging a tower of bricks is bursty
   chat: { rate: 1, burst: 4 },
   bonk: { rate: 4, burst: 6 }, // a tap is a click, not a stream
+  // each accepted change sends the whole layout to the class, so furniture gets its own, slower
+  // bucket than bricks (a held-click pickup is a few per second)
+  furniture: { rate: 8, burst: 20 },
   other: { rate: 5, burst: 10 },
 };
 const familyOf = (t: ClassClientMessage["t"]) =>
-  t === "k-move" ? "move" : t === "k-edit" || t === "k-furniture" ? "edit" : t === "k-chat" ? "chat" : t === "k-bonk" ? "bonk" : "other";
+  t === "k-move" ? "move" : t === "k-edit" ? "edit" : t === "k-furniture" ? "furniture" : t === "k-chat" ? "chat" : t === "k-bonk" ? "bonk" : "other";
 
 /** A WebSocket speaking the classroom protocol. */
 class ClassSocket implements ClassPeer {
@@ -157,9 +166,13 @@ class ClassSocket implements ClassPeer {
  */
 export class ClassManager {
   private readonly classes = new Map<string, ClassRoom>();
+  /** When each loaded class was last written (water-only changes wait for WATER_SAVE_MS). */
+  private readonly savedAt = new WeakMap<ClassRoom, number>();
   private readonly sockets = new Set<ClassSocket>();
   private readonly timers: NodeJS.Timeout[] = [];
   private fluidCursor = 0;
+  /** classKey → failed password attempts and the lock they earned. A 4-character password must not be guessable at socket speed. */
+  private readonly passwordFails = new Map<string, { fails: number; lockedUntil: number; lockMs: number; lastFailAt: number }>();
 
   constructor(private readonly store: ClassStore) {
     this.timers.push(setInterval(() => this.snapshot(), SNAPSHOT_MS));
@@ -202,28 +215,25 @@ export class ClassManager {
       }
       if (!socket.allow(msg)) {
         if (msg.t === "k-edit") room?.rejectEdits(socket, msg.edits);
-        // A furniture edit is optimistic: reconnect to restore the authoritative
-        // layout rather than silently leaving a placement only this client sees.
-        if (msg.t === "k-furniture") socket.close("furniture rate limit");
+        // A furniture edit is optimistic: send the sender the authoritative layout back
+        // rather than silently leaving a placement only this client sees.
+        if (msg.t === "k-furniture") room?.rejectFurniture(socket);
         return;
       }
-      const activeRoom = room;
-      if (activeRoom) {
-        activeRoom.handle(socket, msg);
-        if (activeRoom.closed) this.retire(activeRoom);
-        return;
+      // One bad message (or a store error) must cost one socket, never the whole server: an
+      // uncaught throw here reaches process "uncaughtException", which shuts everything down.
+      try {
+        const activeRoom = room;
+        if (activeRoom) {
+          activeRoom.handle(socket, msg);
+          if (activeRoom.closed) this.retire(activeRoom);
+          return;
+        }
+        room = this.enter(socket, msg, joinTimer);
+      } catch (err) {
+        log.error({ from, t: msg.t, err }, "class message failed");
+        if (!room) this.refuse(socket, "internal");
       }
-      if (msg.t === "k-peek") {
-        if (msg.v !== CLASS_PROTOCOL_VERSION) return this.refuse(socket, "bad-version");
-        clearTimeout(joinTimer);
-        socket.send(this.peek(msg.room));
-        socket.close("peeked");
-        return;
-      }
-      if (msg.t !== "k-host" && msg.t !== "k-join") return;
-      if (msg.v !== CLASS_PROTOCOL_VERSION) return this.refuse(socket, "bad-version");
-      room = msg.t === "k-host" ? this.host(socket, msg) : this.join(socket, msg);
-      if (room) clearTimeout(joinTimer);
     });
     ws.on("close", () => {
       socket.close("transport closed");
@@ -233,6 +243,22 @@ export class ClassManager {
       prior?.leave(socket);
     });
     ws.on("error", (err) => log.warn({ from, err: err.message }, "class socket error"));
+  }
+
+  /** A socket's first message: peek, host or join. Returns the class it entered. */
+  private enter(socket: ClassSocket, msg: ClassClientMessage, joinTimer: NodeJS.Timeout): ClassRoom | null {
+    if (msg.t === "k-peek") {
+      if (msg.v !== CLASS_PROTOCOL_VERSION) return this.refuse(socket, "bad-version");
+      clearTimeout(joinTimer);
+      socket.send(this.peek(msg.room));
+      socket.close("peeked");
+      return null;
+    }
+    if (msg.t !== "k-host" && msg.t !== "k-join") return null;
+    if (msg.v !== CLASS_PROTOCOL_VERSION) return this.refuse(socket, "bad-version");
+    const room = msg.t === "k-host" ? this.host(socket, msg) : this.join(socket, msg);
+    if (room) clearTimeout(joinTimer);
+    return room;
   }
 
   /**
@@ -246,10 +272,11 @@ export class ClassManager {
    */
   private peek(roomName: string): Extract<ClassServerMessage, { t: "s-k-room" }> {
     const key = classKey(roomName);
-    const live = this.classes.get(key);
+    const live = this.loaded(key);
     // `open` must match what k-join will do: a loaded class takes students
     if (live) return { t: "s-k-room", room: live.roomName, exists: true, open: true, teacher: live.teacherName };
-    const saved = this.store.load(key);
+    // names only: an unauthenticated peek must not parse a whole saved field
+    const saved = this.store.meta(key);
     if (saved) return { t: "s-k-room", room: saved.roomName ?? saved.teacherName, exists: true, open: false, teacher: saved.teacherName };
     return { t: "s-k-room", room: roomName.trim(), exists: false, open: false };
   }
@@ -257,16 +284,16 @@ export class ClassManager {
   private host(socket: ClassSocket, msg: Extract<ClassClientMessage, { t: "k-host" }>): ClassRoom | null {
     const key = classKey(msg.room);
     const sameTeacher = (name: string) => classKey(name) === classKey(msg.teacher);
-    let room = this.classes.get(key);
+    let room = this.loaded(key);
+    if (!room && this.classes.has(key)) return this.refuse(socket, "internal"); // closed, its save still failing
     if (room && !sameTeacher(room.teacherName)) return this.refuse(socket, "room-taken");
     if (!room) {
       const saved = this.store.load(key);
       if (saved) {
         // the class name is someone else's: say so, rather than "wrong password"
         if (!sameTeacher(saved.teacherName)) return this.refuse(socket, "room-taken");
-        const keyOk = !!msg.hostKey && msg.hostKey === saved.teacherKey;
-        const passOk = !!msg.password && checkPassword(msg.password, saved);
-        if (!keyOk && !passOk) return this.refuse(socket, "bad-password");
+        const keyOk = !!msg.hostKey && sameKey(msg.hostKey, saved.teacherKey);
+        if (!keyOk && !this.tryPassword(key, () => !!msg.password && checkPassword(msg.password, saved))) return this.refuse(socket, "bad-password");
         room = new ClassRoom(saved.teacherName, { passHash: saved.passHash, salt: saved.salt }, saved);
         log.info({ room: room.roomName, teacher: room.teacherName, edits: saved.edits.length, from: socket.from }, "class restored");
       } else {
@@ -278,16 +305,56 @@ export class ClassManager {
       }
       this.classes.set(key, room);
     }
-    const result = room.hostTeacher(socket, { hostKey: msg.hostKey, password: msg.password });
+    const live = room;
+    // a locked class still takes its own host key (the teacher's browser), never a password
+    const result = this.passwordLocked(key) && !(msg.hostKey && live.ownsHostKey(msg.hostKey))
+      ? "bad-password"
+      : live.hostTeacher(socket, { hostKey: msg.hostKey, password: msg.password });
+    if (result === "bad-password") this.notePasswordFail(key);
     if (result !== "ok") return this.refuse(socket, result);
+    this.passwordFails.delete(key);
     this.persist(room); // a new class exists in the store from its first second
     return room;
   }
 
+  /** The live class under this key. A CLOSED one only stays in the map while its final save keeps
+   *  failing; joining it would attach people to a dead room, so it is retried here and, once
+   *  saved, unloaded (the caller then restores it from the store like any saved class). */
+  private loaded(key: string): ClassRoom | undefined {
+    const room = this.classes.get(key);
+    if (!room?.closed) return room;
+    if (this.persist(room)) this.classes.delete(key);
+    return undefined;
+  }
+
+  private passwordLocked(key: string): boolean {
+    return (this.passwordFails.get(key)?.lockedUntil ?? 0) > Date.now();
+  }
+
+  /** Run a password check unless the class is locked; a wrong answer counts toward the lock. */
+  private tryPassword(key: string, check: () => boolean): boolean {
+    if (this.passwordLocked(key)) return false;
+    if (check()) { this.passwordFails.delete(key); return true; }
+    this.notePasswordFail(key);
+    return false;
+  }
+
+  private notePasswordFail(key: string): void {
+    const entry = this.passwordFails.get(key) ?? { fails: 0, lockedUntil: 0, lockMs: PASSWORD_LOCK_MS / 2, lastFailAt: 0 };
+    entry.lastFailAt = Date.now();
+    if (++entry.fails >= PASSWORD_TRIES) {
+      entry.fails = 0;
+      entry.lockMs = Math.min(PASSWORD_LOCK_MAX_MS, entry.lockMs * 2);
+      entry.lockedUntil = Date.now() + entry.lockMs;
+      log.warn({ room: key, lockMs: entry.lockMs }, "class password locked after repeated failures");
+    }
+    this.passwordFails.set(key, entry);
+  }
+
   private join(socket: ClassSocket, msg: Extract<ClassClientMessage, { t: "k-join" }>): ClassRoom | null {
     if (!playerNameSchema.safeParse(msg.student).success) return this.refuse(socket, "bad-name");
-    const room = this.classes.get(classKey(msg.room));
-    if (!room) return this.refuse(socket, "no-class");
+    const room = this.loaded(classKey(msg.room));
+    if (!room) return this.refuse(socket, "no-class"); // a closed class waiting on its save counts as gone
     const result = room.joinStudent(socket, msg.student, msg.seatKey);
     if (result !== "ok") return this.refuse(socket, result);
     return room;
@@ -315,6 +382,11 @@ export class ClassManager {
 
   private gc(): void {
     const now = Date.now();
+    for (const [key, entry] of this.passwordFails) {
+      // forget a class only after a quiet spell: dropping sub-threshold counts every minute let
+      // 4 guesses per gc go on forever without ever reaching the lock
+      if (entry.lockedUntil < now && now - entry.lastFailAt > PASSWORD_LOCK_MAX_MS) this.passwordFails.delete(key);
+    }
     for (const room of this.classes.values()) {
       if (room.closed || (room.emptySince !== null && now - room.emptySince > EMPTY_CLASS_TTL_MS)) {
         room.close();
@@ -324,31 +396,46 @@ export class ClassManager {
     }
   }
 
-  /** Save and unload a class; it can be re-opened from the store later. */
+  /**
+   * Save and unload a class; it can be re-opened from the store later. A class
+   * whose save failed stays loaded (closed) so the 15 s save retries it —
+   * unloading it would throw away everything since the last good write.
+   */
   private retire(room: ClassRoom): void {
-    this.persist(room);
-    this.classes.delete(room.key);
+    if (this.persist(room)) this.classes.delete(room.key);
   }
 
-  private persist(room: ClassRoom): void {
+  private persist(room: ClassRoom): boolean {
     try {
       this.store.save(room.key, room.toSaved());
+      this.savedAt.set(room, Date.now());
+      return true;
     } catch (err) {
       room.dirty = true; // toSaved cleared it; retry a failed write next interval
       log.error({ teacher: room.teacherName, err }, "class save failed");
+      return false;
     }
   }
 
   private saveDirty(): void {
-    for (const room of this.classes.values()) if (room.dirty) this.persist(room);
+    const now = Date.now();
+    for (const room of [...this.classes.values()]) {
+      if (!this.savedAt.has(room)) this.savedAt.set(room, now); // loaded/created since the last pass
+      const due = room.dirty || (room.waterDirty && now - this.savedAt.get(room)! >= WATER_SAVE_MS);
+      if (due && this.persist(room) && room.closed) this.classes.delete(room.key); // a retire that failed earlier
+    }
   }
 
+  /**
+   * Server going down (a deploy): save every class and drop the sockets WITHOUT
+   * ending the classes. `room.close()` would send s-k-closed, which a client
+   * takes as "the teacher ended the lesson" and never reconnects; a dropped
+   * socket reconnects to the next server, where the teacher's host key re-opens
+   * the class and students wait for it (see ClassClient's reconnect).
+   */
   shutdown(): void {
     for (const t of this.timers) clearInterval(t);
-    for (const room of this.classes.values()) {
-      this.persist(room);
-      room.close();
-    }
+    for (const room of this.classes.values()) this.persist(room);
     this.classes.clear();
     for (const socket of this.sockets) socket.close("server shutdown");
     this.sockets.clear();

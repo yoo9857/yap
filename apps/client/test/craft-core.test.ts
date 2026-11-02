@@ -1,4 +1,4 @@
-import {inventoryItems} from "../src/craft/itemCatalog.js";
+import {inventoryItems, itemByKey} from "../src/craft/itemCatalog.js";
 import { describe, expect, it } from "vitest";
 import { existsSync } from "node:fs";
 import { MAX_SOLID_ID, PLAYER_SOLID_IDS, WATER, isPlayerBlock } from "@robo/shared";
@@ -35,6 +35,9 @@ import {
   defaultHotbar,
   ensureFieldStacks,
   placeableBlocks,
+  removeItem,
+  roomFor,
+  slotForNew,
   sanitizeCounts,
   sanitizeHotbar,
 } from "../src/craft/inventory.js";
@@ -288,8 +291,10 @@ describe("inventory + recipes", () => {
     expect(clearHotbarSlot(bar, 0)).toBe(true);
     expect(bar[0]).toBe("");
     expect(clearHotbarSlot(bar, 9)).toBe(false);
-    const stacks = ensureFieldStacks({ dirt: 3, water: 9 });
-    expect(stacks.dirt).toBe(3);
+    // building on a field is free, so a stack an older save ran down is topped back up
+    const stacks = ensureFieldStacks({ dirt: 3, stone: 5000, water: 9 });
+    expect(stacks.dirt).toBe(999);
+    expect(stacks.stone).toBe(5000);
     expect(stacks["white-wool"]).toBe(999);
     expect(stacks.bedrock).toBeUndefined();
     expect(stacks.water).toBeUndefined();
@@ -410,5 +415,42 @@ describe("craft save", () => {
     expect(loaded.seed).toBe(1); // valid schema → loads, hostile edit ignored
     const pristine = generateIsland(1);
     expect(Buffer.from(loaded.world.cells).equals(Buffer.from(pristine.cells))).toBe(true);
+  });
+});
+
+describe("inventory edge cases", () => {
+  it("never eats a craft's inputs when the result has no room", () => {
+    const planks = CRAFT_RECIPES.find((r) => r.output["oak-planks"] && r.input["oak-log"])!;
+    const max = itemByKey("oak-planks")!.maxStack;
+    const counts: Record<string, number> = { "oak-log": 2, "oak-planks": max - 1 };
+    expect(roomFor(counts, "oak-planks", planks.output["oak-planks"])).toBe(false);
+    expect(craftRecipe(counts, planks)).toBe(false);
+    expect(counts["oak-log"]).toBe(2);
+    expect(counts["oak-planks"]).toBe(max - 1);
+  });
+
+  it("refuses non-positive or non-finite removals", () => {
+    const counts: Record<string, number> = { dirt: 4 };
+    expect(removeItem(counts, "dirt", -3)).toBe(false);
+    expect(removeItem(counts, "dirt", Number.NaN)).toBe(false);
+    expect(removeItem(counts, "dirt", 0)).toBe(false);
+    expect(counts.dirt).toBe(4);
+  });
+
+  it("keeps one slot per kind when a loaded bar repeats a key", () => {
+    const bar = sanitizeHotbar(["dirt", "dirt", "stone"]);
+    expect(bar[0]).toBe("dirt");
+    expect(bar[1]).toBe("");
+    expect(bar[2]).toBe("stone");
+    const keys = bar.filter((k) => k !== "");
+    expect(new Set(keys).size).toBe(keys.length);
+  });
+
+  it("never pushes a tool off the bar for a new block", () => {
+    const bar = ["pickaxe-basic", "dirt", "", "stone", "sand", "glass", "oak-log", "oak-planks", "stone-bricks", "water"];
+    expect(slotForNew(bar, 1)).toBe(1); // a block slot is replaced, as the bag tip says
+    expect(slotForNew(bar, 0)).toBe(2); // the pickaxe stays: the first empty slot takes it
+    const full = bar.map((k) => (k === "" ? "gravel" : k));
+    expect(slotForNew(full, 0)).toBe(1);
   });
 });

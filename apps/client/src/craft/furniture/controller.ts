@@ -10,6 +10,7 @@ import type { FurnitureLayout, PlaceVerdict, PlacementWorld } from "./layout.js"
 import { FurnitureShop } from "./shop.js";
 import type { PlacedFurniture } from "./types.js";
 import { FurnitureView } from "./view.js";
+import { paletteName, pieceName } from "./names.js";
 
 /**
  * Furniture's whole runtime: mode, keys, aiming, placing, putting away, the
@@ -32,6 +33,8 @@ export interface FurnitureHost {
   originZ(): number;
   player(): Body;
   pet(): Body;
+  /** A classmate in this absolute cell (classrooms only). */
+  othersIn?(x: number, y: number, z: number): boolean;
   hud: {
     toast(text: string): void;
     setHotbarVisible(visible: boolean): void;
@@ -176,7 +179,7 @@ export class FurnitureController {
       if (count > 1) {
         this.variants.set(this.kind, (this.variant + 1) % count);
         this.shop.setCurrent(this.kind, this.variant);
-        this.host.hud.toast(`🎨 ${def.name} · ${def.palettes![this.variant]!.name}`);
+        this.host.hud.toast(`🎨 ${pieceName(def)} · ${paletteName(def.palettes![this.variant]!.name)}`);
       }
       return true;
     }
@@ -228,7 +231,8 @@ export class FurnitureController {
   /** The layout's view of the world, in absolute cells. */
   private readonly placementWorld: PlacementWorld = {
     isBlock: (x, y, z) => this.host.world.isSolid(x - this.host.originX(), y, z - this.host.originZ()),
-    hasBody: (x, y, z) => overlapsVoxel(this.host.player(), x - this.host.originX(), y, z - this.host.originZ()),
+    hasBody: (x, y, z) => overlapsVoxel(this.host.player(), x - this.host.originX(), y, z - this.host.originZ()) ||
+      (this.host.othersIn?.(x, y, z) ?? false),
   };
 
   /** Would a block in this grid cell cut through furniture? */
@@ -343,7 +347,7 @@ export class FurnitureController {
     const before = { ...item };
     const result = this.host.layout.toggle(item, this.placementWorld);
     if (result === "body") {
-      this.host.hud.toast(t(`🚪 ${def.name} 자리에 서 있어서 닫을 수 없어요`, `🚪 You're standing in the doorway (${def.name}) — can't close it`));
+      this.host.hud.toast(t(`🚪 ${def.name} 자리에 서 있어서 닫을 수 없어요`, `🚪 You're standing in the doorway (${pieceName(def)}) — can't close it`));
       return true;
     }
     if (result === "ok") this.changed([item], [before]);
@@ -389,7 +393,7 @@ export class FurnitureController {
     if (!this.enabled) return;
     this.select(item.kind, item.variant);
     const def = furnitureDef(item.kind);
-    this.host.hud.toast(t(`${def.emoji} ${def.name} 골랐어요`, `${def.emoji} Picked ${def.name}`));
+    this.host.hud.toast(t(`${def.emoji} ${def.name} 골랐어요`, `${def.emoji} Picked ${pieceName(def)}`));
   }
 
   // ------------------------------------------------------------ undo
@@ -400,6 +404,13 @@ export class FurnitureController {
    * because a block under them was mined are not here — that was a block
    * edit, and undoing it would put a sofa back on thin air.
    */
+  /** Drop undo/redo: the layout was replaced from outside (classroom reset, resync, a refused change),
+   *  and replaying a step against it could resurrect wiped pieces or remove a classmate's. */
+  forgetHistory(): void {
+    this.undoStack.length = 0;
+    this.redoStack.length = 0;
+  }
+
   private readonly undoStack: { placed: PlacedFurniture[]; removed: PlacedFurniture[] }[] = [];
   private readonly redoStack: { placed: PlacedFurniture[]; removed: PlacedFurniture[] }[] = [];
 
@@ -426,9 +437,10 @@ export class FurnitureController {
       layout.all().find((q) => q.kind === p.kind && q.x === p.x && q.y === p.y && q.z === p.z && q.rot === p.rot);
     // hosts before what stands on them, so a vase finds its table
     const ordered = [...toAdd].sort((a, b) => (furnitureDef(a.kind).placement === "surface" ? 1 : 0) - (furnitureDef(b.kind).placement === "surface" ? 1 : 0));
-    const live = toRemove.map(find);
-    if (live.some((p) => !p)) return false;
-    for (const p of live) if (p && layout.all().includes(p)) layout.remove(p);
+    // A piece a classmate (or a mined support) already took away needs no removing: skipping it
+    // keeps the step instead of reporting a blocked spot and dropping it.
+    const live = toRemove.map(find).filter((p): p is PlacedFurniture => !!p);
+    for (const p of live) if (layout.all().includes(p)) layout.remove(p);
     for (const p of ordered) {
       if (!layout.canPlace(p, this.placementWorld) || !layout.add(p)) {
         // Include cascaded pieces belonging to another participant in the rollback.
@@ -436,7 +448,10 @@ export class FurnitureController {
         return false;
       }
     }
-    this.changed(toAdd, toRemove);
+    // report the LIVE pieces removed: the stored copies can carry a stale door state or colour,
+    // which the server's exact match refused, rejecting the whole step and wiping the history
+    if (toAdd.length > 0 || live.length > 0) this.changed(toAdd, live);
+    unstick(this.host.world, this.host.pet()); // a sofa put back where the pet now sits
     return true;
   }
 
@@ -472,7 +487,7 @@ export class FurnitureController {
     this.host.sfx.play("pickup");
     const def = furnitureDef(item.kind);
     const extra = removed.length > 1 ? t(` (위에 있던 ${removed.length - 1}개도)`, ` (and ${removed.length - 1} on top of it)`) : "";
-    this.host.hud.toast(t(`${def.emoji} ${withObjectParticle(def.name)} 치웠어요${extra}`, `${def.emoji} Put away ${def.name}${extra}`));
+    this.host.hud.toast(t(`${def.emoji} ${withObjectParticle(def.name)} 치웠어요${extra}`, `${def.emoji} Put away ${pieceName(def)}${extra}`));
   }
 
   /** A block was removed at this grid cell: put away what it was holding. */
@@ -481,7 +496,7 @@ export class FurnitureController {
     const removed = this.host.layout.afterBlockRemoved(ax, y, az, this.placementWorld);
     if (removed.length === 0) return;
     const def = furnitureDef(removed[0]!.kind);
-    this.host.hud.toast(t(`${def.emoji} 받침이 없어져서 ${withObjectParticle(def.name)} 치웠어요`, `${def.emoji} ${def.name} lost its support and was put away`));
+    this.host.hud.toast(t(`${def.emoji} 받침이 없어져서 ${withObjectParticle(def.name)} 치웠어요`, `${def.emoji} ${pieceName(def)} lost its support and was put away`));
   }
 
   // ------------------------------------------------------------ frame
@@ -514,10 +529,10 @@ export class FurnitureController {
     }
     if (this.kind) {
       const def = furnitureDef(this.kind);
-      const color = variantCount(def) > 1 ? ` · ${def.palettes![this.variant]!.name}` : "";
+      const color = variantCount(def) > 1 ? ` · ${paletteName(def.palettes![this.variant]!.name)}` : "";
       // a wall piece always faces out of its wall, so R has nothing to show
       const turns = def.placement === "wall" ? 0 : this.extraRot;
-      this.host.hud.setPiece(`${def.name}${color}`, turns, 0, def.emoji);
+      this.host.hud.setPiece(`${pieceName(def)}${color}`, turns, 0, def.emoji);
     }
   }
 

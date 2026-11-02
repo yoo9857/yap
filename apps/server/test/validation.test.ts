@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { DEFAULT_SEED, generateLevel, type ClientMove, type Vec3 } from "@robo/shared";
 import {
   applyRespawn,
+  correctionTarget,
   createValidationState,
   validateCheckpoint,
   validateFinish,
@@ -180,5 +181,26 @@ describe("checkpoint & finish", () => {
     expect(s.runStartedAtMs).toBeNull();
     expect(validateMove(s, move([8, 30, 0]), 1100, level).ok).toBe(false);
     expect(validateMove(s, move(level.spawn), 1150, level).ok).toBe(true);
+  });
+});
+
+describe("multiplayer hardening", () => {
+  it("corrects to the respawn anchor after a death, so the next honest move is accepted", () => {
+    const s = freshState();
+    validateMove(s, move([0, 0, 0]), 1000, level);
+    validateMove(s, move([3, 0, 0]), 1200, level); // lastPos: where the player was before dying
+    applyRespawn(s, "death", level);
+    expect(validateMove(s, move([40, 0, 0]), 1250, level).ok).toBe(false); // some stray move is refused…
+    const target = correctionTarget(s, level);
+    expect(target).toEqual([...level.spawn]); // …and the correction points at the anchor, not lastPos
+    expect(validateMove(s, move(target), 1300, level).ok).toBe(true);
+  });
+
+  it("does not bank movement across a long silence (no idle-then-teleport)", () => {
+    const s = freshState();
+    validateMove(s, move([0, 0, 0]), 1000, level);
+    validateMove(s, move([2, 0, 0]), 1100, level);
+    // 30 s of silence, then a report 150 m away: far beyond 4 s of running
+    expect(validateMove(s, move([152, 0, 0]), 31_100, level).ok).toBe(false);
   });
 });

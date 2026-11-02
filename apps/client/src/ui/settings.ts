@@ -43,6 +43,11 @@ export function parseSettings(raw: string | null): Settings {
   };
 }
 
+/** The stored language: a `?lang=` page view must not become it. */
+let storedLang: Lang = "ko";
+/** The saved choice (what a page without `?lang=` opens in). */
+export const savedLanguage = (): Lang => storedLang;
+
 function load(): Settings {
   let raw: string | null = null;
   try {
@@ -51,6 +56,7 @@ function load(): Settings {
     /* storage blocked: defaults for this visit */
   }
   const s = parseSettings(raw);
+  storedLang = s.lang;
   const forced = typeof location !== "undefined" ? new URLSearchParams(location.search).get("lang") : null;
   if (forced === "en" || forced === "ko") s.lang = forced;
   return s;
@@ -64,8 +70,10 @@ const listeners = new Set<(s: Settings) => void>();
 export function updateSettings(patch: Partial<Settings>): void {
   const next = parseSettings(JSON.stringify({ ...settings, ...patch }));
   Object.assign(settings, next);
+  // only an explicit language choice is saved; otherwise the stored one stays (not the ?lang= view's)
+  if (patch.lang !== undefined) storedLang = next.lang;
   try {
-    localStorage.setItem(KEY, JSON.stringify(settings));
+    localStorage.setItem(KEY, JSON.stringify({ ...settings, lang: storedLang }));
   } catch {
     /* kept for this visit only */
   }

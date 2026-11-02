@@ -30,7 +30,7 @@ import {
   type CharacterId,
   type EmoteId,
 } from "@robo/shared";
-import { checkPassword, type SavedClass } from "./classStore.js";
+import { checkPassword, sameKey, type SavedClass } from "./classStore.js";
 
 /** Anything that can receive messages — a socket in production, a stub in tests. */
 export interface ClassPeer {
@@ -48,6 +48,17 @@ const MAX_EDITS = 300_000;
 const WORLD_BATCH = 2000;
 /** A removed student can't walk straight back in under the same name. */
 const KICK_BAN_MS = 10 * 60_000;
+/** Saved seats kept per class. Past it the longest-unused OFFLINE seat goes, so a class used
+ *  for a whole year (or one kid trying forty names) never locks itself "full". */
+const MAX_SAVED_SEATS = 200;
+/** With fewer than two players there are no snapshots; send an empty one this often so a
+ *  client can still tell a live link from a dead one (announced as `keepalive`). */
+const KEEPALIVE_S = 2;
+/** A k-move this far from the last one is a jump (gather, respawn — or a forged position). */
+const JUMP_M = 8;
+/** After such a jump, taps from that player wait this long: a modified client cannot
+ *  report itself beside a classmate, tap, and report itself back. */
+const JUMP_BONK_HOLD_MS = 1500;
 
 interface Member {
   id: string;
@@ -71,6 +82,8 @@ interface Member {
   toolPhase?: number;
   /** Wall-clock ms of the last tap that connected. */
   bonkAt?: number;
+  /** Wall-clock ms of the last position jump (see JUMP_M). */
+  jumpedAt?: number;
 }
 
 /**
@@ -96,6 +109,10 @@ export class ClassRoom {
   private readonly banned = new Map<string, number>();
   /** Something worth saving changed since the last toSaved(). */
   dirty = false;
+  /** Only the server's water moved since the last save. Flowing water changes cells every step,
+   *  and rewriting the whole field every 15 s for it was the class store's biggest load, so
+   *  ClassManager saves water-only changes on a slower clock (a deploy/close saves them anyway). */
+  waterDirty = false;
 
   /**
    * A brand-new class (`saved` omitted) or one restored from the store: the
@@ -183,7 +200,7 @@ export class ClassRoom {
     if (!this.fluid.busy) return 0;
     const changes = this.fluid.step(this.fluidWorld, maxMs);
     if (changes.length === 0) return 0;
-    this.dirty = true;
+    this.waterDirty = true;
     const edits: ClassEdit[] = changes.map(([x, y, z, block]) => [x, y, z, block, 0]);
     for (let i = 0; i < edits.length; i += 500) {
       this.broadcast({ t: "s-k-edit", by: "", edits: edits.slice(i, i + 500) });
@@ -194,6 +211,7 @@ export class ClassRoom {
   /** Snapshot for the store; clears the dirty flag. */
   toSaved(): SavedClass {
     this.dirty = false;
+    this.waterDirty = false;
     const teacher = [...this.members.values()].find((m) => m.role === "teacher");
     const edits: ClassEdit[] = [];
     for (const [cell, [block, shape]] of this.edits) {
@@ -217,10 +235,17 @@ export class ClassRoom {
     return this.byPeer.size;
   }
 
+  /** Students connected right now — what the CLASS_MAX_STUDENTS cap is about (load), not the saved roster. */
   get studentCount(): number {
     let n = 0;
-    for (const m of this.members.values()) if (m.role === "student") n++;
+    for (const m of this.members.values()) if (m.role === "student" && m.peer) n++;
     return n;
+  }
+
+  /** Does this key own the teacher seat? (A password lock never shuts out the teacher's own browser.) */
+  ownsHostKey(hostKey: string): boolean {
+    for (const m of this.members.values()) if (m.role === "teacher") return sameKey(hostKey, m.key);
+    return false;
   }
 
   get editCount(): number {
@@ -242,7 +267,7 @@ export class ClassRoom {
     const existing = [...this.members.values()].find((m) => m.role === "teacher");
     if (existing) {
       if (existing.peer) return "teacher-taken";
-      const keyOk = !!cred.hostKey && cred.hostKey === existing.key;
+      const keyOk = !!cred.hostKey && sameKey(cred.hostKey, existing.key);
       const passOk = !!cred.password && checkPassword(cred.password, this.auth);
       if (!keyOk && !passOk) return "bad-password";
       this.attach(existing, peer);
@@ -260,21 +285,37 @@ export class ClassRoom {
     const existing = [...this.members.values()].find((m) => m.role === "student" && classKey(m.name) === wanted);
     if (existing) {
       // a live seat is only taken over by its own key (same kid, new tab)
-      if (existing.peer && seatKey !== existing.key) return "name-taken";
+      if (existing.peer && !(seatKey && sameKey(seatKey, existing.key))) return "name-taken";
       if (existing.peer) {
         const old = existing.peer;
         this.byPeer.delete(old);
         existing.peer = null;
+        // The close REASON "replaced" is what tells the old tab to stop: it must not reconnect
+        // with the same seat key and take the seat back, round and round (ClassClient).
         old.close("replaced");
       }
       this.attach(existing, peer);
       return "ok";
     }
     if (this.studentCount >= CLASS_MAX_STUDENTS) return "class-full";
+    this.pruneSeats();
     const student = this.addMember(name.trim(), "student");
     this.attach(student, peer);
     this.system(`${student.name} 학생이 들어왔어요`);
     return "ok";
+  }
+
+  /** Make room for one more saved seat: drop the oldest offline ones past MAX_SAVED_SEATS. */
+  private pruneSeats(): void {
+    let seats = 0;
+    for (const m of this.members.values()) if (m.role === "student") seats++;
+    for (const m of this.members.values()) {
+      if (seats < MAX_SAVED_SEATS) return;
+      if (m.role !== "student" || m.peer) continue;
+      this.members.delete(m.id); // Map order is join order: the oldest seat goes first
+      this.dirty = true;
+      seats--;
+    }
   }
 
   private addMember(name: string, role: ClassRole, key = randomBytes(16).toString("hex")): Member {
@@ -310,6 +351,7 @@ export class ClassRoom {
       settings: this.settings,
       editCount: count,
       furniture: this.furniture.toJSON(),
+      keepalive: KEEPALIVE_S,
     });
     // Freeze membership, not 300k duplicate tuples. Values may change while a
     // slow client loads; reliable edits replay after its initial world arrives.
@@ -349,6 +391,7 @@ export class ClassRoom {
     if (!me || this.closed) return;
     switch (msg.t) {
       case "k-move":
+        if (me.pos && Math.hypot(msg.pos[0] - me.pos[0], msg.pos[1] - me.pos[1], msg.pos[2] - me.pos[2]) > JUMP_M) me.jumpedAt = Date.now();
         me.pos = msg.pos;
         me.yaw = msg.yaw;
         me.anim = msg.anim;
@@ -362,12 +405,18 @@ export class ClassRoom {
         this.applyEdits(me, peer, msg.edits);
         return;
       case "k-furniture":
-        this.applyFurniture(me, peer, msg);
+        this.placer = me;
+        try { this.applyFurniture(me, peer, msg); } finally { this.placer = null; }
         return;
-      case "k-chat":
+      case "k-chat": {
         if (me.role === "student" && this.settings.chatLocked) return;
-        this.broadcast({ t: "s-k-chat", from: me.id, name: me.name, role: me.role, text: msg.text });
+        // control characters (newlines, bidi overrides…) never reach other screens
+        // eslint-disable-next-line no-control-regex
+        const text = msg.text.replace(/[\u0000-\u001f\u007f-\u009f\u200e\u200f\u202a-\u202e\u2066-\u2069]/g, " ").trim();
+        if (!text) return;
+        this.broadcast({ t: "s-k-chat", from: me.id, name: me.name, role: me.role, text });
         return;
+      }
       case "k-bonk":
         this.bonk(me, msg);
         return;
@@ -442,8 +491,11 @@ export class ClassRoom {
       if (block === 0) this.furniture.afterBlockRemoved(x, y, z, this.placementWorld);
     }
     if (refused.length > 0) this.rejectEdits(peer, refused);
-    if (refused.length > 0 || this.furniture.version !== furnitureVersion)
-      this.broadcast({ t: "s-k-furniture", furniture: this.furniture.toJSON() });
+    // A changed layout (a cascade under a mined block) goes to everyone. A refusal changed
+    // nothing on the server: only the sender, whose optimistic cascade may need undoing,
+    // gets the layout back — broadcasting ~100 KB to the class per refused brick was a flood.
+    if (this.furniture.version !== furnitureVersion) this.broadcast({ t: "s-k-furniture", furniture: this.furniture.toJSON() });
+    else if (refused.length > 0) peer.send({ t: "s-k-furniture", furniture: this.furniture.toJSON() });
     if (accepted.length === 0) return;
     this.dirty = true;
     for (const [other, member] of this.byPeer) {
@@ -461,15 +513,24 @@ export class ClassRoom {
     }) });
   }
 
+  /** Refused furniture (rate limit): the sender alone gets the layout back. */
+  rejectFurniture(peer: ClassPeer): void {
+    if (this.byPeer.has(peer)) peer.send({ t: "s-k-furniture", furniture: this.furniture.toJSON(), rejected: true });
+  }
+
+  /** Whose furniture change is being judged: their own body is checked by their client against
+   *  their exact position, while ours is up to 100 ms old (a step out of the cell was refused). */
+  private placer: Member | null = null;
+
   private readonly placementWorld: PlacementWorld = {
     // water holds nothing up: only a real block supports furniture
     isBlock: (x, y, z) => {
       const block = this.edits.get(voxelKey(x, y, z))?.[0] ?? pristine(y);
       return block !== 0 && !isWater(block);
     },
-    hasBody: (x, y, z) => [...this.byPeer.values()].some(({ pos }) => pos !== null &&
+    hasBody: (x, y, z) => [...this.byPeer.values()].some((m) => m !== this.placer && m.pos !== null && ((pos) =>
       pos[0] + 0.3 > x && pos[0] - 0.3 < x + 1 &&
-      pos[1] + 1.8 > y && pos[1] < y + 1 && pos[2] + 0.3 > z && pos[2] - 0.3 < z + 1),
+      pos[1] + 1.8 > y && pos[1] < y + 1 && pos[2] + 0.3 > z && pos[2] - 0.3 < z + 1)(m.pos)),
   };
 
   /** Validate a complete transaction on a copy: conflicting edits never half-apply. */
@@ -512,6 +573,7 @@ export class ClassRoom {
     if (!me.pos || this.settings.tapsLocked) return;
     const now = Date.now();
     if (now - (me.bonkAt ?? 0) < BONK_COOLDOWN_MS) return;
+    if (now - (me.jumpedAt ?? 0) < JUMP_BONK_HOLD_MS) return; // just teleported: not trusted to be there yet
     const others = [];
     for (const other of this.byPeer.values()) {
       if (other === me || !other.pos) continue;
@@ -548,13 +610,19 @@ export class ClassRoom {
     return block !== 0 && !isWater(block);
   }
 
-  /** Positions of everyone connected; sent at the snapshot rate. */
+  private quietSnaps = 0;
+
+  /** Positions of everyone connected; sent at the snapshot rate (and as a keepalive when alone). */
   snapshot(): void {
     const players = [];
     for (const m of this.byPeer.values()) {
       if (m.pos) players.push({ id: m.id, pos: m.pos, yaw: m.yaw, anim: m.anim, character: m.character ?? "mascot", emote: m.emote ?? "none", emoteSeq: m.emoteSeq ?? 0, action:m.action??"none",actionSeq:m.actionSeq??0,actionLoop:m.actionLoop??false,swimming:m.swimming??false,heldItem:m.heldItem??null,toolOption:m.toolOption??"balanced",toolPhase:m.toolPhase??0 });
     }
-    if (players.length < 2) return; // nobody to show anybody
+    if (players.length < 2) {
+      // nobody to show anybody — but a lone teacher still needs proof the link is alive
+      if (++this.quietSnaps * 0.1 < KEEPALIVE_S) return;
+    }
+    this.quietSnaps = 0;
     this.broadcast({ t: "s-k-snap", players });
   }
 

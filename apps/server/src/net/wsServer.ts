@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import type { Server as HttpServer } from "node:http";
+import type { IncomingMessage, Server as HttpServer } from "node:http";
 import { WebSocketServer } from "ws";
 import { PROTOCOL_VERSION } from "@robo/shared";
 import { log } from "../log.js";
@@ -10,26 +10,80 @@ import { Session } from "./session.js";
 const HEARTBEAT_INTERVAL_MS = 10_000;
 const HELLO_TIMEOUT_MS = 10_000;
 
+/** Trust nginx's X-Real-IP only from a proxy on this machine / the docker bridge. */
+const PRIVATE_PEER = /^(::1|127\.|::ffff:127\.|10\.|172\.(1[6-9]|2\d|3[01])\.|::ffff:10\.|::ffff:172\.(1[6-9]|2\d|3[01])\.|192\.168\.|::ffff:192\.168\.)/;
+
+/** The client's address: the socket peer, or nginx's X-Real-IP when the peer is the proxy. */
+export function clientAddress(req: IncomingMessage): string {
+  const peer = req.socket.remoteAddress ?? "?";
+  const forwarded = req.headers["x-real-ip"];
+  return typeof forwarded === "string" && forwarded.length > 0 && forwarded.length <= 64 && PRIVATE_PEER.test(peer)
+    ? forwarded
+    : peer;
+}
+
+export interface ConnectionLimits {
+  /** Open sockets per client address. A school shares ONE public IP, so this is per building, not per pupil. */
+  perAddress: number;
+  /** Open sockets for the whole process. */
+  total: number;
+}
+
+/** Counts open sockets per address; `admit` refuses past either cap. Pure, so it is unit-tested. */
+export class ConnectionGate {
+  private readonly open = new Map<string, number>();
+  private count = 0;
+  constructor(private readonly limits: ConnectionLimits) {}
+  admit(address: string): boolean {
+    const mine = this.open.get(address) ?? 0;
+    if (mine >= this.limits.perAddress || this.count >= this.limits.total) return false;
+    this.open.set(address, mine + 1);
+    this.count++;
+    return true;
+  }
+  release(address: string): void {
+    const mine = this.open.get(address) ?? 0;
+    if (mine <= 0) return;
+    if (mine === 1) this.open.delete(address); else this.open.set(address, mine - 1);
+    this.count--;
+  }
+  get total(): number { return this.count; }
+}
+
 /**
  * Upgrades /ws connections into Sessions, gates them behind c-hello (name +
  * protocol version), then hands them to the RoomManager. Dead sockets are
  * reaped by ws-level ping/pong.
  */
-export function attachWsServer(httpServer: HttpServer, rooms: RoomManager, classes: ClassManager): () => void {
+export function attachWsServer(
+  httpServer: HttpServer,
+  rooms: RoomManager,
+  classes: ClassManager,
+  limits: ConnectionLimits = { perAddress: 200, total: 4000 },
+): () => void {
   const wss = new WebSocketServer({
     server: httpServer,
     path: "/ws",
     maxPayload: 8 * 1024, // largest legit frame is well under 1 KB
   });
   const sessions = new Set<Session>();
+  const gate = new ConnectionGate(limits);
 
   wss.on("connection", (ws, req) => {
-    // the education classroom shares the endpoint, selected by query
-    if (new URL(req.url ?? "/", "http://x").searchParams.get("mode") === "class") {
-      classes.accept(ws, req.socket.remoteAddress ?? "?");
+    const address = clientAddress(req);
+    if (!gate.admit(address)) {
+      // 1013 "try again later": both clients reconnect with backoff
+      log.warn({ from: address, open: gate.total }, "connection refused: too many sockets");
+      ws.close(1013, "busy");
       return;
     }
-    const session = new Session(randomUUID().slice(0, 8), ws, req.socket.remoteAddress ?? "?");
+    ws.once("close", () => gate.release(address));
+    // the education classroom shares the endpoint, selected by query
+    if (new URL(req.url ?? "/", "http://x").searchParams.get("mode") === "class") {
+      classes.accept(ws, address);
+      return;
+    }
+    const session = new Session(randomUUID().slice(0, 8), ws, address);
     sessions.add(session);
     log.info({ session: session.id, from: session.remoteAddress }, "connected");
 

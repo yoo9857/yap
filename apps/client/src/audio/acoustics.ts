@@ -34,16 +34,19 @@ export function occlusion(
   const dist = Math.hypot(dx, dy, dz);
   if (dist < 0.6) return OPEN;
   const steps = Math.ceil(dist / 0.25);
-  const ends = new Set([cellKey(from[0], from[1], from[2]), cellKey(to[0], to[1], to[2])]);
-  const seen = new Set<string>();
+  const ax = Math.floor(from[0]), ay = Math.floor(from[1]), az = Math.floor(from[2]);
+  const bx = Math.floor(to[0]), by = Math.floor(to[1]), bz = Math.floor(to[2]);
+  // A straight line never re-enters a cell it has left, so remembering the last
+  // cell is enough to count each once (no per-call Set: this runs for every classmate sound).
+  let px = ax, py = ay, pz = az;
   let amount = 0;
   for (let i = 1; i < steps; i++) {
     const f = i / steps;
-    const x = from[0] + dx * f, y = from[1] + dy * f, z = from[2] + dz * f;
-    const key = cellKey(x, y, z);
-    if (ends.has(key) || seen.has(key)) continue;
-    seen.add(key);
-    amount += damping(Math.floor(x), Math.floor(y), Math.floor(z));
+    const x = Math.floor(from[0] + dx * f), y = Math.floor(from[1] + dy * f), z = Math.floor(from[2] + dz * f);
+    if (x === px && y === py && z === pz) continue;
+    px = x; py = y; pz = z;
+    if ((x === ax && y === ay && z === az) || (x === bx && y === by && z === bz)) continue;
+    amount += damping(x, y, z);
     if (amount >= 4) break; // past four walls nothing more changes
   }
   if (amount <= 0.01) return OPEN;
@@ -54,10 +57,6 @@ export function occlusion(
 export function occlusionFor(amount: number): Occlusion {
   const a = Math.min(4, Math.max(0, amount));
   return { amount: a, gain: Math.max(0.12, Math.pow(0.5, a)), cutoff: Math.max(350, 6000 * Math.pow(0.3, a)) };
-}
-
-function cellKey(x: number, y: number, z: number): string {
-  return `${Math.floor(x)},${Math.floor(y)},${Math.floor(z)}`;
 }
 
 export interface Room {

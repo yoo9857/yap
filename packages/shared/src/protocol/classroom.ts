@@ -163,6 +163,9 @@ export const classServerSchema = z.discriminatedUnion("t", [
     /** Number of edits that follow in s-k-world batches. */
     editCount: z.number().int().nonnegative(),
     furniture: z.array(classFurnitureSchema).max(3000),
+    /** Seconds within which this server always sends something (an empty snap at worst), so a
+     *  client can tell a dead link from a quiet class. Optional: older servers make no promise. */
+    keepalive: z.number().positive().max(60).optional(),
   }),
   z.object({
     t: z.literal("s-k-furniture"), furniture: z.array(classFurnitureSchema).max(3000),

@@ -51,7 +51,8 @@ const saveSchema = z.object({
   edits: z
     .array(z.tuple([z.number().int(), z.number().int(), z.number().int(), z.number().int(), z.number().int()]))
     .max(MAX_SAVED_EDITS),
-  inventory: z.record(z.string(), z.number()),
+  /** Checked key by key in `sanitizeCounts`: one bad value must not reject (and so wipe) the whole save. */
+  inventory: z.record(z.string(), z.unknown()),
   /** Optional loadout. A bad value must not reject the whole field. */
   hotbar: z.unknown().optional(),
   player: z.object({ x: z.number().finite(), y: z.number().finite(), z: z.number().finite() }),

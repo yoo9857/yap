@@ -285,7 +285,8 @@ export class GhostPart {
   set(kind: PartKind, direction: number): void {
     const signature = `${kind}:${direction}`;
     if (signature === this.signature) return;
-    this.signature = signature;
+    // not cached before the kit has loaded: the post-load set() must build the real part model
+    if (this.assets.templates.size > 0) this.signature = signature;
     for (const mesh of this.meshes) this.root.remove(mesh);
     this.meshes.length = 0;
     for (const template of this.assets.templates.get(kind) ?? []) {

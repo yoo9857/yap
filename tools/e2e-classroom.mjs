@@ -145,17 +145,18 @@ try {
   check("teacher places shared furniture", await teacher.evaluate(() => globalThis.__roboCraft.furniturePlace("chair", 76, 4, 86, 1, 1)));
   await sleep(500);
   check("student receives the chair and its colour", (await furniture(minji)).some((p) => p[0] === "chair" && p[4] === 1 && p[5] === 1));
+  const furnitureCount = (page, n) => page.waitForFunction((n) => globalThis.__roboCraft.furniture().items.length === n, { timeout: 4000 }, n).catch(() => {});
   await shortcut(teacher, "z");
-  await sleep(500);
+  await furnitureCount(minji, 0);
   check("teacher undo removes the chair for students", (await furniture(minji)).length === 0);
   await shortcut(teacher, "y");
-  await sleep(500);
-  check("teacher redo restores the chair for students", (await furniture(minji)).length === 1);
+  await furnitureCount(minji, 1);
+  check("teacher redo restores the chair for students", (await furniture(minji)).length === 1, JSON.stringify(await furniture(teacher)));
   await minji.evaluate(() => globalThis.__roboCraft.furniturePlace("side-table", 82, 4, 86));
   await sleep(300);
   await minji.evaluate(() => globalThis.__roboCraft.furniturePlace("vase", 82, 4, 86));
-  await sleep(500);
-  check("student table and vase reach the teacher", (await furniture(teacher)).length === 3);
+  await furnitureCount(teacher, 3);
+  check("student table and vase reach the teacher", (await furniture(teacher)).length === 3, JSON.stringify(await furniture(minji)));
   await teacher.evaluate(() => globalThis.__roboCraft.furniturePlace("door", 85, 4, 86));
   await sleep(300);
   await teacher.evaluate(() => globalThis.__roboCraft.furnitureToggle(85, 4, 86));
@@ -178,7 +179,7 @@ try {
   await sleep(300);
   check("build lock prevents door changes and furniture undo", JSON.stringify(await furniture(teacher)) === JSON.stringify(sharedFurniture));
   await minji.evaluate(() => globalThis.__roboCraft.placeAt(74, 4, 70, "stone"));
-  await sleep(800);
+  await minji.waitForFunction(() => globalThis.__roboCraft.blockAt(74, 4, 70) === 0, { timeout: 4000 }).catch(() => {});
   const locked = await minji.evaluate(() => globalThis.__roboCraft.blockAt(74, 4, 70));
   const leaked = await teacher.evaluate(() => globalThis.__roboCraft.blockAt(74, 4, 70));
   check("build lock rolls back a student's brick", locked === 0 && leaked === 0, `${locked}/${leaked}`);
@@ -186,7 +187,8 @@ try {
 
   // 6) chat
   await send(teacher, { t: "k-chat", text: "모두 안녕!" });
-  await sleep(500);
+  // a third headless browser on SwiftShader can be a second behind: wait for the line, don't race it
+  await jun.waitForFunction(() => [...document.querySelectorAll(".class-chat-log .line")].some((e) => e.textContent.includes("모두 안녕!")), { timeout: 8000 }).catch(() => {});
   const heard = await jun.$$eval(".class-chat-log .line", (els) => els.map((e) => e.textContent).join("|"));
   check("teacher's chat reaches students", heard.includes("모두 안녕!"), heard);
 

@@ -69,7 +69,7 @@ export class MachineStore {
       if (!item || typeof item !== "object") continue;
       const { id, blueprint, updated } = item as LibraryEntry;
       const valid = validateBlueprint(blueprint);
-      if (!valid || typeof id !== "string" || id.length > 40) continue;
+      if (!valid || typeof id !== "string" || id.length > 48) continue;
       entries.push({
         id,
         blueprint: valid,

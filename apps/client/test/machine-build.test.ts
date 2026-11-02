@@ -177,6 +177,10 @@ describe("test-drive missions", () => {
     expect(run.cleared).toContain("speed-run");
     run.update(at(0, 11, 1, 0, 0.4, 4), 1 / 60);
     expect(run.cleared).toContain("hill-climb");
+    const flown = new MissionRun(origin);
+    flown.update(at(0, 15, 0, 0, 15, 0), 1 / 60); // up in the air…
+    flown.update(at(0, 0, 0, 0, 0.4, 4), 1 / 60); // …and back down at the start
+    expect(flown.cleared).not.toContain("hill-climb");
     const hover = new MissionRun(origin);
     for (let i = 0; i < 120; i++) hover.update(at(0, 25, 0, 1, 25, 0), 1 / 60);
     expect(hover.cleared).not.toContain("hover");

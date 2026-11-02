@@ -1,7 +1,8 @@
-import { CATEGORIES, furnitureDef, inCategory, searchCatalog, variantCount } from "./catalog/index.js";
+import { CATALOG, CATEGORIES, furnitureDef, inCategory, searchCatalog, variantCount } from "./catalog/index.js";
 import type { CategoryKey, FurnitureDef } from "./types.js";
 import "./shop.css";
 import { t } from "../../ui/i18n.js";
+import { PIECE_EN, categoryName, paletteName, pieceName } from "./names.js";
 import { keyBarHtml, type KeyHelp } from "../../ui/gameMenu.js";
 import { MOUSE_LEFT, MOUSE_RIGHT } from "../../ui/inputGlyphs.js";
 
@@ -100,7 +101,7 @@ export class FurnitureShop {
       tab.type = "button";
       tab.className = "furn-tab";
       tab.dataset.id = `furniture-tab-${cat.key}`;
-      tab.innerHTML = `<span>${cat.emoji}</span><span>${cat.name}</span>`;
+      tab.innerHTML = `<span>${cat.emoji}</span><span>${categoryName(cat.name)}</span>`;
       tab.addEventListener("click", () => {
         this.search.value = "";
         this.tab = cat.key;
@@ -205,7 +206,7 @@ export class FurnitureShop {
   private renderGrid(): void {
     for (const [key, tab] of this.tabs) tab.classList.toggle("active", key === this.tab && !this.search.value);
     const query = this.search.value.trim();
-    const defs = query ? searchCatalog(query) : inCategory(this.tab);
+    const defs = query ? searchFurniture(query) : inCategory(this.tab);
     this.grid.replaceChildren(...defs.map((def) => this.card(def)));
     if (defs.length === 0) {
       const empty = document.createElement("div");
@@ -233,7 +234,7 @@ export class FurnitureShop {
     const where = { floor: "", rug: t(" · 바닥에 깔기", " · lies on the floor"), surface: t(" · 위에 올리기", " · goes on top"), wall: t(" · 벽에 걸기", " · hangs on a wall") }[def.placement];
     card.innerHTML = `
       <span class="furn-card-emoji">${def.emoji}</span>
-      <span class="furn-card-name">${def.name}</span>
+      <span class="furn-card-name">${pieceName(def)}</span>
       <span class="furn-card-size">${w}×${d}${t("칸", "")}${h > 1 ? ` · ${t("높이", "height")} ${h}` : ""}${where}</span>`;
     card.addEventListener("click", () => this.choose(def.key));
     const variants = variantCount(def);
@@ -244,7 +245,7 @@ export class FurnitureShop {
         const swatch = document.createElement("span");
         swatch.className = `furn-swatch${active && i === this.variant ? " active" : ""}`;
         swatch.dataset.id = `furniture-swatch-${def.key}-${i}`;
-        swatch.title = def.palettes![i]!.name;
+        swatch.title = paletteName(def.palettes![i]!.name);
         swatch.style.background = swatchColor(def, i);
         swatch.addEventListener("click", (e) => {
           e.stopPropagation(); // the card's own click would pick the remembered colour
@@ -260,7 +261,7 @@ export class FurnitureShop {
   private refresh(): void {
     this.backButton.style.display = this.current ? "" : "none";
     const label = this.chip.querySelector<HTMLElement>('[data-id="furniture-chip-label"]');
-    if (label) label.textContent = this.current ? `${t("가구", "Furniture")} · ${furnitureDef(this.current).name}` : t("가구", "Furniture");
+    if (label) label.textContent = this.current ? `${t("가구", "Furniture")} · ${pieceName(furnitureDef(this.current))}` : t("가구", "Furniture");
     this.bar.classList.toggle("hidden", !this.current || !this.visible);
     if (!this.current) return;
 
@@ -277,7 +278,7 @@ export class FurnitureShop {
           slot.innerHTML = `
             <span class="craft-slot-num">${i + 1}</span>
             <span class="furn-slot-emoji">${d.emoji}</span>
-            <span class="furn-slot-name">${d.name}</span>
+            <span class="furn-slot-name">${pieceName(d)}</span>
             <span class="furn-slot-dot"></span>`;
           return slot;
         }),
@@ -304,14 +305,14 @@ export class FurnitureShop {
     this.barLabel.innerHTML = `
       <button type="button" class="furn-cat-arrow prev" data-dir="-1" data-id="furniture-cat-prev">
         <kbd class="furn-cat-key">Q</kbd><span class="furn-cat-chevron">◀</span>
-        <span class="furn-cat-side">${prev.emoji} ${prev.name}</span>
+        <span class="furn-cat-side">${prev.emoji} ${categoryName(prev.name)}</span>
       </button>
       <div class="furn-cat-current">
-        <span class="furn-cat-name" data-id="furniture-cat-name">${cat.emoji} ${cat.name}</span>
+        <span class="furn-cat-name" data-id="furniture-cat-name">${cat.emoji} ${categoryName(cat.name)}</span>
         <span class="furn-cat-dots">${dots}</span>
       </div>
       <button type="button" class="furn-cat-arrow next" data-dir="1" data-id="furniture-cat-next">
-        <span class="furn-cat-side">${next.emoji} ${next.name}</span>
+        <span class="furn-cat-side">${next.emoji} ${categoryName(next.name)}</span>
         <span class="furn-cat-chevron">▶</span><kbd class="furn-cat-key">E</kbd>
       </button>`;
     if (from === null) return;
@@ -329,4 +330,11 @@ export class FurnitureShop {
     this.panel.remove();
     this.bar.remove();
   }
+}
+
+/** Search by the Korean name/key (searchCatalog) or the English name. */
+function searchFurniture(query: string): FurnitureDef[] {
+  const q = query.replace(/\s+/g, "").toLowerCase();
+  const english = CATALOG.filter((d) => (PIECE_EN[d.key] ?? "").replace(/\s+/g, "").toLowerCase().includes(q));
+  return [...new Set([...searchCatalog(query), ...(q ? english : [])])];
 }

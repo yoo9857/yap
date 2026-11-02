@@ -8,6 +8,7 @@ import {
   blockGroup,
   canCraftRecipe,
   countOf,
+  roomLeft,
   type BlockGroup,
   type Counts,
   type CraftRecipe,
@@ -25,7 +26,11 @@ const groupLabel = (id: string): string => {
 const outputKey = (recipe: CraftRecipe): string => Object.keys(recipe.output)[0] ?? "";
 /** How many times the recipe can run with what is in the bag. */
 const craftableTimes = (counts: Counts, recipe: CraftRecipe): number =>
-  Math.min(...Object.entries(recipe.input).map(([key, n]) => Math.floor(countOf(counts, key) / n)));
+  Math.min(
+    ...Object.entries(recipe.input).map(([key, n]) => Math.floor(countOf(counts, key) / n)),
+    // a full pile has no room for the result: crafting would eat the inputs for nothing
+    ...Object.entries(recipe.output).map(([key, n]) => Math.floor(roomLeft(counts, key) / n)),
+  );
 const formatCount = (n: number): string => (n > 9999 ? "9999+" : n.toLocaleString());
 /** A craft button batches at most this many (craftBatch's cap). */
 const BATCH = 16;
@@ -327,7 +332,26 @@ export class BagPanel {
     this.counts = counts;
     this.slots = hotbar;
     if (!this.open) return;
+    // called every frame: compare against a snapshot first, and build the paint signature only on a change
+    if (!this.changedSinceSeen(counts, hotbar)) return;
+    this.seenCounts = { ...counts };
+    this.seenSlots = [...hotbar];
     this.paint();
+  }
+
+  private seenCounts: Counts = {};
+  private seenSlots: string[] = [];
+  private changedSinceSeen(counts: Counts, hotbar: readonly string[]): boolean {
+    let n = 0;
+    for (const key in counts) {
+      n++;
+      if (this.seenCounts[key] !== counts[key]) return true;
+    }
+    let seen = 0;
+    for (const _ in this.seenCounts) seen++;
+    if (n !== seen || hotbar.length !== this.seenSlots.length) return true;
+    for (let i = 0; i < hotbar.length; i++) if (hotbar[i] !== this.seenSlots[i]) return true;
+    return false;
   }
 
   /** A finished drag must not also count as a click. */

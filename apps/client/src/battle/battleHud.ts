@@ -155,7 +155,9 @@ export class BattleHud {
         <h1>${won ? "🏆 VICTORY ROYALE!" : `💥 ${t("탈락!", "ELIMINATED")}`}</h1>
         <p class="subtitle">${won
           ? t("마지막까지 살아남은 로봇이 됐어요!", "Last robot standing.")
-          : t(`아직 로봇 ${aliveBots}대가 남아 있어요.`, `${aliveBots} robot${aliveBots === 1 ? "" : "s"} remaining.`)}</p>
+          : aliveBots === 0
+            ? t("마지막 로봇과 동시에 쓰러졌어요 — 아깝다!", "You went down together with the last robot — so close!")
+            : t(`아직 로봇 ${aliveBots}대가 남아 있어요.`, `${aliveBots} robot${aliveBots === 1 ? "" : "s"} remaining.`)}</p>
         <button class="primary" data-id="again">${t("다시 하기", "Play again")}</button>
         <p><a class="desk-link" href="/">${t("← 처음 화면으로", "← Home")}</a></p>
       </div>`;

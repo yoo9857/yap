@@ -114,6 +114,23 @@ describe("named classes", () => {
     expect(visited.slice(3)).toEqual(["Busy3", "Busy0", "Busy1"]);
   });
 
+  it("saves water-only changes on a slower clock than player edits", () => {
+    vi.useFakeTimers();
+    const { connect, store } = setup(), teacher = connect();
+    teacher.say({ t: "k-host", v, room: "Pond", teacher: "Teacher", password: "1234" });
+    const write = vi.spyOn(store, "save");
+    teacher.say({ t: "k-edit", edits: [[0, 4, 0, 3, 0]] });
+    vi.advanceTimersByTime(15_000);
+    expect(write).toHaveBeenCalledTimes(1); // a player's brick saves within 15 s
+    vi.spyOn(ClassRoom.prototype, "stepFluids").mockImplementation(function (this: ClassRoom) {
+      this.waterDirty = true; return 1;
+    });
+    vi.advanceTimersByTime(105_000);
+    expect(write).toHaveBeenCalledTimes(1); // flowing water alone: no rewrite every 15 s
+    vi.advanceTimersByTime(15_000);
+    expect(write).toHaveBeenCalledTimes(2); // ...but within two minutes
+  });
+
   it("retries a failed classroom save without requiring another player edit", () => {
     vi.useFakeTimers();
     const { connect, store } = setup(), teacher = connect();
@@ -248,5 +265,102 @@ describe("named classes", () => {
     const oldKid = connect();
     oldKid.emit("message", Buffer.from(JSON.stringify({ t: "k-join", v: 2, teacher: "임진아", student: "민지" })), false);
     expect(oldKid.last("s-k-error")?.code).toBe("bad-version");
+  });
+});
+
+describe("multiplayer robustness", () => {
+  it("a deploy (shutdown) drops sockets without telling anyone the class ended, and keeps it saved", () => {
+    const store = new MemoryClassStore();
+    const manager = new ClassManager(store);
+    const connect = () => { const ws = new FakeWs(); manager.accept(ws as never, "test"); return ws; };
+    const teacher = connect(), student = connect();
+    teacher.say({ t: "k-host", v, room: "Deploy", teacher: "Teacher", password: "1234" });
+    student.say({ t: "k-join", v, room: "Deploy", student: "Kid" });
+    const save = vi.spyOn(store, "save");
+    manager.shutdown();
+    expect(teacher.last("s-k-closed")).toBeUndefined();
+    expect(student.last("s-k-closed")).toBeUndefined();
+    expect(student.readyState).toBe(3); // dropped: the client reconnects by itself
+    expect(save.mock.calls.at(-1)?.[1].students.map((x) => x.name)).toEqual(["Kid"]);
+  });
+
+  it("closes a replaced tab with the reason that stops it reconnecting", () => {
+    const { connect } = setup(), teacher = connect(), tabA = connect(), tabB = connect();
+    teacher.say({ t: "k-host", v, room: "Tabs", teacher: "Teacher", password: "1234" });
+    tabA.say({ t: "k-join", v, room: "Tabs", student: "Kid" });
+    const key = tabA.last("s-k-welcome")!.key;
+    tabB.say({ t: "k-join", v, room: "Tabs", student: "Kid", seatKey: key });
+    expect(tabB.last("s-k-welcome")).toBeDefined();
+    expect(tabA.closedWith).toBe("replaced");
+  });
+
+  it("locks a class after repeated wrong passwords, but never against its own host key", () => {
+    const { connect } = setup(), first = connect();
+    first.say({ t: "k-host", v, room: "Locked", teacher: "Teacher", password: "1234" });
+    const hostKey = first.last("s-k-welcome")!.key;
+    first.close();
+    for (let i = 0; i < 5; i++) {
+      const guess = connect();
+      guess.say({ t: "k-host", v, room: "Locked", teacher: "Teacher", password: `wrong${i}` });
+      expect(guess.last("s-k-error")?.code).toBe("bad-password");
+    }
+    const right = connect();
+    right.say({ t: "k-host", v, room: "Locked", teacher: "Teacher", password: "1234" });
+    expect(right.last("s-k-error")?.code).toBe("bad-password"); // locked: even the right password waits
+    const owner = connect();
+    owner.say({ t: "k-host", v, room: "Locked", teacher: "Teacher", hostKey });
+    expect(owner.last("s-k-welcome")).toBeDefined();
+  });
+
+  it("keeps counting wrong passwords across the minute clean-up", () => {
+    vi.useFakeTimers();
+    const { connect } = setup(), first = connect();
+    first.say({ t: "k-host", v, room: "Patient", teacher: "Teacher", password: "1234" });
+    first.close();
+    vi.advanceTimersByTime(31 * 60_000); // empty class collected and saved
+    const guess = (p: string) => { const g = connect(); g.say({ t: "k-host", v, room: "Patient", teacher: "Teacher", password: p }); return g; };
+    for (let i = 0; i < 4; i++) guess(`nope${i}`);
+    vi.advanceTimersByTime(61_000); // a gc pass must not reset the count
+    guess("nope4");
+    expect(guess("1234").last("s-k-error")?.code).toBe("bad-password"); // the 5th miss locked it
+  });
+
+  it("never attaches anyone to a closed class whose last save failed", () => {
+    vi.useFakeTimers();
+    const { connect, store } = setup(), teacher = connect();
+    teacher.say({ t: "k-host", v, room: "Stuck", teacher: "Teacher", password: "1234" });
+    const save = vi.spyOn(store, "save").mockImplementation(() => { throw new Error("disk full"); });
+    teacher.say({ t: "k-end" });
+    const kid = connect();
+    kid.say({ t: "k-join", v, room: "Stuck", student: "Kid" });
+    expect(kid.last("s-k-error")?.code).toBe("no-class");
+    const back = connect();
+    back.say({ t: "k-host", v, room: "Stuck", teacher: "Teacher", password: "1234" });
+    expect(back.last("s-k-error")?.code).toBe("internal");
+    save.mockRestore();
+    const again = connect();
+    again.say({ t: "k-host", v, room: "Stuck", teacher: "Teacher", password: "1234" });
+    expect(again.last("s-k-welcome")).toBeDefined(); // saved now: restored like any saved class
+  });
+
+  it("answers a peek from the saved names without needing the class loaded", () => {
+    const store = new MemoryClassStore();
+    const saved: SavedClass = { roomName: "Saved", teacherName: "Teacher", ...(() => { const a = hashPassword("1234"); return { passHash: a.hash, salt: a.salt }; })(),
+      teacherKey: "k", students: [], settings: { chatLocked: false, buildLocked: false }, edits: [[1, 4, 1, 3, 0]] };
+    store.save("saved", saved);
+    const meta = vi.spyOn(store, "meta");
+    const { connect } = setup(store), peek = connect();
+    peek.say({ t: "k-peek", v, room: "Saved" });
+    expect(peek.last("s-k-room")).toMatchObject({ exists: true, open: false, teacher: "Teacher", room: "Saved" });
+    expect(meta).toHaveBeenCalledWith("saved"); // names only (SQLite reads them with json_extract)
+  });
+
+  it("refuses a damaged saved class instead of crashing the server", () => {
+    const store = new MemoryClassStore();
+    (store as unknown as { classes: Map<string, string> }).classes.set("broken", JSON.stringify({ teacherName: "Teacher", passHash: "x", salt: "y", teacherKey: "k" }));
+    expect(store.load("broken")).toBeNull();
+    const { connect } = setup(store), teacher = connect();
+    teacher.say({ t: "k-host", v, room: "Broken", teacher: "Teacher", password: "1234" });
+    expect(teacher.last("s-k-welcome")).toBeDefined(); // treated as missing: a fresh class opens
   });
 });

@@ -37,7 +37,9 @@ export class WaterSim {
   }
 
   private readonly fluidWorld: FluidWorld = {
-    get: (ax, y, az) => this.world.get(ax - this.ox, y, az - this.oz),
+    // outside the scrolled window the field's banked edits hold the water: reading the plain
+    // column there (air) drained every stream whose source had just scrolled out of view
+    get: (ax, y, az) => this.field ? this.field.cellAt(ax, y, az)[0] : this.world.get(ax - this.ox, y, az - this.oz),
     open: (ax, y, az) => {
       const x = ax - this.ox;
       const z = az - this.oz;

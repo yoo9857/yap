@@ -1,4 +1,4 @@
-import {itemByKey,canStoreItem} from "./itemCatalog.js";
+import {itemByKey,canStoreItem,toolByKey} from "./itemCatalog.js";
 import { BLOCKS, isPlaceableItem, type BlockDef } from "./blocks.js";
 
 /**
@@ -199,14 +199,28 @@ export function addItem(counts: Counts, key: string, n = 1): void {
   counts[key] = Math.min(countOf(counts, key) + Math.floor(n), def.maxStack);
 }
 
+/** Can `n` more of `key` be stored without the pile clamping at its max (losing the rest)? Things the bag never keeps always "fit". */
+/** How many more fit in this pile; an unknown or non-storable item always fits. */
+export function roomLeft(counts: Counts, key: string): number {
+  const def = itemByKey(key);
+  if (!def || !canStoreItem(key)) return Number.POSITIVE_INFINITY;
+  return Math.max(0, def.maxStack - countOf(counts, key));
+}
+
+export function roomFor(counts: Counts, key: string, n = 1): boolean {
+  return n <= roomLeft(counts, key);
+}
+
 export function removeItem(counts: Counts, key: string, n = 1): boolean {
-  if (countOf(counts, key) < n) return false;
+  if (!Number.isFinite(n) || n <= 0 || countOf(counts, key) < n) return false;
   counts[key] = countOf(counts, key) - n;
   return true;
 }
 
+/** Enough of every input, and room for every output (a full pile must not eat the inputs and drop the result). */
 export function canCraftRecipe(counts: Counts, recipe: CraftRecipe): boolean {
-  return Object.entries(recipe.input).every(([key, n]) => countOf(counts, key) >= n);
+  return Object.entries(recipe.input).every(([key, n]) => countOf(counts, key) >= n)
+    && Object.entries(recipe.output).every(([key, n]) => roomFor(counts, key, n));
 }
 
 /** Attempt a craft; mutates and returns true on success. */
@@ -267,8 +281,11 @@ export function sanitizeHotbar(raw: unknown): string[] {
       out[i] = "";
       continue;
     }
-    out[i] = typeof key === "string" && canHold(key) ? key : "";
+    // a kind sits on one slot: a repeated key (hand-edited save) keeps its first slot only
+    out[i] = typeof key === "string" && canHold(key) && !out.slice(0, i).includes(key) ? key : "";
   }
+  // a default the save did not mention may now repeat a key it did
+  for (let i = limit; i < WATER_SLOT; i++) if (out[i] && out.indexOf(out[i]!) < i) out[i] = "";
   out[WATER_SLOT] = "water";
   return out;
 }
@@ -294,13 +311,28 @@ export function clearHotbarSlot(hotbar: string[], slot: number): boolean {
   return true;
 }
 
-/** Education stacks: every placeable block the save does not already mention. */
+/** Education stacks: every placeable block topped up to 999 (fields saved before building was free may have run some down). */
 export function ensureFieldStacks(counts: Counts): Counts {
   const out = sanitizeCounts(counts);
   for (const key of Object.keys(GROUP)) {
-    if (out[key] === undefined) out[key] = Math.min(999, itemByKey(key)?.maxStack ?? 9999);
+    const full = Math.min(999, itemByKey(key)?.maxStack ?? 9999);
+    if ((out[key] ?? 0) < full) out[key] = full;
   }
   return out;
+}
+
+/**
+ * Where a newly held block goes (a craft, a middle-click): the selected slot,
+ * unless that slot holds a tool — a tool is never pushed off the bar
+ * implicitly — then the first empty slot, then the first slot without a tool.
+ */
+export function slotForNew(hotbar: readonly string[], selected: number): number {
+  const isTool = (i: number) => toolByKey(hotbar[i] ?? "") !== null;
+  if (selected >= 0 && selected < WATER_SLOT && !isTool(selected)) return selected;
+  const empty = hotbar.findIndex((k, i) => i < WATER_SLOT && k === "");
+  if (empty >= 0) return empty;
+  for (let i = 0; i < WATER_SLOT; i++) if (!isTool(i)) return i;
+  return 0;
 }
 
 export function readStoredHotbar(

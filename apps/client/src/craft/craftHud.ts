@@ -98,7 +98,10 @@ export class CraftHud {
   private readonly pieceChip: HTMLElement;
   private readonly slotLabel: HTMLElement;
   readonly menu: GameMenu;
-  private lastKey = "";
+  /** What the hotbar last drew (see update). */
+  private lastBarSelected = -2;
+  private lastSlots: string[] = [];
+  private lastCounts: number[] = [];
   private lastPiece = "";
   private lastSelected = -2;
   private lastLabel = "";
@@ -242,9 +245,15 @@ export class CraftHud {
 
   update(counts: Counts, selected: number, hotbar: readonly string[]): void {
     this.bag.update(counts, hotbar);
-    const key = hotbar.map((slot, index) => `${slot}:${countOf(counts, slot)}:${index === selected ? 1 : 0}`).join("|");
-    if (key === this.lastKey) return;
-    this.lastKey = key;
+    // every frame: compare in place (the old joined key string was garbage on each frame)
+    let same = selected === this.lastBarSelected && hotbar.length === this.lastSlots.length;
+    for (let i = 0; same && i < hotbar.length; i++) {
+      same = hotbar[i] === this.lastSlots[i] && countOf(counts, hotbar[i]!) === this.lastCounts[i];
+    }
+    if (same) return;
+    this.lastBarSelected = selected;
+    this.lastSlots = [...hotbar];
+    this.lastCounts = hotbar.map((slot) => countOf(counts, slot));
 
     hotbar.forEach((slotKey, index) => {
       const el = this.slots[index];

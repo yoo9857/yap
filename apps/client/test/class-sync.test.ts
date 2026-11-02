@@ -1,3 +1,4 @@
+import { pickaxeCycle } from "../src/craft/toolDefinitions.js";
 import * as THREE from "three";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ClassSync } from "../src/craft/classSync.js";
@@ -71,6 +72,31 @@ describe("classroom player synchronisation", () => {
   it("shows a classmate's actual equipped item and removes it on a block switch",()=>{
     const {client,scene,sync}=setup();client.onSnap!([{id:"other",pos:[2,4,0],yaw:0,anim:"idle",heldItem:"pickaxe-basic",toolOption:"precise-tip",toolPhase:.58,action:"interact",actionSeq:7,actionLoop:true}]);sync.render(1/60);const friend=robots(scene)[0]!;expect(friend.userData).toMatchObject({heldItem:"pickaxe-basic",toolOption:"precise-tip",action:"interact"});expect((friend.userData.motionContext as {toolTime:number}).toolTime).toBeGreaterThan(0);
     client.onSnap!([{id:"other",pos:[2,4,0],yaw:0,anim:"idle",heldItem:null,action:"none"}]);sync.render(1/60);expect(friend.userData.heldItem).toBeNull();sync.dispose();
+  });
+
+  it("never winds a classmate's swing back on a stale snapshot, so each stroke whooshes once", () => {
+    const { client, scene, sync, sound } = setup();
+    const cycle = pickaxeCycle("balanced");
+    const snap = (phase: number) => client.onSnap!([{ id: "other", pos: [2, 4, 0], yaw: 0, anim: "idle", heldItem: "pickaxe-basic", toolOption: "balanced", toolPhase: phase, action: "interact", actionSeq: 1, actionLoop: true }]);
+    let truth = 0, last = -1, lastPhase = 0, n = 0;
+    const times: number[] = [];
+    for (let tick = 0; tick < 180; tick++) {
+      if (tick % 6 === 0) {
+        // the server repeats the last phase it heard when no new k-move came in: every third snap is stale
+        const phase = n++ % 3 === 2 ? lastPhase : (truth / cycle) % 1;
+        lastPhase = phase;
+        snap(phase);
+      }
+      sync.render(1 / 60);
+      truth += 1 / 60;
+      const at = (robots(scene)[0]!.userData.motionContext as { toolTime?: number }).toolTime;
+      if (at !== undefined) { times.push(at); expect(at).toBeGreaterThanOrEqual(last); last = at; }
+    }
+    expect(times.length).toBeGreaterThan(100);
+    const whooshes = sound.mock.calls.filter((c) => c[0] === "swing").length;
+    expect(whooshes).toBeLessThanOrEqual(Math.ceil(3 / cycle) + 1);
+    expect(whooshes).toBeGreaterThanOrEqual(Math.floor(3 / cycle) - 1);
+    sync.dispose();
   });
 
   it("voices a classmate's bricks where they land, but not our echoes, the server's water or a big stamp", () => {

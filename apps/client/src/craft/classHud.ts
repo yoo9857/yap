@@ -37,6 +37,8 @@ export class ClassHud {
   private readonly input = el("input", "class-chat-input");
   private settings: ClassSettings = { chatLocked: false, buildLocked: false };
   private members: ClassMember[] = [];
+  /** The class is over (showEnded): Enter no longer opens the chat. */
+  private ended = false;
   private readonly onKey = (e: KeyboardEvent) => this.handleKey(e);
 
   constructor(
@@ -138,6 +140,8 @@ export class ClassHud {
 
   /** Full-screen card when the session is over (kicked / class ended). */
   showEnded(text: string): void {
+    this.closeInput(); // the chat is gone with the class: Enter must not open a box that sends nowhere
+    this.ended = true;
     const screen = el("div", "screen class-ended");
     const card = el("div", "screen-card");
     const button = el("button", "mode-btn", t("처음 화면으로", "Back to the start"));
@@ -165,7 +169,7 @@ export class ClassHud {
       e.stopPropagation();
       return;
     }
-    if (e.key !== "Enter" || !this.input.hidden) return;
+    if (e.key !== "Enter" || !this.input.hidden || this.ended) return;
     if (e.target instanceof HTMLElement && /INPUT|TEXTAREA|SELECT/.test(e.target.tagName)) return;
     if (this.role === "student" && this.settings.chatLocked) {
       this.chat("", "teacher", t("선생님이 채팅을 잠갔어요", "The teacher locked the chat"), true);

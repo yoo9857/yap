@@ -53,7 +53,8 @@ export class Bgm {
     window.addEventListener("pointerdown", unlock, { passive: true, signal: this.events.signal });
     window.addEventListener("keydown", unlock, { signal: this.events.signal });
     window.addEventListener("keydown", (e) => {
-      if (e.key.toLowerCase() !== "m") return;
+      // by code, not key: in 한글 input mode e.key is "ㅡ"; a lab mirror (M) is defaultPrevented
+      if (e.code !== "KeyM" || e.repeat || e.defaultPrevented || e.ctrlKey || e.metaKey || e.altKey) return;
       const t = e.target as HTMLElement | null;
       if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA")) return;
       this.toggleMute();

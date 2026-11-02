@@ -137,6 +137,7 @@
     {
       "id": "balanced",
       "name": "기본",
+      "nameEn": "Balanced",
       "speed": 1,
       "mining": 1,
       "radius": 1,
@@ -146,6 +147,7 @@
     {
       "id": "light-grip",
       "name": "가벼운 손잡이",
+      "nameEn": "Light grip",
       "speed": 1.15,
       "mining": 0.9,
       "radius": 1,
@@ -155,6 +157,7 @@
     {
       "id": "stone-focus",
       "name": "석재 집중",
+      "nameEn": "Stone focus",
       "speed": 0.9,
       "mining": 1.2,
       "radius": 1,
@@ -167,6 +170,7 @@
     {
       "id": "precise-tip",
       "name": "정밀한 날",
+      "nameEn": "Precise tip",
       "speed": 1,
       "mining": 1.05,
       "radius": 0.7,

@@ -31,9 +31,14 @@ interface Remote {
   speed: number;
   seenAt: number;
   swimming?: boolean;
-  toolPhase?:number;
   toolOption?:string;
   attacking?:boolean;
+  /** Their swing time, run on our own clock and only ever moved FORWARD by a report:
+   *  snapshots repeat the last phase they heard, and re-anchoring on a stale one
+   *  rewound the stroke and played its blow twice. Undefined while not swinging. */
+  toolClock?: number;
+  /** Seconds the clock waits when a report says we ran well ahead (a pause, never a rewind). */
+  toolHold?: number;
   /** Last drawn gait / dig / swing times, to sound the frame a foot plants or a blow lands. */
   cuePhase?: number;
   cueDig?: number;
@@ -46,6 +51,13 @@ export interface ClassSyncHooks {
   toast(text: string): void;
   clearKeys(): void;
   worldChanged?(): void;
+  /** A solid cell appeared at grid (x, y, z) from outside — a classmate's brick, a rolled-back edit:
+   *  the player or pet standing in it must be moved out. */
+  solidPlaced?(x: number, y: number, z: number): void;
+  /** The shared furniture layout was replaced from outside: local undo history no longer applies. */
+  furnitureReset?(): void;
+  /** The furniture layout was replaced from the server: step anyone out of a piece that now stands on them. */
+  furnitureMoved?(): void;
   /** The tap connected and we are the one who was hit. */
   bonked?(push: { vx: number; vz: number; vy: number }): void;
   /** The connect sound, for everyone who can see it, at the chest that was hit (grid metres). */
@@ -91,6 +103,15 @@ export class ClassSync {
   private readonly session: Pick<ClassSession, "you" | "role">;
   readonly hud: ClassHud;
   private readonly remotes = new Map<string, Remote>();
+
+  /** Is a classmate standing in this ABSOLUTE cell? The same box the server judges furniture with
+   *  (on their last reported position), so a sofa on a friend is refused here, not rolled back. */
+  bodyIn(x: number, y: number, z: number): boolean {
+    for (const { target: p } of this.remotes.values()) {
+      if (p.x + 0.3 > x && p.x - 0.3 < x + 1 && p.y + 1.8 > y && p.y < y + 1 && p.z + 0.3 > z && p.z - 0.3 < z + 1) return true;
+    }
+    return false;
+  }
   private members: ClassMember[];
   private settings: ClassSettings;
   private readonly outbox: ClassEdit[] = [];
@@ -132,6 +153,7 @@ export class ClassSync {
     });
     this.hud.setMembers(this.members);
     this.hud.setSettings(this.settings);
+    this.hud.setOnline(this.online);
 
     client.onMembers = (members) => {
       this.members = members;
@@ -144,6 +166,8 @@ export class ClassSync {
     client.onEdit = (edits, by) => this.applyEdits(edits, by);
     client.onFurniture = (items, rejected) => {
       furniture.load(items, true);
+      hooks.furnitureMoved?.();
+      if (rejected) hooks.furnitureReset?.();
       if (rejected) hooks.toast(t("🛋️ 다른 변경이나 건축 잠금 때문에 가구 작업을 적용하지 못했어요", "🛋️ That furniture change didn't go through (someone else changed it, or building is locked)"));
     };
     client.onReject = (edits, authoritative) => this.undo(edits, authoritative);
@@ -172,6 +196,7 @@ export class ClassSync {
     client.onWorldReset = () => {
       field.replaceAll([]);
       furniture.clear();
+      hooks.furnitureReset?.();
       this.pending.clear();
       this.outbox.length = 0;
       view.markDirty();
@@ -193,6 +218,8 @@ export class ClassSync {
       // the server's field wins: anything sent while offline never landed
       field.replaceAll(fresh.edits);
       furniture.load(fresh.furniture, true);
+      hooks.furnitureMoved?.();
+      hooks.furnitureReset?.();
       this.pending.clear();
       this.outbox.length = 0;
       view.markDirty();
@@ -209,6 +236,8 @@ export class ClassSync {
       this.hud.showEnded(
         reason === "kicked"
           ? t("선생님이 수업에서 내보냈어요.", "The teacher removed you from the class.")
+          : reason === "replaced"
+            ? t("다른 탭(또는 다른 기기)에서 같은 이름으로 이 반에 들어왔어요. 이 화면은 연결을 끝냈어요.", "You joined this class from another tab or device, so this one has been disconnected.")
           : reason === "closed"
             ? this.session.role === "teacher"
               ? t("수업을 마쳤어요. 모든 학생의 연결이 끝났어요.", "Class ended. Every student has been disconnected.")
@@ -253,7 +282,8 @@ export class ClassSync {
 
     this.moveTimer += dt;
     if (this.moveTimer >= 1 / MOVE_HZ) {
-      this.moveTimer = 0;
+      // carry the remainder: resetting to 0 sent every 7th tick (8.6 Hz), not every 6th
+      this.moveTimer = Math.min(this.moveTimer - 1 / MOVE_HZ, 1 / MOVE_HZ);
       this.sendMove(body, yaw, anim, presentation);
     }
   }
@@ -310,6 +340,7 @@ export class ClassSync {
   render(frameDt: number): void {
     if (!this.online) {
       for (const r of this.remotes.values()) r.rig.root.visible = false;
+      this.fx.update(frameDt); // tap chips in flight finish instead of freezing mid-air
       return;
     }
     const k = 1 - Math.pow(0.0005, frameDt); // ~100 ms catch-up
@@ -329,7 +360,13 @@ export class ClassSync {
       r.rig.root.position.set(x, r.pos.y, z);
       r.drawnYaw = turnToward(r.drawnYaw, r.yaw, frameDt, 0.06, 20);
       r.rig.root.rotation.y = r.drawnYaw;
-      const toolTime=r.attacking?(r.toolPhase??0)*pickaxeCycle(r.toolOption)+(now-r.seenAt)/1000:undefined;
+      let toolTime: number | undefined;
+      if (r.attacking && r.toolClock !== undefined) {
+        const wait = Math.min(r.toolHold ?? 0, frameDt);
+        r.toolHold = (r.toolHold ?? 0) - wait;
+        r.toolClock += frameDt - wait;
+        toolTime = r.toolClock;
+      }
       r.rig.update(r.anim, r.speed, frameDt,{swimming:r.swimming,toolTime});
       this.remoteSounds(r, x, z, toolTime);
     }
@@ -410,7 +447,7 @@ export class ClassSync {
       }
       r.rig.setCharacter(p.character ?? "mascot");
       r.rig.setHeldItem(p.heldItem??null,p.toolOption??PICKAXE.defaultOption);
-      r.toolOption=p.toolOption;r.toolPhase=p.toolPhase;r.attacking=!!p.heldItem&&p.action==="interact";
+      this.followSwing(r, !!p.heldItem && p.action === "interact", p.toolPhase ?? 0, p.toolOption);
       r.rig.setEmote(p.emote ?? "none", p.emoteSeq ?? 0);
       r.rig.performAction(p.action??"none",p.actionSeq??0,p.actionLoop??false);
       r.swimming=p.swimming;
@@ -419,6 +456,23 @@ export class ClassSync {
       r.anim = p.anim;
       r.seenAt = now;
     }
+  }
+
+  /** Steer a classmate's swing clock toward a report without ever winding it back (see Remote.toolClock). */
+  private followSwing(r: Remote, attacking: boolean, phase: number, option: string | undefined): void {
+    const cycle = pickaxeCycle(option);
+    if (!attacking) r.toolClock = undefined;
+    else if (r.toolClock === undefined || !r.attacking || option !== r.toolOption) {
+      r.toolClock = phase * cycle;
+      r.toolHold = 0;
+    } else {
+      let d = phase - (r.toolClock / cycle) % 1;
+      d -= Math.round(d); // the short way round the stroke, in (-0.5, 0.5]
+      if (d > 0) { r.toolClock += d * cycle; r.toolHold = 0; } // behind: catch up
+      else if (d < -0.3) r.toolHold = -d * cycle; // far ahead: wait for them (a stale report is a small lag, ignored)
+    }
+    r.attacking = attacking;
+    r.toolOption = option;
   }
 
   private applyEdits(edits: ClassEdit[], by = ""): void {
@@ -440,6 +494,7 @@ export class ClassSync {
       // the server's water flowing (water ↔ air) never changes a brick
       if (SOLID_ID[prev] === 0 && SOLID_ID[block] === 0) this.view.markWaterDirty(cell[0], cell[1], cell[2]);
       else { this.view.markCellDirty(cell[0], cell[1], cell[2]); this.view.markWaterDirty(cell[0], cell[1], cell[2]); }
+      if (SOLID_ID[prev] === 0 && SOLID_ID[block] !== 0) this.hooks.solidPlaced?.(cell[0], cell[1], cell[2]);
     }
   }
 
@@ -449,8 +504,12 @@ export class ClassSync {
       const p = this.pending.get(key);
       if (!p && !authoritative) continue;
       this.pending.delete(key);
-      const cell = this.field.applyRemote(ax, y, az, authoritative ? block : p!.prev[0], authoritative ? shape : p!.prev[1]);
-      if (cell) { this.view.markCellDirty(cell[0], cell[1], cell[2]); this.view.markWaterDirty(cell[0], cell[1], cell[2]); }
+      const restored = authoritative ? block : p!.prev[0];
+      const cell = this.field.applyRemote(ax, y, az, restored, authoritative ? shape : p!.prev[1]);
+      if (cell) {
+        this.view.markCellDirty(cell[0], cell[1], cell[2]); this.view.markWaterDirty(cell[0], cell[1], cell[2]);
+        if (SOLID_ID[restored] !== 0) this.hooks.solidPlaced?.(cell[0], cell[1], cell[2]); // a refused dig puts the block back: maybe on us
+      }
     }
     if (this.session.role === "student" && this.settings.buildLocked) this.hooks.toast(t("🧱 지금은 건축이 잠겨 있어요", "🧱 Building is locked right now"));
   }

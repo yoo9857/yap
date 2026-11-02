@@ -243,12 +243,12 @@ try {
   })();
   assert.ok(drift < 5, `hands off holds altitude (drifted ${drift.toFixed(1)} m)`);
   assert.ok(tilt < 8, `hands off stays level (${tilt.toFixed(1)} degrees)`);
-  await page.keyboard.down("ControlLeft");
+  await page.keyboard.down("KeyZ");
   await wait(3000);
-  await page.keyboard.up("ControlLeft");
+  await page.keyboard.up("KeyZ");
   assert.ok(
     (await machine()).simulation.altitude < hands_off.altitude - 2,
-    "Ctrl brings it back down",
+    "Z brings it back down",
   );
   await page.keyboard.press("KeyG");
   assert.equal((await machine()).assist, false, "G turns assist off mid-flight");

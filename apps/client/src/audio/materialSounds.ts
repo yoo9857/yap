@@ -158,7 +158,8 @@ export function sampleBank(kind: SoundKind, family: string): { id: SampleBankId;
     // soft ground digs with the synth crunch: a footstep recording on every dig tap sounded like walking
     case "dirt": case "grass": return hit ? null : { id: "step-gravel", vol: 0.5 };
     case "sand": return hit ? null : { id: "step-gravel", vol: 0.42 };
-    case "soft": return hit ? null : { id: "step-snow", vol: 0.4 };
+    // snow and wool break with the synth too: the snow bank is what walking on snow plays
+    case "soft": return null;
   }
 }
 

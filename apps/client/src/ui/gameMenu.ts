@@ -1,6 +1,6 @@
 import { t } from "./i18n.js";
 import { keyGlyphs } from "./inputGlyphs.js";
-import { SENSITIVITY_RANGE, settings, updateSettings, type Lang } from "./settings.js";
+import { SENSITIVITY_RANGE, savedLanguage, settings, updateSettings, type Lang } from "./settings.js";
 import "./gameMenu.css";
 
 /** One row of key help: the keys (each its own <kbd>) and what they do. */
@@ -123,9 +123,13 @@ export class GameMenu {
       if (go) return this.setView(go);
       const lang = target.closest<HTMLElement>("[data-lang]")?.dataset.lang as Lang | undefined;
       if (lang) {
-        if (lang !== settings.lang) {
+        // compared with the SAVED choice: on a ?lang=en page, picking English must still save it
+        if (lang !== settings.lang || lang !== savedLanguage()) {
           updateSettings({ lang });
-          location.reload();
+          // a ?lang= link would override the choice again after the reload
+          const url = new URL(location.href);
+          if (url.searchParams.has("lang")) { url.searchParams.delete("lang"); location.replace(url.href); }
+          else location.reload();
         }
         return;
       }
@@ -160,7 +164,9 @@ export class GameMenu {
         this.setView("main");
       } else if (e.key === "Escape" && this.visible && this.opts.selfManaged) {
         this.close();
-      } else if (e.key.toLowerCase() === "h" && !e.ctrlKey && !e.metaKey && !e.repeat) {
+      } else if (e.code === "KeyH" && !e.ctrlKey && !e.metaKey && !e.repeat && (this.visible || this.opts.selfManaged || document.pointerLockElement)) {
+        // by code (한글 mode types "ㅗ"); not while another panel owns the screen, where the
+        // hidden card would switch to Controls and the next Esc would open on it
         if (this.visible && this.view === "help") this.setView("main");
         else this.openHelp();
       }
@@ -199,7 +205,10 @@ export class GameMenu {
 
   /** The game decides when the card may show (not in play, no other panel open). */
   setVisible(visible: boolean): void {
-    if (visible === this.visible) return;
+    if (visible === this.visible) {
+      if (!visible && document.pointerLockElement && this.view !== "main") this.setView("main");
+      return;
+    }
     this.visible = visible;
     this.el.classList.toggle("hidden", !visible);
     if (!visible && document.pointerLockElement) {

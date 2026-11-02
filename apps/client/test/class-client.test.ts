@@ -9,13 +9,13 @@ class Socket {
   bufferedAmount = 0;
   onopen: (() => void) | null = null;
   onmessage: ((event: { data: string }) => void) | null = null;
-  onclose: (() => void) | null = null;
+  onclose: ((event: { reason: string }) => void) | null = null;
   onerror: (() => void) | null = null;
   sent: string[] = [];
   constructor() { Socket.instances.push(this); }
   open() { this.readyState = 1; this.onopen?.(); }
   send(raw: string) { this.sent.push(raw); }
-  close() { this.readyState = 3; this.onclose?.(); }
+  close(_code?: number, reason = "") { this.readyState = 3; this.onclose?.({ reason }); }
   receive(msg: ClassServerMessage) { this.onmessage?.({ data: JSON.stringify(msg) }); }
 }
 const welcome = (you = "old", edits = 0): ClassServerMessage => ({ t: "s-k-welcome", you, role: "teacher", room: "Test", teacher: "Teacher",
@@ -105,5 +105,79 @@ describe("classroom client lifecycle", () => {
     const newcomer = new ClassClient({ role: "student", room: "Test", student: "New" }); clients.push(newcomer);
     const failed = expect(newcomer.connect()).rejects.toBe("no-class");
     Socket.instances[3]!.open(); Socket.instances[3]!.receive({ t: "s-k-error", code: "no-class" }); await failed;
+  });
+
+  it("stops for good when its seat is taken over by another tab, instead of taking it back", async () => {
+    const c = new ClassClient({ role: "student", room: "Test", student: "Student" }); clients.push(c);
+    const first = c.connect(), ws = Socket.instances[0]!; ws.open(); ws.receive(welcome()); await first; c.activate();
+    const ended = vi.fn(); c.onEnded = ended;
+    ws.close(1000, "replaced");
+    vi.advanceTimersByTime(30_000);
+    expect(ended).toHaveBeenCalledWith("replaced");
+    expect(Socket.instances).toHaveLength(1); // no reconnect, so no seat tug-of-war
+  });
+
+  it("hands a reconnect that finished during game loading to onResync at activate", async () => {
+    const c = create(), first = c.connect(), old = Socket.instances[0]!; old.open(); old.receive(welcome("old")); await first;
+    old.close(); vi.advanceTimersByTime(500);
+    const next = Socket.instances[1]!; next.open(); next.receive(welcome("new", 1)); next.receive({ t: "s-k-world", edits: [[3, 4, 3, 3, 0]] });
+    const resync = vi.fn<(s: ClassSession) => void>(); c.onResync = resync;
+    c.activate();
+    expect(resync).toHaveBeenCalledTimes(1);
+    expect(resync.mock.calls[0]![0].you).toBe("new");
+    expect(resync.mock.calls[0]![0].edits).toEqual([[3, 4, 3, 3, 0]]);
+  });
+
+  it("drops a silent link once the server's keepalive promise lapses, and reconnects", async () => {
+    const c = create(), first = c.connect(), ws = Socket.instances[0]!; ws.open();
+    ws.receive({ ...welcome(), keepalive: 2 } as ClassServerMessage); await first; c.activate();
+    vi.advanceTimersByTime(9000); expect(ws.readyState).toBe(1);
+    ws.receive({ t: "s-k-snap", players: [] }); // heard from: the clock restarts
+    vi.advanceTimersByTime(9000); expect(ws.readyState).toBe(1);
+    vi.advanceTimersByTime(3000); expect(ws.readyState).toBe(3);
+    vi.advanceTimersByTime(1000); expect(Socket.instances).toHaveLength(2);
+  });
+
+  it("folds a long run of water edits during loading instead of reconnecting forever", async () => {
+    const c = create(), first = c.connect(), ws = Socket.instances[0]!; ws.open(); ws.receive(welcome()); await first;
+    for (let i = 0; i < 3000; i++) ws.receive({ t: "s-k-edit", by: "", edits: [[i % 8, 4, 0, i % 2 ? 19 : 0, 0]] });
+    expect(ws.readyState).toBe(1); // still connected: 3000 writes to 8 cells fit
+    const cells = new Map<number, number>();
+    c.onEdit = (edits) => { for (const e of edits) cells.set(e[0], e[3]); };
+    c.activate();
+    expect(cells.size).toBe(8);
+    for (const [x, block] of cells) expect(block).toBe((2992 + x) % 2 ? 19 : 0); // the latest write per cell
+  });
+
+  it("reconnects from a dead link without waiting for its close handshake", async () => {
+    const c = create(), first = c.connect(), ws = Socket.instances[0]!; ws.open();
+    ws.receive({ ...welcome(), keepalive: 2 } as ClassServerMessage); await first; c.activate();
+    ws.close = () => {}; // half-open: the close handshake never completes, onclose never fires
+    vi.advanceTimersByTime(12_000);
+    expect(Socket.instances).toHaveLength(2);
+  });
+
+  it("says 'another tab' when the seat is taken over while the game is still loading", async () => {
+    const c = new ClassClient({ role: "student", room: "Test", student: "Student" }); clients.push(c);
+    const first = c.connect(), ws = Socket.instances[0]!; ws.open(); ws.receive(welcome()); await first;
+    ws.close(1000, "replaced");
+    const ended = vi.fn(); c.onEnded = ended; c.activate();
+    expect(ended).toHaveBeenCalledWith("replaced");
+  });
+
+  it("keeps each author's name when it folds buffered edits", async () => {
+    const c = create(), first = c.connect(), ws = Socket.instances[0]!; ws.open(); ws.receive(welcome()); await first;
+    for (let i = 0; i < 1100; i++) ws.receive({ t: "s-k-edit", by: i < 1000 ? "" : "kid", edits: [[i % 4, 4, 0, 19, 0]] });
+    const authors: string[] = [];
+    c.onEdit = (_edits, by) => authors.push(by);
+    c.activate();
+    expect(authors[0]).toBe(""); // the water run folded into one message…
+    expect(authors.slice(1).every((by) => by === "kid")).toBe(true); // …and the classmate's bricks keep their name
+    expect(authors.length).toBeLessThan(100);
+  });
+
+  it("keeps no watchdog for an older server that promises no keepalive", async () => {
+    const c = create(), first = c.connect(), ws = Socket.instances[0]!; ws.open(); ws.receive(welcome()); await first; c.activate();
+    vi.advanceTimersByTime(120_000); expect(ws.readyState).toBe(1);
   });
 });

@@ -329,7 +329,15 @@ describe("classroom furniture", () => {
       expect(teacher.last("s-k-furniture")!.rejected).toBe(true);
       expect(room.toSaved().furniture).toEqual([chair]);
     }
+    // the placer's own reported position is up to 100 ms old; their client checked it exactly
     room.handle(teacher, { t: "k-move", pos: [20.5, 4, 10.5], yaw: 0, anim: "idle" });
+    place(room, teacher, door);
+    expect(teacher.last("s-k-furniture")!.rejected).toBeUndefined();
+    room.handle(teacher, { t: "k-furniture", removed: [door], placed: [] });
+    // a classmate standing there is judged by the server
+    const student = new Peer();
+    room.joinStudent(student, "Minji");
+    room.handle(student, { t: "k-move", pos: [20.5, 4, 10.5], yaw: 0, anim: "idle" });
     place(room, teacher, door);
     expect(teacher.last("s-k-furniture")!.rejected).toBe(true);
   });
@@ -489,5 +497,55 @@ describe("character work presentation",()=>{
     expect(decodeClassServer(JSON.stringify(snapshot))).toEqual(snapshot);
     expect(decodeClassClient(JSON.stringify({...move,action:"invalid"}))).toBeNull();
     expect(decodeClassClient(JSON.stringify({...move,actionSeq:-1}))).toBeNull();
+  });
+});
+
+describe("ClassRoom multiplayer robustness", () => {
+  it("sends the layout back only to the sender of a refused edit", () => {
+    const { room, teacher } = classWithTeacher();
+    const student = new Peer();
+    room.joinStudent(student, "Kid");
+    teacher.inbox.length = 0; student.inbox.length = 0;
+    room.handle(student, { t: "k-edit", edits: [[0, 0, 0, 0, 0]] }); // bedrock: refused
+    expect(student.last("s-k-reject")).toBeDefined();
+    expect(student.last("s-k-furniture")).toBeDefined();
+    expect(teacher.last("s-k-furniture")).toBeUndefined();
+  });
+
+  it("counts online students against the class cap, not every saved seat", () => {
+    const { room } = classWithTeacher();
+    for (let i = 0; i < 45; i++) {
+      const p = new Peer();
+      expect(room.joinStudent(p, `Kid${i}`)).toBe("ok");
+      room.leave(p);
+    }
+    expect(room.joinStudent(new Peer(), "Newcomer")).toBe("ok");
+  });
+
+  it("strips control characters from chat", () => {
+    const { room, teacher } = classWithTeacher();
+    room.handle(teacher, { t: "k-chat", text: "hi\u202Ethere\nyou" });
+    expect(teacher.last("s-k-chat")!.text).toBe("hi there you");
+  });
+
+  it("keeps a lone teacher's link provably alive with an empty snapshot", () => {
+    const { room, teacher } = classWithTeacher();
+    expect(teacher.welcome().keepalive).toBe(2); // the promise the client's watchdog holds us to
+    room.handle(teacher, { t: "k-move", pos: [0, 4, 0], yaw: 0, anim: "idle" });
+    teacher.inbox.length = 0;
+    for (let i = 0; i < 20; i++) room.snapshot();
+    expect(teacher.inbox.filter((m) => m.t === "s-k-snap")).toHaveLength(1);
+  });
+
+  it("does not trust a tap right after a position jump", () => {
+    const { room, teacher } = classWithTeacher();
+    const kid = new Peer();
+    room.joinStudent(kid, "Kid");
+    const kidId = kid.welcome().you;
+    room.handle(kid, { t: "k-move", pos: [0, 4, 0], yaw: 0, anim: "idle" });
+    room.handle(teacher, { t: "k-move", pos: [50, 4, 0], yaw: 0, anim: "idle" });
+    room.handle(teacher, { t: "k-move", pos: [0, 4, -1.2], yaw: 0, anim: "idle" }); // 50 m in one report
+    room.handle(teacher, { t: "k-bonk", seq: 1, yaw: 0, pitch: 0, target: kidId });
+    expect(kid.last("s-k-bonk")).toBeUndefined();
   });
 });

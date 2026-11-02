@@ -5,10 +5,19 @@ import {INK_LAYER} from "../render/inkOutline.js";
 
 let prototype: THREE.Group | null = null;
 let pending: Promise<boolean> | null = null;
+/** A failed download is tried again by the next request after this time (ms): one network blip must not hide the pickaxe for the whole visit. */
+let retryAt = 0;
+const RETRY_MS = 15_000;
 export function preloadHeldItems(): Promise<boolean> {
+    if (!pending && performance.now() < retryAt) return Promise.resolve(false);
     pending ??= new GLTFLoader().loadAsync(PICKAXE.modelUrl + "?v=" + PICKAXE.version)
-        .then(g => { prototype = g.scene; return true; }).catch(() => false);
+        .then(g => { prototype = g.scene; return true; })
+        .catch(() => { pending = null; retryAt = performance.now() + RETRY_MS; return false; });
     return pending;
+}
+/** Boot waits for the pickaxe only so long: a stalled download must not hold the loading screen (rigs attach it when it lands). */
+export function preloadHeldItemsWithin(ms: number): Promise<boolean> {
+    return Promise.race([preloadHeldItems(), new Promise<boolean>(resolve => setTimeout(() => resolve(false), ms))]);
 }
 export function heldItemPrototype(id: HeldItemId): THREE.Group | null {
     return id === PICKAXE.id ? prototype : null;
