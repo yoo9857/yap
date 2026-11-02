@@ -1,6 +1,6 @@
 import * as THREE from "three";
 import type { AnimState, EmoteId, CharacterAction } from "@robo/shared";
-import { createHomeRig, disposeHomeRig, preloadHomeCharacter, type HomeRig, type MotionContext } from "./homeRig.js";
+import { createHomeRig, disposeHomeRig, homeCharacterReady, preloadHomeCharacter, type HomeRig, type MotionContext } from "./homeRig.js";
 import { loadTexture } from "../render/textures.js";
 import { box, bodyMat, crayonGrain, outline, part, stud } from "./blockParts.js";
 import {type HeldItemId} from "../craft/toolDefinitions.js";
@@ -327,7 +327,16 @@ export class CharacterRig {
     }
     this.wasFlashing = false;
     this.variant = variant;
-    this.implementation = createHomeRig(variant) ?? new ProceduralCharacterRig(variant === "tt" ? "purple" : variant);
+    const home = createHomeRig(variant);
+    this.implementation = home ?? new ProceduralCharacterRig(variant === "tt" ? "purple" : variant);
+    // that model is still downloading (only the player's own is awaited at
+    // boot): swap it in when it lands, if this rig still wants it
+    if (!home) void homeCharacterReady(variant)?.then((ok) => {
+      if (ok && !this.disposed && this.variant === variant && this.implementation instanceof ProceduralCharacterRig) {
+        this.variant = undefined;
+        this.setCharacter(variant);
+      }
+    });
     this.root.add(this.implementation.root);
     if("setHeldItem" in this.implementation)this.implementation.setHeldItem(this.itemId,this.itemOption);
     Object.assign(this.root.userData, this.implementation.root.userData, {characterId:variant === "tt" ? "tt" : "mascot"});
@@ -364,7 +373,9 @@ export class CharacterRig {
     if (typeof motion === "string") this.root.userData.homeMotion = motion;
   }
   pop(impulse: number): void { this.implementation?.pop(impulse); }
+  private disposed = false;
   private dispose(): void {
+    this.disposed = true;
     releaseHitFlash(this.root);
     if (this.implementation) disposeHomeRig(this.implementation.root);
     characterDisposers.delete(this.root);

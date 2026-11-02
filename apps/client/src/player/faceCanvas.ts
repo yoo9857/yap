@@ -75,6 +75,26 @@ interface Playback {
     frame: number;
 }
 /** The animation clock starts after decoding. A crop leaves TT's ear atlas intact. */
+/**
+ * Face frames re-upload a 512² (TT: 1024×512) texture and rebuild its mipmaps.
+ * A gathered class blinks constantly, so uploads share a per-frame budget: a
+ * face over budget shows its frame one display frame later, which is invisible
+ * in a blink and keeps thirty classmates from costing thirty uploads at once.
+ */
+const UPLOADS_PER_FRAME = 3;
+let budgetFrame = -1;
+let budgetUsed = 0;
+function takeUpload(): boolean {
+    const frame = document.timeline?.currentTime ?? performance.now();
+    if (frame !== budgetFrame) {
+        budgetFrame = frame as number;
+        budgetUsed = 0;
+    }
+    if (budgetUsed >= UPLOADS_PER_FRAME)
+        return false;
+    budgetUsed++;
+    return true;
+}
 export class FaceCanvas {
     readonly texture: THREE.CanvasTexture;
     private readonly canvas = document.createElement("canvas");
@@ -160,6 +180,9 @@ export class FaceCanvas {
     }
     private drawFrame(active: Playback, frame: number): void {
         if (active.frame === frame)
+            return;
+        // over this frame's budget: leave `frame` unset so the next update retries
+        if (active.sheet && active.image && !takeUpload())
             return;
         active.frame = frame;
         if (active.sheet && active.image) {

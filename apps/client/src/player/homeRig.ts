@@ -23,23 +23,87 @@ export interface HomeAssets {
     faces: FaceSequences;
 }
 const assets = new Map<"HOME" | "TT", HomeAssets>();
+/**
+ * The additive upper-body clips, built once per model and shared by every rig
+ * (a clip is read-only data; each mixer keeps its own actions). Building them
+ * per rig cloned and re-keyed six clips on every classmate join.
+ */
+const upperClipCache = new WeakMap<HomeAssets, THREE.AnimationClip[]>();
+function upperClips(source: HomeAssets, clips: ReadonlyMap<string, THREE.AnimationClip>): THREE.AnimationClip[] {
+    let built = upperClipCache.get(source);
+    if (built)
+        return built;
+    built = [];
+    for (const name of ["Wave", "Cheer", "Interact", "Place", "Hit", "CrawlReach"]) {
+        const sourceClip = clips.get(name), ref = clips.get(name === "CrawlReach" ? "CrawlIdle" : "Idle");
+        if (!sourceClip || !ref)
+            continue;
+        const clip = sourceClip.clone();
+        clip.name = "Upper/" + name;
+        clip.tracks = clip.tracks.filter(track => /^(torso|upper_arm|forearm|hand)/.test(THREE.PropertyBinding.parseTrackName(track.name).nodeName ?? ""));
+        if (!clip.tracks.length)
+            continue;
+        THREE.AnimationUtils.makeClipAdditive(clip, 0, ref);
+        built.push(clip);
+    }
+    upperClipCache.set(source, built);
+    return built;
+}
 let pending: Promise<boolean> | null = null;
 const disposers = new WeakMap<THREE.Object3D, () => void>();
+/** Each model's download, once started: resolves true once it can be built. */
+const loads = new Map<"HOME" | "TT", Promise<boolean>>();
+
+/** The model this browser plays as (the C menu saves the choice). */
+function preferredCharacter(): "HOME" | "TT" {
+    try {
+        return localStorage.getItem("craftyap-character-v1") === "tt" ? "TT" : "HOME";
+    }
+    catch {
+        return "HOME";
+    }
+}
+
+/**
+ * Boot waits for the player's OWN model only; the other one (1–1.4 MB) keeps
+ * downloading behind play. A rig asked for a model that has not arrived yet
+ * shows the code-built mascot and is upgraded when it lands
+ * (`homeCharacterReady`). Resolves false when no model can be loaded.
+ */
 export function preloadHomeCharacter(): Promise<boolean> {
     pending ??= (async () => {
         const response = await fetch("/models/characters/face-animations.json?v=1.2.1-fold");
         if (!response.ok)
             throw new Error("Missing character face manifest");
         const faces = await response.json() as FaceSequences;
-        const results = await Promise.allSettled((["HOME", "TT"] as const).map(async (character) => {
-            const [gltf] = await Promise.all([new GLTFLoader().loadAsync(`/models/characters/${character}/${character}.glb?v=1.2.1-fold`), faceBitmap(character, "textures/face-neutral.png").catch(() => null)]);
-            assets.set(character, { scene: gltf.scene, animations: gltf.animations, character, faces });
-        }));
-        if (results.every(r => r.status === "rejected"))
-            throw new Error("Character models unavailable");
-        return true;
+        const load = (character: "HOME" | "TT") => {
+            let loading = loads.get(character);
+            if (!loading) {
+                loading = (async () => {
+                    const [gltf] = await Promise.all([new GLTFLoader().loadAsync(`/models/characters/${character}/${character}.glb?v=1.2.1-fold`), faceBitmap(character, "textures/face-neutral.png").catch(() => null)]);
+                    assets.set(character, { scene: gltf.scene, animations: gltf.animations, character, faces });
+                    return true;
+                })().catch((error: unknown) => { console.warn(`Character model ${character} unavailable.`, error); return false; });
+                loads.set(character, loading);
+            }
+            return loading;
+        };
+        const first = preferredCharacter();
+        const other = first === "HOME" ? "TT" : "HOME";
+        const firstLoad = load(first);
+        // started together (the network shares them), but only the first is awaited
+        const otherLoad = load(other);
+        if (await firstLoad)
+            return true;
+        if (await otherLoad)
+            return true;
+        throw new Error("Character models unavailable");
     })().catch((error: unknown) => { console.warn("Character assets unavailable; using the built-in mascot.", error); return false; });
     return pending;
+}
+/** The model for `variant` once it has loaded; null when it never started loading. */
+export function homeCharacterReady(variant: HomeVariant): Promise<boolean> | null {
+    return loads.get(variant === "tt" ? "TT" : "HOME") ?? null;
 }
 export function createHomeRig(variant: HomeVariant): HomeRig | null { const source = assets.get(variant === "tt" ? "TT" : "HOME"); return source ? new HomeRig(source, variant) : null; }
 export function disposeHomeRig(root: THREE.Object3D): void { disposers.get(root)?.(); }
@@ -186,16 +250,7 @@ export class HomeRig {
             action.paused = true;
             this.actions.set(name, action);
         }
-        for (const name of ["Wave", "Cheer", "Interact", "Place", "Hit", "CrawlReach"]) {
-            const sourceClip = clips.get(name), ref = clips.get(name === "CrawlReach" ? "CrawlIdle" : "Idle");
-            if (!sourceClip || !ref)
-                continue;
-            const clip = sourceClip.clone();
-            clip.name = "Upper/" + name;
-            clip.tracks = clip.tracks.filter(track => /^(torso|upper_arm|forearm|hand)/.test(THREE.PropertyBinding.parseTrackName(track.name).nodeName ?? ""));
-            if (!clip.tracks.length)
-                continue;
-            THREE.AnimationUtils.makeClipAdditive(clip, 0, ref);
+        for (const clip of upperClips(source, clips)) {
             const action = this.mixer.clipAction(clip);
             action.setLoop(THREE.LoopOnce, 1);
             action.clampWhenFinished = true;

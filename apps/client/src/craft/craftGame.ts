@@ -1882,6 +1882,12 @@ export class CraftGame {
 
   private installDebugHooks(): void {
     const hooks = {
+      /** Which model the player's rig shows: a skinned HOME/TT, or the code-built fallback mascot. */
+      rigInfo: () => {
+        let skinned = false;
+        this.rig.root.traverse((o) => { if ((o as THREE.SkinnedMesh).isSkinnedMesh) skinned = true; });
+        return { character: this.rig.root.userData.characterId as string | undefined, skinned };
+      },
       snapshot: () => ({
         pos: [this.body.x, this.body.y, this.body.z],
         grounded: this.body.grounded,

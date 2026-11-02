@@ -53,6 +53,24 @@ function hideOverlay(): void {
 
 retryBtn?.addEventListener("click", () => window.location.reload());
 
+// A tab left open across a deploy still points at the old build's chunk names,
+// which are gone: picking a mode then failed with "check your connection".
+// Reload once onto the new build instead (at most once a minute, so a real
+// network failure still reaches the retry card).
+window.addEventListener("vite:preloadError", (event) => {
+  if (document.body.classList.contains("in-game")) return;
+  const key = "craftyap-chunk-reload";
+  try {
+    const last = Number(sessionStorage.getItem(key) ?? 0);
+    if (Date.now() - last < 60_000) return;
+    sessionStorage.setItem(key, String(Date.now()));
+  } catch {
+    return; // no way to remember the attempt: never risk a reload loop
+  }
+  event.preventDefault();
+  window.location.reload();
+});
+
 // A GPU reset takes the WebGL context away; three.js asks for it back and the
 // browser usually restores it within a moment. When it never comes back the
 // canvas just freezes, so after a grace period say so and offer the reload.
