@@ -261,6 +261,17 @@ export function chooseClass(parent: HTMLElement): Promise<ClassEntry | null> {
         connecting = null;
         error.textContent = CLASS_ERROR_TEXT[code as keyof typeof CLASS_ERROR_TEXT] ?? t("연결하지 못했어요.", "Couldn't connect.");
         button.disabled = false;
+        // "taken by another teacher": say WHOSE class it is (the same name a student's confirm card
+        // shows), so a teacher who once saved it under another name knows how to open it again
+        if (code === "room-taken" && join.role === "teacher") {
+          void peekClass(join.room).then((info) => {
+            if (connecting || !info.exists || !info.teacher || !step.isConnected) return;
+            error.textContent = t(
+              `'${info.room}' 반은 '${info.teacher}' 선생님 이름으로 이미 저장돼 있어요. 그 반을 다시 열려면 선생님 이름을 '${info.teacher}'(으)로 쓰고 처음 정한 비밀번호를 넣어 주세요. 새 반이라면 다른 반 이름을 정해 주세요.`,
+              `'${info.room}' is already saved under the teacher name '${info.teacher}'. To reopen it, enter '${info.teacher}' as the teacher name with its password. For a new class, pick another class name.`,
+            );
+          }, () => {});
+        }
       }
     };
 
