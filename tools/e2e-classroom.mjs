@@ -116,7 +116,7 @@ try {
   check("duplicate student name is refused", dup.includes("같은 이름의 학생"), dup);
   const fake = await open("fake");
   const rival = await enterViaLobby(fake, "teacher", ROOM, `${TEACHER}2`, "1234");
-  check("another teacher can't take a class name in use", rival.includes("다른 선생님"), rival);
+  check("another teacher can't take a class name in use (and is told whose it is)", rival.includes("다른 선생님") || rival.includes("선생님 이름으로 이미 저장"), rival);
   const twice = await enterViaLobby(fake, "teacher", ROOM.toUpperCase(), TEACHER, "1234");
   check("the same teacher can't open their class twice at once", twice.includes("이미 다른 곳에서"), twice);
 
