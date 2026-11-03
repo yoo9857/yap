@@ -69,6 +69,9 @@ interface ChunkState {
   studs: Map<number, number[]>;
   /** The chunk's water, one see-through mesh (any LOD). */
   water: THREE.Mesh | null;
+  /** Near form only: the solid region's exact outer surface, drawn from inside only (dark), so the
+   *  1 cm seams between construction bricks are never see-through (see GAP_BACKING). */
+  backing: THREE.Mesh | null;
   waterMinY: number;
   waterMaxY: number;
 }
@@ -212,6 +215,8 @@ export class VoxelView {
   private readonly materialIndex = new Map<number, number>();
   /** Blocks you can see through: they never hide a neighbour's face. */
   private readonly seeThrough = new Set<number>();
+  /** The seam colour seen through gaps between bricks (GAP_BACKING). */
+  private readonly backingMaterial = new THREE.MeshBasicMaterial({ color: 0x1d1a16, side: THREE.BackSide });
   private readonly highlight: THREE.LineSegments;
   private dirty = true;
   private primed = false;
@@ -581,6 +586,10 @@ export class VoxelView {
         chunk.far.position.x -= dx;
         chunk.far.position.z -= dz;
       }
+      if (chunk.backing) {
+        chunk.backing.position.x -= dx;
+        chunk.backing.position.z -= dz;
+      }
       if (chunk.water) {
         chunk.water.position.x -= dx;
         chunk.water.position.z -= dz;
@@ -708,7 +717,7 @@ export class VoxelView {
     const id = chunkId(cx, cz);
     let chunk = this.chunks.get(id);
     if (!chunk) {
-      chunk = { meshes: new Map(), far: null, isFar: false, stale: true, top: 0, hidden: false, studs: new Map(), water: null, waterMinY: WORLD_Y, waterMaxY: -1 };
+      chunk = { meshes: new Map(), far: null, isFar: false, stale: true, top: 0, hidden: false, studs: new Map(), water: null, waterMinY: WORLD_Y, waterMaxY: -1, backing: null };
       this.chunks.set(id, chunk);
     }
     const far = this.wantsFar(id, chunk);
@@ -740,6 +749,7 @@ export class VoxelView {
 
   private showForm(chunk: ChunkState): void {
     for (const mesh of chunk.meshes.values()) mesh.visible = !chunk.isFar && !chunk.hidden;
+    if (chunk.backing) chunk.backing.visible = !chunk.isFar && !chunk.hidden;
     if (chunk.far) chunk.far.visible = chunk.isFar && !chunk.hidden;
     if (chunk.water) chunk.water.visible = !chunk.hidden;
   }
@@ -776,6 +786,7 @@ export class VoxelView {
     const z1 = Math.min(WORLD_Z, z0 + CHUNK);
     const positions = new Map<number, number[]>(); // near: (id << 8 | shape) → xyz…
     const farBuffers = new Map<number, FarBuffers>(); // far: block id → faces
+    const backing = new Floats(); // near: exposed cube faces, positions only
     chunk.studs.clear();
     const water: number[] = [];
     let top = 0;
@@ -830,6 +841,20 @@ export class VoxelView {
             let list = positions.get(key);
             if (!list) positions.set(key, (list = []));
             list.push(x, y, z);
+            // the cell's exposed faces at the exact cell boundary: the backing behind the seams
+            if (isFullCubeShape(shape) && !this.seeThrough.has(block)) {
+              for (const face of FACES) {
+                if (occludes(x + face.n[0], y + face.n[1], z + face.n[2])) continue;
+                for (let k = 0; k < 6; k++) {
+                  const [cu, cv] = FACE_CORNERS[k]!;
+                  backing.push3(
+                    x + face.o[0] + face.u[0] * cu + face.v[0] * cv,
+                    y + face.o[1] + face.u[1] * cu + face.v[1] * cv,
+                    z + face.o[2] + face.u[2] * cu + face.v[2] * cv,
+                  );
+                }
+              }
+            }
             continue;
           }
 
@@ -861,7 +886,32 @@ export class VoxelView {
     if (!this.primed && typeof Worker === "undefined") this.buildWater(world, chunk, water);
     else if (!this.primed || rebuildWater) this.waterQueue.set(chunkId(cx, cz), [0, WORLD_Y - 1]);
     if (far) this.buildFarMesh(chunk, farBuffers);
-    else this.buildNearMeshes(chunk, positions,world);
+    else {
+      this.buildNearMeshes(chunk, positions,world);
+      this.buildBacking(chunk, backing);
+    }
+  }
+
+  /**
+   * Construction bricks are drawn 1 cm inside their cell with chamfered edges (the toy look),
+   * so two neighbours leave a 2 cm seam — and through a wall one brick thick, or where a wall
+   * meets a ceiling, that seam went all the way through and showed the sky. Behind the bricks
+   * sits the solid region's exact outer surface, drawn BACK faces only in the seam colour:
+   * invisible from outside (its fronts are culled and the bricks cover it), but whatever you
+   * see INTO a seam ends on it. One draw call per near chunk, no shadow, no ink.
+   */
+  private buildBacking(chunk: ChunkState, backing: Floats): void {
+    if (backing.length === 0) return;
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute("position", new THREE.BufferAttribute(backing.data.slice(0, backing.length), 3));
+    geometry.computeBoundingSphere();
+    const mesh = new THREE.Mesh(geometry, this.backingMaterial);
+    mesh.castShadow = false;
+    mesh.receiveShadow = false;
+    mesh.raycast = () => {}; // a seam filler, never something to aim at
+    mesh.userData.seamBacking = true;
+    this.scene.add(mesh);
+    chunk.backing = mesh;
   }
 
   private readonly tmpQ = new THREE.Quaternion();
@@ -973,6 +1023,11 @@ export class VoxelView {
       if(this.ownedShells.has(mesh.geometry))mesh.geometry.dispose();
     }
     chunk.meshes.clear();
+    if (chunk.backing) {
+      this.scene.remove(chunk.backing);
+      chunk.backing.geometry.dispose();
+      chunk.backing = null;
+    }
   }
 
   // ------------------------------------------------------------ water

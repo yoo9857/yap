@@ -27,6 +27,9 @@ const WALL_MARGIN = 0.32;
 /** The closest the camera may ever be to what it is looking past: a little
  *  more than the near plane (0.1 m), so a wall is never cut open on screen. */
 const HARD_MARGIN = 0.14;
+/** Half-size of the box kept clear of blocks around the camera: the near plane's corner
+ *  reach (0.1 m near, 75° fov, widescreen ≈ 0.16 m) — the screen never opens a block. */
+const NEAR_CLEAR = 0.17;
 /** Corner-probe spread — roughly the near-plane half-extent at MAX_DIST. */
 const PROBE = 0.28;
 /** Centre + four corners; hoisted so the per-frame probe allocates nothing. */
@@ -53,6 +56,14 @@ export class CraftCamera {
   /** Impulse shake (amplitude in meters, decays in ~0.3 s). */
   addShake(amp: number): void {
     this.shakeAmp = Math.min(0.14, this.shakeAmp + amp);
+  }
+
+  /** Does a box of NEAR_CLEAR around `p` touch a block (or solid furniture)? */
+  private boxBlocked(world: VoxelWorld, p: THREE.Vector3): boolean {
+    for (const dx of [-NEAR_CLEAR, NEAR_CLEAR]) for (const dy of [-NEAR_CLEAR, NEAR_CLEAR]) for (const dz of [-NEAR_CLEAR, NEAR_CLEAR]) {
+      if (world.isBlocked(Math.floor(p.x + dx), Math.floor(p.y + dy), Math.floor(p.z + dz))) return true;
+    }
+    return false;
   }
 
   /** Current distance behind the pivot (debug/perf probes). */
@@ -114,8 +125,10 @@ export class CraftCamera {
         );
         if (hit) clear = Math.min(clear, hit.dist);
       }
-      wantDist = Math.max(MIN_DIST, clear - WALL_MARGIN);
-      hardLimit = Math.max(MIN_DIST, clear - HARD_MARGIN);
+      // MIN_DIST is a preference, never a reason to sit inside the wall: with the back
+      // against a wall the camera comes all the way in (the robot fades out) instead
+      hardLimit = Math.max(0, clear - HARD_MARGIN);
+      wantDist = Math.min(Math.max(MIN_DIST, clear - WALL_MARGIN), hardLimit);
     }
     // In FAST but smooth, out slowly. Snapping straight in made the camera
     // jump whenever a corner probe flickered between hitting and missing —
@@ -149,6 +162,24 @@ export class CraftCamera {
       this.shakeAmp *= Math.pow(0.0005, dt);
     } else {
       this.shakeAmp = 0;
+    }
+
+    // The near plane is ~0.28 m wide: the rays above only look along the view line, so
+    // grazing a wall (or a shake) could still put the edge of the screen inside a block
+    // and slice it open. Last word: a small box around the camera must be clear of
+    // blocks, else the camera slides in toward the pivot until it is.
+    if (!this.firstPerson && this.boxBlocked(world, this.camera.position)) {
+      const shakeX = this.camera.position.x - (this.pivot.x - this.dir.x * this.dist);
+      const shakeY = this.camera.position.y - (this.pivot.y - this.dir.y * this.dist);
+      const shakeZ = this.camera.position.z - (this.pivot.z - this.dir.z * this.dist);
+      let d = this.dist;
+      while (d > 0) {
+        d = Math.max(0, d - 0.04);
+        this.camera.position.set(this.pivot.x - this.dir.x * d + shakeX, this.pivot.y - this.dir.y * d + shakeY, this.pivot.z - this.dir.z * d + shakeZ);
+        if (!this.boxBlocked(world, this.camera.position)) break;
+      }
+      if (this.boxBlocked(world, this.camera.position)) this.camera.position.copy(this.pivot); // nowhere clear: the head
+      this.dist = d;
     }
 
     // Fade the robot out as the camera closes in — also while gliding into
