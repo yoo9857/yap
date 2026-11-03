@@ -7,6 +7,39 @@
   <updated>2026-11-03T00:00:00+09:00</updated>
   <author><name>크래프트얍(CraftYap)</name></author>
   <entry xml:base="https://craftyap.com/">
+    <title>11월 3일 패치 노트 (5) — 친구 움직임이 끊기거나 튀지 않아요</title>
+    <link href="https://craftyap.com/note/patch-2026-11-03-5/" />
+    <id>https://craftyap.com/note/patch-2026-11-03-5/</id>
+    <published>2026-11-03T00:00:00+09:00</published>
+    <updated>2026-11-03T00:00:00+09:00</updated>
+    <summary>함께 짓기와 교실에서 친구 캐릭터가 멈췄다 순간이동하듯 튀던 문제와, 친구가 처음 들어올 때 화면이 순간 뚝 끊기던 문제를 고쳤어요. 와이파이가 불안정해도 부드럽게 움직여요.</summary>
+    <content type="html">&lt;h2&gt;한눈에 보기&lt;/h2&gt;
+&lt;p&gt;친구 캐릭터가 &lt;strong&gt;멈췄다가 휙 튀어 보이던 문제&lt;/strong&gt;와, 누군가 들어올 때 &lt;strong&gt;화면이 순간 뚝 끊기던 문제&lt;/strong&gt;를 고쳤어요. 와이파이가 흔들려도 친구가 실제 걷는 속도 그대로 부드럽게 움직여요. 함께 짓기 방과 교육 모드 교실 모두에 적용돼요.&lt;/p&gt;
+&lt;h2&gt;BEFORE / AFTER&lt;/h2&gt;
+&lt;p&gt;&lt;strong&gt;친구 캐릭터의 움직임&lt;/strong&gt; — 와이파이로 친구가 4 m/s로 걸을 때, 내 화면에서 친구가 매 프레임 움직이는 속도예요. 이전에는 &lt;strong&gt;멈춤(0)과 두 배 속도(8)를 오가며&lt;/strong&gt; 뚝뚝 끊겼고, 이제는 실제 걷는 속도 그대로예요.&lt;/p&gt;
+&lt;p&gt;&lt;img src=&quot;/note/assets/20261103-motion-ba.webp&quot; alt=&quot;친구 이동 속도 그래프 비교: 왼쪽은 0과 8 m/s 사이를 계속 오가는 이전 그래프(멈춤 54프레임, 튐 56프레임), 오른쪽은 4 m/s에서 거의 평평한 새 그래프(멈춤 0, 튐 0)&quot;&gt;&lt;/p&gt;
+&lt;h2&gt;개선&lt;/h2&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;움직임에 &amp;quot;잰 시각&amp;quot;을 붙여요&lt;/strong&gt; — 친구 컴퓨터가 위치를 잰 순간의 시각을 함께 보내고, 서버가 그 시각을 모두에게 같은 기준으로 맞춰 줘요. 인터넷이 늦거나 몰려서 와도 친구는 원래 움직임 그대로 그려져요.&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;인터넷이 불안정한 친구는 조금 더 여유 있게&lt;/strong&gt; — 위치가 늦게 도착하는 친구는 자동으로 조금 더 과거 시점에 그려서, 끊기지 않게 이어 줘요.&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;첫 친구가 나타날 때 끊기지 않아요&lt;/strong&gt; — 처음 친구를 그릴 때 한 번 생기던 준비 작업을 로딩 화면에서 미리 끝내요.&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;친구 얼굴 그림은 더 가볍게&lt;/strong&gt; — 화면에서 작게 보이는 친구 얼굴은 4분의 1 크기로 올려서 그래픽 메모리를 아껴요.&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;멀리 있는 친구 동작도 부드럽게&lt;/strong&gt; — 멀리 있는 친구의 동작을 덜 건너뛰도록 바꿨어요.&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2&gt;측정해 보니&lt;/h2&gt;
+&lt;p&gt;방 3개 × 10명, 1.5초마다 새 친구가 들어오는 상황에서 측정했어요.&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;멈춤 프레임 &lt;strong&gt;1% → 0%&lt;/strong&gt;&lt;/li&gt;
+&lt;li&gt;아주 불안정한 인터넷(0.2초 흔들림)에서 순간이동 &lt;strong&gt;109번 → 0번&lt;/strong&gt;&lt;/li&gt;
+&lt;li&gt;누군가 들어올 때 0.05초 넘게 끊긴 프레임 &lt;strong&gt;매번 1~2번 → 0번&lt;/strong&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2&gt;알려진 문제&lt;/h2&gt;
+&lt;ul&gt;
+&lt;li&gt;아직 업데이트하지 않은 브라우저 탭에서 접속한 친구는 이전 방식으로 보여요. 새로고침하면 새 방식이 적용돼요.&lt;/li&gt;
+&lt;/ul&gt;
+</content>
+  </entry>
+  <entry xml:base="https://craftyap.com/">
     <title>11월 3일 패치 노트 (4) — 한 방에 50명, 사람이 많아도 부드럽게</title>
     <link href="https://craftyap.com/note/patch-2026-11-03-4/" />
     <id>https://craftyap.com/note/patch-2026-11-03-4/</id>
@@ -911,41 +944,6 @@
 &lt;li&gt;부품 패널을 줄여 작은 화면(세로 800px)에서도 부품 8개가 스크롤 없이 보입니다.&lt;/li&gt;
 &lt;li&gt;&lt;strong&gt;프레임 회복&lt;/strong&gt; — 화면 밖이나 등 뒤의 섬은 그리지 않도록 바꿨습니다. 가장 무거운 프레임이 Craft Island 18.1ms → 6.2ms, Blast Royale 12.2ms → 6.2ms로 줄었습니다.&lt;/li&gt;
 &lt;li&gt;기계 작업실 데이터(약 1.2MB)는 작업실을 처음 열 때만 불러옵니다. 섬 입장이 그만큼 가벼워졌습니다.&lt;/li&gt;
-&lt;/ul&gt;
-</content>
-  </entry>
-  <entry xml:base="https://craftyap.com/">
-    <title>10월 14일 패치 노트 — 기계 작업실 오픈, 섬이 네 배로</title>
-    <link href="https://craftyap.com/note/patch-2026-10-14/" />
-    <id>https://craftyap.com/note/patch-2026-10-14/</id>
-    <published>2026-10-14T00:00:00+09:00</published>
-    <updated>2026-10-14T00:00:00+09:00</updated>
-    <summary>Craft Island에서 B를 누르면 자동차와 비행기를 조립해 직접 몰아 보는 기계 작업실이 열립니다. 섬도 네 배로 넓어져 본토와 마을이 생겼습니다.</summary>
-    <content type="html">&lt;blockquote&gt;
-&lt;p&gt;날짜는 이 업데이트의 개발을 마친 날입니다. 당시 자동 배포가 멈춰 있어서, 서버에 실제로 반영된 날은 이보다 늦을 수 있습니다(늦어도 10월 22일 반영).&lt;/p&gt;
-&lt;/blockquote&gt;
-&lt;h2&gt;한눈에 보기&lt;/h2&gt;
-&lt;p&gt;크래프트얍의 방향을 바꾼 업데이트입니다. 블록을 쌓는 데서 끝나지 않고 &lt;strong&gt;만든 것이 움직이는&lt;/strong&gt;
-게임이 되었습니다. 부품을 붙여 만든 기계는 모두 같은 물리 규칙으로 움직입니다. 그래서
-추진기를 비뚤게 달면 기계가 돌고, 꼬리 날개를 달면 회전이 잡힙니다.&lt;/p&gt;
-&lt;h2&gt;새로 추가&lt;/h2&gt;
-&lt;h3&gt;기계 작업실 (&lt;kbd&gt;B&lt;/kbd&gt;)&lt;/h3&gt;
-&lt;ul&gt;
-&lt;li&gt;&lt;strong&gt;부품 8종&lt;/strong&gt; — 프레임, 조종석, 무게추, 바퀴, 추진기, 자이로, 날개, 풍선.&lt;/li&gt;
-&lt;li&gt;&lt;strong&gt;조립&lt;/strong&gt; — 숫자 키로 부품을 고르고 &lt;kbd&gt;R&lt;/kbd&gt; 회전, &lt;kbd&gt;M&lt;/kbd&gt; 좌우 대칭 배치, &lt;kbd&gt;X&lt;/kbd&gt; 지우기. 놓기 전에 실제 부품 모양의 미리보기가 보입니다.&lt;/li&gt;
-&lt;li&gt;&lt;strong&gt;시험 운전&lt;/strong&gt; — 성 북쪽 평지에서 바로 몰아 볼 수 있습니다. &lt;kbd&gt;C&lt;/kbd&gt;로 추격·궤도·조종석 카메라를 바꿉니다. 시험 구역을 벗어나면 끝나지 않고 출발점에서 다시 시작합니다.&lt;/li&gt;
-&lt;li&gt;&lt;strong&gt;미션 6종&lt;/strong&gt; — 어떤 부품을 썼는지가 아니라 기계가 실제로 무엇을 해냈는지로 판정합니다. 기록은 저장됩니다.&lt;/li&gt;
-&lt;li&gt;&lt;strong&gt;보관과 공유&lt;/strong&gt; — 기계를 12칸 선반에 보관하고, 한 줄짜리 공유 코드로 친구에게 보낼 수 있습니다.&lt;/li&gt;
-&lt;li&gt;예제 기계 3종이 들어 있습니다.&lt;/li&gt;
-&lt;/ul&gt;
-&lt;h3&gt;Craft Island&lt;/h3&gt;
-&lt;ul&gt;
-&lt;li&gt;섬이 80×80에서 160×160으로 커졌습니다. 본토와 마을이 새로 생겼습니다.&lt;/li&gt;
-&lt;/ul&gt;
-&lt;h2&gt;개선&lt;/h2&gt;
-&lt;ul&gt;
-&lt;li&gt;Blast Royale의 안전 구역과 낙하 지점을 지도 한가운데가 아니라 성 기준으로 잡습니다.&lt;/li&gt;
-&lt;li&gt;첫 화면을 읽을거리 중심의 소개 페이지로 바꿨습니다. &lt;em&gt;(다음 날 게임 선택 화면으로 되돌렸습니다.)&lt;/em&gt;&lt;/li&gt;
 &lt;/ul&gt;
 </content>
   </entry>

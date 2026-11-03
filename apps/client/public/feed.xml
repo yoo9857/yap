@@ -8,6 +8,13 @@
     <language>ko</language>
     <lastBuildDate>Mon, 02 Nov 2026 15:00:00 +0000</lastBuildDate>
     <item>
+      <title>11월 3일 패치 노트 (5) — 친구 움직임이 끊기거나 튀지 않아요</title>
+      <link>https://craftyap.com/note/patch-2026-11-03-5/</link>
+      <guid isPermaLink="true">https://craftyap.com/note/patch-2026-11-03-5/</guid>
+      <pubDate>Mon, 02 Nov 2026 15:00:00 +0000</pubDate>
+      <description>함께 짓기와 교실에서 친구 캐릭터가 멈췄다 순간이동하듯 튀던 문제와, 친구가 처음 들어올 때 화면이 순간 뚝 끊기던 문제를 고쳤어요. 와이파이가 불안정해도 부드럽게 움직여요.</description>
+    </item>
+    <item>
       <title>11월 3일 패치 노트 (4) — 한 방에 50명, 사람이 많아도 부드럽게</title>
       <link>https://craftyap.com/note/patch-2026-11-03-4/</link>
       <guid isPermaLink="true">https://craftyap.com/note/patch-2026-11-03-4/</guid>
@@ -139,13 +146,6 @@
       <guid isPermaLink="true">https://craftyap.com/note/patch-2026-10-15/</guid>
       <pubDate>Wed, 14 Oct 2026 15:00:00 +0000</pubDate>
       <description>기계 작업실에 버튼 하나로 바로 몰아 보는 빠른 시작과 비행 보조를 넣었습니다. 넓어진 섬에서 떨어졌던 프레임도 크게 회복했습니다.</description>
-    </item>
-    <item>
-      <title>10월 14일 패치 노트 — 기계 작업실 오픈, 섬이 네 배로</title>
-      <link>https://craftyap.com/note/patch-2026-10-14/</link>
-      <guid isPermaLink="true">https://craftyap.com/note/patch-2026-10-14/</guid>
-      <pubDate>Tue, 13 Oct 2026 15:00:00 +0000</pubDate>
-      <description>Craft Island에서 B를 누르면 자동차와 비행기를 조립해 직접 몰아 보는 기계 작업실이 열립니다. 섬도 네 배로 넓어져 본토와 마을이 생겼습니다.</description>
     </item>
   </channel>
 </rss>
