@@ -87,3 +87,18 @@ describe("de2: down in a one-cell pit, looking down past the rim", () => {
     }
   });
 });
+
+describe("de2: the eye itself inside a block (the body squeezed into a gap)", () => {
+  it("the camera looks from the nearest free spot instead of opening the block", () => {
+    const w = new VoxelWorld();
+    for (let x = 0; x < 30; x++) for (let z = 0; z < 30; z++) w.set(x, 0, z, 3);
+    w.set(15, 2, 15, 2); // a brick right where the head is
+    const three = new THREE.PerspectiveCamera(75.5, 21 / 9, 0.1, 500);
+    const cam = new CraftCamera(three);
+    const eye = new THREE.Vector3(15.5, 2.5, 15.5); // inside that brick
+    for (let yaw = 0; yaw < Math.PI * 2; yaw += Math.PI / 4) {
+      settle(cam, w, eye, yaw, -0.6, 40);
+      expect(clipsBlock(w, three.position, 0.2), `yaw ${yaw.toFixed(2)}`).toBe(false);
+    }
+  });
+});

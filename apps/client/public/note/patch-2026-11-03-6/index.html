@@ -102,7 +102,7 @@
           <h1 id="post-title">11월 3일 패치 노트 (6) — 벽에 붙어도 블록이 잘리거나 뚫려 보이지 않아요</h1>
           <p class="note-summary">벽이나 구석에 붙었을 때 카메라가 블록 안으로 들어가 블록이 잘리고 하늘이 뚫려 보이던 문제를 고쳤어요. 블록 사이 틈으로 빈 공간이 보이던 것도 막았어요.</p>
           <ul class="note-tags" aria-label="태그"><li>패치 노트</li><li>버그 수정</li><li>카메라</li><li>블록</li></ul>
-          <nav class="note-chips" aria-label="이번 노트의 변경 사항"><a class="note-chip note-chip--fix" href="#fix">수정 <b>3</b></a><a class="note-chip note-chip--known" href="#known">알려진 문제 <b>2</b></a></nav>
+          <nav class="note-chips" aria-label="이번 노트의 변경 사항"><a class="note-chip note-chip--fix" href="#fix">수정 <b>4</b></a><a class="note-chip note-chip--known" href="#known">알려진 문제 <b>2</b></a></nav>
         </header>
         <div class="note-body">
 <section class="note-sec note-sec--summary" id="s0" aria-labelledby="s0-h">
@@ -117,12 +117,14 @@
 <p><img src="/note/assets/20261103-camera-wall-ba.webp" alt="구석 카메라 비교: 왼쪽은 화면 대부분이 블록 속으로 막히고 위쪽에 하늘이 뾰족하게 보이는 이전 화면, 오른쪽은 양옆 벽 사이로 들판과 하늘이 보이는 새 화면"></p>
 </section>
 <section class="note-sec note-sec--fix" id="fix" aria-labelledby="fix-h">
-<h2 id="fix-h"><span class="note-badge" aria-hidden="true">FIX</span>버그 수정 <small>3</small></h2>
+<h2 id="fix-h"><span class="note-badge" aria-hidden="true">FIX</span>버그 수정 <small>4</small></h2>
 <div class="note-sec-body">
 <ul>
 <li><p><strong>카메라가 블록 안으로 들어가던 문제</strong> — 벽이 가까우면 카메라가 &quot;최소 거리&quot;를 지키려고 벽 안으로 들어갔어요. 이제는 벽을 먼저 피하고, 대신 캐릭터 쪽으로 다가가요(캐릭터는 자연스럽게 투명해져요). 벽을 비스듬히 스치거나 화면이 흔들릴 때도 화면 가장자리가 블록에 걸리지 않게 한 번 더 확인해요.</p>
 </li>
 <li><p><strong>블록 사이 틈으로 빈 공간이 보이던 문제</strong> — 블록은 장난감처럼 보이도록 테두리가 둥글고 칸보다 아주 조금 작아요. 그래서 한 칸 두께 벽이나 벽과 천장이 만나는 곳에서는 틈 너머로 하늘이 보일 수 있었어요. 이제 틈 안쪽은 어둡게 막혀 보여요. 유리와 얼음처럼 투명한 블록에는 적용하지 않아요.</p>
+</li>
+<li><p><strong>캐릭터 머리가 블록에 걸렸을 때 블록이 반쯤 비어 보이던 문제</strong> — 블록 틈에 끼거나, 턱을 오르내리거나, 낮은 천장 아래에서 잠깐 눈 위치가 블록 안에 들어가면 카메라가 그 블록을 안쪽에서 열어 보였어요. 이제는 가장 가까운 빈 곳에서 바라봐요.</p>
 </li>
 <li><p><strong>이미 열려 있던 탭은 새로고침</strong>해야 고친 카메라가 적용돼요. 업데이트 직후에 같은 현상이 보였다면 새로고침해 주세요.</p>
 </li>

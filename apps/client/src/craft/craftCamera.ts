@@ -30,6 +30,8 @@ const HARD_MARGIN = 0.14;
 /** Half-size of the box kept clear of blocks around the camera: the near plane's corner
  *  reach (0.1 m near, 75° fov, widescreen ≈ 0.16 m) — the screen never opens a block. */
 const NEAR_CLEAR = 0.22; // covers 21:9 at the running fov (corner reach ≈ 0.20 m)
+/** Directions to look for a free pivot when the eye is inside a block (up preferred: tried first). */
+const PIVOT_ESCAPES: readonly (readonly [number, number, number])[] = [[0, 1, 0], [1, 0, 0], [-1, 0, 0], [0, 0, 1], [0, 0, -1], [0, -1, 0]];
 /** Corner-probe spread — roughly the near-plane half-extent at MAX_DIST. */
 const PROBE = 0.28;
 /** Centre + four corners; hoisted so the per-frame probe allocates nothing. */
@@ -56,6 +58,20 @@ export class CraftCamera {
   /** Impulse shake (amplitude in meters, decays in ~0.3 s). */
   addShake(amp: number): void {
     this.shakeAmp = Math.min(0.14, this.shakeAmp + amp);
+  }
+
+  /** Move the pivot from inside a block to the closest free point (up to 1.5 m), if any. */
+  private freePivot(world: VoxelWorld, eye: THREE.Vector3): void {
+    const free = (x: number, y: number, z: number) => !world.isBlocked(Math.floor(x), Math.floor(y), Math.floor(z));
+    let best: [number, number, number] | null = null, bestD = Infinity;
+    for (const [dx, dy, dz] of PIVOT_ESCAPES) {
+      for (let k = 1; k <= 6; k++) {
+        const d = k * 0.25, x = eye.x + dx * d, y = eye.y + dy * d, z = eye.z + dz * d;
+        if (d >= bestD) break;
+        if (free(x, y, z)) { best = [x, y, z]; bestD = d; break; }
+      }
+    }
+    if (best) this.pivot.set(best[0], best[1], best[2]);
   }
 
   /** Does a box of NEAR_CLEAR around `p` touch a block (or solid furniture)? */
@@ -99,6 +115,11 @@ export class CraftCamera {
 
     // shoulder pivot must itself stay out of walls
     this.pivot.copy(eye);
+    // The eye itself can be inside a block — the body squeezed into a gap, a block placed
+    // over the head, a crawl under a ledge. Every probe below would then start inside the
+    // block and the camera would open it from within (de2). Look from the nearest free
+    // spot instead: straight up first (a head through a ceiling), then the sides.
+    if (!this.firstPerson && world.isBlocked(Math.floor(eye.x), Math.floor(eye.y), Math.floor(eye.z))) this.freePivot(world, eye);
     if (this.shoulder > 1e-3) {
       const side = world.raycast(eye.x, eye.y, eye.z, this.right.x, this.right.y, this.right.z, this.shoulder + 0.2);
       const allowed = side ? Math.max(0, side.dist - 0.2) : this.shoulder;
