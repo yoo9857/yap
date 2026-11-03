@@ -263,3 +263,38 @@ describe("seat and host fixes", () => {
     h.mgr.shutdown();
   });
 });
+
+describe("system conflicts at 50 seats", () => {
+  it("a room holds 50, but a tower room only what the tower holds", () => {
+    const big = new PartyRoom("ABCDEF", "방", "build", 50, true);
+    for (let i = 0; i < 50; i++) joined(big, new Peer(), `p${i}`);
+    expect(big.join(new Peer(), "p50")).toEqual({ ok: false, code: "full" });
+    const host = big.info().host;
+    expect(big.configure(host, { game: "tower" })).toBe(false); // 50 people cannot fit a tower room
+    expect(new PartyRoom("ABCDEF", "방", "tower", 50, true).max).toBe(8);
+  });
+
+  it("a second start does not send everyone into the game again", () => {
+    const room = new PartyRoom("ABCDEF", "방", "build", 8, true);
+    const p = new Peer();
+    const host = joined(room, p, "민지");
+    expect(room.start(host)).toBe("ok");
+    expect(room.start(host)).toBe("ok");
+    expect(p.got.filter((m) => m.t === "s-p-start")).toHaveLength(1);
+  });
+
+  it("the game cannot change while it is being played", () => {
+    const room = new PartyRoom("ABCDEF", "방", "build", 8, true);
+    const host = joined(room, new Peer(), "민지");
+    room.start(host);
+    expect(room.configure(host, { game: "tower" })).toBe(false);
+    expect(room.game).toBe("build");
+  });
+
+  it("only seated names count as members (the party field admits these)", () => {
+    const room = new PartyRoom("ABCDEF", "방", "build", 8, true);
+    joined(room, new Peer(), "민지");
+    expect(room.hasMember(" 민지 ")).toBe(true);
+    expect(room.hasMember("남남")).toBe(false);
+  });
+});

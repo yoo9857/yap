@@ -19,7 +19,11 @@ export const PARTY_GAMES = ["build", "tower"] as const;
 export const partyGameSchema = z.enum(PARTY_GAMES);
 export type PartyGame = z.infer<typeof partyGameSchema>;
 
-export const PARTY_MAX_PLAYERS = 8;
+/** The largest room. Each game also has its own cap (PARTY_GAME_MAX). */
+export const PARTY_MAX_PLAYERS = 50;
+/** How many players each game can actually hold: the party field takes the whole room; a tower
+ *  room is the tower server's own size (MAX_PLAYERS_PER_ROOM, 8 by default). */
+export const PARTY_GAME_MAX: Record<PartyGame, number> = { build: 50, tower: 8 };
 export const PARTY_TITLE_MAX = 20;
 export const PARTY_CHAT_MAX = 120;
 /** Room codes: no 0/O, 1/I/L — read aloud across a classroom without mistakes. */
@@ -120,6 +124,8 @@ export const partyErrorCodeSchema = z.enum([
   "not-host",
   "not-ready",
   "too-many-rooms",
+  /** The picked game holds fewer players than are seated (a tower room takes 8). */
+  "game-limit",
   "rate",
   "internal",
 ]);

@@ -185,6 +185,7 @@ const parties = new PartyManager({
 });
 // party worlds open only for rooms that exist
 classes.partyGate = (code) => parties.has(code);
+classes.partyMember = (code, name) => parties.isMember(code, name);
 rooms.partyGate = (code) => parties.has(code);
 const closeWs = attachWsServer(httpServer, rooms, classes, parties, {
   perAddress: config.MAX_CONN_PER_IP,

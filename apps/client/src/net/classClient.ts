@@ -170,7 +170,8 @@ function storeKey(join: ClassJoin, key: string | null): void {
  */
 export class ClassClient {
   onMembers: ((members: ClassMember[]) => void) | null = null;
-  onSnap: ((players: Extract<ClassServerMessage, { t: "s-k-snap" }>["players"]) => void) | null = null;
+  /** `ts`: the server's stamp (ms) for interpolation; undefined from older servers. */
+  onSnap: ((players: Extract<ClassServerMessage, { t: "s-k-snap" }>["players"], ts?: number) => void) | null = null;
   onEdit: ((edits: ClassEdit[], by: string) => void) | null = null;
   onFurniture: ((items: ClassFurniture[], rejected: boolean) => void) | null = null;
   onReject: ((edits: ClassEdit[], authoritative: boolean) => void) | null = null;
@@ -431,7 +432,7 @@ export class ClassClient {
         this.onMembers?.(msg.members);
         return;
       case "s-k-snap":
-        this.onSnap?.(msg.players);
+        this.onSnap?.(msg.players, msg.ts);
         return;
       case "s-k-furniture":
         this.onFurniture?.(msg.furniture, msg.rejected ?? false);

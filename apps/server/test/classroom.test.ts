@@ -207,7 +207,26 @@ describe("ClassRoom", () => {
     room.handle(teacher, { t: "k-move", pos: [1, 4, 1], yaw: 0, anim: "idle" });
     room.handle(a, { t: "k-move", pos: [3, 4, 3], yaw: 1, anim: "run" });
     room.snapshot();
-    expect(a.last("s-k-snap")!.players).toHaveLength(2);
+    // everyone else, never your own echo
+    expect(a.last("s-k-snap")!.players.map((p) => p.pos)).toEqual([[1, 4, 1]]);
+  });
+
+  it("far players arrive at a lower rate, near ones every snapshot", () => {
+    const { room, teacher } = classWithTeacher();
+    const near = new Peer(), far = new Peer();
+    room.joinStudent(near, "Near");
+    room.joinStudent(far, "Far");
+    room.handle(teacher, { t: "k-move", pos: [0, 4, 0], yaw: 0, anim: "idle" });
+    room.handle(near, { t: "k-move", pos: [10, 4, 0], yaw: 0, anim: "idle" });
+    room.handle(far, { t: "k-move", pos: [500, 4, 0], yaw: 0, anim: "idle" });
+    const seen: number[] = [];
+    for (let i = 0; i < 5; i++) {
+      room.snapshot();
+      seen.push(teacher.last("s-k-snap")!.players.length);
+    }
+    // four snapshots with the near student only, one (every 5th) with both
+    expect(seen.filter((n) => n === 1)).toHaveLength(4);
+    expect(seen.filter((n) => n === 2)).toHaveLength(1);
   });
 });
 
@@ -493,7 +512,9 @@ describe("character work presentation",()=>{
     expect(decodeClassClient(JSON.stringify(move))).toEqual(move);
     room.handle(student,move);room.handle(teacher,{t:"k-move",pos:[1,4,1],yaw:0,anim:"idle"});room.snapshot();
     const snapshot=teacher.last("s-k-snap")!;
-    expect(snapshot.players.find(p=>p.actionSeq===42)).toMatchObject({character:"tt",emote:"wave",emoteSeq:8,action:"interact",actionSeq:42,actionLoop:true,swimming:false});
+    expect(snapshot.players.find(p=>p.actionSeq===42)).toMatchObject({character:"tt",emote:"wave",emoteSeq:8,action:"interact",actionSeq:42,actionLoop:true});
+    // defaults (not swimming, empty hands) are left out of the snapshot; the client reads them as defaults
+    expect(snapshot.players.find(p=>p.actionSeq===42)!.swimming).toBeUndefined();
     expect(decodeClassServer(JSON.stringify(snapshot))).toEqual(snapshot);
     expect(decodeClassClient(JSON.stringify({...move,action:"invalid"}))).toBeNull();
     expect(decodeClassClient(JSON.stringify({...move,actionSeq:-1}))).toBeNull();

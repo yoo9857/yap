@@ -204,7 +204,7 @@ export class PartyManager {
         room.chat(me, msg.text);
         return;
       case "p-set":
-        if (!room.configure(me, msg)) return this.error(socket, room.isHost(me) ? "full" : "not-host");
+        if (!room.configure(me, msg)) return this.error(socket, room.isHost(me) ? "game-limit" : "not-host");
         break;
       case "p-start": {
         if (room.isHost(me) && !this.games.prepare(room)) return this.error(socket, "too-many-rooms");
@@ -372,6 +372,12 @@ export class PartyManager {
   /** Is there a room under this code? (The games open a party world only for a real room.) */
   has(code: string): boolean {
     return this.rooms.has(code);
+  }
+
+  /** Is `name` seated in room `code`? A party world admits only its own members, so nobody
+   *  can take a member's name in the game first, and a kicked player cannot walk back in. */
+  isMember(code: string, name: string): boolean {
+    return this.rooms.get(code)?.hasMember(name) ?? false;
   }
 
   room(code: string): PartyRoom | undefined {

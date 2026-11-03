@@ -35,6 +35,9 @@ import { checkPassword, sameKey, type SavedClass } from "./classStore.js";
 /** Anything that can receive messages — a socket in production, a stub in tests. */
 export interface ClassPeer {
   send(msg: ClassServerMessage): void;
+  /** An already-encoded s-k-snap (the room builds one string per player, not one object per
+   *  recipient). Optional: peers without it get the object form. */
+  sendSnap?(raw: string): void;
   streamWorld?(batches: Generator<ClassEdit[], void, unknown>, count: number): void;
   close(reason: string): void;
 }
@@ -54,6 +57,27 @@ const MAX_SAVED_SEATS = 200;
 /** With fewer than two players there are no snapshots; send an empty one this often so a
  *  client can still tell a live link from a dead one (announced as `keepalive`). */
 const KEEPALIVE_S = 2;
+/** Players within this many metres get every snapshot (10 Hz); farther ones every SNAP_FAR_EVERY-th. */
+const SNAP_NEAR_M = 48;
+const SNAP_FAR_EVERY = 5;
+type SnapPlayer = Extract<ClassServerMessage, { t: "s-k-snap" }>["players"][number];
+const cm = (v: number) => Math.round(v * 100) / 100;
+
+/**
+ * One player's snapshot entry, small: positions to the centimetre and yaw to a
+ * milliradian (the client interpolates anyway), and every presentation field
+ * left out while it is at its default — the client reads a missing field as
+ * that default (?? "none", ?? 0 …), so a plain walking robot is ~60 bytes.
+ */
+function compactSnap(m: Member): SnapPlayer {
+  const p: SnapPlayer = { id: m.id, pos: [cm(m.pos![0]), cm(m.pos![1]), cm(m.pos![2])], yaw: Math.round(m.yaw * 1000) / 1000, anim: m.anim };
+  if (m.character && m.character !== "mascot") p.character = m.character;
+  if (m.emote && m.emote !== "none") { p.emote = m.emote; p.emoteSeq = m.emoteSeq ?? 0; }
+  if (m.action && m.action !== "none") { p.action = m.action; p.actionSeq = m.actionSeq ?? 0; if (m.actionLoop) p.actionLoop = true; }
+  if (m.swimming) p.swimming = true;
+  if (m.heldItem) { p.heldItem = m.heldItem; p.toolOption = m.toolOption ?? "balanced"; if (m.toolPhase) p.toolPhase = m.toolPhase; }
+  return p;
+}
 /** A k-move this far from the last one is a jump (gather, respawn — or a forged position). */
 const JUMP_M = 8;
 /** After such a jump, taps from that player wait this long: a modified client cannot
@@ -107,6 +131,8 @@ export class ClassRoom {
   closed = false;
   /** A party room's field (protocol/party.ts): never saved, gone once it empties. */
   ephemeral = false;
+  /** Students online at once: a class's CLASS_MAX_STUDENTS, or the whole party room. */
+  maxStudents = CLASS_MAX_STUDENTS;
   /** classKey(name) → ms until which that student name is refused. */
   private readonly banned = new Map<string, number>();
   /** Something worth saving changed since the last toSaved(). */
@@ -299,7 +325,7 @@ export class ClassRoom {
       this.attach(existing, peer);
       return "ok";
     }
-    if (this.studentCount >= CLASS_MAX_STUDENTS) return "class-full";
+    if (this.studentCount >= this.maxStudents) return "class-full";
     this.pruneSeats();
     const student = this.addMember(name.trim(), "student");
     this.attach(student, peer);
@@ -613,19 +639,43 @@ export class ClassRoom {
   }
 
   private quietSnaps = 0;
+  private snapTick = 0;
 
-  /** Positions of everyone connected; sent at the snapshot rate (and as a keepalive when alone). */
+  /**
+   * Positions of everyone connected; sent at the snapshot rate (and as a keepalive when alone).
+   *
+   * Scales to a 50-player party: each player is encoded ONCE per snapshot and each
+   * recipient's message is a join of those strings (no per-recipient stringify of the
+   * whole room); a recipient gets nobody's echo of itself; and players farther than
+   * SNAP_NEAR_M arrive every SNAP_FAR_EVERY-th snapshot only — still far inside the
+   * client's 3 s "gone" timeout, and invisible at that distance anyway.
+   */
   snapshot(): void {
-    const players = [];
+    const tick = ++this.snapTick;
+    const entries: { m: Member; obj: SnapPlayer; json: string }[] = [];
     for (const m of this.byPeer.values()) {
-      if (m.pos) players.push({ id: m.id, pos: m.pos, yaw: m.yaw, anim: m.anim, character: m.character ?? "mascot", emote: m.emote ?? "none", emoteSeq: m.emoteSeq ?? 0, action:m.action??"none",actionSeq:m.actionSeq??0,actionLoop:m.actionLoop??false,swimming:m.swimming??false,heldItem:m.heldItem??null,toolOption:m.toolOption??"balanced",toolPhase:m.toolPhase??0 });
+      if (!m.pos) continue;
+      const obj = compactSnap(m);
+      entries.push({ m, obj, json: JSON.stringify(obj) });
     }
-    if (players.length < 2) {
+    if (entries.length < 2) {
       // nobody to show anybody — but a lone teacher still needs proof the link is alive
       if (++this.quietSnaps * 0.1 < KEEPALIVE_S) return;
     }
     this.quietSnaps = 0;
-    this.broadcast({ t: "s-k-snap", players });
+    const farTick = tick % SNAP_FAR_EVERY === 0;
+    // the real moment, not tick × 100 ms: timers drift, and clients interpolate on this clock
+    const ts = Math.round(performance.now());
+    for (const [peer, me] of this.byPeer) {
+      const picked = entries.filter(({ m }) => {
+        if (m === me) return false;
+        if (farTick || !me.pos || !m.pos) return true;
+        const dx = m.pos[0] - me.pos[0], dz = m.pos[2] - me.pos[2];
+        return dx * dx + dz * dz <= SNAP_NEAR_M * SNAP_NEAR_M;
+      });
+      if (peer.sendSnap) peer.sendSnap(`{"t":"s-k-snap","ts":${ts},"players":[${picked.map((e) => e.json).join(",")}]}`);
+      else peer.send({ t: "s-k-snap", ts, players: picked.map((e) => e.obj) });
+    }
   }
 
   close(): void {

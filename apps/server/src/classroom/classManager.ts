@@ -1,5 +1,5 @@
 import type { WebSocket } from "ws";
-import { partyCodeSchema } from "@robo/shared";
+import { PARTY_MAX_PLAYERS, partyCodeSchema } from "@robo/shared";
 import {
   CLASS_PASSWORD_MIN,
   FLUID_STEP,
@@ -83,6 +83,13 @@ class ClassSocket implements ClassPeer {
     private readonly ws: WebSocket,
     readonly from: string,
   ) {}
+
+  /** A pre-encoded snapshot: dropped (not queued) while the link is busy, like any snapshot. */
+  sendSnap(raw: string): void {
+    if (this.closed || this.ws.readyState !== this.ws.OPEN) return;
+    if (this.stream || this.outbound.length || this.ws.bufferedAmount >= STREAM_BUFFERED) return;
+    this.ws.send(raw);
+  }
 
   send(msg: ClassServerMessage): void {
     if (this.closed || this.ws.readyState !== this.ws.OPEN) return;
@@ -182,6 +189,8 @@ export class ClassManager {
   /** classKey → failed password attempts and the lock they earned. A 4-character password must not be guessable at socket speed. */
   /** Is `code` a live hub room? Set by the server; unset (tests) means any code. */
   partyGate: ((code: string) => boolean) | null = null;
+  /** Is `name` seated in party room `code`? Set by the server; unset (tests) admits anyone. */
+  partyMember: ((code: string, name: string) => boolean) | null = null;
   private readonly passwordFails = new Map<string, { fails: number; lockedUntil: number; lockMs: number; lastFailAt: number }>();
 
   constructor(private readonly store: ClassStore) {
@@ -366,7 +375,11 @@ export class ClassManager {
   private join(socket: ClassSocket, msg: Extract<ClassClientMessage, { t: "k-join" }>): ClassRoom | null {
     if (!playerNameSchema.safeParse(msg.student).success) return this.refuse(socket, "bad-name");
     const room = this.loaded(classKey(msg.room)) ?? this.openParty(msg.room);
-    if (!room) return this.refuse(socket, "no-class"); // a closed class waiting on its save counts as gone
+    if (!room) return this.refuse(socket, "no-class");
+    // a party field admits the room's own members only (by the name they sit under)
+    if (room.ephemeral && this.partyMember && !this.partyMember(room.roomName.slice(PARTY_PREFIX.length), msg.student)) {
+      return this.refuse(socket, "no-class");
+    } // a closed class waiting on its save counts as gone
     const result = room.joinStudent(socket, msg.student, msg.seatKey);
     if (result !== "ok") return this.refuse(socket, result);
     return room;
@@ -401,6 +414,7 @@ export class ClassManager {
     if (parties >= MAX_PARTY_FIELDS) return null;
     const room = new ClassRoom(PARTY_HOST_NAME, { passHash: "", salt: "" }, undefined, `${PARTY_PREFIX}${code}`);
     room.ephemeral = true;
+    room.maxStudents = PARTY_MAX_PLAYERS;
     room.emptySince = Date.now(); // collected like any empty class if nobody ever arrives
     this.classes.set(room.key, room);
     log.info({ room: room.roomName }, "party field opened");

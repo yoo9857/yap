@@ -8,12 +8,20 @@ import { CharacterRig, disposeRig } from "../player/rig.js";
 import type { ClassClient, ClassSession } from "../net/classClient.js";
 import { ClassHud } from "./classHud.js";
 import { turnToward } from "./smoothing.js";
+import { RemoteTrack, SnapClock, type TrackPose } from "./remoteTrack.js";
 import { SOLID_ID, blockById } from "./blocks.js";
 import type { FieldWindow } from "./fieldWorld.js";
 import type { VoxelView } from "./voxelView.js";
 import { t } from "../ui/i18n.js";
 
 const MOVE_HZ = 10;
+/** Classmates beyond these distances (m) are posed every 3rd / 6th frame. */
+const LOD_MID_M = 30;
+const LOD_FAR_M = 60;
+/** Only this many nearest classmates get a shadow and the ink outline (each is another full pass). */
+const FULL_DETAIL = 10;
+/** Crowd detail is re-ranked this often (ms), not every frame. */
+const DETAIL_RANK_MS = 300;
 /** Sent edits are remembered this long, so a refusal can be undone locally. */
 const PENDING_MS = 10_000;
 
@@ -30,6 +38,14 @@ interface Remote {
   anim: ClassAnim;
   speed: number;
   seenAt: number;
+  /** Received path on the server's clock (snapshot interpolation); empty with an older server. */
+  track: RemoteTrack;
+  /** Animation time not yet applied (far characters pose every few frames). */
+  animDt?: number;
+  /** Which frame of the LOD cycle this character poses on. */
+  lodSlot?: number;
+  /** Drawn with shadow + ink outline (one of the nearest few) or plain. */
+  fullDetail?: boolean;
   swimming?: boolean;
   toolOption?:string;
   attacking?:boolean;
@@ -46,6 +62,8 @@ interface Remote {
 }
 
 export interface ClassSyncHooks {
+  /** The camera classmates are drawn for: off-screen ones are not drawn at all (crowd culling). */
+  camera?(): THREE.Camera;
   /** Move the local player to grid coordinates (gather). */
   teleport(x: number, y: number, z: number): void;
   toast(text: string): void;
@@ -119,6 +137,17 @@ export class ClassSync {
   private moveTimer = 0;
   private online = true;
   private readonly tmp = new THREE.Vector3();
+  /** The server's snapshot clock as seen over this link, shared by every remote's track. */
+  private readonly snapClock = new SnapClock();
+  /** Our own grid position (from the last tick): how far each classmate is, for animation LOD. */
+  private meX = 0;
+  private meZ = 0;
+  private frameNo = 0;
+  private readonly frustum = new THREE.Frustum();
+  private readonly viewProj = new THREE.Matrix4();
+  private readonly bounds = new THREE.Sphere(new THREE.Vector3(), 1.4);
+  private rankedAt = 0;
+  private readonly pose: TrackPose = { x: 0, y: 0, z: 0, yaw: 0, speed: 0 };
   private readonly fx: BonkFx;
 
   constructor(
@@ -162,7 +191,7 @@ export class ClassSync {
         if (!members.some((m) => m.id === id && m.online)) this.dropRemote(id);
       }
     };
-    client.onSnap = (players) => this.applySnap(players);
+    client.onSnap = (players, ts) => this.applySnap(players, ts);
     client.onEdit = (edits, by) => this.applyEdits(edits, by);
     client.onFurniture = (items, rejected) => {
       furniture.load(items, true);
@@ -276,6 +305,8 @@ export class ClassSync {
 
   /** Per fixed tick: flush edits, report position, glide remote robots. */
   tick(dt: number, body: { x: number; y: number; z: number }, yaw: number, anim: ClassAnim, presentation?: CharacterPresentation): void {
+    this.meX = body.x;
+    this.meZ = body.z;
     this.flushEdits();
     const now = performance.now();
     for (const [key, p] of this.pending) if (now - p.at > PENDING_MS) this.pending.delete(key);
@@ -338,6 +369,13 @@ export class ClassSync {
 
   /** Per rendered frame: place remote robots in local grid space. */
   render(frameDt: number): void {
+    this.frameNo++;
+    const camera = this.hooks.camera?.();
+    if (camera) {
+      camera.updateMatrixWorld();
+      this.viewProj.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse);
+      this.frustum.setFromProjectionMatrix(this.viewProj);
+    }
     if (!this.online) {
       for (const r of this.remotes.values()) r.rig.root.visible = false;
       this.fx.update(frameDt); // tap chips in flight finish instead of freezing mid-air
@@ -350,14 +388,32 @@ export class ClassSync {
         r.rig.root.visible = false;
         continue;
       }
-      const before = this.tmp.copy(r.pos);
-      // a teleport/gather snaps instead of sliding across the map
-      if (r.pos.distanceToSquared(r.target) > 64) r.pos.copy(r.target);
-      else r.pos.lerp(r.target, k);
-      r.speed = frameDt > 0 ? Math.hypot(r.pos.x - before.x, r.pos.z - before.z) / frameDt : 0;
+      if (!r.track.empty && r.track.draw(this.snapClock.renderTime(now), frameDt * 1000, this.pose)) {
+        // drawn a moment in the past, between two received samples: late or bunched
+        // packets change nothing visible (craft/remoteTrack.ts)
+        r.pos.set(this.pose.x, this.pose.y, this.pose.z);
+        r.speed = this.pose.speed;
+        r.yaw = this.pose.yaw;
+      } else {
+        // an older server (no stamps): chase the latest report
+        const before = this.tmp.copy(r.pos);
+        // a teleport/gather snaps instead of sliding across the map
+        if (r.pos.distanceToSquared(r.target) > 64) r.pos.copy(r.target);
+        else r.pos.lerp(r.target, k);
+        r.speed = frameDt > 0 ? Math.hypot(r.pos.x - before.x, r.pos.z - before.z) / frameDt : 0;
+      }
       const [x, z] = this.field.toGrid(r.pos.x, r.pos.z);
-      r.rig.root.visible = true;
       r.rig.root.position.set(x, r.pos.y, z);
+      // Crowd culling: characters are skinned with frustum culling off (their bounds move
+      // with the animation), so an off-screen classmate still cost its main, ink and shadow
+      // passes. Cull here with a sphere that holds any pose; the path still advances.
+      this.bounds.center.set(x, r.pos.y + 0.9, z);
+      const onScreen = !camera || this.frustum.intersectsSphere(this.bounds);
+      r.rig.root.visible = onScreen;
+      if (!onScreen) {
+        r.animDt = (r.animDt ?? 0) + frameDt;
+        continue;
+      }
       r.drawnYaw = turnToward(r.drawnYaw, r.yaw, frameDt, 0.06, 20);
       r.rig.root.rotation.y = r.drawnYaw;
       let toolTime: number | undefined;
@@ -367,10 +423,40 @@ export class ClassSync {
         r.toolClock += frameDt - wait;
         toolTime = r.toolClock;
       }
-      r.rig.update(r.anim, r.speed, frameDt,{swimming:r.swimming,toolTime});
+      // Animation LOD: a skinned character costs the same CPU at 80 m as at 3 m. Far ones
+      // pose every 3rd / 6th frame with the time they missed (positions still move every frame),
+      // staggered by id so the work spreads across frames instead of landing together.
+      const dist = Math.hypot(x - this.meX, z - this.meZ);
+      const every = dist > LOD_FAR_M ? 6 : dist > LOD_MID_M ? 3 : 1;
+      r.animDt = (r.animDt ?? 0) + frameDt;
+      if (every === 1 || r.attacking || (this.frameNo + (r.lodSlot ??= Math.floor(Math.random() * 6))) % every === 0) {
+        r.rig.update(r.anim, r.speed, r.animDt,{swimming:r.swimming,toolTime});
+        r.animDt = 0;
+      }
       this.remoteSounds(r, x, z, toolTime);
     }
+    if (now - this.rankedAt > DETAIL_RANK_MS) {
+      this.rankedAt = now;
+      this.rankDetail();
+    }
     this.fx.update(frameDt);
+  }
+
+  /**
+   * Detail tiers: the nearest FULL_DETAIL on-screen classmates keep their shadow and ink
+   * outline; the rest of a big class are drawn plain (one pass instead of three). Changes
+   * only flip flags and layers — no material or shader variant switches.
+   */
+  private rankDetail(): void {
+    const shown = [...this.remotes.values()].filter((r) => r.rig.root.visible)
+      .map((r) => ({ r, d: Math.hypot(r.rig.root.position.x - this.meX, r.rig.root.position.z - this.meZ) }))
+      .sort((a, b) => a.d - b.d);
+    shown.forEach(({ r }, i) => {
+      const full = i < FULL_DETAIL;
+      if (r.fullDetail === full) return;
+      r.fullDetail = full;
+      r.rig.setDetail(full);
+    });
   }
 
 /** The surface family of the solid block at absolute (ax, y, az), or null for air/water. */
@@ -422,8 +508,9 @@ export class ClassSync {
     } else r.toolT = undefined;
   }
 
-  private applySnap(players: Extract<ClassServerMessage, {t: "s-k-snap"}>["players"]): void {
+  private applySnap(players: Extract<ClassServerMessage, {t: "s-k-snap"}>["players"], ts?: number): void {
     const now = performance.now();
+    const stamp = ts === undefined ? undefined : this.snapClock.observe(now, ts);
     for (const p of players) {
       if (p.id === this.session.you) continue;
       let r = this.remotes.get(p.id);
@@ -442,6 +529,7 @@ export class ClassSync {
           anim: p.anim,
           speed: 0,
           seenAt: now,
+          track: new RemoteTrack(),
         };
         this.remotes.set(p.id, r);
       }
@@ -453,6 +541,7 @@ export class ClassSync {
       r.swimming=p.swimming;
       r.target.set(...p.pos);
       r.yaw = p.yaw;
+      if (stamp !== undefined) r.track.push(stamp, p.pos[0], p.pos[1], p.pos[2], p.yaw);
       r.anim = p.anim;
       r.seenAt = now;
     }
@@ -534,6 +623,7 @@ export class ClassSync {
         name: this.members.find((m) => m.id === id)?.name,
         visible: r.rig.root.visible,
         abs: [r.target.x, r.target.y, r.target.z],
+        drawn: [r.pos.x, r.pos.y, r.pos.z],
       })),
     };
   }

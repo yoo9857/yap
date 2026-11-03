@@ -185,6 +185,9 @@ export const classServerSchema = z.discriminatedUnion("t", [
   z.object({ t: z.literal("s-k-members"), members: z.array(classMemberSchema) }),
   z.object({
     t: z.literal("s-k-snap"),
+    /** Server clock (ms) when this snapshot was taken: clients draw others on this timeline
+     *  (craft/remoteTrack.ts). Optional: older servers send none and clients fall back. */
+    ts: z.number().finite().nonnegative().optional(),
     players: z.array(z.object({ id: z.string(), pos: vec3Schema, yaw: z.number(), anim: classAnimSchema, ...presentationShape })),
   }),
   z.object({ t: z.literal("s-k-edit"), by: z.string(), edits: z.array(classEditSchema) }),

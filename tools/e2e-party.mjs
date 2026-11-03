@@ -50,9 +50,13 @@ try {
   await guest.page.click('[data-id="party-browse"]');
   await guest.page.waitForSelector(`[data-code="${code}"]`, { visible: true, timeout: 5000 });
   check("the public room appears in another player's list", true);
-  await guest.page.click(`[data-code="${code}"]`);
-  await guest.page.waitForSelector(".party-wait", { timeout: 5000 });
-  await host.page.waitForFunction(() => document.querySelectorAll(".party-slot:not(.open):not(.closed)").length === 2, { timeout: 5000 });
+  await guest.page.$eval(`[data-code="${code}"]`, (el) => el.click());
+  await guest.page.waitForSelector(".party-wait", { timeout: 5000 }).catch(async () => {
+    const toast = await guest.page.$eval(".hub-toast", (el) => el.textContent).catch(() => "");
+    const dialog = await guest.page.$eval(".party-dialog", (el) => el.textContent.trim().slice(0, 80)).catch(() => "");
+    throw new Error(`guest never reached the waiting room (toast: ${toast} | dialog: ${dialog})`);
+  });
+  await host.page.waitForFunction(() => document.querySelectorAll(".party-slot:not(.open):not(.closed), .party-roster li").length === 2, { timeout: 5000 });
   check("both players are seated in the host's waiting room", true);
 
   // 3) start needs the guest ready

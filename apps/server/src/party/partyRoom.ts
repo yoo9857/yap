@@ -1,5 +1,5 @@
 import { randomBytes } from "node:crypto";
-import type { PartyGame, PartyMember, PartyRoomInfo, PartyServerMessage, PartyState, PartySummary } from "@robo/shared";
+import { PARTY_GAME_MAX, type PartyGame, type PartyMember, type PartyRoomInfo, type PartyServerMessage, type PartyState, type PartySummary } from "@robo/shared";
 
 /** Whoever is on the other end of a room seat. Socket-free, so the rules are unit-tested. */
 export interface PartyPeer {
@@ -48,6 +48,14 @@ export class PartyRoom {
     public isPublic: boolean,
   ) {
     this.title = tidy(title);
+    this.max = Math.min(max, PARTY_GAME_MAX[game]);
+  }
+
+  /** Is `name` seated here (connected or in the game)? The game servers admit only these. */
+  hasMember(name: string): boolean {
+    const key = nameKey(name);
+    for (const m of this.members.values()) if (nameKey(m.name) === key) return true;
+    return false;
   }
 
   get size(): number {
@@ -181,6 +189,11 @@ export class PartyRoom {
   /** Host settings. Shrinking `max` below the people already seated is refused. */
   configure(id: string, set: { game?: PartyGame; title?: string; max?: number; public?: boolean }): boolean {
     if (!this.isHost(id)) return false;
+    const game = set.game ?? this.game;
+    // the game cannot change under people who are playing it (newcomers would land in another game)
+    if (set.game !== undefined && set.game !== this.game && this.state === "playing") return false;
+    // a game that holds fewer than are seated is refused; a smaller max is clamped to the game's cap
+    if (this.members.size > PARTY_GAME_MAX[game]) return false;
     if (set.max !== undefined && set.max < this.members.size) return false;
     if (set.game !== undefined && set.game !== this.game) {
       this.game = set.game;
@@ -189,6 +202,7 @@ export class PartyRoom {
     }
     if (set.title !== undefined) this.title = tidy(set.title);
     if (set.max !== undefined) this.max = set.max;
+    this.max = Math.min(this.max, PARTY_GAME_MAX[this.game]);
     if (set.public !== undefined) this.isPublic = set.public;
     this.changed();
     return true;
@@ -202,7 +216,9 @@ export class PartyRoom {
 
   start(id: string): "ok" | "not-host" | "not-ready" {
     if (!this.isHost(id)) return "not-host";
-    if (this.state === "waiting" && !this.allReady) return "not-ready";
+    // a second start (double click, two host tabs) must not send everyone into the game again
+    if (this.state === "playing") return "ok";
+    if (!this.allReady) return "not-ready";
     this.state = "playing";
     for (const m of this.members.values()) m.ready = false;
     this.changed();

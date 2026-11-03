@@ -1,6 +1,6 @@
 import {
+  PARTY_GAME_MAX,
   PARTY_GAME_NAMES,
-  PARTY_MAX_PLAYERS,
   partyFieldName,
   type PartyErrorCode,
   type PartyGame,
@@ -23,6 +23,7 @@ const ERRORS: Record<PartyErrorCode, string> = {
   "not-host": "방장만 할 수 있어요.",
   "not-ready": "모두 준비해야 시작할 수 있어요.",
   "too-many-rooms": "지금은 방을 더 만들 수 없어요. 열린 방에 들어가 보세요.",
+  "game-limit": "지금 인원으로는 그 게임을 할 수 없어요. Daily Tower는 8명까지예요.",
   rate: "너무 빨라요. 잠시 뒤에 다시 해 주세요.",
   internal: "문제가 생겼어요. 다시 해 주세요.",
 };
@@ -34,6 +35,15 @@ const GAME_CARDS: { game: PartyGame | null; img: string; name: string; soon?: st
   { game: null, img: "/home/battle.webp", name: "Blast Royale", soon: "준비 중", note: "친구와 대전은 곧 열려요" },
   { game: null, img: "/home/builder.webp", name: "Robo Builder", soon: "준비 중", note: "같이 짓기는 곧 열려요" },
 ];
+
+/** Choices for "최대 인원": common sizes up to the game's cap, the cap itself pre-picked (or `keep`). */
+function maxOptions(game: PartyGame, keep?: number): string {
+  const cap = PARTY_GAME_MAX[game];
+  const sizes = [2, 4, 6, 8, 10, 12, 16, 20, 24, 30, 40, 50].filter((n) => n <= cap);
+  if (!sizes.includes(cap)) sizes.push(cap);
+  const pick = keep && keep <= cap ? (sizes.includes(keep) ? keep : cap) : cap;
+  return sizes.map((n) => `<option value="${n}" ${n === pick ? "selected" : ""}>${n}명</option>`).join("");
+}
 
 const esc = (s: string) => s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
 const gameName = (g: PartyGame) => PARTY_GAME_NAMES[g][0];
@@ -203,7 +213,7 @@ export class PartyLobby {
 
   private renderList(rooms: PartySummary[]): void {
     this.empty.hidden = rooms.length > 0;
-    this.rows.innerHTML = rooms.map((r) => {
+    const html = rooms.map((r) => {
       const full = r.players >= r.max;
       const state = r.state === "playing" ? `<i class="party-state playing">게임 중</i>` : `<i class="party-state">대기 중</i>`;
       return `<li><button type="button" class="party-row" data-code="${esc(r.code)}" ${full ? "disabled" : ""}>
@@ -212,7 +222,11 @@ export class PartyLobby {
         <span class="party-row-go">${full ? "꽉 참" : r.state === "playing" ? "바로 참여" : "입장"}</span>
       </button></li>`;
     }).join("");
+    // redraw only when something changed: a rebuilt row under the pointer loses its hover
+    // (and a click landing mid-rebuild hits a detached button)
+    if (html !== this.listHtml) this.rows.innerHTML = this.listHtml = html;
   }
+  private listHtml = "";
 
   // ------------------------------------------------------------ name
 
@@ -300,9 +314,15 @@ export class PartyLobby {
       <label class="party-field"><span>방 이름</span><input data-id="pd-title" maxlength="20" required value="${esc(name ? `${name}의 방` : "")}" placeholder="예: 같이 블록 쌓자" /></label>
       <div class="party-field"><span>게임</span>${this.gamePicker("build")}</div>
       <div class="party-row2">
-        <label class="party-field"><span>최대 인원</span><select data-id="pd-max">${Array.from({ length: PARTY_MAX_PLAYERS - 1 }, (_, i) => i + 2).map((n) => `<option ${n === PARTY_MAX_PLAYERS ? "selected" : ""}>${n}</option>`).join("")}</select></label>
+        <label class="party-field"><span>최대 인원</span><select data-id="pd-max">${maxOptions("build")}</select></label>
         <label class="party-switch"><input type="checkbox" data-id="pd-public" checked /><span>방 목록에 보이기</span><small>끄면 코드로만 들어와요</small></label>
       </div>`, "방 만들기");
+    // each game holds its own number (Daily Tower 8, 함께 짓기 50): the choices follow the pick
+    box.querySelectorAll<HTMLInputElement>('input[name="game"]').forEach((radio) => radio.addEventListener("change", () => {
+      const select = box.querySelector<HTMLSelectElement>('[data-id="pd-max"]')!;
+      const keep = Number(select.value);
+      select.innerHTML = maxOptions(radio.value as PartyGame, keep);
+    }));
     box.querySelector("form")!.addEventListener("submit", (e) => {
       e.preventDefault();
       if (!this.takeName(box)) return;
@@ -380,8 +400,21 @@ export class PartyLobby {
     w.querySelector('[data-id="pw-title"]')!.textContent = room.title;
     w.querySelector('[data-id="pw-sub"]')!.textContent = `${room.public ? "공개 방" : "비공개 방"} · ${room.members.length}/${room.max}명`;
     w.querySelector('[data-id="pw-code"]')!.innerHTML = `<small>방 코드</small><b>${esc(room.code)}</b>`;
-    // eight slots, Crazy-Arcade style: seated players, then open seats
-    w.querySelector('[data-id="pw-slots"]')!.innerHTML = Array.from({ length: PARTY_MAX_PLAYERS }, (_, i) => {
+    const slots = w.querySelector<HTMLElement>('[data-id="pw-slots"]')!;
+    if (room.max > 8) {
+      // a big room (up to 50): one compact row per player, connected first, host on top
+      slots.classList.add("big");
+      const order = [...room.members].sort((a, b) => Number(b.id === room.host) - Number(a.id === room.host) || Number(b.online) - Number(a.online));
+      const ready = room.members.filter((m) => m.ready || m.id === room.host).length;
+      slots.innerHTML = `<div class="party-roster-head"><b>참가자 ${room.members.length}/${room.max}</b><span>준비 ${ready}/${room.members.length}</span></div>
+        <ul class="party-roster">${order.map((m) => {
+          const isHost = m.id === room.host;
+          const badge = isHost ? `<i class="party-badge host">방장</i>` : m.ready ? `<i class="party-badge ready">준비</i>` : `<i class="party-badge">대기</i>`;
+          return `<li class="${m.id === this.me ? "me" : ""}${m.online ? "" : " away"}"><b>${esc(m.name)}${m.id === this.me ? " (나)" : ""}</b>${m.online ? "" : `<small>${room.state === "playing" ? "게임 중" : "자리 비움"}</small>`}${badge}${host && !isHost ? `<button type="button" class="party-kick" data-kick="${esc(m.id)}" aria-label="${esc(m.name)} 내보내기">✕</button>` : ""}</li>`;
+        }).join("")}</ul>`;
+    } else slots.classList.remove("big");
+    // up to eight: seat cards, Crazy-Arcade style — seated players, then open seats
+    if (room.max <= 8) slots.innerHTML = Array.from({ length: 8 }, (_, i) => {
       const m = room.members[i];
       if (i >= room.max) return `<div class="party-slot closed" aria-hidden="true"><span>닫힌 자리</span></div>`;
       if (!m) return `<div class="party-slot open"><span>빈자리</span></div>`;

@@ -414,3 +414,16 @@ describe("party field hardening", () => {
     expect(member.last("s-k-welcome")?.room).toBe("party:ABCDEF");
   });
 });
+
+describe("party field membership", () => {
+  it("admits the room's members only, so nobody can take a member's name first", () => {
+    const { connect, manager } = setup();
+    manager.partyMember = (code, name) => code === "ABCDEF" && name === "민지";
+    const stranger = connect();
+    stranger.say({ t: "k-join", v, room: "party:ABCDEF", student: "남남" });
+    expect(stranger.last("s-k-error")?.code).toBe("no-class");
+    const member = connect();
+    member.say({ t: "k-join", v, room: "party:ABCDEF", student: "민지" });
+    expect(member.last("s-k-welcome")?.room).toBe("party:ABCDEF");
+  });
+});

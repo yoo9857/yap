@@ -341,6 +341,7 @@ export class CraftGame {
     if (opts.classroom && this.field) {
       this.sync = new ClassSync(opts.classroom.client, opts.classroom.session, this.field, this.view,
         this.renderer.scene, {
+          camera: () => this.renderer.camera,
           teleport: (x, y, z) => {
             // a seated or crawling student is called over too (stepSeated would pin them to the seat)
             if (this.seated) this.standUp();

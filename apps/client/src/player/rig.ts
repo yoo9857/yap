@@ -6,6 +6,10 @@ import { box, bodyMat, crayonGrain, outline, part, stud } from "./blockParts.js"
 import {type HeldItemId} from "../craft/toolDefinitions.js";
 import { gaitBlend } from "./motionPolicy.js";
 import { applyHitFlash, releaseHitFlash } from "./hitTint.js";
+import { INK_INSTANCED_LAYER, INK_LAYER, INK_SKINNED_LAYER } from "../render/inkOutline.js";
+
+/** The camera layers that put a mesh into the ink-outline mask pass. */
+const INK_MASK = (1 << INK_LAYER) | (1 << INK_INSTANCED_LAYER) | (1 << INK_SKINNED_LAYER);
 
 /**
  * CraftYap's own mascots, built EXACTLY like the banner drawings: each
@@ -318,6 +322,28 @@ export class CharacterRig {
   /** True until the frame that puts the calm materials back. */
   private wasFlashing = false;
   constructor(variant: CharacterVariant = "mascot") { this.setCharacter(variant); characterDisposers.set(this.root, () => this.dispose()); }
+  /** Full detail (shadow + ink outline) or plain — a big crowd keeps it for the nearest few. */
+  private detail = true;
+
+  /**
+   * Shadow and ink outline on or off for this whole character. Only the mesh flags and
+   * camera layers change, never a material, so no shader variant is switched (the cost
+   * that once topped the CPU profile). Re-applied after a model swap.
+   */
+  setDetail(full: boolean): void {
+    this.detail = full;
+    this.root.traverse((o) => {
+      if (!(o instanceof THREE.Mesh)) return;
+      const d = o.userData as { castShadow0?: boolean; ink0?: number };
+      if (d.castShadow0 === undefined) {
+        d.castShadow0 = o.castShadow;
+        d.ink0 = o.layers.mask & INK_MASK;
+      }
+      o.castShadow = full && d.castShadow0;
+      o.layers.mask = full ? o.layers.mask | (d.ink0 ?? 0) : o.layers.mask & ~INK_MASK;
+    });
+  }
+
   setCharacter(variant: CharacterVariant): void {
     if (this.variant === variant && this.implementation) return;
     if (this.implementation) {
@@ -340,6 +366,7 @@ export class CharacterRig {
     this.root.add(this.implementation.root);
     if("setHeldItem" in this.implementation)this.implementation.setHeldItem(this.itemId,this.itemOption);
     Object.assign(this.root.userData, this.implementation.root.userData, {characterId:variant === "tt" ? "tt" : "mascot"});
+    if (!this.detail) this.setDetail(false); // a new model arrives at the crowd's detail level
   }
   setHeldOpacity(opacity:number):void {if(this.implementation&&"setHeldOpacity" in this.implementation)this.implementation.setHeldOpacity(opacity);}
   setHeldItem(id:HeldItemId|null,option="balanced"):void {this.itemId=id;this.itemOption=option;if(this.implementation&&"setHeldItem" in this.implementation)this.implementation.setHeldItem(id,option);}
