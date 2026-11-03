@@ -8,6 +8,7 @@ on:
       - "pnpm-lock.yaml"
       - "docs/MACHINE_PHYSICS.md"
       - "tools/generate-machine-assets.mjs"
+      - "assets/machines/**"
       - ".github/workflows/physics.yml"
   push:
     branches: [main]
@@ -16,7 +17,9 @@ on:
       - "packages/shared/**"
       - "pnpm-lock.yaml"
       - "tools/generate-machine-assets.mjs"
+      - "assets/machines/**"
       - ".github/workflows/physics.yml"
+  workflow_dispatch:
 
 permissions:
   contents: read
