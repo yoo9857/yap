@@ -364,3 +364,53 @@ describe("multiplayer robustness", () => {
     expect(teacher.last("s-k-welcome")).toBeDefined(); // treated as missing: a fresh class opens
   });
 });
+
+describe("party fields (party:CODE)", () => {
+  it("open on the first k-join, share edits between members, and are never saved", () => {
+    const { connect, store, manager } = setup();
+    const save = vi.spyOn(store, "save");
+    const a = connect(), b = connect();
+    a.say({ t: "k-join", v, room: "party:ABCDEF", student: "민지" });
+    b.say({ t: "k-join", v, room: "party:abcdef", student: "준호" });
+    expect(a.last("s-k-welcome")?.room).toBe("party:ABCDEF");
+    expect(b.last("s-k-welcome")?.room).toBe("party:ABCDEF");
+    expect(manager.partyOnline("ABCDEF")).toBe(2);
+    a.say({ t: "k-edit", edits: [[3, 4, 3, 5, 0]] });
+    expect(b.last("s-k-edit")?.edits).toEqual([[3, 4, 3, 5, 0]]);
+    manager.shutdown();
+    expect(save).not.toHaveBeenCalled();
+  });
+
+  it("refuse malformed codes and teachers who try to open one", () => {
+    const { connect } = setup();
+    const bad = connect();
+    bad.say({ t: "k-join", v, room: "party:OO0000", student: "민지" });
+    expect(bad.last("s-k-error")?.code).toBe("no-class");
+    const teacher = connect();
+    teacher.say({ t: "k-host", v, room: "party:ABCDEF", teacher: "김선생", password: "1234" });
+    expect(teacher.last("s-k-error")?.code).toBe("room-taken");
+  });
+});
+
+describe("party field hardening", () => {
+  it("a look-alike name (spaces) is refused and never replaces the live field", () => {
+    const { connect, manager } = setup();
+    const a = connect();
+    a.say({ t: "k-join", v, room: "party:ABCDEF", student: "민지" });
+    const evil = connect();
+    evil.say({ t: "k-join", v, room: "party: ABCDEF", student: "악당" });
+    expect(evil.last("s-k-error")?.code).toBe("no-class");
+    expect(manager.partyOnline("ABCDEF")).toBe(1);
+  });
+
+  it("opens only for codes the hub says exist", () => {
+    const { connect, manager } = setup();
+    manager.partyGate = (code) => code === "ABCDEF";
+    const stranger = connect();
+    stranger.say({ t: "k-join", v, room: "party:ZZZZZZ", student: "민지" });
+    expect(stranger.last("s-k-error")?.code).toBe("no-class");
+    const member = connect();
+    member.say({ t: "k-join", v, room: "party:ABCDEF", student: "민지" });
+    expect(member.last("s-k-welcome")?.room).toBe("party:ABCDEF");
+  });
+});

@@ -31,6 +31,8 @@ export const clientHelloSchema = z.object({
   t: z.literal("c-hello"),
   v: z.number().int().positive(),
   name: playerNameSchema,
+  /** A party room's code (protocol/party.ts): its members share one tower room of their own. */
+  party: z.string().regex(/^[A-Z2-9]{6}$/).optional(),
 });
 
 export const clientMoveSchema = z.object({

@@ -29,7 +29,7 @@ export class Screens {
       <div class="screen-card tower-card">
         <a class="screen-back" href="/"><span aria-hidden="true">&larr;</span> ${t("다른 게임", "Other games")}</a>
         <div class="tower-main">
-          <img class="brand-logo small" src="/craftyap-logo.png" alt="CraftYap" />
+          <img class="brand-logo small" src="/craftyap-logo.webp" alt="CraftYap" />
           <h1>Daily Tower</h1>
           <p class="daily-label"><span data-id="day">Daily Tower</span> · ${t("새 타워까지", "new tower in")} <span data-id="countdown">--:--:--</span></p>
           <p class="subtitle">${t("꼭대기의 금색 발판까지 올라가요!", "Climb to the gold pad at the top of the tower!")}</p>

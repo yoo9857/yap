@@ -5,6 +5,7 @@ import { PROTOCOL_VERSION } from "@robo/shared";
 import { log } from "../log.js";
 import type { RoomManager } from "../game/roomManager.js";
 import type { ClassManager } from "../classroom/classManager.js";
+import type { PartyManager } from "../party/partyManager.js";
 import { Session } from "./session.js";
 
 const HEARTBEAT_INTERVAL_MS = 10_000;
@@ -59,6 +60,7 @@ export function attachWsServer(
   httpServer: HttpServer,
   rooms: RoomManager,
   classes: ClassManager,
+  parties: PartyManager,
   limits: ConnectionLimits = { perAddress: 200, total: 4000 },
 ): () => void {
   const wss = new WebSocketServer({
@@ -79,8 +81,14 @@ export function attachWsServer(
     }
     ws.once("close", () => gate.release(address));
     // the education classroom shares the endpoint, selected by query
-    if (new URL(req.url ?? "/", "http://x").searchParams.get("mode") === "class") {
+    const mode = new URL(req.url ?? "/", "http://x").searchParams.get("mode");
+    if (mode === "class") {
       classes.accept(ws, address);
+      return;
+    }
+    // the hub's rooms too
+    if (mode === "party") {
+      parties.accept(ws, address);
       return;
     }
     const session = new Session(randomUUID().slice(0, 8), ws, address);
@@ -101,7 +109,7 @@ export function attachWsServer(
         return;
       }
       try {
-        rooms.assign(session, msg.name); // replaces session.onMessage
+        rooms.assign(session, msg.name, msg.party); // replaces session.onMessage
       } catch (err) {
         log.error({ session: session.id, err }, "room assignment failed");
         session.send({ t: "s-error", code: "internal", msg: "join failed" });

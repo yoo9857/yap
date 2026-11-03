@@ -121,7 +121,7 @@ export function blockByKey(key: string): BlockDef | undefined {
 }
 
 export function textureUrl(def: BlockDef): string {
-  return `/textures/blocks/${def.texture}.png`;
+  return `/textures/blocks/${def.texture}.webp`;
 }
 
 /** The mined item's block key (grass drops dirt, ores drop themselves…). */

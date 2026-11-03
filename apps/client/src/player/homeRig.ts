@@ -53,6 +53,14 @@ let pending: Promise<boolean> | null = null;
 const disposers = new WeakMap<THREE.Object3D, () => void>();
 /** Each model's download, once started: resolves true once it can be built. */
 const loads = new Map<"HOME" | "TT", Promise<boolean>>();
+/** Resolves once the game is on screen (main.ts fires "craftyap:playing"), or after 25 s at the
+ *  latest: the second model must not compete with the boot for bandwidth, but must still arrive. */
+const playing = new Promise<void>((resolve) => {
+    if (typeof window === "undefined") return resolve();
+    if (document.body?.classList.contains("in-game")) return resolve();
+    window.addEventListener("craftyap:playing", () => resolve(), { once: true });
+    setTimeout(resolve, 25_000);
+});
 
 /** The model this browser plays as (the C menu saves the choice). */
 function preferredCharacter(): "HOME" | "TT" {
@@ -76,10 +84,11 @@ export function preloadHomeCharacter(): Promise<boolean> {
         if (!response.ok)
             throw new Error("Missing character face manifest");
         const faces = await response.json() as FaceSequences;
-        const load = (character: "HOME" | "TT") => {
+        const load = (character: "HOME" | "TT", after?: Promise<unknown>) => {
             let loading = loads.get(character);
             if (!loading) {
                 loading = (async () => {
+                    if (after) await after;
                     const [gltf] = await Promise.all([new GLTFLoader().loadAsync(`/models/characters/${character}/${character}.glb?v=1.2.1-fold`), faceBitmap(character, "textures/face-neutral.png").catch(() => null)]);
                     assets.set(character, { scene: gltf.scene, animations: gltf.animations, character, faces });
                     return true;
@@ -91,8 +100,10 @@ export function preloadHomeCharacter(): Promise<boolean> {
         const first = preferredCharacter();
         const other = first === "HOME" ? "TT" : "HOME";
         const firstLoad = load(first);
-        // started together (the network shares them), but only the first is awaited
-        const otherLoad = load(other);
+        // The other model waits for the first: downloading both at once split the bandwidth
+        // and delayed the boot by the whole second file. Registered now (not when it starts),
+        // so a rig that asks for it early still hears when it lands.
+        const otherLoad = load(other, Promise.all([firstLoad, playing]));
         if (await firstLoad)
             return true;
         if (await otherLoad)

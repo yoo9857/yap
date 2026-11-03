@@ -42,7 +42,7 @@ export interface FoliagePlacement {
 }
 
 function loadSprite(name: string, onReady: (tex: THREE.Texture) => void): void {
-  void loadTexture(`/textures/foliage/${name}.png`).then((tex) => {
+  void loadTexture(`/textures/foliage/${name}.webp`).then((tex) => {
     if (tex) onReady(tex);
   });
 }

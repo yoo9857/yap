@@ -435,7 +435,7 @@ export class BuilderGame {
     // dedicated materials (not the shared brick cache): the environment tints
     // the ground per landmark, and both get a CraftYap doodle texture map
     const groundMat = new THREE.MeshStandardMaterial({ color: 0x31633a, roughness: 0.9 });
-    this.loadDoodleTexture(groundMat, "/textures/doodle-grass.png", 90);
+    this.loadDoodleTexture(groundMat, "/textures/doodle-grass.webp", 90);
     this.ground = new THREE.Mesh(new THREE.BoxGeometry(1200, 1, 1200), groundMat);
     this.ground.position.y = -0.5;
     this.ground.receiveShadow = true;
@@ -443,7 +443,7 @@ export class BuilderGame {
 
     // stone plaza under the monument (rescaled per landmark)
     const plazaMat = new THREE.MeshStandardMaterial({ color: 0xcfc6b2, roughness: 0.85 });
-    this.loadDoodleTexture(plazaMat, "/textures/doodle-stone.png", 14);
+    this.loadDoodleTexture(plazaMat, "/textures/doodle-stone.webp", 14);
     this.plaza = new THREE.Mesh(new THREE.BoxGeometry(2, 0.3, 2), plazaMat);
     this.plaza.position.y = 0.15;
     this.plaza.receiveShadow = true;

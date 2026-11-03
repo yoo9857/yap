@@ -41,6 +41,7 @@ node tools/e2e-craft.mjs          # craft: island boot, mine/craft/place, physic
 node tools/e2e-pet.mjs            # pet: spawns, comes to heel, sits on P, recalled when walled off, adopt every species + reload
 node tools/e2e-furniture.mjs [png]  # furniture: panel tabs/search/swatches, keyboard bar, floor/rug/surface/wall rules, held-click pickup, cascades, field scroll, reload
 node tools/e2e-field.mjs          # education: category screen, endless field, scrolling window keeps edits, save
+node tools/e2e-party.mjs          # hub rooms: create/list/join/ready/start into build, mid-game join by code, seat back from the game, tower party room
 node tools/e2e-classroom.mjs      # classroom: teacher + 2 students in separate browsers — join/errors, shared building, late join, locks, chat, gather, kick, reconnect, end
 node tools/e2e-machines.mjs       # machine lab: build shortcuts, library/share, drive, cameras, flight, wings
 node tools/e2e-battle.mjs         # battle: bots live/roam, storm shrink, win & lose paths
@@ -180,6 +181,15 @@ Live multiplayer for the education field, deliberately separate from the tower p
 - `ClassRoom` is socket-free (talks to a `ClassPeer`) so its rules are unit-tested in `apps/server/test/classroom.test.ts`.
 - **Classes are saved** (`classStore.ts`, table `classes` in the SAME `records.db`, so the bind-mount and the daily backup already cover it): field edits, settings, teacher key and every student's name + seat key. Written every 15 s when dirty, on 수업 종료, on idle collection (30 min empty) and on shutdown; classes untouched for 180 days are purged at boot. Re-opening a saved class needs the host key (same browser) **or the class password** (any PC) — a new class can't be opened without a ≥4-char password, stored only as scrypt hash + salt. Students can only join a class the teacher has opened. `k-reset-world` (🧹 들판 비우기) wipes the saved field.
 - Deep links for testing: `?mode=field&room=<class>&host=<teacher>&pass=<password>` and `?mode=field&room=<class>&student=<s>` (old links without `room` use the teacher name as the class name). Debug hooks: `__roboCraft.classroom()`, `classSend(msg)`, `absolute()`. E2E runs each participant in its own browser (background tabs pause rAF, which is the game loop).
+
+### Hub rooms / party (`packages/shared/src/protocol/party.ts`, `apps/server/src/party/`, client `net/partyClient.ts` + `app/partyLobby.ts`)
+
+Crazy-Arcade-style rooms in the online hub: create (public or code-only), browse (the right panels slide out, the room list drawer slides in), join by 6-letter code, quick join, waiting room (8 seats, ready, chat, host picks the game, kick), start → everyone moves into the game; a room that is playing still takes newcomers straight into its game. Own `p-`/`s-p-` messages and `PARTY_PROTOCOL_VERSION` on `/ws?mode=party`.
+
+- **The room is only the meeting place; each game runs on its own server, keyed by the room code.** `build` = the classroom field `party:CODE` (`ClassManager.openParty`: opened on first `k-join`, `ephemeral` — never saved, GC'd when empty, capped at 300; teachers may not host a `party:` name). `tower` = a tower room of its own (`c-hello.party` → `RoomManager.assign(..., party)`; never mixed with public rooms). A new game means a `PartyGames.prepare/players` branch in `apps/server/src/index.ts`, a `gameUrl` branch in `partyLobby.ts`, and appending to `PARTY_GAMES`.
+- **Seats outlive their socket.** Starting the game navigates every page away, so membership is a seat with a key (sessionStorage `craftyap-party-seat`, per tab); "처음으로" from the game reopens the hub straight into the room. Seats expire after 15 min away, but never while the room's game still has players; a playing room whose game empties returns to waiting after 60 s; an empty room is dropped. Rooms live in memory: a deploy ends them (party fields come back empty on reconnect).
+- `PartyRoom` is socket-free and unit-tested (`apps/server/test/party.test.ts`, which also drives `PartyManager` with fake sockets); `tools/e2e-party.mjs` runs the whole flow in separate browsers.
+- The hub's button reset is `:where(#mode-select.hub) :where(button, a)` (zero specificity) so component styles win without `!important`.
 
 ### In-game UI: language, settings, menu (`ui/i18n.ts`, `ui/settings.ts`, `ui/gameMenu.*`)
 

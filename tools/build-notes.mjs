@@ -83,7 +83,7 @@ function page({ title, description, canonical, type, jsonLd, body }) {
     <link rel="canonical" href="${canonical}" />
     <link rel="alternate" type="application/rss+xml" title="크래프트얍 개발 노트" href="/feed.xml" />
     <link rel="alternate" type="application/atom+xml" title="크래프트얍 개발 노트 (Atom)" href="/note/feed.xml" />
-    <link rel="icon" type="image/png" href="/craftyap-logo.png" />
+    <link rel="icon" type="image/png" sizes="48x48" href="/favicon-48.png" />
     <link rel="stylesheet" href="${assets.guideCss}" />
     <link rel="stylesheet" href="${assets.noteCss}" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -111,7 +111,7 @@ ${json(jsonLd)}
   <body>
     <a class="skip-link" href="#content">본문으로 이동</a>
     <header class="site-header"><div class="header-inner">
-      <a class="brand" href="/" aria-label="크래프트얍 게임 홈"><img src="/craftyap-logo.png" width="64" height="64" alt="" /><span>크래프트얍<small>CRAFTYAP</small></span></a>
+      <a class="brand" href="/" aria-label="크래프트얍 게임 홈"><img src="/craftyap-logo.webp" width="64" height="64" alt="" /><span>크래프트얍<small>CRAFTYAP</small></span></a>
       <nav class="header-nav" id="site-nav" aria-label="주요 메뉴"><a href="/note/">개발 노트</a><a href="/guide/">게임 안내</a><a href="/guide/#controls">조작법</a><a href="/guide/#faq">FAQ</a></nav>
       <a class="button button-dark header-play" href="/">지금 플레이 <span aria-hidden="true">↗</span></a>
       <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="site-nav" aria-label="메뉴 열기" hidden><span></span><span></span></button>

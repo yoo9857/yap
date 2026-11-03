@@ -1,4 +1,5 @@
 import type { WebSocket } from "ws";
+import { partyCodeSchema } from "@robo/shared";
 import {
   CLASS_PASSWORD_MIN,
   FLUID_STEP,
@@ -20,6 +21,13 @@ const HEARTBEAT_MS = 10_000;
 const JOIN_TIMEOUT_MS = 10_000;
 /** A class nobody is connected to survives this long (teacher's coffee break). */
 const EMPTY_CLASS_TTL_MS = 30 * 60_000;
+/** Party fields are named \`party:CODE\` (see protocol/party.ts partyFieldName). */
+const PARTY_PREFIX = "party:";
+/** The party field's "teacher": nobody sits in it; a name no player can type. */
+const PARTY_HOST_NAME = "🎮";
+const MAX_PARTY_FIELDS = 300;
+/** An empty party field goes after 5 minutes (it is never saved, so there is nothing to keep). */
+const EMPTY_PARTY_TTL_MS = 5 * 60_000;
 const MAX_BUFFERED = 1024 * 1024;
 const STREAM_BUFFERED = 256 * 1024;
 const streamQueue = new Set<ClassSocket>();
@@ -172,6 +180,8 @@ export class ClassManager {
   private readonly timers: NodeJS.Timeout[] = [];
   private fluidCursor = 0;
   /** classKey → failed password attempts and the lock they earned. A 4-character password must not be guessable at socket speed. */
+  /** Is `code` a live hub room? Set by the server; unset (tests) means any code. */
+  partyGate: ((code: string) => boolean) | null = null;
   private readonly passwordFails = new Map<string, { fails: number; lockedUntil: number; lockMs: number; lastFailAt: number }>();
 
   constructor(private readonly store: ClassStore) {
@@ -283,6 +293,8 @@ export class ClassManager {
 
   private host(socket: ClassSocket, msg: Extract<ClassClientMessage, { t: "k-host" }>): ClassRoom | null {
     const key = classKey(msg.room);
+    // party fields are opened by the rooms, never by a teacher
+    if (key.startsWith(PARTY_PREFIX)) return this.refuse(socket, "room-taken");
     const sameTeacher = (name: string) => classKey(name) === classKey(msg.teacher);
     let room = this.loaded(key);
     if (!room && this.classes.has(key)) return this.refuse(socket, "internal"); // closed, its save still failing
@@ -353,7 +365,7 @@ export class ClassManager {
 
   private join(socket: ClassSocket, msg: Extract<ClassClientMessage, { t: "k-join" }>): ClassRoom | null {
     if (!playerNameSchema.safeParse(msg.student).success) return this.refuse(socket, "bad-name");
-    const room = this.loaded(classKey(msg.room));
+    const room = this.loaded(classKey(msg.room)) ?? this.openParty(msg.room);
     if (!room) return this.refuse(socket, "no-class"); // a closed class waiting on its save counts as gone
     const result = room.joinStudent(socket, msg.student, msg.seatKey);
     if (result !== "ok") return this.refuse(socket, result);
@@ -364,6 +376,41 @@ export class ClassManager {
     socket.send({ t: "s-k-error", code });
     socket.close(code);
     return null;
+  }
+
+  /**
+   * A party room's shared field (\`party:CODE\`), opened on first join: by the
+   * room's start, a mid-game joiner, or a player reconnecting after a deploy
+   * (the field starts empty again then — party fields live in memory only).
+   * Null for anything that is not a well-formed party name, or past the cap.
+   */
+  openParty(name: string): ClassRoom | null {
+    // exactly "party:" + a code — no spaces anywhere — and the key is rebuilt from the
+    // validated code, so a look-alike name can never replace (orphan) a live field
+    const trimmed = name.trim();
+    if (trimmed.slice(0, PARTY_PREFIX.length).toLowerCase() !== PARTY_PREFIX) return null;
+    const code = trimmed.slice(PARTY_PREFIX.length).toUpperCase();
+    if (partyCodeSchema.safeParse(code).data !== code) return null;
+    const key = classKey(`${PARTY_PREFIX}${code}`);
+    const live = this.loaded(key);
+    if (live) return live;
+    // only for a room that exists: random codes cannot fill the cap
+    if (this.partyGate && !this.partyGate(code)) return null;
+    let parties = 0;
+    for (const r of this.classes.values()) if (r.ephemeral) parties++;
+    if (parties >= MAX_PARTY_FIELDS) return null;
+    const room = new ClassRoom(PARTY_HOST_NAME, { passHash: "", salt: "" }, undefined, `${PARTY_PREFIX}${code}`);
+    room.ephemeral = true;
+    room.emptySince = Date.now(); // collected like any empty class if nobody ever arrives
+    this.classes.set(room.key, room);
+    log.info({ room: room.roomName }, "party field opened");
+    return room;
+  }
+
+  /** People connected to a party room's field right now. */
+  partyOnline(code: string): number {
+    const room = this.classes.get(classKey(`${PARTY_PREFIX}${code}`));
+    return room && !room.closed ? room.onlineCount : 0;
   }
 
   private snapshot(): void {
@@ -388,7 +435,8 @@ export class ClassManager {
       if (entry.lockedUntil < now && now - entry.lastFailAt > PASSWORD_LOCK_MAX_MS) this.passwordFails.delete(key);
     }
     for (const room of this.classes.values()) {
-      if (room.closed || (room.emptySince !== null && now - room.emptySince > EMPTY_CLASS_TTL_MS)) {
+      const ttl = room.ephemeral ? EMPTY_PARTY_TTL_MS : EMPTY_CLASS_TTL_MS;
+      if (room.closed || (room.emptySince !== null && now - room.emptySince > ttl)) {
         room.close();
         this.retire(room);
         log.info({ teacher: room.teacherName }, "class collected");
@@ -406,6 +454,7 @@ export class ClassManager {
   }
 
   private persist(room: ClassRoom): boolean {
+    if (room.ephemeral) return true; // a party field is never written
     try {
       this.store.save(room.key, room.toSaved());
       this.savedAt.set(room, Date.now());

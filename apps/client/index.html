@@ -16,8 +16,8 @@
     <link rel="canonical" href="https://craftyap.com/" />
     <link rel="help" href="/guide/" />
     <link rel="alternate" type="application/rss+xml" title="크래프트얍 개발 노트" href="/feed.xml" />
-    <link rel="icon" type="image/png" href="/craftyap-logo.png" />
-    <link rel="apple-touch-icon" href="/craftyap-logo.png" />
+    <link rel="icon" type="image/png" sizes="48x48" href="/favicon-48.png" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <link rel="preload" as="image" type="image/avif" href="/backgrounds/craftyap-sunny-village-desktop.avif" media="(min-width: 768px)" />
     <link rel="preload" as="image" type="image/avif" href="/backgrounds/craftyap-sunny-village-mobile.avif" media="(max-width: 767px)" />
     <meta name="robots" content="index, follow, max-image-preview:large" />
@@ -1824,8 +1824,8 @@
         -webkit-backdrop-filter: blur(12px) saturate(1.2);
         backdrop-filter: blur(12px) saturate(1.2);
       }
-      #mode-select.hub button,
-      #mode-select.hub a { font: inherit; color: inherit; text-decoration: none; }
+      /* zero specificity: a reset, so every component's own font and colour win */
+      :where(#mode-select.hub) :where(button, a) { font: inherit; color: inherit; text-decoration: none; }
       #mode-select.hub :is(button, a):focus-visible { outline: 3px solid #ffd21c; outline-offset: 3px; }
       .hub-soon-tag {
         display: inline-block;
@@ -2530,7 +2530,7 @@
 
       <div class="hub-shell">
         <header class="hub-top">
-          <img class="hub-logo" src="/craftyap-logo.png" width="512" height="300" alt="크래프트얍 CraftYap" />
+          <img class="hub-logo" src="/craftyap-logo.webp" width="384" height="384" alt="크래프트얍 CraftYap" />
           <nav class="hub-tabs hub-glass" aria-label="메뉴">
             <button class="hub-tab on" type="button" aria-current="page"><img class="hub-ic" src="/ui/hub/icon-home.webp" alt="" /><span>홈</span></button>
             <button class="hub-tab" type="button" data-soon="맵 탐색"><img class="hub-ic" src="/ui/hub/icon-map.webp" alt="" /><span>맵 탐색</span></button>
@@ -2590,29 +2590,35 @@
           <div class="mode-step" data-step="games" hidden>
             <div class="hub-games-head">
               <button class="mode-back hub-back" type="button"><svg><use href="#hub-i-chevron" /></svg>뒤로</button>
-              <h2>어떤 게임을 할까요?</h2>
+              <h2>친구와 함께 놀아요</h2>
             </div>
-            <div class="hub-games">
-              <button class="mode-btn hub-game" data-mode="craft" type="button">
-                <img src="/home/craft.webp" width="640" height="480" alt="" loading="lazy" />
-                <span class="hub-mode-text"><b>Craft Island</b><small>블록을 캐고 집을 짓고, 기계를 조립하는 샌드박스</small></span>
-              </button>
-              <button class="mode-btn hub-game" data-mode="tower" type="button">
-                <img src="/home/tower.webp" width="640" height="480" alt="" loading="lazy" />
-                <span class="hub-mode-text"><b>Daily Tower</b><small>매일 새로운 멀티플레이 점프 타워에 도전해요</small></span>
-              </button>
-              <button class="mode-btn hub-game" data-mode="builder" type="button">
-                <img src="/home/builder.webp" width="640" height="480" alt="" loading="lazy" />
-                <span class="hub-mode-text"><b>Robo Builder</b><small>로봇들이 세계의 랜드마크를 짓는 방치형 건설 게임</small></span>
-              </button>
-              <button class="mode-btn hub-game" data-mode="battle" type="button">
-                <img src="/home/battle.webp" width="640" height="480" alt="" loading="lazy" />
-                <span class="hub-mode-text"><b>Blast Royale</b><small>로봇들과 마지막까지 살아남는 배틀로얄</small></span>
-              </button>
+            <div class="party-actions">
+              <button class="party-btn party-create" type="button" data-id="party-create"><img class="hub-ic" src="/ui/hub/icon-create.webp" alt="" />방 만들기</button>
+              <button class="party-btn party-browse" type="button" data-id="party-browse" aria-expanded="false"><img class="hub-ic" src="/ui/hub/icon-friends.webp" alt="" />접속하기</button>
             </div>
-            <p class="hub-games-tip">Craft Island 기계 작업실에서 자동차와 비행기를 만들고 직접 움직여 보세요</p>
+            <div class="hub-solo" aria-label="혼자 하기">
+              <span class="hub-solo-label">혼자 하기</span>
+              <button class="mode-btn hub-solo-btn" data-mode="craft" type="button"><img src="/home/craft.webp" width="640" height="480" alt="" loading="lazy" /><b>Craft Island</b></button>
+              <button class="mode-btn hub-solo-btn" data-mode="tower" type="button"><img src="/home/tower.webp" width="640" height="480" alt="" loading="lazy" /><b>Daily Tower</b></button>
+              <button class="mode-btn hub-solo-btn" data-mode="builder" type="button"><img src="/home/builder.webp" width="640" height="480" alt="" loading="lazy" /><b>Robo Builder</b></button>
+              <button class="mode-btn hub-solo-btn" data-mode="battle" type="button"><img src="/home/battle.webp" width="640" height="480" alt="" loading="lazy" /><b>Blast Royale</b></button>
+            </div>
           </div>
         </div>
+
+        <aside class="party-drawer" data-id="party-drawer" aria-label="방 목록" aria-hidden="true">
+          <div class="party-drawer-head">
+            <h2><img class="hub-ic" src="/ui/hub/icon-friends.webp" alt="" />방 목록</h2>
+            <span class="party-status" data-id="party-status"></span>
+            <button type="button" class="party-drawer-x" data-id="party-drawer-close" aria-label="방 목록 닫기">✕</button>
+          </div>
+          <form class="party-codebar" data-id="party-codebar">
+            <input data-id="party-codebar-input" maxlength="6" autocomplete="off" placeholder="방 코드 6자리" aria-label="방 코드" />
+            <button type="submit">코드로 입장</button>
+          </form>
+          <ul class="party-rows" data-id="party-rows"></ul>
+          <p class="party-empty" data-id="party-empty">아직 열린 방이 없어요.<br />방 만들기로 첫 방을 열어 보세요!</p>
+        </aside>
 
         <nav class="hub-dock hub-dock-left hub-glass" aria-label="내 것">
           <button type="button" data-soon="인벤토리"><img class="hub-ic" src="/ui/hub/icon-bag.webp" alt="" />인벤토리</button>
@@ -2620,7 +2626,7 @@
           <button type="button" data-soon="캐릭터"><img class="hub-ic" src="/ui/hub/icon-character.webp" alt="" />캐릭터</button>
           <button type="button" data-soon="맵 갤러리"><img class="hub-ic" src="/ui/hub/icon-gallery.webp" alt="" />맵 갤러리</button>
         </nav>
-        <button class="hub-start" type="button" data-id="hub-start"><span aria-hidden="true">▶</span> 게임 시작<small data-id="hub-start-label">Craft Island</small></button>
+        <button class="hub-start" type="button" data-id="hub-start"><span aria-hidden="true">▶</span> 빠른 입장<small data-id="hub-start-label">빈자리 있는 방으로</small></button>
         <nav class="hub-dock hub-dock-right hub-glass" aria-label="함께하기">
           <button type="button" data-soon="파티 찾기"><img class="hub-ic" src="/ui/hub/icon-party.webp" alt="" />파티 찾기</button>
           <button type="button" data-soon="친구"><img class="hub-ic" src="/ui/hub/icon-friends.webp" alt="" />친구</button>

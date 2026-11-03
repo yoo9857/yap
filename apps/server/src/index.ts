@@ -9,6 +9,8 @@ import { RoomManager } from "./game/roomManager.js";
 import { attachWsServer } from "./net/wsServer.js";
 import { ClassManager } from "./classroom/classManager.js";
 import { createClassStore } from "./classroom/classStore.js";
+import { PartyManager } from "./party/partyManager.js";
+import { partyFieldName } from "@robo/shared";
 
 const config = loadConfig();
 const entryDir = dirname(fileURLToPath(import.meta.url));
@@ -175,7 +177,16 @@ const httpServer = createServer((req, res) => {
 // classes live in the same SQLite file as the records, so the existing
 // bind-mount and daily backup cover them too
 const classes = new ClassManager(createClassStore(resolve(entryDir, config.DB_PATH)));
-const closeWs = attachWsServer(httpServer, rooms, classes, {
+// the hub's rooms: in memory only; each room's game runs on the classroom
+// field ("build") or a tower room of its own ("tower"), keyed by its code
+const parties = new PartyManager({
+  prepare: (room) => (room.game === "build" ? classes.openParty(partyFieldName(room.code)) !== null : true),
+  players: (room) => (room.game === "build" ? classes.partyOnline(room.code) : rooms.partyPlayers(room.code)),
+});
+// party worlds open only for rooms that exist
+classes.partyGate = (code) => parties.has(code);
+rooms.partyGate = (code) => parties.has(code);
+const closeWs = attachWsServer(httpServer, rooms, classes, parties, {
   perAddress: config.MAX_CONN_PER_IP,
   total: config.MAX_CONNECTIONS,
 });
@@ -200,6 +211,7 @@ function shutdown(reason: string, code: number): void {
   for (const [name, step] of [
     ["ws", closeWs],
     ["rooms", () => rooms.shutdown()],
+    ["parties", () => parties.shutdown()],
     ["classes", () => classes.shutdown()],
     ["records", () => records.close()],
   ] as const) {

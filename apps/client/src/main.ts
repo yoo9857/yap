@@ -167,6 +167,7 @@ async function boot(): Promise<void> {
     await bootCharPreview(mount);
     // like any mode: the menu art and video otherwise stay over the turntable
     document.body.classList.add("in-game");
+    window.dispatchEvent(new Event("craftyap:playing")); // deferred downloads (the other character) may start
     return;
   }
 
@@ -208,6 +209,7 @@ async function boot(): Promise<void> {
   }
   // the menu art and its video are released once a game is on screen
   document.body.classList.add("in-game");
+  window.dispatchEvent(new Event("craftyap:playing")); // deferred downloads (the other character) may start
 }
 
 boot().catch((err: unknown) => {

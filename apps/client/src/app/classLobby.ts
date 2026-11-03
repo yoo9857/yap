@@ -103,7 +103,7 @@ export function chooseClass(parent: HTMLElement): Promise<ClassEntry | null> {
     screen.innerHTML = `
       <div class="screen-card board">
         <div class="board-head">
-          <img class="brand-logo" src="/craftyap-logo.png" alt="CraftYap" />
+          <img class="brand-logo" src="/craftyap-logo.webp" alt="CraftYap" />
           <div class="board-sign">
             <h1 class="game-brand">${t("교육 모드", "Education mode")} <span>${t("함께 만드는 교실", "Build together")}</span></h1>
             <p class="game-intro">${t("선생님은 반을 열고, 학생은 반 이름으로 들어와요.<br />혼자서 끝없는 들판을 꾸밀 수도 있어요.", "Teachers open a class; students join with its name.<br />Or build alone on an endless field.")}</p>

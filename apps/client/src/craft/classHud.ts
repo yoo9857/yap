@@ -49,10 +49,16 @@ export class ClassHud {
     private readonly actions: ClassHudActions,
   ) {
     const head = el("div", "class-head");
-    const title = el("b", "class-title", t(`🏫 ${room} · ${teacher} 선생님`, `🏫 ${room} · ${teacher}'s class`));
+    // a hub room's field (party:CODE) has no teacher: it is "room CODE"
+    const party = room.startsWith("party:") ? room.slice(6) : "";
+    const title = el("b", "class-title", party
+      ? t(`🎮 방 ${party} · 함께 짓기`, `🎮 Room ${party} · Build together`)
+      : t(`🏫 ${room} · ${teacher} 선생님`, `🏫 ${room} · ${teacher}'s class`));
     head.append(title, this.status);
     const sub = el("div", "class-sub");
-    sub.append(el("span", "", role === "teacher" ? t("👩‍🏫 내가 선생님", "👩‍🏫 You are the teacher") : t("🧒 내가 학생", "🧒 You are a student")), this.count);
+    sub.append(el("span", "", party
+      ? t("🧱 같은 들판에서 함께 짓는 중", "🧱 Building on one shared field")
+      : role === "teacher" ? t("👩‍🏫 내가 선생님", "👩‍🏫 You are the teacher") : t("🧒 내가 학생", "🧒 You are a student")), this.count);
     head.addEventListener("click", () => this.panel.classList.toggle("collapsed"));
     this.panel.append(head, sub, this.list);
 

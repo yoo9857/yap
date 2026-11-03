@@ -45,3 +45,4 @@ export function encodeMessage(msg: ClientMessage | ServerMessage): string {
   return JSON.stringify(msg);
 }
 export * from "./classroom.js";
+export * from "./party.js";

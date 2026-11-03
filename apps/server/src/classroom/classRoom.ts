@@ -105,6 +105,8 @@ export class ClassRoom {
   /** Wall-clock ms when the room last had nobody connected (null = occupied). */
   emptySince: number | null = null;
   closed = false;
+  /** A party room's field (protocol/party.ts): never saved, gone once it empties. */
+  ephemeral = false;
   /** classKey(name) → ms until which that student name is refused. */
   private readonly banned = new Map<string, number>();
   /** Something worth saving changed since the last toSaved(). */

@@ -1,3 +1,10 @@
+import type { PartyLobby } from "./partyLobby.js";
+
+/** A seat in a hub room survives the trip into a game (per tab). Read without loading the lobby. */
+const hasSeat = (): boolean => {
+  try { return !!sessionStorage.getItem("craftyap-party-seat"); } catch { return false; }
+};
+
 export type GameMode = "tower" | "builder" | "craft" | "battle" | "cinematic" | "field";
 
 const MODES: readonly GameMode[] = ["tower", "builder", "craft", "battle", "cinematic", "field"];
@@ -34,16 +41,15 @@ export function selectMode(parent: HTMLElement): Promise<GameMode> {
     };
     show("category");
     const choose = (mode: GameMode) => {
-      if (mode !== "field") {
-        try { localStorage.setItem(GAME_KEY, mode); } catch { /* optional */ }
-      }
+      lobby?.dispose();
       document.removeEventListener("keydown", onKey);
       el.remove();
       resolve(mode);
     };
+    let pickGames = () => show("games");
     const pick = (which: string) => {
       if (which === "field") choose("field");
-      else show("games");
+      else pickGames();
     };
 
     el.querySelectorAll<HTMLButtonElement>("[data-pick]").forEach((btn) => btn.addEventListener("click", () => pick(btn.dataset.pick!)));
@@ -52,32 +58,25 @@ export function selectMode(parent: HTMLElement): Promise<GameMode> {
       btn.addEventListener("click", () => choose(btn.dataset.mode as GameMode));
     });
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && el.dataset.board === "games") show("category");
+      if (e.key !== "Escape" || el.dataset.board !== "games") return;
+      if (lobby?.escape()) return; // a dialog or the waiting room is open
+      show("category");
     };
     document.addEventListener("keydown", onKey);
 
-    // The online hub's big start button plays the highlighted game: the last
-    // one played (Craft Island at first), or whichever card the pointer or focus is on.
-    const startBtn = el.querySelector<HTMLButtonElement>('[data-id="hub-start"]');
-    const startLabel = el.querySelector<HTMLElement>('[data-id="hub-start-label"]');
-    const games = [...el.querySelectorAll<HTMLButtonElement>("[data-mode]")];
-    let featured: GameMode = "craft";
-    try {
-      const last = localStorage.getItem(GAME_KEY);
-      if (games.some((g) => g.dataset.mode === last)) featured = last as GameMode;
-    } catch { /* optional */ }
-    const feature = (mode: GameMode) => {
-      featured = mode;
-      games.forEach((g) => g.classList.toggle("featured", g.dataset.mode === mode));
-      const title = games.find((g) => g.dataset.mode === mode)?.querySelector("b")?.textContent;
-      if (startLabel && title) startLabel.textContent = title;
+    // the hub's rooms: connected the first time the hub is shown
+    let lobby: PartyLobby | null = null;
+    const openHub = () => {
+      show("games");
+      if (lobby) return;
+      void import("./partyLobby.js").then(({ PartyLobby }) => {
+        lobby = new PartyLobby(el);
+        lobby.start();
+      });
     };
-    feature(featured);
-    games.forEach((g) => {
-      g.addEventListener("pointerenter", () => feature(g.dataset.mode as GameMode));
-      g.addEventListener("focus", () => feature(g.dataset.mode as GameMode));
-    });
-    startBtn?.addEventListener("click", () => choose(featured));
+    pickGames = openHub;
+    // back from a party game ("처음으로"): straight onto the rooms, into the seat
+    if (hasSeat()) openHub();
 
     wireSoon(el);
     showName(el);
@@ -85,7 +84,6 @@ export function selectMode(parent: HTMLElement): Promise<GameMode> {
   });
 }
 
-const GAME_KEY = "craftyap-home-game";
 const SEEN_NOTE_KEY = "craftyap-seen-note";
 
 /** Places kept for features that are not built yet answer with a short "coming soon". */

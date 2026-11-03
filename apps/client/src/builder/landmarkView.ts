@@ -172,7 +172,7 @@ export class LandmarkView {
    *  via the shared texture registry; the flat material stands in until the
    *  file arrives. */
   private attachSurfaceMap(material: THREE.MeshStandardMaterial, name: string): void {
-    void loadTexture(`/textures/surface/${name}.png`).then((tex) => {
+    void loadTexture(`/textures/surface/${name}.webp`).then((tex) => {
       if (!tex) return;
       material.map = tex;
       material.needsUpdate = true;

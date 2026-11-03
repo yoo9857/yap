@@ -37,8 +37,38 @@ export class RoomManager {
     return this.day;
   }
 
-  assign(session: Session, name: string): Room {
+  /**
+   * Into today's tower. With a party code the player goes into that party's
+   * own room (made on first use, never shared with strangers); otherwise into
+   * the first public room with space.
+   */
+  assign(session: Session, name: string, party?: string): Room {
+    if (party && (!this.partyGate || this.partyGate(party))) {
+      const id = `party-${party}`;
+      let room = this.rooms.get(id);
+      // yesterday's party room stays for those inside; a newcomer gets today's
+      if (room && room.seed !== this.day.seed && room.size === 0) {
+        room.destroy();
+        this.rooms.delete(id);
+        room = undefined;
+      }
+      if (room && room.seed !== this.day.seed) {
+        // players still on yesterday's tower keep it; it is collected once empty
+        this.rooms.set(`${id}~${room.seed}`, room);
+        room = undefined;
+      }
+      if (!room) {
+        room = new Room(id, this.day, this.records, this.maxPlayersPerRoom);
+        this.rooms.set(id, room);
+        log.info({ room: id, dateStr: this.day.dateStr }, "party tower room created");
+      }
+      // a full party room refuses rather than dropping the player among strangers
+      if (room.isFull) throw new Error("party tower room is full");
+      room.join(session, name);
+      return room;
+    }
     for (const room of this.rooms.values()) {
+      if (room.id.startsWith("party-")) continue;
       if (!room.isFull && room.seed === this.day.seed) {
         room.join(session, name);
         return room;
@@ -51,6 +81,17 @@ export class RoomManager {
     room.join(session, name);
     return room;
   }
+
+  /** Players in a party's tower room right now. */
+  partyPlayers(party: string): number {
+    // today's room and any still running yesterday's tower (kept under `party-X~seed`)
+    let n = 0;
+    for (const [key, room] of this.rooms) if (key === `party-${party}` || key.startsWith(`party-${party}~`)) n += room.size;
+    return n;
+  }
+
+  /** Is `code` a live hub room? Set by the server; unset (tests) means any code. */
+  partyGate: ((code: string) => boolean) | null = null;
 
   private checkRollover(): void {
     if (Date.now() < this.day.nextDayStartMs) return;

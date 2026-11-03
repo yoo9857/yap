@@ -37,7 +37,7 @@ export function brickMaterial(hex: string): THREE.MeshStandardMaterial {
     });
     const tile = DOODLE_TILES[hex.toLowerCase()];
     if (tile && typeof document !== "undefined") {
-      void loadTexture(`/textures/blocks/${tile}.png`, { repeat: true }).then((tex) => {
+      void loadTexture(`/textures/blocks/${tile}.webp`, { repeat: true }).then((tex) => {
         if (!tex) return;
         material.map = tex;
         material.color.set(0xffffff); // the tile carries the hue
@@ -78,13 +78,13 @@ export const LAVA_MATERIAL = new THREE.MeshStandardMaterial({
 // async texture attach for the shared specials
 // (guarded: this module is also imported in DOM-free unit-test runs)
 if (typeof document !== "undefined") {
-  void loadTexture("/textures/blocks/cracked-stone-bricks.png", { repeat: true }).then((tex) => {
+  void loadTexture("/textures/blocks/cracked-stone-bricks.webp", { repeat: true }).then((tex) => {
     if (!tex) return;
     CRACKED_MATERIAL.map = tex;
     CRACKED_MATERIAL.color.set(0xffffff);
     CRACKED_MATERIAL.needsUpdate = true;
   });
-  void loadTexture("/textures/blocks/lava.png", { repeat: true }).then((tex) => {
+  void loadTexture("/textures/blocks/lava.webp", { repeat: true }).then((tex) => {
     if (!tex) return;
     LAVA_MATERIAL.map = tex;
     LAVA_MATERIAL.emissiveMap = tex;

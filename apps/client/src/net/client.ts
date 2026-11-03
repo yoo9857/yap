@@ -57,6 +57,12 @@ export interface NetworkEvents {
  * move reports. Connection loss degrades to solo play; a reconnect re-runs
  * the hello → welcome resync (state-based protocol — nothing to replay).
  */
+/** `?party=CODE` (a hub room started Daily Tower): ride that room's own tower room. */
+const PARTY_CODE = (() => {
+  const code = new URLSearchParams(location.search).get("party")?.toUpperCase() ?? "";
+  return /^[A-Z2-9]{6}$/.test(code) ? code : "";
+})();
+
 export class NetworkClient {
   /** Today's persisted leaderboard (server-authoritative, deduped). */
   board: DailyBoardEntry[] = [];
@@ -79,7 +85,7 @@ export class NetworkClient {
     private readonly events: NetworkEvents,
   ) {
     this.socket.onOpen = () => {
-      this.socket.send({ t: "c-hello", v: PROTOCOL_VERSION, name: this.name });
+      this.socket.send({ t: "c-hello", v: PROTOCOL_VERSION, name: this.name, ...(PARTY_CODE ? { party: PARTY_CODE } : {}) });
     };
     this.socket.onStateChange = (state) => {
       if (state !== "online") {

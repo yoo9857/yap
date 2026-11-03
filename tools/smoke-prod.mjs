@@ -57,7 +57,7 @@ for (const [path, wantType] of [
   ["/audio/bgm-tower.mp3", "audio/mpeg"],
   ["/audio/sfx/manifest.json", "application/json"],
   ["/audio/sfx/break-stone-1.mp3", "audio/mpeg"],
-  ["/textures/blocks/water.png", "image/png"],
+  ["/textures/blocks/water.webp", "image/webp"],
   ["/robots.txt", "text/plain"],
   ["/llms.txt", "text/plain"],
   ["/indexnow-key.txt", "text/plain"],
@@ -148,6 +148,29 @@ await new Promise((resolve) => {
   const ws = new WebSocket(wsUrl);
   const timer = setTimeout(() => finish(false, "timeout"), 8000);
   ws.addEventListener("open", () => { clearTimeout(timer); finish(true, ""); });
+  ws.addEventListener("error", () => { clearTimeout(timer); finish(false, "connection error"); });
+});
+
+// 5) Hub rooms: the party protocol answers (an old server would leave this silent).
+//    Hello + list only — no room is created on the live server.
+await new Promise((resolve) => {
+  const ws = new WebSocket(base.replace(/^http/, "ws") + "/ws?mode=party");
+  let done = false;
+  const finish = (ok, detail) => {
+    if (done) return;
+    done = true;
+    check("Hub rooms (/ws?mode=party) answer hello and list", ok, detail);
+    try { ws.close(); } catch { /* already closed */ }
+    resolve();
+  };
+  const timer = setTimeout(() => finish(false, "timeout"), 8000);
+  ws.addEventListener("open", () => ws.send(JSON.stringify({ t: "p-hello", v: 1, name: "smoke" })));
+  ws.addEventListener("message", (ev) => {
+    const msg = JSON.parse(String(ev.data));
+    if (msg.t === "s-p-welcome") ws.send(JSON.stringify({ t: "p-list" }));
+    if (msg.t === "s-p-rooms") { clearTimeout(timer); finish(Array.isArray(msg.rooms), `${msg.rooms.length} public rooms`); }
+    if (msg.t === "s-p-error") { clearTimeout(timer); finish(false, msg.code); }
+  });
   ws.addEventListener("error", () => { clearTimeout(timer); finish(false, "connection error"); });
 });
 
