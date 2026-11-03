@@ -4,8 +4,45 @@
   <link href="https://craftyap.com/note/" />
   <link rel="self" href="https://craftyap.com/note/feed.xml" />
   <id>https://craftyap.com/note/</id>
-  <updated>2026-10-30T00:00:00+09:00</updated>
+  <updated>2026-11-03T00:00:00+09:00</updated>
   <author><name>크래프트얍(CraftYap)</name></author>
+  <entry xml:base="https://craftyap.com/">
+    <title>11월 3일 패치 노트 — 반 만들기·메뉴·조작법이 한 화면에, 뒤로 버튼은 크게</title>
+    <link href="https://craftyap.com/note/patch-2026-11-03/" />
+    <id>https://craftyap.com/note/patch-2026-11-03/</id>
+    <published>2026-11-03T00:00:00+09:00</published>
+    <updated>2026-11-03T00:00:00+09:00</updated>
+    <summary>교육 모드의 반 만들기·반 참여하기 화면, 게임 안의 시작/일시정지 메뉴, 조작법, Daily Tower 시작 화면을 스크롤 없이 한 화면에 보이도록 다시 짰습니다. 잘 안 보이던 뒤로 버튼은 왼쪽 위의 큰 버튼이 됐어요.</summary>
+    <content type="html">&lt;h2&gt;한눈에 보기&lt;/h2&gt;
+&lt;p&gt;화면이 낮은 노트북에서는 &lt;strong&gt;휠로 내려야 보이던&lt;/strong&gt; 화면이 많았어요. 반 만들기, 시작/일시정지 메뉴, 조작법, Daily Tower 시작 화면을 &lt;strong&gt;가로 두 칸&lt;/strong&gt;으로 다시 짜서 한 화면에 다 들어오게 했어요. 아래쪽에 작은 점선 글씨로 있던 &lt;strong&gt;뒤로 버튼&lt;/strong&gt;은 모든 화면에서 &lt;strong&gt;왼쪽 위의 큰 버튼&lt;/strong&gt;이 됐어요.&lt;/p&gt;
+&lt;h2&gt;BEFORE / AFTER&lt;/h2&gt;
+&lt;p&gt;&lt;strong&gt;반 만들기&lt;/strong&gt; — 입력 칸이 세로로 길게 이어지고, 맨 아래의 작은 &amp;quot;← 뒤로&amp;quot;는 잘 보이지 않았어요. 이제 왼쪽에는 무엇을 하면 되는지 1·2·3 순서로, 오른쪽에는 입력 칸이 있어요. 뒤로 버튼은 왼쪽 위에 있어요.&lt;/p&gt;
+&lt;p&gt;&lt;img src=&quot;/note/assets/20261103-lobby-ba.webp&quot; alt=&quot;반 만들기 화면 비교: 왼쪽은 입력 칸이 세로로 길고 뒤로 버튼이 아래쪽 작은 글씨인 이전 화면, 오른쪽은 순서 안내와 입력 칸이 나란히 있고 왼쪽 위에 큰 뒤로 버튼이 있는 새 화면&quot;&gt;&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;시작 / 일시정지 메뉴&lt;/strong&gt; — 키 안내 하나가 혼자 둘째 줄로 내려가면서 카드가 위아래로 길었어요. 이제 키 안내는 왼쪽, 플레이·조작법·설정·처음으로는 오른쪽에 있어서 카드가 낮아졌어요.&lt;/p&gt;
+&lt;p&gt;&lt;img src=&quot;/note/assets/20261103-menu-ba.webp&quot; alt=&quot;시작 메뉴 비교: 왼쪽은 세로로 긴 카드, 오른쪽은 키 안내와 버튼이 나란히 있는 낮은 카드&quot;&gt;&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;조작법&lt;/strong&gt; — 두 줄 목록이 화면 아래로 넘쳐서 휠로 내려야 했고, &amp;quot;돌아가기&amp;quot; 버튼도 맨 아래에 있었어요. 이제 네 줄로 펼쳐져 모든 조작이 한 화면에 보이고, 돌아가기 버튼은 왼쪽 위에 있어요. Esc로도 돌아갈 수 있어요.&lt;/p&gt;
+&lt;p&gt;&lt;img src=&quot;/note/assets/20261103-controls-ba.webp&quot; alt=&quot;조작법 화면 비교: 왼쪽은 아래가 잘린 두 줄 목록, 오른쪽은 모든 조작이 보이는 네 줄 목록과 왼쪽 위의 돌아가기 버튼&quot;&gt;&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;Daily Tower 시작 화면&lt;/strong&gt; — 플레이 칸과 오늘의 순위를 나란히 두고, &amp;quot;← 다른 게임&amp;quot; 버튼을 왼쪽 위에 달았어요.&lt;/p&gt;
+&lt;p&gt;&lt;img src=&quot;/note/assets/20261103-tower-ba.webp&quot; alt=&quot;Daily Tower 시작 화면 비교: 왼쪽은 세로로 긴 카드와 아래쪽 작은 링크, 오른쪽은 플레이와 순위가 나란히 있는 가로 카드&quot;&gt;&lt;/p&gt;
+&lt;h2&gt;개선&lt;/h2&gt;
+&lt;h3&gt;교육 모드&lt;/h3&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;반 만들기 · 반 참여하기 · 반 확인&lt;/strong&gt; — 순서 안내와 입력 칸을 나란히 두었어요. 휴대폰에서는 입력 칸이 먼저 나오고, 그 아래에 순서 안내가 짧게 붙어요.&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;반 비밀번호 도움말&lt;/strong&gt; — &amp;quot;다른 컴퓨터에서 다시 열 때 필요해요&amp;quot;가 입력 칸 안에 흐린 글씨로 있어서 입력을 시작하면 사라졌어요. 이제 칸 아래에 늘 보여요.&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;뒤로 버튼&lt;/strong&gt; — 처음 고르는 화면(선생님 / 학생 / 혼자)부터 반 확인까지 모든 단계의 왼쪽 위에 같은 버튼이 있어요. 홈의 게임 목록도 같아요.&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3&gt;게임 안 메뉴&lt;/h3&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;시작 / 일시정지 카드&lt;/strong&gt; — 키 안내 왼쪽, 버튼 오른쪽의 낮은 카드가 됐어요.&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;조작법 · 설정&lt;/strong&gt; — 맨 위에 돌아가기 버튼과 제목이 있어요. 조작법은 네 줄 목록이라 스크롤하지 않아도 돼요.&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3&gt;다른 게임&lt;/h3&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;Daily Tower 시작 화면&lt;/strong&gt; — 플레이와 오늘의 순위를 나란히 두고, 다른 게임으로 가는 버튼을 크게 달았어요.&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;Blast Royale 결과 화면&lt;/strong&gt; — &amp;quot;처음 화면으로&amp;quot;를 작은 링크에서 버튼으로 바꿨어요.&lt;/li&gt;
+&lt;/ul&gt;
+</content>
+  </entry>
   <entry xml:base="https://craftyap.com/">
     <title>10월 30일 패치 노트 (4) — 내 소리도 입체로, 가구가 소리를 막아요, 일시정지 화면 수정</title>
     <link href="https://craftyap.com/note/patch-2026-10-30-4/" />
@@ -896,55 +933,6 @@
 &lt;li&gt;마우스 입력이 순간적으로 튀면 카메라가 확 돌아가던 문제를 고쳤습니다.&lt;/li&gt;
 &lt;li&gt;배틀에서 커진 성 지붕 위에 착지하던 문제를 고쳤습니다. 이제 모두 성 바깥 땅에서 시작합니다.&lt;/li&gt;
 &lt;li&gt;카카오톡·트위터 등에 링크를 공유할 때 미리보기 이미지가 나오지 않던 문제를 고쳤습니다.&lt;/li&gt;
-&lt;/ul&gt;
-</content>
-  </entry>
-  <entry xml:base="https://craftyap.com/">
-    <title>7월 18일 패치 노트 — 크래프트얍 첫 공개</title>
-    <link href="https://craftyap.com/note/patch-2026-07-18/" />
-    <id>https://craftyap.com/note/patch-2026-07-18/</id>
-    <published>2026-07-18T00:00:00+09:00</published>
-    <updated>2026-07-18T00:00:00+09:00</updated>
-    <summary>크래프트얍이 문을 열었습니다. 매일 바뀌는 점프 타워, 로봇들이 랜드마크를 짓는 방치형 게임, 블록 섬 샌드박스와 로봇 배틀로얄까지 네 가지 게임으로 시작합니다.</summary>
-    <content type="html">&lt;blockquote&gt;
-&lt;p&gt;서버는 이날 오전에 열렸습니다. 이 노트는 이날 개발을 마친 내용 기준이며, 오후에 완성된 Craft Island와 Blast Royale은 서버 반영이 늦었을 수 있습니다(늦어도 10월 22일 반영).&lt;/p&gt;
-&lt;/blockquote&gt;
-&lt;h2&gt;한눈에 보기&lt;/h2&gt;
-&lt;p&gt;크래프트얍이 브라우저에서 바로 즐기는 블록 게임 모음으로 첫선을 보입니다. 설치도 회원가입도
-없습니다. 첫날부터 네 가지 게임이 열리고, 모든 모드가 크레용 낙서 느낌의 같은 블록 세상을
-공유합니다.&lt;/p&gt;
-&lt;h2&gt;새로 추가&lt;/h2&gt;
-&lt;h3&gt;Daily Tower — 매일 새로 열리는 점프 타워&lt;/h3&gt;
-&lt;ul&gt;
-&lt;li&gt;한국 시간 자정마다 새로운 타워가 생성됩니다. 같은 날에는 모두가 같은 타워에 도전합니다.&lt;/li&gt;
-&lt;li&gt;한 방에 최대 8명이 함께 오르는 멀티플레이를 지원합니다.&lt;/li&gt;
-&lt;li&gt;그날의 최고 기록이 일일 순위표에 저장됩니다.&lt;/li&gt;
-&lt;li&gt;움직이는 발판, 부서지는 발판, 체크포인트가 있습니다.&lt;/li&gt;
-&lt;li&gt;높이 올라갈수록 하늘이 지상 → 하늘 → 오존층 → 우주로 바뀝니다. 화면에 현재 고도와 구역이 표시됩니다.&lt;/li&gt;
-&lt;li&gt;모바일에서는 조이스틱과 점프 버튼으로 플레이할 수 있습니다.&lt;/li&gt;
-&lt;/ul&gt;
-&lt;h3&gt;Robo Builder — 로봇이 짓는 세계의 랜드마크&lt;/h3&gt;
-&lt;ul&gt;
-&lt;li&gt;로봇 일꾼들이 에펠탑, 피라미드 같은 세계의 랜드마크를 실제 크기의 블록으로 쌓아 올립니다.&lt;/li&gt;
-&lt;li&gt;골드를 모아 일꾼을 고용하면 건설 속도가 빨라집니다.&lt;/li&gt;
-&lt;li&gt;게임을 꺼 둔 동안 진행된 만큼은 다시 들어왔을 때 정산됩니다.&lt;/li&gt;
-&lt;/ul&gt;
-&lt;h3&gt;Craft Island — 블록 섬 샌드박스&lt;/h3&gt;
-&lt;ul&gt;
-&lt;li&gt;성이 서 있는 블록 섬에서 블록을 캐고, 조합하고, 쌓을 수 있습니다.&lt;/li&gt;
-&lt;li&gt;진행 상황은 브라우저에 자동 저장됩니다.&lt;/li&gt;
-&lt;/ul&gt;
-&lt;h3&gt;Blast Royale — 로봇 배틀로얄&lt;/h3&gt;
-&lt;ul&gt;
-&lt;li&gt;나와 로봇 봇 일곱이 섬에서 마지막 한 명이 남을 때까지 싸웁니다. 봇끼리도 싸웁니다.&lt;/li&gt;
-&lt;li&gt;안전 구역이 세 단계에 걸쳐 좁아집니다.&lt;/li&gt;
-&lt;li&gt;낙하 직후 4초 동안은 공격할 수 없어 시작 위치가 공평합니다.&lt;/li&gt;
-&lt;/ul&gt;
-&lt;h2&gt;개선&lt;/h2&gt;
-&lt;ul&gt;
-&lt;li&gt;첫 화면 이미지 용량을 약 3MB에서 0.3MB 수준으로 줄여 처음 접속할 때 더 빨리 열립니다.&lt;/li&gt;
-&lt;li&gt;로딩 화면에서 그래픽 준비를 미리 끝내, 게임 도중 처음 보는 물체 때문에 화면이 멈칫하는 일을 줄였습니다.&lt;/li&gt;
-&lt;li&gt;고해상도 화면에서 그래픽 부담을 낮춰 타워 모드의 프레임 끊김을 줄였습니다.&lt;/li&gt;
 &lt;/ul&gt;
 </content>
   </entry>

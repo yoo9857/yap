@@ -6,7 +6,14 @@
     <atom:link href="https://craftyap.com/feed.xml" rel="self" type="application/rss+xml" />
     <description>크래프트얍(CraftYap) 패치 노트와 개발 이야기</description>
     <language>ko</language>
-    <lastBuildDate>Thu, 29 Oct 2026 15:00:00 +0000</lastBuildDate>
+    <lastBuildDate>Mon, 02 Nov 2026 15:00:00 +0000</lastBuildDate>
+    <item>
+      <title>11월 3일 패치 노트 — 반 만들기·메뉴·조작법이 한 화면에, 뒤로 버튼은 크게</title>
+      <link>https://craftyap.com/note/patch-2026-11-03/</link>
+      <guid isPermaLink="true">https://craftyap.com/note/patch-2026-11-03/</guid>
+      <pubDate>Mon, 02 Nov 2026 15:00:00 +0000</pubDate>
+      <description>교육 모드의 반 만들기·반 참여하기 화면, 게임 안의 시작/일시정지 메뉴, 조작법, Daily Tower 시작 화면을 스크롤 없이 한 화면에 보이도록 다시 짰습니다. 잘 안 보이던 뒤로 버튼은 왼쪽 위의 큰 버튼이 됐어요.</description>
+    </item>
     <item>
       <title>10월 30일 패치 노트 (4) — 내 소리도 입체로, 가구가 소리를 막아요, 일시정지 화면 수정</title>
       <link>https://craftyap.com/note/patch-2026-10-30-4/</link>
@@ -139,13 +146,6 @@
       <guid isPermaLink="true">https://craftyap.com/note/patch-2026-07-19/</guid>
       <pubDate>Sat, 18 Jul 2026 15:00:00 +0000</pubDate>
       <description>섬과 배틀 모드의 블록을 점프 타워와 같은 장난감 블록으로 통일하고, 블록 모양 팔레트와 거대한 성을 추가했습니다. 움직이는 발판 위에서 걷지 못하던 문제도 고쳤습니다.</description>
-    </item>
-    <item>
-      <title>7월 18일 패치 노트 — 크래프트얍 첫 공개</title>
-      <link>https://craftyap.com/note/patch-2026-07-18/</link>
-      <guid isPermaLink="true">https://craftyap.com/note/patch-2026-07-18/</guid>
-      <pubDate>Fri, 17 Jul 2026 15:00:00 +0000</pubDate>
-      <description>크래프트얍이 문을 열었습니다. 매일 바뀌는 점프 타워, 로봇들이 랜드마크를 짓는 방치형 게임, 블록 섬 샌드박스와 로봇 배틀로얄까지 네 가지 게임으로 시작합니다.</description>
     </item>
   </channel>
 </rss>
