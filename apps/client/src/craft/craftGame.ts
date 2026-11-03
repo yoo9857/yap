@@ -163,6 +163,8 @@ export class CraftGame {
   private bonkAt = 0;
   private readonly seatOffset = new THREE.Vector3();
   private seatBlend = 0;
+  /** The class and seat this game plays in (classroom only): where our position is remembered. */
+  private classSession: { room: string; you: string } | null = null;
   private seatBlendDuration = .65;
   private mining = false;
   private placing = false;
@@ -268,8 +270,10 @@ export class CraftGame {
         world: this.field.world,
         inventory: fieldStarterInventory(),
         hotbar: readStoredHotbar(localStorage, CLASS_HOTBAR_KEY, fieldStarterHotbar),
-        // spread arrivals out so a whole class doesn't land in one cell
-        player: { x: spawn.x + (Math.random() - 0.5) * 8, y: spawn.y, z: spawn.z + (Math.random() - 0.5) * 8 },
+        // back where this seat last stood (a refresh, or the automatic reload after a deploy);
+        // a first visit spreads arrivals out so a whole class doesn't land in one cell
+        player: this.rememberedClassPos(opts.classroom.session.room, opts.classroom.session.you)
+          ?? { x: spawn.x + (Math.random() - 0.5) * 8, y: spawn.y, z: spawn.z + (Math.random() - 0.5) * 8 },
         pet: "dog",
         furniture: new FurnitureLayout(),
       };
@@ -339,10 +343,14 @@ export class CraftGame {
     this.applyViewDistance(this.loadViewPreset());
     this.buildGhost();
     if (opts.classroom && this.field) {
+      this.classSession = { room: opts.classroom.session.room, you: opts.classroom.session.you };
       this.sync = new ClassSync(opts.classroom.client, opts.classroom.session, this.field, this.view,
         this.renderer.scene, {
           camera: () => this.renderer.camera,
           teleport: (x, y, z) => {
+            // a test drive keeps its machine, colliders and apron in grid coordinates: scrolling the
+            // field under it would leave the machine on invisible old terrain — leave the lab first
+            if (this.workshop.active) this.workshop.toggle();
             // a seated or crawling student is called over too (stepSeated would pin them to the seat)
             if (this.seated) this.standUp();
             if (this.posture !== "stand") this.changePosture("stand", false);
@@ -356,6 +364,8 @@ export class CraftGame {
             this.scrollField();
             unstick(this.state.world, this.body);
             this.prevBody.set(this.body.x, this.body.y, this.body.z);
+            // standUp() started a blend from the seat; the body is somewhere else entirely now
+            this.seatBlend = 0;
             this.pet.recall(this.state.world, this.body);
           },
           furnitureReset: () => this.furniture.forgetHistory(),
@@ -1087,6 +1097,9 @@ export class CraftGame {
       this.miningEffects.shift(shift.dx,shift.dz);
       this.pet.shift(shift.dx, shift.dz);
       this.sync?.shift(shift.dx, shift.dz);
+      // the aimed cell was a grid coordinate: re-aim, or a frame drawn before the next tick
+      // highlights a different absolute block
+      this.updateAim();
     }
   }
 
@@ -1485,9 +1498,38 @@ export class CraftGame {
   private lastSaveSignature = "";
   private saveFailed = false;
   private savedElsewhere = false;
+  /** Classroom: where this seat stood, in absolute field coordinates (localStorage, per class + seat). */
+  private classPosKey(room: string, you: string): string {
+    return `craftyap-class-pos:${room.trim().replace(/\s+/g, " ").toLowerCase()}:${you}`;
+  }
+
+  private rememberClassPos(): void {
+    const session = this.classSession;
+    if (!session || !this.field) return;
+    const [ax, az] = this.field.toAbsolute(this.body.x, this.body.z);
+    try {
+      localStorage.setItem(this.classPosKey(session.room, session.you), JSON.stringify({ x: ax, y: this.body.y, z: az, at: Date.now() }));
+    } catch { /* storage is optional: the class spawn is the fallback */ }
+  }
+
+  /** The remembered absolute spot converted to this window's grid, if recent (12 h) and sane. */
+  private rememberedClassPos(room: string, you: string): { x: number; y: number; z: number } | null {
+    try {
+      const raw = localStorage.getItem(this.classPosKey(room, you));
+      if (!raw) return null;
+      const p = JSON.parse(raw) as { x?: unknown; y?: unknown; z?: unknown; at?: unknown };
+      if (typeof p.x !== "number" || typeof p.y !== "number" || typeof p.z !== "number" || typeof p.at !== "number") return null;
+      if (![p.x, p.y, p.z].every(Number.isFinite) || Date.now() - p.at > 12 * 3600_000 || p.y < 1 || p.y > 60) return null;
+      const [gx, gz] = this.field!.toGrid(p.x, p.z);
+      return { x: gx, y: p.y, z: gz };
+    } catch {
+      return null;
+    }
+  }
+
   private persist(): void {
     this.lastSaveAt = Date.now();
-    if (this.sync) return; // the class's field lives on the server
+    if (this.sync) { this.rememberClassPos(); return; } // the class's field lives on the server; our spot is ours
     if (this.savedElsewhere) return; // another tab owns the save now
     // standing still with no edits: nothing to write, skip the serialise +
     // synchronous localStorage write entirely
