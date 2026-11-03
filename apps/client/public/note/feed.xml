@@ -7,6 +7,44 @@
   <updated>2026-11-03T00:00:00+09:00</updated>
   <author><name>크래프트얍(CraftYap)</name></author>
   <entry xml:base="https://craftyap.com/">
+    <title>11월 3일 패치 노트 (4) — 한 방에 50명, 사람이 많아도 부드럽게</title>
+    <link href="https://craftyap.com/note/patch-2026-11-03-4/" />
+    <id>https://craftyap.com/note/patch-2026-11-03-4/</id>
+    <published>2026-11-03T00:00:00+09:00</published>
+    <updated>2026-11-03T00:00:00+09:00</updated>
+    <summary>방을 50명까지 만들 수 있어요. 사람이 많아져도 친구 캐릭터가 순간이동하지 않고 부드럽게 움직이도록 네트워크와 화면 그리기를 고도화했고, 여러 사람이 동시에 누를 때 생기던 충돌도 정리했어요.</summary>
+    <content type="html">&lt;h2&gt;한눈에 보기&lt;/h2&gt;
+&lt;p&gt;이제 &lt;strong&gt;한 방에 50명&lt;/strong&gt;까지 모일 수 있어요. 사람이 많아질수록 느려지고 친구가 &lt;strong&gt;순간이동하듯 튀던 문제&lt;/strong&gt;를, 큰 온라인 게임들이 쓰는 방식으로 고쳤어요. 여러 명이 동시에 누를 때 생기던 &lt;strong&gt;충돌&lt;/strong&gt;도 정리했어요.&lt;/p&gt;
+&lt;h2&gt;BEFORE / AFTER&lt;/h2&gt;
+&lt;p&gt;&lt;strong&gt;대기실&lt;/strong&gt; — 8명이 최대였던 방이 50명까지 늘었어요. 9명이 넘는 방은 자리 카드 대신 한눈에 보이는 참가자 목록으로 바뀌고, 준비한 사람 수도 위에 보여요.&lt;/p&gt;
+&lt;p&gt;&lt;img src=&quot;/note/assets/20261103-room50-ba.webp&quot; alt=&quot;대기실 비교: 왼쪽은 8칸 자리 카드가 가득 찬 이전 화면, 오른쪽은 참가자 12/50명 목록과 준비 9/12가 보이는 새 화면&quot;&gt;&lt;/p&gt;
+&lt;h2&gt;새로 추가&lt;/h2&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;한 방 50명&lt;/strong&gt; — 방을 만들 때 최대 인원을 50명까지 고를 수 있어요. 고른 게임에 맞춰 선택지가 바뀌어요(함께 짓기 50명, Daily Tower 8명).&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;참가자 목록&lt;/strong&gt; — 큰 방은 방장이 맨 위, 접속한 사람이 먼저 보이는 목록으로 보여요.&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2&gt;개선&lt;/h2&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;친구가 부드럽게 움직여요&lt;/strong&gt; — 친구 캐릭터를 아주 조금(약 0.13초) 늦게, 받은 두 위치 사이를 이어서 그려요. 와이파이가 흔들려서 정보가 늦게 오거나 몰려 와도 순간이동하지 않아요. 멀리 있는 친구도 끊기지 않아요.&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;잠깐 멈춰도 튀지 않아요&lt;/strong&gt; — 서버나 인터넷이 잠깐 멈췄다 풀려도, 친구가 휙 튀는 대신 짧게 미끄러지듯 제자리로 돌아가요.&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;사람이 많아도 빨라요&lt;/strong&gt; — 화면 밖에 있는 친구는 그리지 않고, 가까운 10명만 그림자와 외곽선까지 그려요. 40명이 모인 방에서 화면이 초당 48장에서 &lt;strong&gt;60장&lt;/strong&gt;으로 부드러워졌어요.&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;서버가 가벼워졌어요&lt;/strong&gt; — 위치 정보를 한 번만 만들어 나눠 보내고, 멀리 있는 친구 정보는 덜 자주 보내요. 50명일 때 서버가 보내는 양이 &lt;strong&gt;약 4분의 1&lt;/strong&gt;로 줄었어요.&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2&gt;버그 수정&lt;/h2&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;시작을 두 번 누르면&lt;/strong&gt; 게임 중인 친구들까지 다시 이동하던 문제를 고쳤어요.&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;게임 중에 게임을 바꾸면&lt;/strong&gt; 새로 들어온 친구만 다른 게임으로 가던 문제를 막았어요.&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;방에 없는 사람이 친구 이름으로&lt;/strong&gt; 함께 짓기에 먼저 들어와 진짜 친구가 막히던 문제를 고쳤어요. 내보낸 친구도 다시 들어올 수 없어요.&lt;/li&gt;
+&lt;li&gt;사람이 많은 방에서 Daily Tower(8명까지)로 바꾸려 하면 이유를 알려 주고 막아요.&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2&gt;알려진 문제&lt;/h2&gt;
+&lt;ul&gt;
+&lt;li&gt;방은 서버가 업데이트되면 닫혀요.&lt;/li&gt;
+&lt;li&gt;아주 많은 사람(수백 명 이상)이 동시에 접속하려면 서버를 여러 대로 나누는 작업이 더 필요해요.&lt;/li&gt;
+&lt;/ul&gt;
+</content>
+  </entry>
+  <entry xml:base="https://craftyap.com/">
     <title>11월 3일 패치 노트 (3) — 친구와 방에서 함께, 게임 로딩은 더 빠르게</title>
     <link href="https://craftyap.com/note/patch-2026-11-03-3/" />
     <id>https://craftyap.com/note/patch-2026-11-03-3/</id>
@@ -908,42 +946,6 @@
 &lt;ul&gt;
 &lt;li&gt;Blast Royale의 안전 구역과 낙하 지점을 지도 한가운데가 아니라 성 기준으로 잡습니다.&lt;/li&gt;
 &lt;li&gt;첫 화면을 읽을거리 중심의 소개 페이지로 바꿨습니다. &lt;em&gt;(다음 날 게임 선택 화면으로 되돌렸습니다.)&lt;/em&gt;&lt;/li&gt;
-&lt;/ul&gt;
-</content>
-  </entry>
-  <entry xml:base="https://craftyap.com/">
-    <title>8월 5일 패치 노트 — Robo Builder VR</title>
-    <link href="https://craftyap.com/note/patch-2026-08-05/" />
-    <id>https://craftyap.com/note/patch-2026-08-05/</id>
-    <published>2026-08-05T00:00:00+09:00</published>
-    <updated>2026-08-05T00:00:00+09:00</updated>
-    <summary>PC VR 헤드셋으로 Robo Builder의 건설 현장 한가운데에 설 수 있습니다. 멀미를 막기 위해 시점은 움직이지 않고 장면 전환만 합니다. 손목 상점으로 VR 안에서도 일꾼을 고용할 수 있습니다.</summary>
-    <content type="html">&lt;blockquote&gt;
-&lt;p&gt;날짜는 이 업데이트의 개발을 마친 날입니다. 당시 자동 배포가 멈춰 있어서, 서버에 실제로 반영된 날은 이보다 늦을 수 있습니다(늦어도 10월 22일 반영).&lt;/p&gt;
-&lt;/blockquote&gt;
-&lt;h2&gt;한눈에 보기&lt;/h2&gt;
-&lt;p&gt;330m 에펠탑이 올라가는 모습을 그 앞에 서서 올려다볼 수 있게 되었습니다. 이번 업데이트의
-원칙은 하나, &lt;strong&gt;멀미가 나지 않는 VR&lt;/strong&gt;입니다. 화면 속 카메라 연출을 그대로 VR에 옮기면
-어지럽기 때문에 VR 전용 시점을 따로 만들었습니다.&lt;/p&gt;
-&lt;h2&gt;새로 추가&lt;/h2&gt;
-&lt;ul&gt;
-&lt;li&gt;&lt;strong&gt;VR로 보기&lt;/strong&gt; — PC VR 헤드셋이 연결되어 있으면 Robo Builder에 &amp;quot;Enter VR&amp;quot; 버튼이 나타납니다.&lt;/li&gt;
-&lt;li&gt;&lt;strong&gt;네 곳의 관람 지점&lt;/strong&gt; — 광장, 작업장, 건설 최전선, 전망대에서 번갈아 건설 현장을 봅니다.&lt;ul&gt;
-&lt;li&gt;보고 있는 동안에는 시점이 절대 움직이지 않습니다. 지점을 바꿀 때는 화면이 잠깐 까맣게 가려진 뒤 바뀝니다.&lt;/li&gt;
-&lt;li&gt;시점은 좌우 방향만 맞춰 둡니다. 위아래는 직접 고개를 들어 보면 됩니다.&lt;/li&gt;
-&lt;li&gt;높은 지점에는 난간이 있는 발판을 두어 고소공포를 줄였습니다.&lt;/li&gt;
-&lt;/ul&gt;
-&lt;/li&gt;
-&lt;li&gt;&lt;strong&gt;손목 상점&lt;/strong&gt; — 왼손 손목에 상점 패널이 붙습니다. 오른손으로 가리켜 VR 안에서도 일꾼을 고용할 수 있습니다.&lt;/li&gt;
-&lt;/ul&gt;
-&lt;h2&gt;버그 수정&lt;/h2&gt;
-&lt;ul&gt;
-&lt;li&gt;랜드마크가 완성되는 순간 VR 관람 발판이 바닥으로 떨어지던 문제를 고쳤습니다.&lt;/li&gt;
-&lt;li&gt;재접속 환영 창이 떠 있는 동안 VR에 들어가면 멈춘 세상에 갇히던 문제를 고쳤습니다. 이제 VR에 들어가면 환영 창이 닫힙니다.&lt;/li&gt;
-&lt;/ul&gt;
-&lt;h2&gt;알려진 문제&lt;/h2&gt;
-&lt;ul&gt;
-&lt;li&gt;이번 VR 기능은 헤드셋 없는 환경에서 검증했습니다. 실제 헤드셋에서의 착용감과 성능은 계속 확인하고 있습니다.&lt;/li&gt;
 &lt;/ul&gt;
 </content>
   </entry>

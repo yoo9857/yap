@@ -8,6 +8,13 @@
     <language>ko</language>
     <lastBuildDate>Mon, 02 Nov 2026 15:00:00 +0000</lastBuildDate>
     <item>
+      <title>11월 3일 패치 노트 (4) — 한 방에 50명, 사람이 많아도 부드럽게</title>
+      <link>https://craftyap.com/note/patch-2026-11-03-4/</link>
+      <guid isPermaLink="true">https://craftyap.com/note/patch-2026-11-03-4/</guid>
+      <pubDate>Mon, 02 Nov 2026 15:00:00 +0000</pubDate>
+      <description>방을 50명까지 만들 수 있어요. 사람이 많아져도 친구 캐릭터가 순간이동하지 않고 부드럽게 움직이도록 네트워크와 화면 그리기를 고도화했고, 여러 사람이 동시에 누를 때 생기던 충돌도 정리했어요.</description>
+    </item>
+    <item>
       <title>11월 3일 패치 노트 (3) — 친구와 방에서 함께, 게임 로딩은 더 빠르게</title>
       <link>https://craftyap.com/note/patch-2026-11-03-3/</link>
       <guid isPermaLink="true">https://craftyap.com/note/patch-2026-11-03-3/</guid>
@@ -139,13 +146,6 @@
       <guid isPermaLink="true">https://craftyap.com/note/patch-2026-10-14/</guid>
       <pubDate>Tue, 13 Oct 2026 15:00:00 +0000</pubDate>
       <description>Craft Island에서 B를 누르면 자동차와 비행기를 조립해 직접 몰아 보는 기계 작업실이 열립니다. 섬도 네 배로 넓어져 본토와 마을이 생겼습니다.</description>
-    </item>
-    <item>
-      <title>8월 5일 패치 노트 — Robo Builder VR</title>
-      <link>https://craftyap.com/note/patch-2026-08-05/</link>
-      <guid isPermaLink="true">https://craftyap.com/note/patch-2026-08-05/</guid>
-      <pubDate>Tue, 04 Aug 2026 15:00:00 +0000</pubDate>
-      <description>PC VR 헤드셋으로 Robo Builder의 건설 현장 한가운데에 설 수 있습니다. 멀미를 막기 위해 시점은 움직이지 않고 장면 전환만 합니다. 손목 상점으로 VR 안에서도 일꾼을 고용할 수 있습니다.</description>
     </item>
   </channel>
 </rss>

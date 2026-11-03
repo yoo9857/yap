@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>11월 3일 패치 노트 (4) — 한 방에 50명, 사람이 많아도 부드럽게 | 크래프트얍 개발 노트</title>
+    <meta name="description" content="방을 50명까지 만들 수 있어요. 사람이 많아져도 친구 캐릭터가 순간이동하지 않고 부드럽게 움직이도록 네트워크와 화면 그리기를 고도화했고, 여러 사람이 동시에 누를 때 생기던 충돌도 정리했어요." />
+    <meta name="robots" content="index, follow, max-image-preview:large" />
+    <meta name="theme-color" content="#ffd21c" />
+    <meta name="generator" content="tools/build-notes.mjs" />
+    <link rel="canonical" href="https://craftyap.com/note/patch-2026-11-03-4/" />
+    <link rel="alternate" type="application/rss+xml" title="크래프트얍 개발 노트" href="/feed.xml" />
+    <link rel="alternate" type="application/atom+xml" title="크래프트얍 개발 노트 (Atom)" href="/note/feed.xml" />
+    <link rel="icon" type="image/png" sizes="48x48" href="/favicon-48.png" />
+    <link rel="stylesheet" href="/guide/guide.css?v=0f9762e0f8" />
+    <link rel="stylesheet" href="/note/note.css?v=e5352788b0" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Jua&family=Noto+Sans+KR:wght@400;700;900&display=swap" rel="stylesheet" />
+    <meta property="og:type" content="article" />
+    <meta property="og:locale" content="ko_KR" />
+    <meta property="og:site_name" content="크래프트얍(CraftYap)" />
+    <meta property="og:title" content="11월 3일 패치 노트 (4) — 한 방에 50명, 사람이 많아도 부드럽게 | 크래프트얍 개발 노트" />
+    <meta property="og:description" content="방을 50명까지 만들 수 있어요. 사람이 많아져도 친구 캐릭터가 순간이동하지 않고 부드럽게 움직이도록 네트워크와 화면 그리기를 고도화했고, 여러 사람이 동시에 누를 때 생기던 충돌도 정리했어요." />
+    <meta property="og:url" content="https://craftyap.com/note/patch-2026-11-03-4/" />
+    <meta property="og:image" content="https://craftyap.com/craftyap-banner.jpg" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="675" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="11월 3일 패치 노트 (4) — 한 방에 50명, 사람이 많아도 부드럽게 | 크래프트얍 개발 노트" />
+    <meta name="twitter:description" content="방을 50명까지 만들 수 있어요. 사람이 많아져도 친구 캐릭터가 순간이동하지 않고 부드럽게 움직이도록 네트워크와 화면 그리기를 고도화했고, 여러 사람이 동시에 누를 때 생기던 충돌도 정리했어요." />
+    <meta name="twitter:image" content="https://craftyap.com/craftyap-banner.jpg" />
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "BlogPosting",
+      "@id": "https://craftyap.com/note/patch-2026-11-03-4/#post",
+      "url": "https://craftyap.com/note/patch-2026-11-03-4/",
+      "headline": "11월 3일 패치 노트 (4) — 한 방에 50명, 사람이 많아도 부드럽게",
+      "description": "방을 50명까지 만들 수 있어요. 사람이 많아져도 친구 캐릭터가 순간이동하지 않고 부드럽게 움직이도록 네트워크와 화면 그리기를 고도화했고, 여러 사람이 동시에 누를 때 생기던 충돌도 정리했어요.",
+      "datePublished": "2026-11-03",
+      "dateModified": "2026-11-03",
+      "inLanguage": "ko",
+      "keywords": "패치 노트, 멀티플레이, 방, 최적화",
+      "image": "https://craftyap.com/craftyap-banner.jpg",
+      "isPartOf": {
+        "@id": "https://craftyap.com/note/#blog"
+      },
+      "author": {
+        "@type": "Organization",
+        "name": "크래프트얍(CraftYap)",
+        "url": "https://craftyap.com/"
+      },
+      "about": {
+        "@id": "https://craftyap.com/#game"
+      }
+    },
+    {
+      "@type": "BreadcrumbList",
+      "itemListElement": [
+        {
+          "@type": "ListItem",
+          "position": 1,
+          "name": "크래프트얍",
+          "item": "https://craftyap.com/"
+        },
+        {
+          "@type": "ListItem",
+          "position": 2,
+          "name": "개발 노트",
+          "item": "https://craftyap.com/note/"
+        },
+        {
+          "@type": "ListItem",
+          "position": 3,
+          "name": "11월 3일 패치 노트 (4) — 한 방에 50명, 사람이 많아도 부드럽게",
+          "item": "https://craftyap.com/note/patch-2026-11-03-4/"
+        }
+      ]
+    }
+  ]
+}
+    </script>
+    <script src="/guide/guide.js?v=b6f46abba1" defer></script>
+  </head>
+
+  <body>
+    <a class="skip-link" href="#content">본문으로 이동</a>
+    <header class="site-header"><div class="header-inner">
+      <a class="brand" href="/" aria-label="크래프트얍 게임 홈"><img src="/craftyap-logo.webp" width="64" height="64" alt="" /><span>크래프트얍<small>CRAFTYAP</small></span></a>
+      <nav class="header-nav" id="site-nav" aria-label="주요 메뉴"><a href="/note/">개발 노트</a><a href="/guide/">게임 안내</a><a href="/guide/#controls">조작법</a><a href="/guide/#faq">FAQ</a></nav>
+      <a class="button button-dark header-play" href="/">지금 플레이 <span aria-hidden="true">↗</span></a>
+      <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="site-nav" aria-label="메뉴 열기" hidden><span></span><span></span></button>
+    </div></header>
+    <main id="content" class="note-main section-shell">
+      <article class="note-article" aria-labelledby="post-title">
+        <nav class="note-crumb" aria-label="현재 위치"><a href="/note/">← 개발 노트</a></nav>
+        <header class="note-head">
+          <p class="note-date"><time datetime="2026-11-03">2026.11.03</time></p>
+          <h1 id="post-title">11월 3일 패치 노트 (4) — 한 방에 50명, 사람이 많아도 부드럽게</h1>
+          <p class="note-summary">방을 50명까지 만들 수 있어요. 사람이 많아져도 친구 캐릭터가 순간이동하지 않고 부드럽게 움직이도록 네트워크와 화면 그리기를 고도화했고, 여러 사람이 동시에 누를 때 생기던 충돌도 정리했어요.</p>
+          <ul class="note-tags" aria-label="태그"><li>패치 노트</li><li>멀티플레이</li><li>방</li><li>최적화</li></ul>
+          <nav class="note-chips" aria-label="이번 노트의 변경 사항"><a class="note-chip note-chip--new" href="#new">신규 <b>2</b></a><a class="note-chip note-chip--up" href="#up">개선 <b>4</b></a><a class="note-chip note-chip--fix" href="#fix">수정 <b>4</b></a><a class="note-chip note-chip--known" href="#known">알려진 문제 <b>2</b></a></nav>
+        </header>
+        <div class="note-body">
+<section class="note-sec note-sec--summary" id="s0" aria-labelledby="s0-h">
+<h2 id="s0-h"><span class="note-badge" aria-hidden="true">요약</span>한눈에 보기</h2>
+<div class="note-sec-body">
+<p>이제 <strong>한 방에 50명</strong>까지 모일 수 있어요. 사람이 많아질수록 느려지고 친구가 <strong>순간이동하듯 튀던 문제</strong>를, 큰 온라인 게임들이 쓰는 방식으로 고쳤어요. 여러 명이 동시에 누를 때 생기던 <strong>충돌</strong>도 정리했어요.</p>
+</div>
+</section>
+<section class="note-sec">
+<h2>BEFORE / AFTER</h2>
+<p><strong>대기실</strong> — 8명이 최대였던 방이 50명까지 늘었어요. 9명이 넘는 방은 자리 카드 대신 한눈에 보이는 참가자 목록으로 바뀌고, 준비한 사람 수도 위에 보여요.</p>
+<p><img src="/note/assets/20261103-room50-ba.webp" alt="대기실 비교: 왼쪽은 8칸 자리 카드가 가득 찬 이전 화면, 오른쪽은 참가자 12/50명 목록과 준비 9/12가 보이는 새 화면"></p>
+</section>
+<section class="note-sec note-sec--new" id="new" aria-labelledby="new-h">
+<h2 id="new-h"><span class="note-badge" aria-hidden="true">NEW</span>새로 추가 <small>2</small></h2>
+<div class="note-sec-body">
+<ul>
+<li><strong class="item-title">한 방 50명</strong>방을 만들 때 최대 인원을 50명까지 고를 수 있어요. 고른 게임에 맞춰 선택지가 바뀌어요(함께 짓기 50명, Daily Tower 8명).</li>
+<li><strong class="item-title">참가자 목록</strong>큰 방은 방장이 맨 위, 접속한 사람이 먼저 보이는 목록으로 보여요.</li>
+</ul>
+</div>
+</section>
+<section class="note-sec note-sec--up" id="up" aria-labelledby="up-h">
+<h2 id="up-h"><span class="note-badge" aria-hidden="true">UP</span>개선 <small>4</small></h2>
+<div class="note-sec-body">
+<ul>
+<li><strong class="item-title">친구가 부드럽게 움직여요</strong>친구 캐릭터를 아주 조금(약 0.13초) 늦게, 받은 두 위치 사이를 이어서 그려요. 와이파이가 흔들려서 정보가 늦게 오거나 몰려 와도 순간이동하지 않아요. 멀리 있는 친구도 끊기지 않아요.</li>
+<li><strong class="item-title">잠깐 멈춰도 튀지 않아요</strong>서버나 인터넷이 잠깐 멈췄다 풀려도, 친구가 휙 튀는 대신 짧게 미끄러지듯 제자리로 돌아가요.</li>
+<li><strong class="item-title">사람이 많아도 빨라요</strong>화면 밖에 있는 친구는 그리지 않고, 가까운 10명만 그림자와 외곽선까지 그려요. 40명이 모인 방에서 화면이 초당 48장에서 <strong>60장</strong>으로 부드러워졌어요.</li>
+<li><strong class="item-title">서버가 가벼워졌어요</strong>위치 정보를 한 번만 만들어 나눠 보내고, 멀리 있는 친구 정보는 덜 자주 보내요. 50명일 때 서버가 보내는 양이 <strong>약 4분의 1</strong>로 줄었어요.</li>
+</ul>
+</div>
+</section>
+<section class="note-sec note-sec--fix" id="fix" aria-labelledby="fix-h">
+<h2 id="fix-h"><span class="note-badge" aria-hidden="true">FIX</span>버그 수정 <small>4</small></h2>
+<div class="note-sec-body">
+<ul>
+<li><strong>시작을 두 번 누르면</strong> 게임 중인 친구들까지 다시 이동하던 문제를 고쳤어요.</li>
+<li><strong>게임 중에 게임을 바꾸면</strong> 새로 들어온 친구만 다른 게임으로 가던 문제를 막았어요.</li>
+<li><strong>방에 없는 사람이 친구 이름으로</strong> 함께 짓기에 먼저 들어와 진짜 친구가 막히던 문제를 고쳤어요. 내보낸 친구도 다시 들어올 수 없어요.</li>
+<li>사람이 많은 방에서 Daily Tower(8명까지)로 바꾸려 하면 이유를 알려 주고 막아요.</li>
+</ul>
+</div>
+</section>
+<section class="note-sec note-sec--known" id="known" aria-labelledby="known-h">
+<h2 id="known-h"><span class="note-badge" aria-hidden="true">!</span>알려진 문제 <small>2</small></h2>
+<div class="note-sec-body">
+<ul>
+<li>방은 서버가 업데이트되면 닫혀요.</li>
+<li>아주 많은 사람(수백 명 이상)이 동시에 접속하려면 서버를 여러 대로 나누는 작업이 더 필요해요.</li>
+</ul>
+</div>
+</section>
+        </div>
+      </article>
+      <nav class="note-pager" aria-label="다른 노트"><a class="note-prev" href="/note/patch-2026-11-03-3/"><small>이전 노트</small>11월 3일 패치 노트 (3) — 친구와 방에서 함께, 게임 로딩은 더 빠르게</a><span></span></nav>
+    </main>
+    <footer class="site-footer section-shell"><div><a class="footer-brand" href="/">크래프트얍 <span>CraftYap</span></a><p>블록 하나에서 시작되는, 네가 만드는 세상.</p></div><nav aria-label="하단 메뉴"><a href="/">게임 홈</a><a href="/note/">개발 노트</a><a href="/guide/">게임 안내</a><a href="/feed.xml">RSS</a><a href="#content">맨 위로 ↑</a></nav><small>크래프트얍 개발 노트 · <time datetime="2026-11-03">2026.11.03 업데이트</time></small></footer>
+  </body>
+</html>
