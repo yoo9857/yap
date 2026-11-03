@@ -73,7 +73,8 @@ for (const [path, wantType] of [
   ["/feed.xml", "application/xml"],
   ["/note/latest.json", "application/json"],
   ["/home/education.webp", "image/webp"],
-  ["/home/wood.webp", "image/webp"],
+  ["/ui/hub/panel-frame.webp", "image/webp"],
+  ["/ui/hub/start-button.webp", "image/webp"],
 ]) {
   try {
     // Inspect headers without starting and cancelling an audio/image stream.
