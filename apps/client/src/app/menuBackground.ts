@@ -1,6 +1,6 @@
 import { t } from "../ui/i18n.js";
 
-const BASE = "/backgrounds/craftyap-sunny-village-alive-v1-";
+const BASE = "/backgrounds/craftyap-sunny-village-alive-v2-";
 const PAUSE_KEY = "craftyap-menu-motion-paused";
 
 /** One shared decoder for the picker, classroom and loader; none during play. */

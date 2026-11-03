@@ -50,10 +50,10 @@ for (const [path, wantType] of [
   ["/backgrounds/craftyap-sunny-village-mobile.avif", "image/avif"],
   ["/backgrounds/craftyap-sunny-village-mobile.webp", "image/webp"],
   ["/backgrounds/craftyap-sunny-village-share.jpg", "image/jpeg"],
-  ["/backgrounds/craftyap-sunny-village-alive-v1-desktop.webm", "video/webm"],
-  ["/backgrounds/craftyap-sunny-village-alive-v1-desktop.mp4", "video/mp4"],
-  ["/backgrounds/craftyap-sunny-village-alive-v1-mobile.webm", "video/webm"],
-  ["/backgrounds/craftyap-sunny-village-alive-v1-mobile.mp4", "video/mp4"],
+  ["/backgrounds/craftyap-sunny-village-alive-v2-desktop.webm", "video/webm"],
+  ["/backgrounds/craftyap-sunny-village-alive-v2-desktop.mp4", "video/mp4"],
+  ["/backgrounds/craftyap-sunny-village-alive-v2-mobile.webm", "video/webm"],
+  ["/backgrounds/craftyap-sunny-village-alive-v2-mobile.mp4", "video/mp4"],
   ["/audio/bgm-tower.mp3", "audio/mpeg"],
   ["/audio/sfx/manifest.json", "application/json"],
   ["/audio/sfx/break-stone-1.mp3", "audio/mpeg"],
@@ -88,7 +88,7 @@ for (const [path, wantType] of [
 
 // Video seek/loop transport: bounded chunks, suffix reads and invalid ranges.
 try {
-  const path = "/backgrounds/craftyap-sunny-village-alive-v1-desktop.mp4";
+  const path = "/backgrounds/craftyap-sunny-village-alive-v2-desktop.mp4";
   for (const [range, count] of [["bytes=0-31", 32], ["bytes=-16", 16]]) {
     const response = await fetch(base + path, { headers: { Range: range }, signal: AbortSignal.timeout(15000) });
     check(`background video range ${range}`, response.status === 206 && response.headers.get("accept-ranges") === "bytes" && response.headers.get("content-range")?.startsWith("bytes ") && (await response.arrayBuffer()).byteLength === count);

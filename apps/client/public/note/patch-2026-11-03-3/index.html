@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>11월 3일 패치 노트 (3) — 친구와 방에서 함께, 게임 로딩은 더 빠르게 | 크래프트얍 개발 노트</title>
+    <meta name="description" content="온라인 허브에서 방을 만들고, 방 목록이나 코드로 친구 방에 들어가 대기실에서 함께 시작할 수 있어요. 게임 중인 방에도 바로 들어갈 수 있어요. 게임을 불러오는 시간도 약 20% 줄였어요." />
+    <meta name="robots" content="index, follow, max-image-preview:large" />
+    <meta name="theme-color" content="#ffd21c" />
+    <meta name="generator" content="tools/build-notes.mjs" />
+    <link rel="canonical" href="https://craftyap.com/note/patch-2026-11-03-3/" />
+    <link rel="alternate" type="application/rss+xml" title="크래프트얍 개발 노트" href="/feed.xml" />
+    <link rel="alternate" type="application/atom+xml" title="크래프트얍 개발 노트 (Atom)" href="/note/feed.xml" />
+    <link rel="icon" type="image/png" sizes="48x48" href="/favicon-48.png" />
+    <link rel="stylesheet" href="/guide/guide.css?v=0f9762e0f8" />
+    <link rel="stylesheet" href="/note/note.css?v=e5352788b0" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Jua&family=Noto+Sans+KR:wght@400;700;900&display=swap" rel="stylesheet" />
+    <meta property="og:type" content="article" />
+    <meta property="og:locale" content="ko_KR" />
+    <meta property="og:site_name" content="크래프트얍(CraftYap)" />
+    <meta property="og:title" content="11월 3일 패치 노트 (3) — 친구와 방에서 함께, 게임 로딩은 더 빠르게 | 크래프트얍 개발 노트" />
+    <meta property="og:description" content="온라인 허브에서 방을 만들고, 방 목록이나 코드로 친구 방에 들어가 대기실에서 함께 시작할 수 있어요. 게임 중인 방에도 바로 들어갈 수 있어요. 게임을 불러오는 시간도 약 20% 줄였어요." />
+    <meta property="og:url" content="https://craftyap.com/note/patch-2026-11-03-3/" />
+    <meta property="og:image" content="https://craftyap.com/craftyap-banner.jpg" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="675" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="11월 3일 패치 노트 (3) — 친구와 방에서 함께, 게임 로딩은 더 빠르게 | 크래프트얍 개발 노트" />
+    <meta name="twitter:description" content="온라인 허브에서 방을 만들고, 방 목록이나 코드로 친구 방에 들어가 대기실에서 함께 시작할 수 있어요. 게임 중인 방에도 바로 들어갈 수 있어요. 게임을 불러오는 시간도 약 20% 줄였어요." />
+    <meta name="twitter:image" content="https://craftyap.com/craftyap-banner.jpg" />
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "BlogPosting",
+      "@id": "https://craftyap.com/note/patch-2026-11-03-3/#post",
+      "url": "https://craftyap.com/note/patch-2026-11-03-3/",
+      "headline": "11월 3일 패치 노트 (3) — 친구와 방에서 함께, 게임 로딩은 더 빠르게",
+      "description": "온라인 허브에서 방을 만들고, 방 목록이나 코드로 친구 방에 들어가 대기실에서 함께 시작할 수 있어요. 게임 중인 방에도 바로 들어갈 수 있어요. 게임을 불러오는 시간도 약 20% 줄였어요.",
+      "datePublished": "2026-11-03",
+      "dateModified": "2026-11-03",
+      "inLanguage": "ko",
+      "keywords": "패치 노트, 멀티플레이, 방, 최적화",
+      "image": "https://craftyap.com/craftyap-banner.jpg",
+      "isPartOf": {
+        "@id": "https://craftyap.com/note/#blog"
+      },
+      "author": {
+        "@type": "Organization",
+        "name": "크래프트얍(CraftYap)",
+        "url": "https://craftyap.com/"
+      },
+      "about": {
+        "@id": "https://craftyap.com/#game"
+      }
+    },
+    {
+      "@type": "BreadcrumbList",
+      "itemListElement": [
+        {
+          "@type": "ListItem",
+          "position": 1,
+          "name": "크래프트얍",
+          "item": "https://craftyap.com/"
+        },
+        {
+          "@type": "ListItem",
+          "position": 2,
+          "name": "개발 노트",
+          "item": "https://craftyap.com/note/"
+        },
+        {
+          "@type": "ListItem",
+          "position": 3,
+          "name": "11월 3일 패치 노트 (3) — 친구와 방에서 함께, 게임 로딩은 더 빠르게",
+          "item": "https://craftyap.com/note/patch-2026-11-03-3/"
+        }
+      ]
+    }
+  ]
+}
+    </script>
+    <script src="/guide/guide.js?v=b6f46abba1" defer></script>
+  </head>
+
+  <body>
+    <a class="skip-link" href="#content">본문으로 이동</a>
+    <header class="site-header"><div class="header-inner">
+      <a class="brand" href="/" aria-label="크래프트얍 게임 홈"><img src="/craftyap-logo.webp" width="64" height="64" alt="" /><span>크래프트얍<small>CRAFTYAP</small></span></a>
+      <nav class="header-nav" id="site-nav" aria-label="주요 메뉴"><a href="/note/">개발 노트</a><a href="/guide/">게임 안내</a><a href="/guide/#controls">조작법</a><a href="/guide/#faq">FAQ</a></nav>
+      <a class="button button-dark header-play" href="/">지금 플레이 <span aria-hidden="true">↗</span></a>
+      <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="site-nav" aria-label="메뉴 열기" hidden><span></span><span></span></button>
+    </div></header>
+    <main id="content" class="note-main section-shell">
+      <article class="note-article" aria-labelledby="post-title">
+        <nav class="note-crumb" aria-label="현재 위치"><a href="/note/">← 개발 노트</a></nav>
+        <header class="note-head">
+          <p class="note-date"><time datetime="2026-11-03">2026.11.03</time></p>
+          <h1 id="post-title">11월 3일 패치 노트 (3) — 친구와 방에서 함께, 게임 로딩은 더 빠르게</h1>
+          <p class="note-summary">온라인 허브에서 방을 만들고, 방 목록이나 코드로 친구 방에 들어가 대기실에서 함께 시작할 수 있어요. 게임 중인 방에도 바로 들어갈 수 있어요. 게임을 불러오는 시간도 약 20% 줄였어요.</p>
+          <ul class="note-tags" aria-label="태그"><li>패치 노트</li><li>멀티플레이</li><li>방</li><li>최적화</li></ul>
+          <nav class="note-chips" aria-label="이번 노트의 변경 사항"><a class="note-chip note-chip--new" href="#new">신규 <b>6</b></a><a class="note-chip note-chip--up" href="#up">개선 <b>3</b></a><a class="note-chip note-chip--known" href="#known">알려진 문제 <b>3</b></a></nav>
+        </header>
+        <div class="note-body">
+<section class="note-sec note-sec--summary" id="s0" aria-labelledby="s0-h">
+<h2 id="s0-h"><span class="note-badge" aria-hidden="true">요약</span>한눈에 보기</h2>
+<div class="note-sec-body">
+<p>이제 <strong>친구와 같은 방에 모여서</strong> 게임을 시작할 수 있어요. 방을 만들거나, <strong>접속하기</strong>로 방 목록을 열어 들어가거나, 친구에게 받은 <strong>6자리 방 코드</strong>로 들어가요. 대기실에서 모두 준비하면 방장이 시작하고, 이미 게임 중인 방에 들어가도 바로 합류해요. 게임을 불러오는 시간도 줄였어요.</p>
+</div>
+</section>
+<section class="note-sec">
+<h2>BEFORE / AFTER</h2>
+<p><strong>온라인 허브</strong> — 가운데가 게임 목록이던 자리에 <strong>방 만들기 · 접속하기</strong>가 생겼어요. 혼자 하는 게임은 아래에 작은 버튼으로 남아 있어요.</p>
+<p><img src="/note/assets/20261103-rooms-ba.webp" alt="온라인 허브 비교: 왼쪽은 가운데에 게임 카드 네 장이 있는 이전 화면, 오른쪽은 방 만들기와 접속하기 버튼, 혼자 하기 버튼이 있는 새 화면"></p>
+<p><strong>접속하기</strong>를 누르면 오른쪽 패널이 옆으로 밀려나고 그 자리에 방 목록이 들어와요. 맨 위 칸에 방 코드를 넣어도 돼요.</p>
+<p><img src="/note/assets/20261103-room-list.webp" alt="방 목록: 오른쪽에 열린 방들이 게임, 인원, 대기 중 상태와 함께 보이고 맨 위에 방 코드 입력칸이 있는 화면"></p>
+<p><strong>대기실</strong> — 8개 자리, 준비 표시, 방 코드, 게임 고르기, 채팅이 한 화면에 있어요.</p>
+<p><img src="/note/assets/20261103-waiting-room.webp" alt="대기실: 왼쪽에 방장과 준비 완료한 친구가 앉은 8개 자리, 오른쪽에 게임 고르기와 채팅, 아래에 게임 시작 버튼"></p>
+</section>
+<section class="note-sec note-sec--new" id="new" aria-labelledby="new-h">
+<h2 id="new-h"><span class="note-badge" aria-hidden="true">NEW</span>새로 추가 <small>6</small></h2>
+<div class="note-sec-body">
+<ul>
+<li><strong class="item-title">방 만들기</strong>방 이름, 게임, 최대 인원(2~8명)을 정해요. &quot;방 목록에 보이기&quot;를 끄면 코드를 아는 친구만 들어와요.</li>
+<li><strong class="item-title">접속하기 · 코드로 입장 · 빠른 입장</strong>방 목록에서 고르거나, 6자리 코드를 넣거나, 큰 <strong>빠른 입장</strong> 버튼으로 빈자리 있는 방에 바로 들어가요.</li>
+<li><strong class="item-title">대기실</strong>준비 / 준비 취소, 채팅, 방 코드 복사가 있어요. 방장은 게임을 고르고, 시작하고, 친구를 내보낼 수 있어요.</li>
+<li><strong class="item-title">방에서 할 수 있는 게임</strong><strong>함께 짓기</strong>(같은 들판에서 함께 블록 쌓기)와 <strong>Daily Tower</strong>(방 친구끼리만 같은 타워). Blast Royale과 Robo Builder는 준비 중이에요.</li>
+<li><strong class="item-title">중간 입장</strong>게임 중인 방에 들어가면 진행 중인 게임으로 바로 합류해요.</li>
+<li><strong class="item-title">방으로 돌아오기</strong>게임에서 &quot;처음으로&quot;를 누르면 같은 방 대기실로 돌아와요.</li>
+</ul>
+</div>
+</section>
+<section class="note-sec note-sec--up" id="up" aria-labelledby="up-h">
+<h2 id="up-h"><span class="note-badge" aria-hidden="true">UP</span>개선 <small>3</small></h2>
+<div class="note-sec-body">
+<ul>
+<li><strong class="item-title">게임 불러오기가 빨라졌어요</strong>블록 그림을 더 가벼운 형식으로 바꿔 10 MB가 2 MB가 됐어요. 두 번째 캐릭터 모델은 게임이 시작된 뒤에 받아요. 같은 인터넷(20 Mbps)에서 들판에 들어가는 시간이 <strong>10.6초에서 8.4초</strong>로, 받는 양이 <strong>11.9 MB에서 약 6 MB</strong>로 줄었어요.</li>
+<li><strong class="item-title">메뉴 배경 영상</strong>화질은 그대로 두고 크기를 6.8 MB에서 2.8 MB로 줄였어요.</li>
+<li><strong class="item-title">로고 · 탭 아이콘</strong>로고를 가벼운 형식으로 바꾸고, 브라우저 탭 아이콘은 작은 전용 그림으로 바꿨어요.</li>
+</ul>
+</div>
+</section>
+<section class="note-sec note-sec--known" id="known" aria-labelledby="known-h">
+<h2 id="known-h"><span class="note-badge" aria-hidden="true">!</span>알려진 문제 <small>3</small></h2>
+<div class="note-sec-body">
+<ul>
+<li>방은 서버가 업데이트되면 닫혀요. 그때 함께 짓던 들판도 처음부터 다시 시작해요.</li>
+<li>방에서 내보낸 친구도 방 코드를 알면 함께 짓기 들판에 다시 들어올 수 있어요. 다음 업데이트에서 막을게요.</li>
+<li>Daily Tower 방은 타워 시작 화면에서 [플레이]를 한 번 더 눌러야 해요.</li>
+</ul>
+</div>
+</section>
+        </div>
+      </article>
+      <nav class="note-pager" aria-label="다른 노트"><a class="note-prev" href="/note/patch-2026-11-03-2/"><small>이전 노트</small>11월 3일 패치 노트 (2) — 새 첫 화면과 온라인 허브, 블록 질감의 새 메뉴</a><span></span></nav>
+    </main>
+    <footer class="site-footer section-shell"><div><a class="footer-brand" href="/">크래프트얍 <span>CraftYap</span></a><p>블록 하나에서 시작되는, 네가 만드는 세상.</p></div><nav aria-label="하단 메뉴"><a href="/">게임 홈</a><a href="/note/">개발 노트</a><a href="/guide/">게임 안내</a><a href="/feed.xml">RSS</a><a href="#content">맨 위로 ↑</a></nav><small>크래프트얍 개발 노트 · <time datetime="2026-11-03">2026.11.03 업데이트</time></small></footer>
+  </body>
+</html>

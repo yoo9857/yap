@@ -8,6 +8,13 @@
     <language>ko</language>
     <lastBuildDate>Mon, 02 Nov 2026 15:00:00 +0000</lastBuildDate>
     <item>
+      <title>11월 3일 패치 노트 (3) — 친구와 방에서 함께, 게임 로딩은 더 빠르게</title>
+      <link>https://craftyap.com/note/patch-2026-11-03-3/</link>
+      <guid isPermaLink="true">https://craftyap.com/note/patch-2026-11-03-3/</guid>
+      <pubDate>Mon, 02 Nov 2026 15:00:00 +0000</pubDate>
+      <description>온라인 허브에서 방을 만들고, 방 목록이나 코드로 친구 방에 들어가 대기실에서 함께 시작할 수 있어요. 게임 중인 방에도 바로 들어갈 수 있어요. 게임을 불러오는 시간도 약 20% 줄였어요.</description>
+    </item>
+    <item>
       <title>11월 3일 패치 노트 (2) — 새 첫 화면과 온라인 허브, 블록 질감의 새 메뉴</title>
       <link>https://craftyap.com/note/patch-2026-11-03-2/</link>
       <guid isPermaLink="true">https://craftyap.com/note/patch-2026-11-03-2/</guid>
@@ -139,13 +146,6 @@
       <guid isPermaLink="true">https://craftyap.com/note/patch-2026-08-05/</guid>
       <pubDate>Tue, 04 Aug 2026 15:00:00 +0000</pubDate>
       <description>PC VR 헤드셋으로 Robo Builder의 건설 현장 한가운데에 설 수 있습니다. 멀미를 막기 위해 시점은 움직이지 않고 장면 전환만 합니다. 손목 상점으로 VR 안에서도 일꾼을 고용할 수 있습니다.</description>
-    </item>
-    <item>
-      <title>7월 22일 패치 노트 — 방송 후원과 연동되는 Robo Builder</title>
-      <link>https://craftyap.com/note/patch-2026-07-22/</link>
-      <guid isPermaLink="true">https://craftyap.com/note/patch-2026-07-22/</guid>
-      <pubDate>Tue, 21 Jul 2026 15:00:00 +0000</pubDate>
-      <description>Robo Builder를 방송하는 스트리머를 위해 유튜브 채팅·슈퍼챗, 투네이션, 트윕 후원이 로봇 건설 속도를 올려 주는 기능을 추가했습니다.</description>
     </item>
   </channel>
 </rss>

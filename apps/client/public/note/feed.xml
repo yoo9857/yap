@@ -7,6 +7,45 @@
   <updated>2026-11-03T00:00:00+09:00</updated>
   <author><name>크래프트얍(CraftYap)</name></author>
   <entry xml:base="https://craftyap.com/">
+    <title>11월 3일 패치 노트 (3) — 친구와 방에서 함께, 게임 로딩은 더 빠르게</title>
+    <link href="https://craftyap.com/note/patch-2026-11-03-3/" />
+    <id>https://craftyap.com/note/patch-2026-11-03-3/</id>
+    <published>2026-11-03T00:00:00+09:00</published>
+    <updated>2026-11-03T00:00:00+09:00</updated>
+    <summary>온라인 허브에서 방을 만들고, 방 목록이나 코드로 친구 방에 들어가 대기실에서 함께 시작할 수 있어요. 게임 중인 방에도 바로 들어갈 수 있어요. 게임을 불러오는 시간도 약 20% 줄였어요.</summary>
+    <content type="html">&lt;h2&gt;한눈에 보기&lt;/h2&gt;
+&lt;p&gt;이제 &lt;strong&gt;친구와 같은 방에 모여서&lt;/strong&gt; 게임을 시작할 수 있어요. 방을 만들거나, &lt;strong&gt;접속하기&lt;/strong&gt;로 방 목록을 열어 들어가거나, 친구에게 받은 &lt;strong&gt;6자리 방 코드&lt;/strong&gt;로 들어가요. 대기실에서 모두 준비하면 방장이 시작하고, 이미 게임 중인 방에 들어가도 바로 합류해요. 게임을 불러오는 시간도 줄였어요.&lt;/p&gt;
+&lt;h2&gt;BEFORE / AFTER&lt;/h2&gt;
+&lt;p&gt;&lt;strong&gt;온라인 허브&lt;/strong&gt; — 가운데가 게임 목록이던 자리에 &lt;strong&gt;방 만들기 · 접속하기&lt;/strong&gt;가 생겼어요. 혼자 하는 게임은 아래에 작은 버튼으로 남아 있어요.&lt;/p&gt;
+&lt;p&gt;&lt;img src=&quot;/note/assets/20261103-rooms-ba.webp&quot; alt=&quot;온라인 허브 비교: 왼쪽은 가운데에 게임 카드 네 장이 있는 이전 화면, 오른쪽은 방 만들기와 접속하기 버튼, 혼자 하기 버튼이 있는 새 화면&quot;&gt;&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;접속하기&lt;/strong&gt;를 누르면 오른쪽 패널이 옆으로 밀려나고 그 자리에 방 목록이 들어와요. 맨 위 칸에 방 코드를 넣어도 돼요.&lt;/p&gt;
+&lt;p&gt;&lt;img src=&quot;/note/assets/20261103-room-list.webp&quot; alt=&quot;방 목록: 오른쪽에 열린 방들이 게임, 인원, 대기 중 상태와 함께 보이고 맨 위에 방 코드 입력칸이 있는 화면&quot;&gt;&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;대기실&lt;/strong&gt; — 8개 자리, 준비 표시, 방 코드, 게임 고르기, 채팅이 한 화면에 있어요.&lt;/p&gt;
+&lt;p&gt;&lt;img src=&quot;/note/assets/20261103-waiting-room.webp&quot; alt=&quot;대기실: 왼쪽에 방장과 준비 완료한 친구가 앉은 8개 자리, 오른쪽에 게임 고르기와 채팅, 아래에 게임 시작 버튼&quot;&gt;&lt;/p&gt;
+&lt;h2&gt;새로 추가&lt;/h2&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;방 만들기&lt;/strong&gt; — 방 이름, 게임, 최대 인원(2~8명)을 정해요. &amp;quot;방 목록에 보이기&amp;quot;를 끄면 코드를 아는 친구만 들어와요.&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;접속하기 · 코드로 입장 · 빠른 입장&lt;/strong&gt; — 방 목록에서 고르거나, 6자리 코드를 넣거나, 큰 &lt;strong&gt;빠른 입장&lt;/strong&gt; 버튼으로 빈자리 있는 방에 바로 들어가요.&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;대기실&lt;/strong&gt; — 준비 / 준비 취소, 채팅, 방 코드 복사가 있어요. 방장은 게임을 고르고, 시작하고, 친구를 내보낼 수 있어요.&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;방에서 할 수 있는 게임&lt;/strong&gt; — &lt;strong&gt;함께 짓기&lt;/strong&gt;(같은 들판에서 함께 블록 쌓기)와 &lt;strong&gt;Daily Tower&lt;/strong&gt;(방 친구끼리만 같은 타워). Blast Royale과 Robo Builder는 준비 중이에요.&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;중간 입장&lt;/strong&gt; — 게임 중인 방에 들어가면 진행 중인 게임으로 바로 합류해요.&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;방으로 돌아오기&lt;/strong&gt; — 게임에서 &amp;quot;처음으로&amp;quot;를 누르면 같은 방 대기실로 돌아와요.&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2&gt;개선&lt;/h2&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;게임 불러오기가 빨라졌어요&lt;/strong&gt; — 블록 그림을 더 가벼운 형식으로 바꿔 10 MB가 2 MB가 됐어요. 두 번째 캐릭터 모델은 게임이 시작된 뒤에 받아요. 같은 인터넷(20 Mbps)에서 들판에 들어가는 시간이 &lt;strong&gt;10.6초에서 8.4초&lt;/strong&gt;로, 받는 양이 &lt;strong&gt;11.9 MB에서 약 6 MB&lt;/strong&gt;로 줄었어요.&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;메뉴 배경 영상&lt;/strong&gt; — 화질은 그대로 두고 크기를 6.8 MB에서 2.8 MB로 줄였어요.&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;로고 · 탭 아이콘&lt;/strong&gt; — 로고를 가벼운 형식으로 바꾸고, 브라우저 탭 아이콘은 작은 전용 그림으로 바꿨어요.&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2&gt;알려진 문제&lt;/h2&gt;
+&lt;ul&gt;
+&lt;li&gt;방은 서버가 업데이트되면 닫혀요. 그때 함께 짓던 들판도 처음부터 다시 시작해요.&lt;/li&gt;
+&lt;li&gt;방에서 내보낸 친구도 방 코드를 알면 함께 짓기 들판에 다시 들어올 수 있어요. 다음 업데이트에서 막을게요.&lt;/li&gt;
+&lt;li&gt;Daily Tower 방은 타워 시작 화면에서 [플레이]를 한 번 더 눌러야 해요.&lt;/li&gt;
+&lt;/ul&gt;
+</content>
+  </entry>
+  <entry xml:base="https://craftyap.com/">
     <title>11월 3일 패치 노트 (2) — 새 첫 화면과 온라인 허브, 블록 질감의 새 메뉴</title>
     <link href="https://craftyap.com/note/patch-2026-11-03-2/" />
     <id>https://craftyap.com/note/patch-2026-11-03-2/</id>
@@ -905,31 +944,6 @@
 &lt;h2&gt;알려진 문제&lt;/h2&gt;
 &lt;ul&gt;
 &lt;li&gt;이번 VR 기능은 헤드셋 없는 환경에서 검증했습니다. 실제 헤드셋에서의 착용감과 성능은 계속 확인하고 있습니다.&lt;/li&gt;
-&lt;/ul&gt;
-</content>
-  </entry>
-  <entry xml:base="https://craftyap.com/">
-    <title>7월 22일 패치 노트 — 방송 후원과 연동되는 Robo Builder</title>
-    <link href="https://craftyap.com/note/patch-2026-07-22/" />
-    <id>https://craftyap.com/note/patch-2026-07-22/</id>
-    <published>2026-07-22T00:00:00+09:00</published>
-    <updated>2026-07-22T00:00:00+09:00</updated>
-    <summary>Robo Builder를 방송하는 스트리머를 위해 유튜브 채팅·슈퍼챗, 투네이션, 트윕 후원이 로봇 건설 속도를 올려 주는 기능을 추가했습니다.</summary>
-    <content type="html">&lt;blockquote&gt;
-&lt;p&gt;날짜는 이 업데이트의 개발을 마친 날입니다. 당시 자동 배포가 멈춰 있어서, 서버에 실제로 반영된 날은 이보다 늦을 수 있습니다(늦어도 10월 22일 반영).&lt;/p&gt;
-&lt;/blockquote&gt;
-&lt;h2&gt;한눈에 보기&lt;/h2&gt;
-&lt;p&gt;방치형 게임은 보는 재미가 큰 장르입니다. Robo Builder를 방송 화면에 띄워 두면 시청자의
-채팅과 후원이 실제로 건설을 빠르게 만드는 기능을 넣었습니다. 방송용 설정을 켰을 때만
-동작하며, 일반 플레이에는 영향이 없습니다.&lt;/p&gt;
-&lt;h2&gt;새로 추가&lt;/h2&gt;
-&lt;ul&gt;
-&lt;li&gt;&lt;strong&gt;방송 후원 연동&lt;/strong&gt; — 유튜브 실시간 채팅과 슈퍼챗, 투네이션, 트윕 후원이 들어오면 잠시 동안 모든 로봇 일꾼이 빨라집니다.&lt;ul&gt;
-&lt;li&gt;일반 채팅은 작은 응원이고, 후원은 금액이 클수록 큰 부스트가 됩니다. 부스트는 겹쳐지되 상한이 있습니다.&lt;/li&gt;
-&lt;li&gt;후원자 이름이 화면에 알림으로 뜨고, 현재 부스트가 배지로 표시됩니다.&lt;/li&gt;
-&lt;/ul&gt;
-&lt;/li&gt;
-&lt;li&gt;부스트는 시간을 빠르게 흐르게 할 뿐 저장 데이터를 직접 바꾸지 않습니다. 방송이 끝나도 진행 상황은 평소처럼 이어집니다.&lt;/li&gt;
 &lt;/ul&gt;
 </content>
   </entry>
