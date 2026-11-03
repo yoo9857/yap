@@ -35,6 +35,13 @@ type View = "main" | "help" | "settings";
 const esc = (s: string): string => s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]!);
 const kbd = keyGlyphs;
 
+/** A sub-view's top bar: the way back first, where the eye lands, then the title. */
+const bar = (title: string): string => `<div class="gm-bar">
+            <button type="button" class="gm-back" data-go="main"><span aria-hidden="true">←</span> ${t("돌아가기", "Back")}</button>
+            <h2>${title}</h2>
+            <span class="gm-bar-hint"><kbd>Esc</kbd> ${t("로도 돌아가요", "also goes back")}</span>
+          </div>`;
+
 /** The always-on key strip under the hotbar: a few essentials and the way to the rest. */
 export function keyBarHtml(items: KeyHelp[]): string {
   const all = [...items, { keys: ["H"], label: t("전체 조작법", "All controls") }];
@@ -79,26 +86,31 @@ export class GameMenu {
     return `
       <div class="gm-card" role="dialog" aria-labelledby="gm-title">
         <section data-view="main">
-          <p class="gm-kicker">${esc(o.mode)}</p>
-          <h2 id="gm-title" data-id="gm-title"></h2>
-          <ul class="gm-keys">${o.essentials.map((i) => `<li><span class="gm-pic">${kbd(i.keys)}</span><span class="gm-cap">${esc(i.label)}</span></li>`).join("")}</ul>
-          <button type="button" class="gm-play" data-id="gm-play">▶ ${o.selfManaged ? t("계속하기", "Resume") : t("플레이", "Play")}</button>
-          <div class="gm-row">
-            <button type="button" data-go="help" data-id="gm-help">⌨️ ${t("조작법", "Controls")}</button>
-            <button type="button" data-go="settings" data-id="gm-settings">⚙️ ${t("설정", "Settings")}</button>
-            <a href="/" data-id="gm-home">🏠 ${t("처음으로", "Home")}</a>
+          <header class="gm-main-head">
+            <p class="gm-kicker">${esc(o.mode)}</p>
+            <h2 id="gm-title" data-id="gm-title"></h2>
+          </header>
+          <div class="gm-body">
+            <ul class="gm-keys">${o.essentials.map((i) => `<li><span class="gm-pic">${kbd(i.keys)}</span><span class="gm-cap">${esc(i.label)}</span></li>`).join("")}</ul>
+            <div class="gm-actions">
+              <button type="button" class="gm-play" data-id="gm-play">▶ ${o.selfManaged ? t("계속하기", "Resume") : t("플레이", "Play")}</button>
+              <div class="gm-row">
+                <button type="button" data-go="help" data-id="gm-help">⌨️ ${t("조작법", "Controls")}</button>
+                <button type="button" data-go="settings" data-id="gm-settings">⚙️ ${t("설정", "Settings")}</button>
+                <a href="/" data-id="gm-home">🏠 ${t("처음으로", "Home")}</a>
+              </div>
+            </div>
           </div>
           <p class="gm-note">${o.selfManaged
             ? t("☰ 버튼이나 H 키로 언제든 이 메뉴를 열 수 있어요.", "Open this menu any time with ☰ or H.")
             : t("플레이 중에 Esc를 누르면 마우스가 풀리고 이 메뉴가 열려요.", "Press Esc while playing to free the mouse and open this menu.")}</p>
         </section>
         <section data-view="help" hidden>
-          <h2>⌨️ ${t("조작법", "Controls")}</h2>
+          ${bar(`⌨️ ${t("조작법", "Controls")}`)}
           <div class="gm-groups">${groups}</div>
-          <button type="button" class="gm-back" data-go="main">← ${t("돌아가기", "Back")}</button>
         </section>
         <section data-view="settings" hidden>
-          <h2>⚙️ ${t("설정", "Settings")}</h2>
+          ${bar(`⚙️ ${t("설정", "Settings")}`)}
           <label class="gm-slider"><span>${t("마우스 감도", "Mouse sensitivity")} <output data-out="sensitivity">${settings.sensitivity.toFixed(1)}</output></span>
             <input type="range" data-set="sensitivity" min="${SENSITIVITY_RANGE.min}" max="${SENSITIVITY_RANGE.max}" step="0.1" value="${settings.sensitivity}" /></label>
           <label class="gm-slider"><span>${t("배경 음악", "Music")} <output data-out="music">${pct(settings.music)}%</output></span>
@@ -107,7 +119,6 @@ export class GameMenu {
             <input type="range" data-set="sfx" min="0" max="1" step="0.05" value="${settings.sfx}" /></label>
           <div class="gm-lang"><span>${t("언어", "Language")}</span><div>${lang("ko", "한국어")}${lang("en", "English")}</div></div>
           <p class="gm-note">${t("M 키로 음악을 바로 켜고 끌 수 있어요.", "M toggles the music at any time.")}</p>
-          <button type="button" class="gm-back" data-go="main">← ${t("돌아가기", "Back")}</button>
         </section>
       </div>`;
   }

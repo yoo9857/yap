@@ -77,6 +77,22 @@ const escapeHtml = (s: string) =>
  * name lands nowhere instead of in a stranger's lesson. Or play alone.
  * Resolves with the live class, or null for solo play.
  */
+/** The top bar of a lobby form step: a big back button on the left, the step's title beside it. */
+function stepBar(title: string, backClass: string, backAttrs = ""): string {
+  return `<div class="step-bar">
+            <button class="board-back ${backClass}" type="button" ${backAttrs}><span aria-hidden="true">&larr;</span> ${t("뒤로", "Back")}</button>
+            <h2>${title}</h2>
+          </div>`;
+}
+
+/** The left column of a lobby form step: the role's photo and what happens, in three numbered steps. */
+function guide(photo: "teacher" | "student", steps: string[]): string {
+  return `<aside class="class-guide">
+              <span class="board-photo"><img src="/home/${photo}.webp" width="640" height="480" alt="" /></span>
+              <ol class="class-steps">${steps.map((s) => `<li><span>${s}</span></li>`).join("")}</ol>
+            </aside>`;
+}
+
 export function chooseClass(parent: HTMLElement): Promise<ClassEntry | null> {
   return new Promise((resolve) => {
     const last = remembered();
@@ -95,7 +111,10 @@ export function chooseClass(parent: HTMLElement): Promise<ClassEntry | null> {
         </div>
         <div class="board-cork">
         <div class="mode-step" data-step="pick">
-          <h2>${t("어떻게 시작할까요?", "How do you want to start?")}</h2>
+          <div class="step-bar">
+            <a class="board-back" href="/"><span aria-hidden="true">&larr;</span> ${t("뒤로", "Back")}</a>
+            <h2>${t("어떻게 시작할까요?", "How do you want to start?")}</h2>
+          </div>
           <div class="board-notes board-notes-3">
           <button class="mode-btn board-note" data-go="teacher" type="button">
             <span class="board-photo"><img src="/home/teacher.webp" width="640" height="480" alt="" /></span>
@@ -115,45 +134,62 @@ export function chooseClass(parent: HTMLElement): Promise<ClassEntry | null> {
           </div>
         </div>
         <form class="mode-step class-form-step" data-step="teacher" hidden>
-          <h2>${t("반 만들기", "Open a class")}</h2>
-          <div class="board-paper">
-            <div class="class-form">
-              <label for="cl-host-room">${t("반 이름", "Class name")}</label>
-              <input id="cl-host-room" name="room" maxlength="20" autocomplete="off" required placeholder="${t("예: 햇살반, 3학년 2반", "e.g. Sunshine, Class 3-2")}" />
-              <label for="cl-host">${t("선생님 이름", "Teacher name")}</label>
-              <input id="cl-host" name="teacher" maxlength="16" autocomplete="off" required placeholder="${t("예: 김선생", "e.g. Ms. Kim")}" />
-              <label for="cl-pass">${t("반 비밀번호", "Class password")}</label>
-              <input id="cl-pass" name="password" type="password" minlength="4" maxlength="32" autocomplete="off" placeholder="${t("4자 이상 · 다른 컴퓨터에서 반을 다시 열 때 필요해요", "4+ characters · needed to reopen the class on another computer")}" />
+          ${stepBar(t("반 만들기", "Open a class"), "mode-back")}
+          <div class="class-layout">
+            ${guide("teacher", [
+              t("<b>반 이름</b>과 비밀번호를 정해요", "Choose a <b>class name</b> and a password"),
+              t("학생들에게 <b>반 이름</b>을 알려줘요", "Tell your students the <b>class name</b>"),
+              t("만든 것은 서버에 저장돼요. 다음 수업에 같은 반 이름으로 열면 이어서 해요", "What the class builds is saved. Open the same class name next lesson to carry on"),
+            ])}
+            <div class="board-paper">
+              <div class="class-form">
+                <label for="cl-host-room">${t("반 이름", "Class name")}</label>
+                <input id="cl-host-room" name="room" maxlength="20" autocomplete="off" required placeholder="${t("예: 햇살반, 3학년 2반", "e.g. Sunshine, Class 3-2")}" />
+                <label for="cl-host">${t("선생님 이름", "Teacher name")}</label>
+                <input id="cl-host" name="teacher" maxlength="16" autocomplete="off" required placeholder="${t("예: 김선생", "e.g. Ms. Kim")}" />
+                <label for="cl-pass">${t("반 비밀번호", "Class password")}</label>
+                <input id="cl-pass" name="password" type="password" minlength="4" maxlength="32" autocomplete="off" aria-describedby="cl-pass-hint" placeholder="${t("4자 이상", "4+ characters")}" />
+                <small class="field-hint" id="cl-pass-hint">${t("다른 컴퓨터에서 이 반을 다시 열 때 필요해요", "Needed to reopen this class on another computer")}</small>
+              </div>
+              <p class="class-error" data-id="error"></p>
+              <button class="board-cta" type="submit">${t("반 열기", "Open class")} <span aria-hidden="true">&rarr;</span></button>
             </div>
-            <p class="class-note">${t("학생들에게는 <b>반 이름</b>을 알려주세요. 반에서 만든 것은 서버에 저장돼서, 다음 수업에 같은 반 이름으로 열면 이어서 할 수 있어요.", "Give your students the <b>class name</b>. What the class builds is saved on the server, so opening the same class name next lesson picks up where you left off.")}</p>
-            <p class="class-error" data-id="error"></p>
-            <button class="board-cta" type="submit">${t("반 열기", "Open class")} <span aria-hidden="true">&rarr;</span></button>
           </div>
-          <button class="desk-link mode-back" type="button">&larr; ${t("뒤로", "Back")}</button>
         </form>
         <form class="mode-step class-form-step" data-step="student" hidden>
-          <h2>${t("반 참여하기", "Join a class")}</h2>
-          <div class="board-paper">
-            <div class="class-form">
-              <label for="cl-room">${t("반 이름", "Class name")}</label>
-              <input id="cl-room" name="room" maxlength="20" autocomplete="off" required placeholder="${t("선생님이 알려준 반 이름", "The class name your teacher gave you")}" />
-              <label for="cl-student">${t("내 이름", "Your name")}</label>
-              <input id="cl-student" name="student" maxlength="16" autocomplete="off" required placeholder="${t("예: 민지", "e.g. Minji")}" />
+          ${stepBar(t("반 참여하기", "Join a class"), "mode-back")}
+          <div class="class-layout">
+            ${guide("student", [
+              t("선생님이 알려준 <b>반 이름</b>을 써요", "Type the <b>class name</b> your teacher gave you"),
+              t("<b>내 이름</b>을 써요", "Type <b>your name</b>"),
+              t("어느 선생님 반인지 확인하고 들어가요", "Check whose class it is, then join"),
+            ])}
+            <div class="board-paper">
+              <div class="class-form">
+                <label for="cl-room">${t("반 이름", "Class name")}</label>
+                <input id="cl-room" name="room" maxlength="20" autocomplete="off" required placeholder="${t("선생님이 알려준 반 이름", "The class name your teacher gave you")}" />
+                <label for="cl-student">${t("내 이름", "Your name")}</label>
+                <input id="cl-student" name="student" maxlength="16" autocomplete="off" required placeholder="${t("예: 민지", "e.g. Minji")}" />
+              </div>
+              <p class="class-error" data-id="error"></p>
+              <button class="board-cta" type="submit">${t("다음", "Next")} <span aria-hidden="true">&rarr;</span></button>
             </div>
-            <p class="class-note">${t("다음을 누르면 어느 선생님 반인지 먼저 보여 줘요.", "Next shows you whose class it is before you join.")}</p>
-            <p class="class-error" data-id="error"></p>
-            <button class="board-cta" type="submit">${t("다음", "Next")} <span aria-hidden="true">&rarr;</span></button>
           </div>
-          <button class="desk-link mode-back" type="button">&larr; ${t("뒤로", "Back")}</button>
         </form>
         <div class="mode-step class-form-step" data-step="confirm" hidden>
-          <h2>${t("이 반이 맞나요?", "Is this your class?")}</h2>
-          <div class="board-paper">
-            <div class="class-confirm" data-id="confirm-card"></div>
-            <p class="class-error" data-id="error"></p>
-            <button class="board-cta" type="button" data-id="confirm-yes">${t("네, 들어갈래요", "Yes, let me in")} <span aria-hidden="true">&rarr;</span></button>
+          ${stepBar(t("이 반이 맞나요?", "Is this your class?"), "", 'data-id="confirm-no"')}
+          <div class="class-layout">
+            ${guide("student", [
+              t("<b>반 이름</b>과 <b>선생님 이름</b>이 맞는지 봐요", "Check the <b>class</b> and the <b>teacher</b>"),
+              t("맞으면 <b>네, 들어갈래요</b>를 눌러요", "If they match, press <b>Yes, let me in</b>"),
+              t("아니면 <b>뒤로</b>를 눌러 다시 써요", "If not, press <b>Back</b> and type it again"),
+            ])}
+            <div class="board-paper">
+              <div class="class-confirm" data-id="confirm-card"></div>
+              <p class="class-error" data-id="error"></p>
+              <button class="board-cta" type="button" data-id="confirm-yes">${t("네, 들어갈래요", "Yes, let me in")} <span aria-hidden="true">&rarr;</span></button>
+            </div>
           </div>
-          <button class="desk-link" type="button" data-id="confirm-no">&larr; ${t("아니에요, 다시 입력할게요", "No, let me re-enter")}</button>
         </div>
         </div>
         <p class="game-help board-links"><a class="desk-link" href="/">🏠 ${t("처음으로", "Home")}</a><a class="desk-link" href="/guide/#classroom">📖 ${t("교실 이용 안내", "Classroom guide")}</a></p>

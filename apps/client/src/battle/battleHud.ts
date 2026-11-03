@@ -159,7 +159,7 @@ export class BattleHud {
             ? t("마지막 로봇과 동시에 쓰러졌어요 — 아깝다!", "You went down together with the last robot — so close!")
             : t(`아직 로봇 ${aliveBots}대가 남아 있어요.`, `${aliveBots} robot${aliveBots === 1 ? "" : "s"} remaining.`)}</p>
         <button class="primary" data-id="again">${t("다시 하기", "Play again")}</button>
-        <p><a class="desk-link" href="/">${t("← 처음 화면으로", "← Home")}</a></p>
+        <p><a class="screen-back inline" href="/"><span aria-hidden="true">&larr;</span> ${t("처음 화면으로", "Home")}</a></p>
       </div>`;
     this.endCard.querySelector('[data-id="again"]')?.addEventListener("click", () => {
       location.href = "/?mode=battle";

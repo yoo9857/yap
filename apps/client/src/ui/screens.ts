@@ -26,21 +26,26 @@ export class Screens {
     this.titleEl = document.createElement("div");
     this.titleEl.className = "screen title-screen";
     this.titleEl.innerHTML = `
-      <div class="screen-card">
-        <img class="brand-logo small" src="/craftyap-logo.png" alt="CraftYap" />
-        <h1>Daily Tower</h1>
-        <p class="daily-label"><span data-id="day">Daily Tower</span> · ${t("새 타워까지", "new tower in")} <span data-id="countdown">--:--:--</span></p>
-        <p class="subtitle">${t("꼭대기의 금색 발판까지 올라가요!", "Climb to the gold pad at the top of the tower!")}</p>
-        <input type="text" maxlength="16" placeholder="${t("닉네임", "Nickname")}" aria-label="${t("닉네임", "Nickname")}" data-id="name" />
-        <button class="primary" data-id="start">▶ ${t("플레이", "Play")}</button>
-        <div class="board" data-id="board"></div>
-        <p class="help gm-keybar">${keyBarHtml([
-          { keys: [KEY_WASD], label: t("이동", "Move") },
-          { keys: ["Space"], label: t("점프", "Jump") },
-          { keys: [MOUSE_DRAG], label: t("카메라", "Camera") },
-          { keys: ["R"], label: t("다시 시작", "Respawn") },
-        ])}</p>
-        <p><a class="desk-link" href="/">${t("← 다른 게임 고르기", "← Choose another game")}</a></p>
+      <div class="screen-card tower-card">
+        <a class="screen-back" href="/"><span aria-hidden="true">&larr;</span> ${t("다른 게임", "Other games")}</a>
+        <div class="tower-main">
+          <img class="brand-logo small" src="/craftyap-logo.png" alt="CraftYap" />
+          <h1>Daily Tower</h1>
+          <p class="daily-label"><span data-id="day">Daily Tower</span> · ${t("새 타워까지", "new tower in")} <span data-id="countdown">--:--:--</span></p>
+          <p class="subtitle">${t("꼭대기의 금색 발판까지 올라가요!", "Climb to the gold pad at the top of the tower!")}</p>
+          <input type="text" maxlength="16" placeholder="${t("닉네임", "Nickname")}" aria-label="${t("닉네임", "Nickname")}" data-id="name" />
+          <button class="primary" data-id="start">▶ ${t("플레이", "Play")}</button>
+        </div>
+        <div class="tower-side">
+          <h3 class="tower-side-title">🏆 ${t("오늘의 순위", "Today's ranking")}</h3>
+          <div class="board" data-id="board"></div>
+          <p class="help gm-keybar">${keyBarHtml([
+            { keys: [KEY_WASD], label: t("이동", "Move") },
+            { keys: ["Space"], label: t("점프", "Jump") },
+            { keys: [MOUSE_DRAG], label: t("카메라", "Camera") },
+            { keys: ["R"], label: t("다시 시작", "Respawn") },
+          ])}</p>
+        </div>
       </div>`;
     parent.appendChild(this.titleEl);
 

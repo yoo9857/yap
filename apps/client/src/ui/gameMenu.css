@@ -497,9 +497,125 @@ body .furn-back:active { transform: translateY(3px); box-shadow: 0 1px 0 var(--b
   .gm-group dt { justify-content: flex-start; }
 }
 /* the WASD tile is the one wide picture: give it room instead of letting it spill */
-.gm-keys { grid-template-columns: 1.45fr 1fr 1fr 1fr; }
 .gm-keys .gm-wasd kbd { min-width: 22px; padding: 1px 3px 2px; font-size: 12px; }
 .gm-keys .gm-wasd i { font-size: 8px; }
-@media (max-width: 520px) { .gm-keys { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+
+/* ---- layout: every view fits one screen, no scrolling ------------------
+   main: title on top, the key tiles left and the actions right (one short card);
+   help/settings: a top bar with the way back, so it is never below the fold. */
+.gm-card:has(section[data-view="main"]:not([hidden])) { width: min(780px, 100%); }
+.gm-card:has(section[data-view="settings"]:not([hidden])) { width: min(540px, 100%); }
+.gm-card:has(section[data-view="help"]:not([hidden])) { width: min(1240px, 100%); }
+.gm-main-head h2 { margin-bottom: 14px; }
+.gm-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1.55fr) minmax(210px, 1fr);
+  gap: 16px;
+  align-items: stretch;
+}
+.gm-keys { margin: 0; grid-template-columns: 1.3fr 1fr 1fr; align-content: start; }
+.gm-actions { display: flex; flex-direction: column; gap: 10px; }
+.gm-actions .gm-play { flex: 1; min-height: 76px; font-size: 26px; }
+.gm-actions .gm-row { grid-template-columns: 1fr; gap: 9px; margin-top: 2px; }
+.gm-actions .gm-row > * { display: flex; align-items: center; justify-content: center; gap: 6px; padding: 8px 10px 10px; }
+.gm-body + .gm-note { margin-top: 12px; }
+
+.gm-bar {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 12px;
+  margin: 0 0 14px;
+}
+.gm-bar h2 { grid-column: 2; margin: 0; font-size: 26px; }
+.gm-bar .gm-back {
+  grid-column: 1;
+  grid-row: 1;
+  justify-self: start;
+  width: auto;
+  margin: 0;
+  padding: 7px 16px 9px 12px;
+  --brick: #ffd21c;
+  font-size: 16px;
+  white-space: nowrap;
+}
+.gm-bar .gm-back > span { font-size: 18px; }
+.gm-bar-hint { grid-column: 3; justify-self: end; color: #6a6f66; font: 600 12px/1.3 system-ui, sans-serif; white-space: nowrap; }
+.gm-bar-hint kbd { padding: 0 6px 2px !important; font-size: 11px !important; }
+
+/* controls: newspaper columns of compact rows, the whole list on one screen */
+.gm-groups { display: block; columns: 4 250px; column-gap: 18px; max-height: none; overflow: visible; padding: 0; }
+.gm-group { break-inside: avoid; margin-bottom: 12px; }
+.gm-group h3 { margin-bottom: 6px; font-size: 14px; }
+.gm-group dl { gap: 4px; }
+.gm-group dl > div { grid-template-columns: 78px 1fr; gap: 8px; padding: 3px 8px; }
+.gm-group dd { font-size: 13px; line-height: 1.3; }
+.gm-group .gm-mouse { height: 30px; }
+.gm-group .gm-glyph small { font-size: 9px; }
+.gm-group .gm-wasd kbd { min-width: 20px; padding: 0 3px 2px; font-size: 11px; }
+.gm-group .gm-wasd i { display: none; }
+/* the controls list is read, not played over: it may cover the hotbar instead of scrolling */
+body:has(.craft-hotbar) .craft-hint.game-menu:has(section[data-view="help"]:not([hidden])) { padding-bottom: 16px; }
+.gm-card { max-height: 100%; overflow-y: auto; }
+
+@media (max-width: 640px) {
+  .gm-body { grid-template-columns: 1fr; }
+  .gm-keys { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .gm-actions .gm-row { grid-template-columns: repeat(3, 1fr); }
+  .gm-actions .gm-play { min-height: 0; }
+  .gm-bar-hint { display: none; }
+  .gm-bar { grid-template-columns: auto 1fr; }
+  .gm-bar h2 { font-size: 22px; text-align: right; }
+}
 /* empty hands (Q): the hotbar steps back, nothing is lit */
 .craft-hud.empty-hands .craft-hotbar { opacity: 0.72; filter: saturate(0.45); }
+
+/* ---- start / end cards (tower title, battle end): a real button home ---- */
+.screen-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px 8px 10px;
+  border: 3px solid var(--brick-ink);
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: var(--brick-edge), var(--brick-lift);
+  color: var(--brick-ink);
+  font: 16px/1.1 "Jua", system-ui, sans-serif;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: transform 0.08s, box-shadow 0.08s;
+}
+.screen-back > span { font-size: 18px; line-height: 0.8; }
+.screen-back:hover { transform: translateY(-1px); box-shadow: var(--brick-edge), 0 5px 0 var(--brick-ink); }
+.screen-back:active { transform: translateY(3px); box-shadow: inset 0 -2px 0 rgba(0, 0, 0, 0.18), 0 1px 0 var(--brick-ink); }
+.screen-back:focus-visible { outline: 3px solid #3864dd; outline-offset: 3px; }
+.screen-back.inline { margin-top: 14px; }
+
+/* tower title: play on the left, today's board and the keys on the right */
+.title-screen .screen-card.tower-card {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 22px;
+  align-items: center;
+  box-sizing: border-box;
+  width: min(820px, calc(100vw - 32px));
+  max-width: none;
+  max-height: calc(100dvh - 24px);
+  overflow-y: auto;
+  padding-top: 64px;
+}
+.tower-card .screen-back { position: absolute; top: 16px; left: 18px; }
+.tower-card .brand-logo.small { width: min(150px, 40vw); margin-top: -10px; }
+.tower-card .tower-main h1 { font-size: 30px; }
+.tower-side { align-self: center; display: flex; flex-direction: column; text-align: left; }
+.tower-side-title { margin: 0 0 8px; font-size: 18px; font-weight: 400; }
+.title-screen .tower-side .board { margin: 0; min-height: 110px; max-height: 260px; }
+.tower-side .help.gm-keybar { justify-content: flex-start; }
+@media (max-width: 680px) {
+  .title-screen .screen-card.tower-card { grid-template-columns: 1fr; gap: 14px; padding-top: 58px; }
+  .tower-side .help.gm-keybar { justify-content: center; }
+  .title-screen .screen-card.tower-card { padding: 54px 16px 18px; }
+  .title-screen .tower-side .board { min-height: 0; max-height: 150px; }
+}
