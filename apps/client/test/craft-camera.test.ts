@@ -102,3 +102,36 @@ describe("de2: the eye itself inside a block (the body squeezed into a gap)", ()
     }
   });
 });
+
+describe("the escape never moves the view sideways (aim and view stay on one line)", () => {
+  it("an eye inside a block only moves up or down; x/z of the pivot stay the body's", () => {
+    const w = new VoxelWorld();
+    for (let x = 0; x < 30; x++) for (let z = 0; z < 30; z++) w.set(x, 0, z, 3);
+    w.set(15, 2, 15, 2);
+    const three = new THREE.PerspectiveCamera(70, 16 / 9, 0.1, 500);
+    const cam = new CraftCamera(three);
+    const eye = new THREE.Vector3(15.5, 2.5, 15.5);
+    // first person: the camera sits on the pivot, so its x/z must be the eye's
+    cam.toggleView();
+    for (let i = 0; i < 30; i++) cam.update(w, eye, 0.3, -0.4, false, 1 / 60, 1.55 + 1);
+    cam.toggleView();
+    settle(cam, w, eye, 0.3, -0.4, 60);
+    // third person: the camera sits on the line behind the pivot — the pivot's x/z are the eye's,
+    // so the camera lies on the view ray through the eye column (no sideways jump)
+    const back = new THREE.Vector3(Math.sin(0.3) * Math.cos(-0.4), 0, Math.cos(0.3) * Math.cos(-0.4)).normalize();
+    const off = new THREE.Vector3(three.position.x - eye.x, 0, three.position.z - eye.z);
+    const side = Math.abs(off.x * back.z - off.z * back.x);
+    expect(side).toBeLessThan(0.3 + 1e-6); // only the normal over-the-shoulder offset (≤ 0.28 m)
+  });
+
+  it("the body's own eye is used when the smoothed eye lags into a block", () => {
+    const w = new VoxelWorld();
+    for (let x = 0; x < 30; x++) for (let z = 0; z < 30; z++) w.set(x, 0, z, 3);
+    w.set(15, 1, 15, 3); // a step the body just climbed onto: smoothed eye still inside it
+    const three = new THREE.PerspectiveCamera(70, 16 / 9, 0.1, 500);
+    const cam = new CraftCamera(three);
+    // third person, level look: the camera height is the pivot height
+    for (let i = 0; i < 30; i++) cam.update(w, new THREE.Vector3(15.5, 1.6, 15.5), 0, 0, false, 1 / 60, 3.55);
+    expect(three.position.y).toBeCloseTo(3.55, 1);
+  });
+});

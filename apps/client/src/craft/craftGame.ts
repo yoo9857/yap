@@ -1713,6 +1713,7 @@ export class CraftGame {
       this.viewPitch,
       planar > 0.8 && gaitBlend(planar) >= 0.5,
       frameDt,
+      drawn.y + POSTURE_EYE[this.seated ? "sit" : this.posture],
     );
     this.applyRobotOpacity(this.debugHideRobot ? 0 : robotOpacity, frameDt);
     this.renderer.trackTarget(eye);
