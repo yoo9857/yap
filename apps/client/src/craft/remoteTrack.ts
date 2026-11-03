@@ -27,6 +27,8 @@ export const TELEPORT_M = 8;
 const HISTORY = 24; // ~2.4 s at full rate; far players (every 5th snapshot) keep ~12 s
 const CLOCK_CREEP_MS = 0.4; // per snapshot: how fast the offset may rise after a delay spike
 const RESYNC_MS = 5000;
+/** A sample this far before the newest one starts a new timeline instead of being ignored. */
+const CLOCK_RESET_MS = 2000;
 /** The jitter buffer: a lateness peak decays this much per sample (~3 ms/s at 10 Hz), and is
  *  covered with this margin; the buffer never grows past MAX_EXTRA_MS. */
 const LATE_DECAY_MS = 0.3;
@@ -95,7 +97,10 @@ export class RemoteTrack {
    */
   push(t: number, x: number, y: number, z: number, yaw: number, age = 0): void {
     this.latePeak = Math.max(age, this.latePeak - LATE_DECAY_MS);
-    const last = this.samples[this.samples.length - 1];
+    let last = this.samples[this.samples.length - 1];
+    // the clock went back (the server restarted, or the player came back on a new page):
+    // a new timeline — keeping the old samples would refuse every new one until it caught up
+    if (last && t < last.t - CLOCK_RESET_MS) { this.samples.length = 0; last = undefined; }
     if (last && t <= last.t) {
       // a duplicate / reordered snapshot: keep the newest data for that moment only
       if (t === last.t) Object.assign(last, { x, y, z, yaw });

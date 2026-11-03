@@ -570,3 +570,21 @@ describe("ClassRoom multiplayer robustness", () => {
     expect(kid.last("s-k-bonk")).toBeUndefined();
   });
 });
+
+describe("a seat that comes back (new page = new clock)", () => {
+  it("moves from a reloaded page (its clock restarts near 0) are accepted, not ignored", () => {
+    const { room, teacher } = classWithTeacher();
+    const first = new Peer();
+    room.joinStudent(first, "Minji");
+    room.handle(first, { t: "k-move", pos: [5, 4, 5], yaw: 0, anim: "run", ct: 600_000 });
+    const key = first.last("s-k-welcome")!.key;
+    room.leave(first);
+    // the same student reloads: same seat key, a fresh performance.now()
+    const again = new Peer();
+    room.joinStudent(again, "Minji", key);
+    room.handle(again, { t: "k-move", pos: [9, 4, 9], yaw: 0, anim: "run", ct: 1_200 });
+    room.handle(teacher, { t: "k-move", pos: [0, 4, 0], yaw: 0, anim: "idle" });
+    room.snapshot();
+    expect(teacher.last("s-k-snap")!.players.map((p) => p.pos)).toContainEqual([9, 4, 9]);
+  });
+});

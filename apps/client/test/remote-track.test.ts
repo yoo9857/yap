@@ -164,3 +164,14 @@ describe("adaptive jitter buffer", () => {
     expect(steps.filter((s) => s > avg * 1.8).length).toBe(0);
   });
 });
+
+describe("a clock that starts over", () => {
+  it("after a server restart (stamps back near 0) the track follows the new samples", () => {
+    const track = new RemoteTrack();
+    for (let n = 0; n < 10; n++) track.push(3_600_000 + n * 100, n, 4, 0, 0);
+    for (let n = 0; n < 5; n++) track.push(200 + n * 100, 50 + n, 4, 0, 0);
+    const out = { x: 0, y: 0, z: 0, yaw: 0, speed: 0 };
+    track.sample(450, out);
+    expect(out.x).toBeGreaterThan(50);
+  });
+});

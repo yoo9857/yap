@@ -387,6 +387,12 @@ export class ClassRoom {
 
   private attach(member: Member, peer: ClassPeer): void {
     member.peer = peer;
+    // a new connection is a new page: its clock (ct) starts again near 0, so the old order
+    // and offset mean nothing — kept, every move from the returning page was ignored and
+    // classmates saw the character vanish
+    member.lastCt = undefined;
+    member.ctOffset = undefined;
+    member.movedAt = undefined;
     this.byPeer.set(peer, member);
     this.emptySince = null;
     if (this.editKeys.length > this.edits.size * 2 + 4096) this.editKeys = [...this.edits.keys()];
