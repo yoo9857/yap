@@ -7,6 +7,26 @@
   <updated>2026-11-03T00:00:00+09:00</updated>
   <author><name>크래프트얍(CraftYap)</name></author>
   <entry xml:base="https://craftyap.com/">
+    <title>11월 3일 패치 노트 (8) — 교실 로비와 로딩창의 테두리가 딱 맞아요</title>
+    <link href="https://craftyap.com/note/patch-2026-11-03-8/" />
+    <id>https://craftyap.com/note/patch-2026-11-03-8/</id>
+    <published>2026-11-03T00:00:00+09:00</published>
+    <updated>2026-11-03T00:00:00+09:00</updated>
+    <summary>교육 모드 로비와 로딩창에서 블록 테두리와 안쪽 흰 카드가 어긋나 사이로 배경 그림이 비치던 문제를 고쳤어요.</summary>
+    <content type="html">&lt;h2&gt;한눈에 보기&lt;/h2&gt;
+&lt;p&gt;교육 모드의 &lt;strong&gt;교실 로비&lt;/strong&gt;(선생님 · 학생 · 혼자 하기, 반 만들기 · 참여하기)와 &lt;strong&gt;로딩창&lt;/strong&gt;에서 블록 테두리와 안쪽 흰 카드가 서로 어긋나 있었어요. 이제 테두리와 카드가 &lt;strong&gt;한 장처럼 딱 맞아요&lt;/strong&gt;.&lt;/p&gt;
+&lt;h2&gt;BEFORE / AFTER&lt;/h2&gt;
+&lt;p&gt;&lt;strong&gt;교실 로비&lt;/strong&gt; — 이전에는 흰 카드가 테두리보다 안쪽에 따로 떠 있어서, 둘 사이로 배경 그림이 비치고 모서리 모양도 맞지 않았어요.&lt;/p&gt;
+&lt;p&gt;&lt;img src=&quot;/note/assets/20261103-lobby-frame-ba.webp&quot; alt=&quot;교실 로비 비교: 왼쪽은 테두리와 흰 카드 사이로 배경 그림이 비치는 이전 화면, 오른쪽은 흰 카드가 테두리를 꽉 채우는 새 화면&quot;&gt;&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;로딩창&lt;/strong&gt; — 같은 문제를 같이 고쳤어요.&lt;/p&gt;
+&lt;p&gt;&lt;img src=&quot;/note/assets/20261103-loader-frame-ba.webp&quot; alt=&quot;로딩창 비교: 왼쪽은 테두리 안쪽에 흰 상자가 따로 있는 이전 화면, 오른쪽은 테두리와 흰 상자가 하나로 맞는 새 화면&quot;&gt;&lt;/p&gt;
+&lt;h2&gt;버그 수정&lt;/h2&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;교실 로비 · 반 만들기 · 반 참여하기 · 반 확인 · 로딩창&lt;/strong&gt; — 흰 카드가 블록 테두리 밑까지 채워지고 모서리 둥글기도 테두리 그림에 맞췄어요. 휴대폰 화면도 같아요.&lt;/li&gt;
+&lt;/ul&gt;
+</content>
+  </entry>
+  <entry xml:base="https://craftyap.com/">
     <title>11월 3일 패치 노트 (7) — 새로 만든 자동차 부품, 부품마다 색과 성능을 바꿔요</title>
     <link href="https://craftyap.com/note/patch-2026-11-03-7/" />
     <id>https://craftyap.com/note/patch-2026-11-03-7/</id>
@@ -903,39 +923,6 @@
 &lt;li&gt;높이 놓인 가구를 뚫고 블록을 놓을 수 있던 문제와 기계가 소파를 뚫고 지나가던 문제를 고쳤습니다.&lt;/li&gt;
 &lt;li&gt;손상된 저장 데이터 때문에 섬 전체가 지워질 수 있던 문제를 막았습니다.&lt;/li&gt;
 &lt;li&gt;들판에서 판 구덩이를 먼 땅이 덮어 버리던 문제를 고쳤습니다.&lt;/li&gt;
-&lt;/ul&gt;
-</content>
-  </entry>
-  <entry xml:base="https://craftyap.com/">
-    <title>10월 22일 패치 노트 — 교육 모드와 함께 만드는 교실</title>
-    <link href="https://craftyap.com/note/patch-2026-10-22/" />
-    <id>https://craftyap.com/note/patch-2026-10-22/</id>
-    <published>2026-10-22T00:00:00+09:00</published>
-    <updated>2026-10-22T00:00:00+09:00</updated>
-    <summary>끝없는 들판에서 마음껏 짓는 교육 모드와, 선생님과 학생이 한 들판에서 함께 만드는 실시간 교실을 열었습니다. 블록 세상을 그리는 방식도 바꿔 훨씬 가벼워졌습니다.</summary>
-    <content type="html">&lt;h2&gt;한눈에 보기&lt;/h2&gt;
-&lt;p&gt;크래프트얍의 두 번째 큰 축이 생겼습니다. 이제 시작 화면에서 &lt;strong&gt;교육 모드&lt;/strong&gt;와 &lt;strong&gt;게임 모드&lt;/strong&gt;를
-먼저 고릅니다. 교육 모드는 수업 시간에 반 전체가 같은 세상에 들어와 함께 만드는 것을
-목표로 합니다. 수업이 끝나도 교실은 서버에 저장됩니다.&lt;/p&gt;
-&lt;h2&gt;새로 추가&lt;/h2&gt;
-&lt;h3&gt;교육 모드 — 끝없는 들판&lt;/h3&gt;
-&lt;ul&gt;
-&lt;li&gt;끝이 없는 평평한 들판에서 모든 블록을 999개씩 들고 시작합니다.&lt;/li&gt;
-&lt;li&gt;기계 작업실도 그대로 쓸 수 있습니다.&lt;/li&gt;
-&lt;li&gt;&lt;kbd&gt;O&lt;/kbd&gt;로 시야 거리를 바꿀 수 있습니다. 먼 곳은 안개 속으로 자연스럽게 사라집니다.&lt;/li&gt;
-&lt;/ul&gt;
-&lt;h3&gt;함께 만드는 교실&lt;/h3&gt;
-&lt;ul&gt;
-&lt;li&gt;&lt;strong&gt;선생님&lt;/strong&gt; — 반을 만들고 비밀번호를 정합니다. 학생 모으기, 건축·채팅 잠그기, 내보내기, 들판 비우기, 수업 종료를 할 수 있습니다.&lt;/li&gt;
-&lt;li&gt;&lt;strong&gt;학생&lt;/strong&gt; — 선생님 이름과 내 이름으로 들어갑니다. 서로의 로봇과 이름표가 보이고 채팅할 수 있습니다.&lt;/li&gt;
-&lt;li&gt;&lt;strong&gt;저장&lt;/strong&gt; — 교실에서 지은 것은 서버에 저장됩니다. 다음 수업에 같은 브라우저에서, 또는 다른 PC에서도 비밀번호로 다시 열 수 있습니다. 새로고침하거나 연결이 끊겨도 같은 자리로 돌아옵니다.&lt;/li&gt;
-&lt;li&gt;&lt;strong&gt;혼자 하기&lt;/strong&gt; — 교실 없이 혼자 들판에서 만들 수도 있습니다.&lt;/li&gt;
-&lt;/ul&gt;
-&lt;h2&gt;개선&lt;/h2&gt;
-&lt;ul&gt;
-&lt;li&gt;세상을 16×16 구역 단위로 그리도록 바꿨습니다. 블록 하나를 놓거나 캐도 그 구역만 다시 그립니다.&lt;/li&gt;
-&lt;li&gt;먼 구역은 단순한 모양으로 바꿔 그려, 넓은 세상도 가볍게 보입니다.&lt;/li&gt;
-&lt;li&gt;몇 초마다 화면이 살짝 멈칫하던 자동 저장을, 바뀐 것이 있을 때만 하도록 바꿨습니다.&lt;/li&gt;
 &lt;/ul&gt;
 </content>
   </entry>
