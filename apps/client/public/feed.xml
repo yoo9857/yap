@@ -8,6 +8,13 @@
     <language>ko</language>
     <lastBuildDate>Mon, 02 Nov 2026 15:00:00 +0000</lastBuildDate>
     <item>
+      <title>11월 3일 패치 노트 (7) — 새로 만든 자동차 부품, 부품마다 색과 성능을 바꿔요</title>
+      <link>https://craftyap.com/note/patch-2026-11-03-7/</link>
+      <guid isPermaLink="true">https://craftyap.com/note/patch-2026-11-03-7/</guid>
+      <pubDate>Mon, 02 Nov 2026 15:00:00 +0000</pubDate>
+      <description>기계 작업실의 모든 부품을 새로 모델링한 블록 키트 2.0으로 바꿨어요. 조립한 부품을 하나씩 골라 색과 무게, 바퀴 크기, 접지력, 서스펜션, 힘 같은 성능을 바꾸고 시험 운전으로 차이를 비교할 수 있어요.</description>
+    </item>
+    <item>
       <title>11월 3일 패치 노트 (6) — 벽에 붙어도 블록이 잘리거나 뚫려 보이지 않아요</title>
       <link>https://craftyap.com/note/patch-2026-11-03-6/</link>
       <guid isPermaLink="true">https://craftyap.com/note/patch-2026-11-03-6/</guid>
@@ -139,13 +146,6 @@
       <guid isPermaLink="true">https://craftyap.com/note/patch-2026-10-22/</guid>
       <pubDate>Wed, 21 Oct 2026 15:00:00 +0000</pubDate>
       <description>끝없는 들판에서 마음껏 짓는 교육 모드와, 선생님과 학생이 한 들판에서 함께 만드는 실시간 교실을 열었습니다. 블록 세상을 그리는 방식도 바꿔 훨씬 가벼워졌습니다.</description>
-    </item>
-    <item>
-      <title>실시간 교실 네트워크 오픈 안내</title>
-      <link>https://craftyap.com/note/network-2026-10-22/</link>
-      <guid isPermaLink="true">https://craftyap.com/note/network-2026-10-22/</guid>
-      <pubDate>Wed, 21 Oct 2026 15:00:00 +0000</pubDate>
-      <description>10월 22일, 선생님과 학생이 한 들판에 접속해 함께 만드는 실시간 교실 서비스를 열었습니다. 교실은 서버에 저장되어 다음 수업에 이어서 쓸 수 있습니다.</description>
     </item>
   </channel>
 </rss>

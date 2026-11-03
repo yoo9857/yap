@@ -7,6 +7,37 @@
   <updated>2026-11-03T00:00:00+09:00</updated>
   <author><name>크래프트얍(CraftYap)</name></author>
   <entry xml:base="https://craftyap.com/">
+    <title>11월 3일 패치 노트 (7) — 새로 만든 자동차 부품, 부품마다 색과 성능을 바꿔요</title>
+    <link href="https://craftyap.com/note/patch-2026-11-03-7/" />
+    <id>https://craftyap.com/note/patch-2026-11-03-7/</id>
+    <published>2026-11-03T00:00:00+09:00</published>
+    <updated>2026-11-03T00:00:00+09:00</updated>
+    <summary>기계 작업실의 모든 부품을 새로 모델링한 블록 키트 2.0으로 바꿨어요. 조립한 부품을 하나씩 골라 색과 무게, 바퀴 크기, 접지력, 서스펜션, 힘 같은 성능을 바꾸고 시험 운전으로 차이를 비교할 수 있어요.</summary>
+    <content type="html">&lt;h2&gt;한눈에 보기&lt;/h2&gt;
+&lt;p&gt;기계 작업실(&lt;strong&gt;B&lt;/strong&gt;)의 자동차·비행기 부품을 &lt;strong&gt;새로 모델링한 블록 키트 2.0&lt;/strong&gt;으로 바꿨어요. 장난감 블록처럼 둥글고 따뜻한 색이 됐어요. 이제 조립한 부품을 &lt;strong&gt;하나씩 골라 색과 성능을 바꾸고&lt;/strong&gt;, 시험 운전으로 무엇이 달라지는지 직접 비교할 수 있어요.&lt;/p&gt;
+&lt;h2&gt;BEFORE / AFTER&lt;/h2&gt;
+&lt;p&gt;&lt;strong&gt;기계 작업실의 초원 탐사차&lt;/strong&gt; — 회색 판과 검은 뼈대였던 부품이, 둥근 블록과 새 바퀴, 민트색 조종석으로 바뀌었어요.&lt;/p&gt;
+&lt;p&gt;&lt;img src=&quot;/note/assets/20261103-machine-kit-ba.webp&quot; alt=&quot;기계 작업실 비교: 왼쪽은 회색 판과 검은 뼈대의 이전 탐사차, 오른쪽은 크림색 블록과 둥근 바퀴, 민트색 조종석의 새 탐사차&quot;&gt;&lt;/p&gt;
+&lt;h2&gt;새로 추가&lt;/h2&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;부품 키트 2.0&lt;/strong&gt; — 프레임, 조종석, 무게추, 구동 바퀴, 추진기, 자이로, 날개, 기구 8종을 모두 새로 만들었어요. 바퀴는 회전, 조향, 서스펜션이 연결된 구조가 그대로 보여요.&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;조립한 부품 조정 (V)&lt;/strong&gt; — 조립한 부품을 고르고 아래를 바꿀 수 있어요. 바꾼 뒤 &lt;strong&gt;Enter&lt;/strong&gt;로 시험 운전해서 차이를 확인해 보세요.&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;블록 색&lt;/strong&gt;: 크림, 민트, 꿀빛, 살구, 하늘, 연보라, 돌빛&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;재료의 무게&lt;/strong&gt;(프레임·조종석·무게추): 가볍게 / 기본 / 무겁게&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;바퀴&lt;/strong&gt;: 크기, 타이어 접지력, 서스펜션&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;추진기·자이로&lt;/strong&gt;: 힘의 세기 · &lt;strong&gt;날개&lt;/strong&gt;: 면적 · &lt;strong&gt;기구&lt;/strong&gt;: 부력&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/li&gt;
+&lt;li&gt;바꾼 설정은 설계도와 함께 저장되고, 공유 코드에도 들어가요.&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;&lt;img src=&quot;/note/assets/20261103-machine-parts.webp&quot; alt=&quot;부품 학습 작업대: 탐사차의 구동 바퀴를 고르고 블록 색, 바퀴 크기, 타이어 접지력, 서스펜션을 바꾸는 화면&quot;&gt;&lt;/p&gt;
+&lt;h2&gt;개선&lt;/h2&gt;
+&lt;ul&gt;
+&lt;li&gt;부품 모델은 지금처럼 &lt;strong&gt;기계 작업실을 처음 열 때만&lt;/strong&gt; 받아요. 섬을 그냥 돌아다닐 때는 로딩이 늘지 않아요. 휴대폰처럼 작은 화면에서는 더 가벼운 모델을 받아요.&lt;/li&gt;
+&lt;/ul&gt;
+</content>
+  </entry>
+  <entry xml:base="https://craftyap.com/">
     <title>11월 3일 패치 노트 (6) — 벽에 붙어도 블록이 잘리거나 뚫려 보이지 않아요</title>
     <link href="https://craftyap.com/note/patch-2026-11-03-6/" />
     <id>https://craftyap.com/note/patch-2026-11-03-6/</id>
@@ -906,42 +937,6 @@
 &lt;li&gt;먼 구역은 단순한 모양으로 바꿔 그려, 넓은 세상도 가볍게 보입니다.&lt;/li&gt;
 &lt;li&gt;몇 초마다 화면이 살짝 멈칫하던 자동 저장을, 바뀐 것이 있을 때만 하도록 바꿨습니다.&lt;/li&gt;
 &lt;/ul&gt;
-</content>
-  </entry>
-  <entry xml:base="https://craftyap.com/">
-    <title>실시간 교실 네트워크 오픈 안내</title>
-    <link href="https://craftyap.com/note/network-2026-10-22/" />
-    <id>https://craftyap.com/note/network-2026-10-22/</id>
-    <published>2026-10-22T00:00:00+09:00</published>
-    <updated>2026-10-22T00:00:00+09:00</updated>
-    <summary>10월 22일, 선생님과 학생이 한 들판에 접속해 함께 만드는 실시간 교실 서비스를 열었습니다. 교실은 서버에 저장되어 다음 수업에 이어서 쓸 수 있습니다.</summary>
-    <content type="html">&lt;p&gt;안녕하세요, 크래프트얍입니다.&lt;/p&gt;
-&lt;p&gt;&lt;strong&gt;2026년 10월 22일&lt;/strong&gt;, 교육 모드의 실시간 교실 서비스를 열었습니다. 선생님이 반을 열면
-학생들이 같은 들판에 접속해 함께 짓습니다. 교실에서 일어나는 일은 모두 서버를 거쳐
-반 전체에 똑같이 전달됩니다.&lt;/p&gt;
-&lt;h2&gt;서버로 운영되는 것&lt;/h2&gt;
-&lt;ul&gt;
-&lt;li&gt;&lt;strong&gt;함께 짓기&lt;/strong&gt; — 누군가 블록을 놓거나 캐면 반 전체의 화면에 바로 나타납니다.&lt;/li&gt;
-&lt;li&gt;&lt;strong&gt;접속자와 로봇&lt;/strong&gt; — 지금 접속한 사람의 목록이 보이고, 친구들의 로봇이 이름표를 달고 움직입니다.&lt;/li&gt;
-&lt;li&gt;&lt;strong&gt;채팅&lt;/strong&gt; — 반 안에서 채팅할 수 있습니다.&lt;/li&gt;
-&lt;li&gt;&lt;strong&gt;선생님 기능&lt;/strong&gt; — 학생 모으기, 건축·채팅 잠그기, 내보내기(10분 동안 다시 들어올 수 없음), 들판 비우기, 수업 종료. 이 기능들은 서버가 선생님인지 확인한 뒤에만 실행합니다.&lt;/li&gt;
-&lt;/ul&gt;
-&lt;h2&gt;교실 저장&lt;/h2&gt;
-&lt;ul&gt;
-&lt;li&gt;교실의 들판, 설정, 학생 명단은 &lt;strong&gt;서버에 저장&lt;/strong&gt;됩니다. 서버를 다시 시작하거나 업데이트해도 남습니다.&lt;/li&gt;
-&lt;li&gt;다음 수업에 같은 브라우저로, 또는 다른 PC에서 &lt;strong&gt;교실 비밀번호&lt;/strong&gt;로 다시 열 수 있습니다.&lt;/li&gt;
-&lt;li&gt;비밀번호는 원래 글자를 알아볼 수 없는 형태로 바꿔서 저장합니다.&lt;/li&gt;
-&lt;li&gt;180일 동안 사용하지 않은 교실은 자동으로 정리됩니다.&lt;/li&gt;
-&lt;/ul&gt;
-&lt;h2&gt;학교에서 접속할 때&lt;/h2&gt;
-&lt;ul&gt;
-&lt;li&gt;별도 프로그램이나 계정이 필요 없습니다. 선생님 이름과 내 이름으로 들어갑니다.&lt;/li&gt;
-&lt;li&gt;교실 연결은 일반 웹사이트와 같은 주소(craftyap.com)와 같은 보안 연결(HTTPS, 443번 포트)을 씁니다. 다른 포트를 따로 열 필요가 없습니다.&lt;/li&gt;
-&lt;li&gt;새로고침하거나 연결이 잠깐 끊겨도 같은 자리로 돌아옵니다. 선생님 자리는 선생님 브라우저의 열쇠나 비밀번호가 있어야만 되찾을 수 있습니다. 선생님 이름만 입력해서는 선생님 권한을 가질 수 없습니다.&lt;/li&gt;
-&lt;/ul&gt;
-&lt;blockquote&gt;
-&lt;p&gt;이날부터 크래프트얍 서버 업데이트가 자동 배포로 안정적으로 이루어지기 시작했습니다.&lt;/p&gt;
-&lt;/blockquote&gt;
 </content>
   </entry>
 </feed>
