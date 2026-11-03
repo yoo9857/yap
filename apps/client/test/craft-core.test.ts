@@ -240,7 +240,7 @@ describe("inventory + recipes", () => {
     expect(blockByKey("ruby-ore")!.id).toBe(58);
     expect(blockByKey("question-block")!.id).toBe(MAX_SOLID_ID);
     for (const def of BLOCKS) {
-      expect(existsSync(`public/textures/blocks/${def.texture}.png`), def.texture).toBe(true);
+      expect(existsSync(`public/textures/blocks/${def.texture}.webp`), def.texture).toBe(true);
       if (def.fluid) expect(def.id).toBe(WATER);
       else expect(PLAYER_SOLID_IDS.has(def.id), def.key).toBe(true);
     }
