@@ -68,3 +68,22 @@ describe("craft camera never opens a block on screen", () => {
     expect(cam.distance).toBeGreaterThan(7.5);
   });
 });
+
+describe("de2: down in a one-cell pit, looking down past the rim", () => {
+  it("no yaw or steep pitch puts the near plane into the rim bricks", () => {
+    const w = new VoxelWorld();
+    // ground 0..3 solid; a 1×1 pit at (15, 3, 15) one cell deep; a 1-high step beside it
+    for (let x = 0; x < 30; x++) for (let z = 0; z < 30; z++) for (let y = 0; y <= 3; y++) w.set(x, y, z, 3);
+    w.set(15, 3, 15, 0);
+    for (let z = 12; z < 18; z++) w.set(17, 4, z, 3);
+    const three = new THREE.PerspectiveCamera(75.5, 21 / 9, 0.1, 500);
+    const cam = new CraftCamera(three);
+    const eye = new THREE.Vector3(15.5, 3 + 1.5, 15.5); // feet on the pit floor
+    for (let yaw = 0; yaw < Math.PI * 2; yaw += Math.PI / 8) {
+      for (const pitch of [-0.4, -0.8, -1.2]) {
+        settle(cam, w, eye, yaw, pitch, 40);
+        expect(clipsBlock(w, three.position, 0.2), `yaw ${yaw.toFixed(2)} pitch ${pitch}`).toBe(false);
+      }
+    }
+  });
+});

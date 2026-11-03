@@ -29,7 +29,7 @@ const WALL_MARGIN = 0.32;
 const HARD_MARGIN = 0.14;
 /** Half-size of the box kept clear of blocks around the camera: the near plane's corner
  *  reach (0.1 m near, 75° fov, widescreen ≈ 0.16 m) — the screen never opens a block. */
-const NEAR_CLEAR = 0.17;
+const NEAR_CLEAR = 0.22; // covers 21:9 at the running fov (corner reach ≈ 0.20 m)
 /** Corner-probe spread — roughly the near-plane half-extent at MAX_DIST. */
 const PROBE = 0.28;
 /** Centre + four corners; hoisted so the per-frame probe allocates nothing. */
