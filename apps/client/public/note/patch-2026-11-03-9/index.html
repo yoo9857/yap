@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>11월 3일 패치 노트 (9) — 보는 곳에서 파고, 다시 들어와도 그 자리에 | 크래프트얍 개발 노트</title>
+    <meta name="description" content="화면에 보이는 곳과 실제로 블록을 파는 곳이 달라지던 문제를 고쳤어요. 교실에서 새로고침하거나 다시 들어오면 서 있던 자리로 돌아오고, 나갔다 온 친구도 다른 사람 화면에 제대로 보여요." />
+    <meta name="robots" content="index, follow, max-image-preview:large" />
+    <meta name="theme-color" content="#ffd21c" />
+    <meta name="generator" content="tools/build-notes.mjs" />
+    <link rel="canonical" href="https://craftyap.com/note/patch-2026-11-03-9/" />
+    <link rel="alternate" type="application/rss+xml" title="크래프트얍 개발 노트" href="/feed.xml" />
+    <link rel="alternate" type="application/atom+xml" title="크래프트얍 개발 노트 (Atom)" href="/note/feed.xml" />
+    <link rel="icon" type="image/png" sizes="48x48" href="/favicon-48.png" />
+    <link rel="stylesheet" href="/guide/guide.css?v=0f9762e0f8" />
+    <link rel="stylesheet" href="/note/note.css?v=e5352788b0" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Jua&family=Noto+Sans+KR:wght@400;700;900&display=swap" rel="stylesheet" />
+    <meta property="og:type" content="article" />
+    <meta property="og:locale" content="ko_KR" />
+    <meta property="og:site_name" content="크래프트얍(CraftYap)" />
+    <meta property="og:title" content="11월 3일 패치 노트 (9) — 보는 곳에서 파고, 다시 들어와도 그 자리에 | 크래프트얍 개발 노트" />
+    <meta property="og:description" content="화면에 보이는 곳과 실제로 블록을 파는 곳이 달라지던 문제를 고쳤어요. 교실에서 새로고침하거나 다시 들어오면 서 있던 자리로 돌아오고, 나갔다 온 친구도 다른 사람 화면에 제대로 보여요." />
+    <meta property="og:url" content="https://craftyap.com/note/patch-2026-11-03-9/" />
+    <meta property="og:image" content="https://craftyap.com/craftyap-banner.jpg" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="675" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="11월 3일 패치 노트 (9) — 보는 곳에서 파고, 다시 들어와도 그 자리에 | 크래프트얍 개발 노트" />
+    <meta name="twitter:description" content="화면에 보이는 곳과 실제로 블록을 파는 곳이 달라지던 문제를 고쳤어요. 교실에서 새로고침하거나 다시 들어오면 서 있던 자리로 돌아오고, 나갔다 온 친구도 다른 사람 화면에 제대로 보여요." />
+    <meta name="twitter:image" content="https://craftyap.com/craftyap-banner.jpg" />
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "BlogPosting",
+      "@id": "https://craftyap.com/note/patch-2026-11-03-9/#post",
+      "url": "https://craftyap.com/note/patch-2026-11-03-9/",
+      "headline": "11월 3일 패치 노트 (9) — 보는 곳에서 파고, 다시 들어와도 그 자리에",
+      "description": "화면에 보이는 곳과 실제로 블록을 파는 곳이 달라지던 문제를 고쳤어요. 교실에서 새로고침하거나 다시 들어오면 서 있던 자리로 돌아오고, 나갔다 온 친구도 다른 사람 화면에 제대로 보여요.",
+      "datePublished": "2026-11-03",
+      "dateModified": "2026-11-03",
+      "inLanguage": "ko",
+      "keywords": "패치 노트, 버그 수정, 교실, 카메라",
+      "image": "https://craftyap.com/craftyap-banner.jpg",
+      "isPartOf": {
+        "@id": "https://craftyap.com/note/#blog"
+      },
+      "author": {
+        "@type": "Organization",
+        "name": "크래프트얍(CraftYap)",
+        "url": "https://craftyap.com/"
+      },
+      "about": {
+        "@id": "https://craftyap.com/#game"
+      }
+    },
+    {
+      "@type": "BreadcrumbList",
+      "itemListElement": [
+        {
+          "@type": "ListItem",
+          "position": 1,
+          "name": "크래프트얍",
+          "item": "https://craftyap.com/"
+        },
+        {
+          "@type": "ListItem",
+          "position": 2,
+          "name": "개발 노트",
+          "item": "https://craftyap.com/note/"
+        },
+        {
+          "@type": "ListItem",
+          "position": 3,
+          "name": "11월 3일 패치 노트 (9) — 보는 곳에서 파고, 다시 들어와도 그 자리에",
+          "item": "https://craftyap.com/note/patch-2026-11-03-9/"
+        }
+      ]
+    }
+  ]
+}
+    </script>
+    <script src="/guide/guide.js?v=b6f46abba1" defer></script>
+  </head>
+
+  <body>
+    <a class="skip-link" href="#content">본문으로 이동</a>
+    <header class="site-header"><div class="header-inner">
+      <a class="brand" href="/" aria-label="크래프트얍 게임 홈"><img src="/craftyap-logo.webp" width="64" height="64" alt="" /><span>크래프트얍<small>CRAFTYAP</small></span></a>
+      <nav class="header-nav" id="site-nav" aria-label="주요 메뉴"><a href="/note/">개발 노트</a><a href="/guide/">게임 안내</a><a href="/guide/#controls">조작법</a><a href="/guide/#faq">FAQ</a></nav>
+      <a class="button button-dark header-play" href="/">지금 플레이 <span aria-hidden="true">↗</span></a>
+      <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="site-nav" aria-label="메뉴 열기" hidden><span></span><span></span></button>
+    </div></header>
+    <main id="content" class="note-main section-shell">
+      <article class="note-article" aria-labelledby="post-title">
+        <nav class="note-crumb" aria-label="현재 위치"><a href="/note/">← 개발 노트</a></nav>
+        <header class="note-head">
+          <p class="note-date"><time datetime="2026-11-03">2026.11.03</time></p>
+          <h1 id="post-title">11월 3일 패치 노트 (9) — 보는 곳에서 파고, 다시 들어와도 그 자리에</h1>
+          <p class="note-summary">화면에 보이는 곳과 실제로 블록을 파는 곳이 달라지던 문제를 고쳤어요. 교실에서 새로고침하거나 다시 들어오면 서 있던 자리로 돌아오고, 나갔다 온 친구도 다른 사람 화면에 제대로 보여요.</p>
+          <ul class="note-tags" aria-label="태그"><li>패치 노트</li><li>버그 수정</li><li>교실</li><li>카메라</li></ul>
+          <nav class="note-chips" aria-label="이번 노트의 변경 사항"><a class="note-chip note-chip--fix" href="#fix">수정 <b>6</b></a><a class="note-chip note-chip--known" href="#known">알려진 문제 <b>1</b></a></nav>
+        </header>
+        <div class="note-body">
+<section class="note-sec note-sec--summary" id="s0" aria-labelledby="s0-h">
+<h2 id="s0-h"><span class="note-badge" aria-hidden="true">요약</span>한눈에 보기</h2>
+<div class="note-sec-body">
+<p>블록 틈에 끼거나 턱을 오를 때 <strong>화면이 옆으로 밀려서, 보이는 곳과 다른 곳을 파던 문제</strong>를 고쳤어요. 교실(교육 모드)에서는 <strong>새로고침하거나 다시 들어와도 서 있던 자리로 돌아오고</strong>, 나갔다 들어온 친구가 <strong>사라지거나 멈춰 보이던 문제</strong>도 고쳤어요.</p>
+</div>
+</section>
+<section class="note-sec">
+<h2>BEFORE / AFTER</h2>
+<p><strong>교실에서 새로고침했을 때</strong> — 모이는 곳에서 30 m쯤 떨어진 곳에 금 블록 기둥을 세우고 새로고침했어요. 이전에는 선생님 옆, 처음 자리로 돌아가 버렸어요. 이제는 기둥 사이, 서 있던 그 자리로 돌아와요.</p>
+<p><img src="/note/assets/20261103-class-rejoin-ba.webp" alt="교실 새로고침 비교: 왼쪽은 새로고침 뒤 선생님 옆 빈 들판으로 돌아간 이전 화면, 오른쪽은 세워 둔 금 블록 기둥 사이에 그대로 서 있는 새 화면"></p>
+</section>
+<section class="note-sec note-sec--fix" id="fix" aria-labelledby="fix-h">
+<h2 id="fix-h"><span class="note-badge" aria-hidden="true">FIX</span>버그 수정 <small>6</small></h2>
+<div class="note-sec-body">
+<ul>
+<li><strong class="item-title">보이는 곳과 파는 곳이 달랐던 문제</strong>지난 패치(6)에서 머리가 블록에 걸리면 카메라를 가장 가까운 빈 곳으로 옮기게 했는데, 그 빈 곳이 옆일 때 화면만 옆으로 밀리고 조준은 원래 자리에 남았어요. 이제 카메라는 <strong>위아래로만</strong> 빈 곳을 찾고, 먼저 캐릭터의 실제 눈높이를 써요. 보이는 곳과 조준이 늘 한 줄에 있어요.</li>
+<li><strong class="item-title">교실에서 새로고침하면 처음 자리로 돌아가던 문제</strong>이제 반과 이름마다 마지막으로 서 있던 자리를 기억해서, 새로고침이나 업데이트 뒤 자동으로 다시 들어올 때 <strong>그 자리에서 이어서</strong> 해요. 처음 들어오는 반에서는 지금처럼 모이는 곳 근처에서 시작해요.</li>
+<li><strong class="item-title">나갔다 들어온 친구가 다른 사람 화면에서 사라지던 문제</strong>다시 들어온 친구의 움직임이 서버에서 &quot;예전 소식&quot;으로 잘못 걸러져서, 다른 사람 화면에는 나간 자리에 멈춰 있거나 아예 안 보였어요. 이제 다시 들어오면 바로 다시 보이고 움직여요.</li>
+<li><strong class="item-title">서버가 다시 켜진 뒤 친구들이 멈춰 보이던 문제</strong>업데이트로 서버가 다시 켜지면 친구들 위치가 옛 시각에 묶여 멈춰 있었어요. 이제 새 서버의 시각에 맞춰 바로 다시 따라가요.</li>
+<li><strong class="item-title">기계 작업실에서 선생님이 &quot;모이기&quot;를 하면 생기던 문제</strong>시험 운전 중에 불려 가면 기계가 보이지 않는 옛 땅 위에 남았어요. 이제 작업실을 먼저 닫고 모여요. 앉아 있다가 불려 갈 때 몸이 의자 쪽으로 미끄러지던 것도 고쳤어요.</li>
+<li><strong>들판이 넓어지는 순간 조준 표시가 다른 블록에 잠깐 찍히던 문제</strong>도 고쳤어요.</li>
+</ul>
+</div>
+</section>
+<section class="note-sec note-sec--known" id="known" aria-labelledby="known-h">
+<h2 id="known-h"><span class="note-badge" aria-hidden="true">!</span>알려진 문제 <small>1</small></h2>
+<div class="note-sec-body">
+<ul>
+<li>이미 열려 있던 탭은 <strong>새로고침</strong>해야 고친 내용이 적용돼요.</li>
+</ul>
+</div>
+</section>
+        </div>
+      </article>
+      <nav class="note-pager" aria-label="다른 노트"><a class="note-prev" href="/note/patch-2026-11-03-8/"><small>이전 노트</small>11월 3일 패치 노트 (8) — 교실 로비와 로딩창의 테두리가 딱 맞아요</a><span></span></nav>
+    </main>
+    <footer class="site-footer section-shell"><div><a class="footer-brand" href="/">크래프트얍 <span>CraftYap</span></a><p>블록 하나에서 시작되는, 네가 만드는 세상.</p></div><nav aria-label="하단 메뉴"><a href="/">게임 홈</a><a href="/note/">개발 노트</a><a href="/guide/">게임 안내</a><a href="/feed.xml">RSS</a><a href="#content">맨 위로 ↑</a></nav><small>크래프트얍 개발 노트 · <time datetime="2026-11-03">2026.11.03 업데이트</time></small></footer>
+  </body>
+</html>
