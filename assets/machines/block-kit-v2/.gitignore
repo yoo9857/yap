@@ -1,4 +1,4 @@
-# generated or duplicated (the shipped kit lives in apps/client/public/models/machines)
+# generated or intermediate (the check compares runtime/*.glb with apps/client/public/models/machines)
 previews/review.html
-runtime/*.glb
+runtime/*-raw.glb
 source/*.blend1
