@@ -2051,6 +2051,12 @@ export class CraftGame {
       classroom: () => this.sync?.debug() ?? null,
       classSend: (msg: Parameters<ClassClient["send"]>[0]) => this.sync?.client.send(msg),
       absolute: () => (this.field ? this.field.toAbsolute(this.body.x, this.body.z) : null),
+      /** The block at ABSOLUTE field coordinates (a classroom's coordinates), through the current window. */
+      blockAtAbs: (ax: number, y: number, az: number) => {
+        if (!this.field) return this.state.world.get(ax, y, az);
+        const [x, z] = this.field.toGrid(ax, az);
+        return this.state.world.inBounds(x, y, z) ? this.state.world.get(x, y, z) : -1;
+      },
     };
     this.debugHooks = hooks;
     (window as unknown as Record<string, unknown>).__roboCraft = hooks;

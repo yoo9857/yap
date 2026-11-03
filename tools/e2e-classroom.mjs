@@ -129,6 +129,9 @@ try {
 
   // 3) shared building, both directions
   await minji.evaluate(() => globalThis.__roboCraft.placeAt(70, 4, 70, "gold-block"));
+  // its ABSOLUTE cell: the voxel window moves later (a gather, and a returning student comes back
+  // where they stood), so grid (70, 70) will not name this brick then
+  const brickAbs = await minji.evaluate(() => { const [ax, az] = globalThis.__roboCraft.absolute(); const p = globalThis.__roboCraft.snapshot().pos; return [70 + (ax - p[0]), 70 + (az - p[2])]; });
   await teacher.evaluate(() => globalThis.__roboCraft.placeAt(72, 4, 70, "glass"));
   await sleep(800);
   const seenByTeacher = await teacher.evaluate(() => globalThis.__roboCraft.blockAt(70, 4, 70));
@@ -228,9 +231,9 @@ try {
   await minji.waitForFunction(() => !!globalThis.__roboCraft?.classroom(), { timeout: 15000 });
   await sleep(800);
   const after = await cls(minji);
-  const kept = await minji.evaluate(() => globalThis.__roboCraft.blockAt(70, 4, 70));
+  const kept = await minji.evaluate(([ax, az]) => globalThis.__roboCraft.blockAtAbs(ax, 4, az), brickAbs);
   check("reconnecting student keeps their seat", after.you === before, `${before} → ${after.you}`);
-  check("reconnecting student gets the field back", kept !== 0);
+  check("reconnecting student gets the field back", kept !== 0 && kept !== -1, JSON.stringify({ kept, brickAbs }));
   check("reconnecting student gets furniture back", JSON.stringify(await furniture(minji)) === JSON.stringify(sharedFurniture));
 
   // 10) end of class
