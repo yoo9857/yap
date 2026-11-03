@@ -2407,9 +2407,12 @@
         border-width: 20px; border-style: solid; border-color: transparent;
         border-image-width: 20px;
         border-image-outset: 0;
-        border-radius: 34px;
-        background: rgba(255, 255, 255, 0.96);
-        background-clip: padding-box;
+        /* the fill runs under the rim (border-box) with the frame art's own outer curve,
+           so no background shows between the white card and its brick frame */
+        border-radius: 14px;
+        background: #fff;
+        background-clip: border-box;
+        box-shadow: 0 18px 40px rgba(10, 30, 70, 0.28);
         padding: 10px 12px 10px;
         -webkit-backdrop-filter: none;
         backdrop-filter: none;
