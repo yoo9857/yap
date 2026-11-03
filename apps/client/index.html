@@ -1212,10 +1212,7 @@
         border-width: 4px;
         border-radius: 22px 26px 20px 28px / 26px 20px 28px 22px;
         /* generated plank texture, warmed at the top and shaded toward the bottom */
-        background:
-          linear-gradient(180deg, rgba(255, 230, 190, 0.12), rgba(70, 35, 8, 0.16)),
-          url("/home/wood.webp") 0 0 / 300px 300px,
-          linear-gradient(180deg, var(--wood), var(--wood-dark));
+        background: linear-gradient(180deg, var(--wood), var(--wood-dark));
         box-shadow:
           inset 0 3px 0 rgba(255, 236, 205, 0.45),
           inset 3px 0 0 rgba(255, 236, 205, 0.18),
@@ -1228,18 +1225,6 @@
         overflow-y: auto;
         scrollbar-width: thin;
         scrollbar-color: var(--wood-side) transparent;
-      }
-      .board-screen .board::before {
-        /* the brick studs along the top rail (generated art), inked like the rest of the UI */
-        content: "";
-        position: absolute;
-        top: 7px;
-        left: 34px;
-        right: 34px;
-        height: 18px;
-        background: url("/home/studs.webp") 0 0 / auto 18px round no-repeat;
-        filter: drop-shadow(1.5px 0 0 var(--ink)) drop-shadow(-1.5px 0 0 var(--ink)) drop-shadow(0 -1.5px 0 var(--ink));
-        pointer-events: none;
       }
       .board-screen .board::after {
         /* four screws holding the board together */
@@ -1289,13 +1274,12 @@
       .board-screen .board-sign .game-brand { margin: 0 0 3px; font-size: 25px; line-height: 1.15; }
       .board-screen .board-sign .game-intro { margin: 0; font-size: 13.5px; line-height: 1.5; color: #4a4a4a; }
       /* the game list is the second page of the board: drop the header so all four fit */
-      .board-screen[data-board="games"] .board-head { display: none; }
       .board-screen .board-cork {
         position: relative;
         padding: 16px 16px 14px;
         border: 3px solid var(--ink);
         border-radius: 14px 18px 12px 16px / 16px 12px 18px 14px;
-        background: url("/home/cork.webp") 0 0 / 256px 256px, var(--cork);
+        background: var(--cork);
         /* sunk into the frame: shade on the top/left inner wall, light on the bottom/right */
         box-shadow:
           inset 3px 4px 0 rgba(90, 45, 10, 0.28),
@@ -1321,48 +1305,6 @@
       }
 
       /* the latest dev note, pinned at the top of the cork */
-      .board-screen .board-news {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        margin: 0 0 14px;
-        padding: 7px 12px 7px 8px;
-        border: 2px solid var(--ink);
-        border-radius: var(--wobble-sm);
-        background: #fff7c7;
-        box-shadow: inset 0 -3px 0 rgba(200, 160, 40, 0.25), var(--edge);
-        color: var(--ink);
-        text-decoration: none;
-        text-align: left;
-        font: 600 12.5px/1.35 system-ui, sans-serif;
-        transform: rotate(0.4deg);
-        transition: transform 0.08s, box-shadow 0.08s;
-      }
-      .board-screen .board-news[hidden] { display: none; }
-      .board-screen .board-news:hover { transform: translateY(-1px) rotate(0.4deg); box-shadow: inset 0 -3px 0 rgba(200, 160, 40, 0.25), 0 4px 0 var(--ink); }
-      .board-screen .board-news:active { transform: translateY(2px) rotate(0.4deg); box-shadow: var(--edge-down); }
-      .board-screen .board-news:focus-visible { outline: 3px solid var(--cy-blue); outline-offset: 3px; }
-      .board-screen .board-news-tag {
-        flex: none;
-        padding: 2px 9px 3px;
-        border: 2px solid var(--ink);
-        border-radius: 999px;
-        background: var(--cy-red);
-        box-shadow: inset 0 -2px 0 rgba(0, 0, 0, 0.2);
-        color: var(--paper);
-        font: 13px/1.2 "Jua", system-ui, sans-serif;
-      }
-      .board-screen .board-news-title {
-        flex: 1;
-        min-width: 0;
-        overflow: hidden;
-        white-space: nowrap;
-        text-overflow: ellipsis;
-      }
-      .board-screen .board-news-go { flex: none; font-size: 15px; transition: transform 0.12s; }
-      .board-screen .board-news:hover .board-news-go { transform: translateX(3px); }
-
-      /* photo notes */
       .board-screen .board-notes {
         display: grid;
         grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1459,22 +1401,6 @@
         color: #555;
         word-break: keep-all;
       }
-      .board-screen .board-chips {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 6px;
-        padding: 10px 3px 0;
-      }
-      .board-screen .board-chips i {
-        padding: 2px 9px 3px;
-        border: 2px solid var(--ink);
-        border-radius: 999px;
-        background: #eef8e9;
-        color: var(--ink);
-        font: 600 11px/1.3 system-ui, sans-serif;
-        font-style: normal;
-      }
-      .board-screen [data-pick="games"] .board-chips i { background: #e7f1ff; }
       .board-screen .board-go {
         /* margin-top: auto lines the two buttons up whatever the text length */
         align-self: flex-start;
@@ -1491,14 +1417,10 @@
         font: 15px/1.2 "Jua", system-ui, sans-serif;
         transition: transform 0.08s, box-shadow 0.08s;
       }
-      .board-screen [data-pick="games"] .board-go { background: #9fd1ff; box-shadow: inset 0 -3px 0 rgba(30, 90, 170, 0.3), var(--edge); }
       .board-screen .board-note:hover .board-go { transform: translateY(-1px); }
       .board-screen .board-note:active .board-go { transform: translateY(2px); box-shadow: var(--edge-down); }
       /* keep at least 12px above the button that margin-top: auto pushes down */
-      .board-screen :is(.board-notes-2, .board-notes-3) .board-note > :nth-last-child(2) { margin-bottom: 12px; }
-      .board-screen .board-notes-4 .board-note { padding-bottom: 10px; }
-      .board-screen .board-notes-4 .mode-text b { font-size: 17.5px; }
-      .board-screen .board-notes-4 .mode-text small { font-size: 11.5px; }
+      .board-screen .board-notes-3 .board-note > :nth-last-child(2) { margin-bottom: 12px; }
       .board-screen .board-links {
         display: flex;
         flex-wrap: wrap;
@@ -1697,25 +1619,20 @@
         .board-screen .board-sign .game-intro { font-size: 11.5px; }
         .board-screen .board-cork { padding: 14px 10px 12px; }
         /* the two modes become wide notes: photo left, words right */
-        .board-screen :is(.board-notes-2, .board-notes-3) { grid-template-columns: 1fr; gap: 16px; }
-        .board-screen :is(.board-notes-2, .board-notes-3) .board-note {
+        .board-screen .board-notes-3 { grid-template-columns: 1fr; gap: 16px; }
+        .board-screen .board-notes-3 .board-note {
           display: grid;
           grid-template-columns: 40% 1fr;
           grid-template-rows: auto 1fr auto;
           column-gap: 10px;
         }
-        .board-screen :is(.board-notes-2, .board-notes-3) .board-photo { grid-row: 1 / 4; align-self: center; }
-        .board-screen :is(.board-notes-2, .board-notes-3) .mode-text { padding: 2px 0 0; }
-        .board-screen :is(.board-notes-2, .board-notes-3) .mode-text b { font-size: 19px; }
-        .board-screen :is(.board-notes-2, .board-notes-3) .mode-text small { font-size: 12px; }
-        .board-screen :is(.board-notes-2, .board-notes-3) .board-chips { display: none; }
+        .board-screen .board-notes-3 .board-photo { grid-row: 1 / 4; align-self: center; }
+        .board-screen .board-notes-3 .mode-text { padding: 2px 0 0; }
+        .board-screen .board-notes-3 .mode-text b { font-size: 19px; }
+        .board-screen .board-notes-3 .mode-text small { font-size: 12px; }
         /* pin over the photo, not the title; button keeps its own width */
-        .board-screen :is(.board-notes-2, .board-notes-3) .board-note::before { left: 20%; }
-        .board-screen :is(.board-notes-2, .board-notes-3) .board-go { grid-column: 2; justify-self: start; margin-top: 8px; padding: 3px 11px 5px; font-size: 14px; }
-        .board-screen .board-notes-4 { gap: 16px 10px; }
-        .board-screen .board-notes-4 .board-note { padding: 6px 6px 9px; }
-        .board-screen .board-notes-4 .mode-text { padding: 7px 2px 0; }
-        .board-screen .board-notes-4 .mode-text b { font-size: 15.5px; }
+        .board-screen .board-notes-3 .board-note::before { left: 20%; }
+        .board-screen .board-notes-3 .board-go { grid-column: 2; justify-self: start; margin-top: 8px; padding: 3px 11px 5px; font-size: 14px; }
         /* lobby forms stack: the form first, the steps below it without the photo */
         .board-screen .class-layout { grid-template-columns: 1fr; gap: 16px; }
         .board-screen .class-layout .board-paper { order: -1; }
@@ -1736,14 +1653,9 @@
         .board-screen .board-head .brand-logo { flex: none; width: 150px; margin: -4px 0 -6px; }
         .board-screen .board-head .board-sign { flex: 1; margin: 0; text-align: left; }
         .board-screen .board-head .board-sign::before { display: none; }
-        .board-screen .board-news { margin-bottom: 12px; }
         .board-screen .mode-step h2 { margin-bottom: 12px; }
         .board-screen .board-photo { aspect-ratio: 16 / 9; }
-        .board-screen .board-chips { display: none; }
         /* the game list goes four across, so it never needs scrolling */
-        .board-screen[data-board="games"] .board { width: min(900px, calc(100vw - 24px)); }
-        .board-screen .board-notes-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px 14px; }
-        .board-screen .board-notes-4 .board-photo { aspect-ratio: 4 / 3; }
       }
       @media (max-height: 800px) and (min-width: 561px) {
         /* short laptops: the step bar says where we are, so a form step gives the header's room to the form */
@@ -1756,10 +1668,830 @@
       @media (prefers-reduced-motion: reduce) {
         .board-screen .board-note,
         .board-screen .board-photo img,
-        .board-screen .board-go,
-        .board-screen .board-news-go { transition: none; }
+        .board-screen .board-go { transition: none; }
       }
 
+      /* ---------------------------------------------------------------
+         Home hub (#mode-select.hub): a game lobby around the menu art.
+         The art's own big logo is the hero, so the middle of the screen
+         stays open: glass panels down both sides, the mode cards and the
+         big start button along the bottom, docks in the two corners.
+         Things the game does not have yet keep their place, marked
+         "준비 중" (data-soon) — they never show made-up numbers.
+         Hooks the picker and the E2E suites rely on stay: .mode-btn,
+         [data-pick], [data-mode], .mode-step[data-step], .mode-back.
+         --------------------------------------------------------------- */
+      #mode-select.hub {
+        --hub-glass: rgba(22, 34, 62, 0.58);
+        --hub-line: rgba(255, 255, 255, 0.28);
+        --hub-text: #fff;
+        --hub-dim: rgba(255, 255, 255, 0.74);
+        color: var(--hub-text);
+        font-family: system-ui, -apple-system, "Malgun Gothic", sans-serif;
+      }
+      /* the online lobby: shown once 게임 모드 is picked on the entry card */
+      .hub-shell {
+        position: absolute;
+        inset: 0;
+        display: grid;
+        grid-template-columns: minmax(250px, 300px) minmax(0, 1fr) minmax(290px, 360px);
+        grid-template-rows: auto minmax(0, 1fr) auto auto;
+        grid-template-areas:
+          "top top top"
+          "left hero right"
+          "left center right"
+          "dockl start dockr";
+        gap: 14px 18px;
+        padding: 14px 18px 16px;
+        box-sizing: border-box;
+        overflow: hidden;
+      }
+      #mode-select.hub[data-board="category"] .hub-shell { display: none; }
+      /* a little shade top and bottom so white text holds over the bright art */
+      .hub-shell::before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        z-index: -1;
+        background: linear-gradient(180deg, rgba(8, 18, 40, 0.32), transparent 20%, transparent 62%, rgba(8, 18, 40, 0.42));
+        pointer-events: none;
+      }
+
+      /* ---- entry: the first screen. The menu art carries the big logo in the
+         middle, so the choice sits along the bottom: a plaque, two wide cards. ---- */
+      #mode-select.hub[data-board="category"] { align-items: flex-end; }
+      .hub-entry {
+        position: relative;
+        z-index: 1;
+        box-sizing: border-box;
+        width: min(980px, calc(100vw - 32px));
+        margin-bottom: clamp(16px, 5vh, 56px);
+        text-align: center;
+        color: #1f2a44;
+      }
+      .hub-entry-head { display: flex; flex-direction: column; align-items: center; margin-bottom: 14px; }
+      .hub-entry h2 {
+        display: inline-block;
+        margin: 0;
+        padding: 12px 40px 10px;
+        border-image: url("/ui/hub/title-plaque.webp") 40 80 30 80 fill / 12px 24px 9px 24px / 0 round;
+        filter: drop-shadow(0 4px 0 rgba(10, 25, 60, 0.3));
+        color: #1f1f1f;
+        font: 26px/1.2 "Jua", system-ui, sans-serif;
+      }
+      .hub-entry-intro { display: inline-block; margin: 10px 0 0; padding: 5px 14px 6px; border-radius: 999px; background: rgba(15, 28, 58, 0.55); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); color: #fff; font: 700 14px/1.45 system-ui, sans-serif; text-shadow: 0 1px 3px rgba(0, 0, 0, 0.6), 0 0 10px rgba(0, 0, 0, 0.35); word-break: keep-all; }
+      .hub-entry-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; }
+      .hub-entry-btn {
+        position: relative;
+        display: grid;
+        grid-template-columns: 42% 1fr;
+        grid-template-rows: 1fr auto;
+        gap: 4px 16px;
+        min-height: 170px;
+        padding: 12px 16px 12px 12px;
+        border: 0;
+        border-image: url("/ui/hub/card-frame.webp") 64 60 60 60 / 18px 17px 17px 17px / 9px round;
+        background: #fff;
+        box-shadow: 0 14px 30px rgba(5, 15, 40, 0.32);
+        color: #1f2a44 !important;
+        text-align: left;
+        cursor: pointer;
+        transition: transform 0.14s, box-shadow 0.14s;
+      }
+      .hub-entry-btn:hover { transform: translateY(-5px); box-shadow: 0 20px 36px rgba(5, 15, 40, 0.36); }
+      .hub-entry-btn:hover { border-image-source: url("/ui/hub/card-frame-gold.webp"); border-image-slice: 64; }
+      .hub-entry-btn:active { transform: translateY(1px); }
+      .hub-entry-btn > img { grid-row: 1 / 3; width: 100%; height: 100%; min-height: 146px; object-fit: cover; border-radius: 12px; }
+      .hub-entry-text { align-self: center; }
+      .hub-entry-text b { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; font: 27px/1.15 "Jua", system-ui, sans-serif; }
+      .hub-entry-text b .hub-ic { width: 34px; height: 34px; }
+      .hub-entry-btn[data-pick="field"] .hub-entry-text b { color: #2e8f2a; }
+      .hub-entry-btn[data-pick="games"] .hub-entry-text b { color: #2f6fd1; }
+      .hub-entry-text b i { padding: 2px 9px 3px; border-radius: 999px; color: #fff; font: 800 11.5px/1.3 system-ui, sans-serif; font-style: normal; }
+      .hub-entry-btn[data-pick="field"] .hub-entry-text b i { background: #52b84d; }
+      .hub-entry-btn[data-pick="games"] .hub-entry-text b i { background: #2f7de1; }
+      .hub-entry-text small { display: block; margin-top: 8px; color: #56607a; font: 600 14px/1.45 system-ui, sans-serif; word-break: keep-all; }
+      .hub-entry-go {
+        justify-self: start;
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 8px 12px 9px 18px;
+        border-radius: 999px;
+        color: #fff;
+        font: 17px/1 "Jua", system-ui, sans-serif;
+        box-shadow: inset 0 -4px 0 rgba(0, 0, 0, 0.18), 0 3px 0 rgba(20, 40, 90, 0.2);
+      }
+      .hub-entry-go svg { width: 18px !important; height: 18px !important; stroke-width: 3 !important; }
+      .hub-entry-btn[data-pick="field"] .hub-entry-go { background: #52b84d; }
+      .hub-entry-btn[data-pick="games"] .hub-entry-go { background: #2f7de1; }
+      .hub-entry-links { display: flex; justify-content: center; gap: 10px; margin-top: 16px; }
+      .hub-entry-links a { padding: 6px 14px 7px; border-radius: 999px; background: rgba(255, 255, 255, 0.9); box-shadow: 0 3px 10px rgba(20, 50, 100, 0.2); color: #2f5fa8 !important; font: 700 13px/1.3 system-ui, sans-serif; }
+      .hub-entry-links a:hover { background: #fff; }
+      @media (max-height: 760px) {
+        .hub-entry-btn { min-height: 140px; }
+        .hub-entry-btn > img { min-height: 116px; }
+        .hub-entry-text b { font-size: 24px; }
+      }
+      /* phones: the mobile art's logo is near the top; stack the two cards under it */
+      @media (max-width: 680px) {
+        .hub-entry { margin-bottom: 14px; }
+        .hub-entry h2 { font-size: 21px; padding: 10px 28px 8px; }
+        .hub-entry-intro { font-size: 12.5px; }
+        .hub-entry-cards { grid-template-columns: 1fr; gap: 14px; }
+        .hub-entry-btn { grid-template-columns: 38% 1fr; min-height: 0; padding: 10px 12px 10px 10px; gap: 4px 12px; }
+        .hub-entry-btn > img { min-height: 96px; }
+        .hub-entry-text b { font-size: 21px; gap: 6px; }
+        .hub-entry-text b .hub-ic { width: 26px; height: 26px; }
+        .hub-entry-text small { font-size: 12px; margin-top: 4px; }
+        .hub-entry-go { padding: 6px 10px 7px 14px; font-size: 15px; }
+      }
+      .hub-sr {
+        position: absolute !important;
+        width: 1px;
+        height: 1px;
+        overflow: hidden;
+        clip: rect(0 0 0 0);
+        white-space: nowrap;
+      }
+      .hub-sprite { position: absolute; width: 0; height: 0; overflow: hidden; }
+      #mode-select.hub svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 2.1; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+      .hub-glass {
+        background: var(--hub-glass);
+        border: 1.5px solid var(--hub-line);
+        border-radius: 18px;
+        box-shadow: 0 10px 28px rgba(5, 15, 40, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.14);
+        -webkit-backdrop-filter: blur(12px) saturate(1.2);
+        backdrop-filter: blur(12px) saturate(1.2);
+      }
+      #mode-select.hub button,
+      #mode-select.hub a { font: inherit; color: inherit; text-decoration: none; }
+      #mode-select.hub :is(button, a):focus-visible { outline: 3px solid #ffd21c; outline-offset: 3px; }
+      .hub-soon-tag {
+        display: inline-block;
+        padding: 2px 8px 3px;
+        border-radius: 999px;
+        background: #ffd21c;
+        color: #1f1f1f;
+        font: 800 10.5px/1.3 system-ui, sans-serif;
+        letter-spacing: 0.2px;
+        vertical-align: 2px;
+      }
+
+      /* ---- top bar ---- */
+      .hub-top { grid-area: top; display: flex; align-items: center; gap: 18px; min-width: 0; }
+      .hub-logo { flex: none; width: auto; height: 70px; filter: drop-shadow(0 4px 0 rgba(10, 25, 60, 0.35)); }
+      .hub-tabs { display: flex; gap: 4px; padding: 5px; }
+      .hub-tab {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 3px;
+        min-width: 84px;
+        padding: 7px 12px 6px;
+        border: 0;
+        border-radius: 13px;
+        background: transparent;
+        font: 15px/1.1 "Jua", system-ui, sans-serif !important;
+        cursor: pointer;
+        transition: background 0.12s;
+      }
+      .hub-tab:hover { background: rgba(255, 255, 255, 0.14); }
+      .hub-tab.on { background: #fff; color: #2f7de1 !important; box-shadow: 0 3px 0 rgba(10, 30, 70, 0.25); }
+      .hub-icons { display: flex; gap: 4px; margin-left: auto; padding: 5px; }
+      /* the 배경 멈추기 button lives in the top-right corner; keep the icons clear of it */
+      body:has(#menu-motion-toggle:not([hidden])) .hub-icons { margin-right: 112px; }
+      .hub-icon {
+        position: relative;
+        display: grid;
+        place-items: center;
+        width: 44px;
+        height: 44px;
+        border: 0;
+        border-radius: 12px;
+        background: transparent;
+        cursor: pointer;
+      }
+      .hub-icon:hover { background: rgba(255, 255, 255, 0.16); }
+      .hub-icon svg { width: 24px !important; height: 24px !important; }
+      .hub-dot { position: absolute; top: 8px; right: 9px; width: 9px; height: 9px; border: 2px solid #fff; border-radius: 50%; background: #ef3a5d; }
+
+      /* ---- side panels ---- */
+      .hub-left, .hub-right { display: flex; flex-direction: column; gap: 14px; min-height: 0; }
+      .hub-left { grid-area: left; }
+      .hub-right { grid-area: right; }
+      .hub-panel { padding: 14px 16px; }
+      .hub-panel h2 { display: flex; align-items: center; gap: 8px; margin: 0 0 10px; font: 18px/1.2 "Jua", system-ui, sans-serif; color: #fff; }
+      .hub-panel h2 .hub-soon-tag { margin-left: auto; }
+      .hub-profile { display: grid; grid-template-columns: 64px 1fr; gap: 10px 12px; align-items: center; }
+      .hub-avatar { width: 64px; height: 64px; overflow: hidden; border: 3px solid #ffd21c; border-radius: 14px; background: #9bd7ec; }
+      .hub-avatar img { width: 100%; height: 100%; object-fit: cover; object-position: 38% 40%; transform: scale(1.7); }
+      .hub-me b { display: block; font: 20px/1.2 "Jua", system-ui, sans-serif; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .hub-level { display: flex; align-items: center; gap: 8px; margin-top: 4px; color: var(--hub-dim); font: 700 13px/1 system-ui, sans-serif; }
+      .hub-bar { flex: 1; height: 7px; border-radius: 99px; background: rgba(255, 255, 255, 0.22); }
+      .hub-wallet { grid-column: 1 / -1; display: flex; align-items: center; gap: 8px; }
+      .hub-coin { display: inline-flex; align-items: center; gap: 6px; padding: 5px 12px; border-radius: 999px; background: rgba(0, 0, 0, 0.28); font: 700 14px/1 system-ui, sans-serif; }
+      .hub-wallet .hub-soon-tag { margin-left: auto; }
+      .hub-soon { position: relative; }
+      .hub-ghost-list { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
+      .hub-ghost-list li { height: 30px; border-radius: 10px; background: linear-gradient(90deg, rgba(255, 255, 255, 0.16) 0 30px, rgba(255, 255, 255, 0.08) 30px); }
+      .hub-soon-text { display: flex; align-items: center; gap: 8px; margin: 10px 0 0; color: var(--hub-dim); font: 600 12.5px/1.45 system-ui, sans-serif; word-break: keep-all; }
+      .hub-soon-text svg { width: 18px !important; height: 18px !important; opacity: 0.85; }
+      .hub-days { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 5px; margin: 0; padding: 0; list-style: none; }
+      .hub-days li {
+        display: grid;
+        place-items: center;
+        aspect-ratio: 0.8;
+        border: 1.5px dashed rgba(255, 255, 255, 0.32);
+        border-radius: 10px;
+        background: rgba(255, 255, 255, 0.07);
+        color: var(--hub-dim);
+        font: 700 11px/1 system-ui, sans-serif;
+      }
+
+      /* the newest dev note is the event banner (a real link, not a placeholder) */
+      .hub-event {
+        position: relative;
+        display: flex;
+        flex-direction: column;
+        justify-content: flex-end;
+        gap: 4px;
+        min-height: 150px;
+        padding: 14px 44px 14px 16px;
+        overflow: hidden;
+        border: 3px solid #9fd1ff;
+        border-radius: 18px;
+        box-shadow: 0 10px 28px rgba(5, 15, 40, 0.3);
+        isolation: isolate;
+      }
+      .hub-event img { position: absolute; inset: 0; z-index: -1; width: 100%; height: 100%; object-fit: cover; transition: transform 0.3s; }
+      .hub-event::after { content: ""; position: absolute; inset: 0; z-index: -1; background: linear-gradient(90deg, rgba(20, 30, 80, 0.88), rgba(20, 30, 80, 0.45) 70%, rgba(20, 30, 80, 0.15)); }
+      .hub-event:hover img { transform: scale(1.04); }
+      .hub-event-tag { align-self: flex-start; padding: 3px 10px; border-radius: 999px; background: #2f7de1; font: 800 12px/1.3 system-ui, sans-serif; }
+      .hub-event-title { font: 22px/1.2 "Jua", system-ui, sans-serif; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; word-break: keep-all; }
+      .hub-event-sub { color: var(--hub-dim); font: 600 12.5px/1.35 system-ui, sans-serif; }
+      .hub-event-go { position: absolute; right: 12px; top: 50%; translate: 0 -50%; width: 26px !important; height: 26px !important; }
+
+      /* ---- centre: mode cards ---- */
+      .hub-center { grid-area: center; grid-row: 2 / 4; align-self: stretch; display: flex; flex-direction: column; justify-content: flex-end; min-width: 0; }
+      .hub-modes { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; align-items: end; }
+      .hub-mode, .hub-game {
+        position: relative;
+        display: flex;
+        flex-direction: column;
+        min-width: 0;
+        margin: 0;
+        padding: 0;
+        overflow: hidden;
+        border: 3px solid #fff;
+        border-radius: 18px;
+        background: #fff;
+        color: #1f1f1f !important;
+        text-align: left;
+        box-shadow: 0 6px 0 rgba(10, 25, 60, 0.22), 0 14px 28px rgba(5, 15, 40, 0.3);
+        cursor: pointer;
+        transition: transform 0.14s ease, box-shadow 0.14s ease, border-color 0.14s;
+      }
+      .hub-mode img, .hub-game img { display: block; width: 100%; height: auto; aspect-ratio: 16 / 8.5; object-fit: cover; transition: transform 0.3s; }
+      .hub-mode-text { display: block; padding: 10px 40px 12px 14px; }
+      .hub-mode-text b { display: block; font: 21px/1.2 "Jua", system-ui, sans-serif; }
+      .hub-mode-text small { display: block; margin-top: 4px; color: #555; font: 600 12.5px/1.4 system-ui, sans-serif; word-break: keep-all; }
+      .hub-mode-go { position: absolute; right: 10px; bottom: 18px; color: #2f7de1; width: 24px !important; height: 24px !important; stroke-width: 3 !important; }
+      .hub-mode:not(.hub-mode-soon):hover, .hub-game:hover { transform: translateY(-5px); }
+      .hub-mode:hover img, .hub-game:hover img { transform: scale(1.05); }
+      .hub-mode:active, .hub-game:active { transform: translateY(1px); }
+      /* the card the start button will open: gold frame, lifted */
+      .hub-game.featured,
+      .hub-mode.featured {
+        border-color: #ffd21c;
+        box-shadow: 0 0 0 3px rgba(255, 210, 28, 0.55), 0 0 28px rgba(255, 210, 28, 0.55), 0 6px 0 rgba(10, 25, 60, 0.22);
+        transform: translateY(-6px);
+      }
+      .hub-mode.featured .hub-mode-text { background: linear-gradient(180deg, #fff9dc, #fff); }
+      .hub-mode.featured .hub-mode-go { color: #e0a100; }
+      .hub-mode[data-pick="field"] .hub-mode-text b { color: #2e8f2a; }
+      .hub-mode[data-pick="games"] .hub-mode-text b { color: #1f1f1f; }
+      .hub-mode-soon { cursor: default; }
+      .hub-mode-soon img { filter: saturate(0.35) brightness(0.92); }
+      .hub-mode-soon .hub-mode-text { opacity: 0.7; }
+      .hub-ribbon { position: absolute; top: 12px; right: -34px; width: 130px; padding: 4px 0; rotate: 35deg; background: #ffd21c; color: #1f1f1f; text-align: center; font: 800 12px/1.2 system-ui, sans-serif; box-shadow: 0 2px 0 rgba(0, 0, 0, 0.2); }
+
+      /* ---- bottom row ---- */
+      .hub-dock { display: flex; align-items: stretch; gap: 2px; padding: 6px; align-self: end; }
+      .hub-dock-left { grid-area: dockl; }
+      .hub-dock-right { grid-area: dockr; }
+      .hub-dock > * {
+        position: relative;
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 2px;
+        padding: 7px 4px 6px;
+        border: 0;
+        border-radius: 12px;
+        background: transparent;
+        font: 14px/1.1 "Jua", system-ui, sans-serif !important;
+        white-space: nowrap;
+        cursor: pointer;
+      }
+      .hub-dock > *:hover { background: rgba(255, 255, 255, 0.14); }
+      .hub-dock i { font-style: normal; font-size: 28px; line-height: 1.1; filter: drop-shadow(0 2px 0 rgba(0, 0, 0, 0.25)); }
+      .hub-dock [data-soon] i { filter: saturate(0.5) drop-shadow(0 2px 0 rgba(0, 0, 0, 0.25)); opacity: 0.85; }
+      .hub-start {
+        grid-area: start;
+        justify-self: center;
+        align-self: end;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 12px;
+        width: min(460px, 100%);
+        height: 74px;
+        border: 3px solid #fff;
+        border-radius: 999px;
+        background: linear-gradient(180deg, #ffe661, #ffc800);
+        box-shadow: inset 0 -7px 0 #e19b00, 0 7px 0 rgba(10, 25, 60, 0.3), 0 0 32px rgba(255, 210, 28, 0.5);
+        color: #1f1f1f !important;
+        font: 32px/1 "Jua", system-ui, sans-serif !important;
+        cursor: pointer;
+        transition: transform 0.08s, box-shadow 0.08s, filter 0.12s;
+      }
+      .hub-start > span { font-size: 26px; }
+      .hub-start small { padding: 4px 10px; border-radius: 999px; background: rgba(31, 31, 31, 0.12); font: 800 13px/1 system-ui, sans-serif; }
+      .hub-start:hover { filter: brightness(1.05); transform: translateY(-2px); }
+      .hub-start:active { transform: translateY(4px); box-shadow: inset 0 -3px 0 #e19b00, 0 2px 0 rgba(10, 25, 60, 0.3); }
+
+      .hub-toast {
+        position: fixed;
+        left: 50%;
+        bottom: 110px;
+        z-index: 5;
+        margin: 0;
+        padding: 10px 18px;
+        border-radius: 999px;
+        background: rgba(20, 28, 48, 0.92);
+        color: #fff;
+        font: 700 14px/1.3 system-ui, sans-serif;
+        white-space: nowrap;
+        max-width: calc(100vw - 32px);
+        overflow: hidden;
+        text-overflow: ellipsis;
+        translate: -50% 10px;
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.18s, translate 0.18s;
+      }
+      .hub-toast.show { opacity: 1; translate: -50% 0; }
+      .hub-noscript { grid-area: center; align-self: end; padding: 14px; border-radius: 14px; background: #fff; color: #1f1f1f; }
+      .hub-noscript a { color: #2f7de1 !important; text-decoration: underline !important; }
+
+      /* ---- the game list takes over the centre ---- */
+      .hub-games-head { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; margin-bottom: 12px; }
+      .hub-games-head h2 { grid-column: 2; margin: 0; padding: 6px 20px 8px; border-radius: 999px; background: #ffd21c; color: #1f1f1f; font: 22px/1.2 "Jua", system-ui, sans-serif; box-shadow: 0 4px 0 rgba(10, 25, 60, 0.3); }
+      .hub-back {
+        grid-column: 1;
+        grid-row: 1;
+        justify-self: start;
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 8px 16px 9px 10px;
+        border: 2px solid #fff;
+        border-radius: 999px;
+        background: var(--hub-glass);
+        font: 17px/1 "Jua", system-ui, sans-serif !important;
+        white-space: nowrap;
+        cursor: pointer;
+        -webkit-backdrop-filter: blur(10px);
+        backdrop-filter: blur(10px);
+      }
+      .hub-back svg { rotate: 180deg; }
+      .hub-back:hover { background: rgba(22, 34, 62, 0.75); }
+      .hub-games { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+      .hub-game img { aspect-ratio: 4 / 3; }
+      .hub-game .hub-mode-text { padding: 9px 10px 11px; }
+      .hub-game .hub-mode-text b { font-size: 18px; }
+      .hub-game .hub-mode-text small { font-size: 11.5px; }
+      .hub-game .hub-mode-text b { color: #2f7de1; }
+      .hub-game[data-mode="builder"] .hub-mode-text b { color: #2e8f2a; }
+      .hub-game[data-mode="battle"] .hub-mode-text b { color: #8a4fd7; }
+      .hub-game[data-mode="tower"] .hub-mode-text b { color: #e0701b; }
+      .hub-games-tip { margin: 10px 0 0; text-align: center; color: #fff; font: 700 13px/1.4 system-ui, sans-serif; text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5); }
+
+      /* ---- sizes ---- */
+      @media (max-width: 1280px) {
+        .hub-shell { grid-template-columns: minmax(230px, 260px) minmax(0, 1fr) minmax(260px, 310px); gap: 12px 14px; }
+        .hub-tab { min-width: 70px; padding: 6px 8px 5px; }
+        .hub-mode-text small { font-size: 12px; }
+        .hub-dock > * { font-size: 12.5px !important; }
+        .hub-dock i { font-size: 24px; }
+      }
+      @media (max-height: 820px) and (min-width: 981px) {
+        .hub-logo { height: 50px; }
+        .hub-tab { flex-direction: row; gap: 6px; padding: 8px 12px; }
+        .hub-panel { padding: 11px 14px; }
+        .hub-ghost-list li:nth-child(3) { display: none; }
+        .hub-event { min-height: 118px; }
+        .hub-mode img { aspect-ratio: 16 / 7; }
+        .hub-mode-text { padding: 8px 36px 9px 12px; }
+        .hub-mode-text b { font-size: 19px; }
+        .hub-days li { aspect-ratio: 1; }
+        .hub-start { height: 64px; font-size: 28px !important; }
+        .hub-game img { aspect-ratio: 16 / 10; }
+      }
+      @media (max-height: 700px) and (min-width: 981px) {
+        .hub-mode-text small, .hub-soon-text { display: none; }
+        .hub-ghost-list li:nth-child(2) { display: none; }
+      }
+      /* tablets and phones: one scrolling column — the choice first, the panels after */
+      @media (max-width: 980px) {
+        .hub-shell {
+          grid-template-columns: minmax(0, 1fr);
+          grid-template-rows: none;
+          grid-template-areas: "top" "center" "start" "right" "left" "dockl" "dockr";
+          align-content: start;
+          gap: 14px;
+          padding: 12px 12px 24px;
+          grid-auto-rows: auto;
+          overflow-y: auto;
+        }
+        .hub-left, .hub-right, .hub-center, .hub-dock { min-height: auto; }
+        .hub-center { grid-area: center; }
+        .hub-game.featured { transform: none; }
+        .hub-top { flex-wrap: wrap; gap: 10px; }
+        .hub-logo { height: 46px; }
+        .hub-tabs { order: 3; width: 100%; box-sizing: border-box; overflow-x: auto; }
+        .hub-tab { flex: 1; min-width: 64px; }
+        body:has(#menu-motion-toggle:not([hidden])) .hub-icons { margin-right: 0; }
+        body:has(#menu-motion-toggle:not([hidden])) .hub-top { padding-top: 44px; }
+        .hub-modes { grid-template-columns: 1fr; gap: 12px; }
+        .hub-mode { flex-direction: row; align-items: stretch; }
+        .hub-mode img { width: 38%; height: auto; aspect-ratio: auto; min-height: 96px; }
+        .hub-game.featured,
+      .hub-mode.featured { transform: none; }
+        .hub-games { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+        .hub-game .hub-mode-text { padding: 8px 10px 10px; }
+        .hub-game .hub-mode-text b { font-size: 17px; }
+        .hub-game .hub-mode-text small { font-size: 11.5px; }
+        .hub-start { width: 100%; height: 62px; font-size: 26px !important; }
+        .hub-games-head { grid-template-columns: auto 1fr; gap: 10px; }
+        .hub-games-head h2 { justify-self: end; font-size: 19px; padding: 6px 14px 7px; }
+        .hub-toast { bottom: 24px; }
+      }
+      @media (max-width: 480px) {
+        .hub-mode-text b { font-size: 18px; }
+        .hub-dock > * { font-size: 12px !important; }
+        .hub-dock i { font-size: 22px; }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .hub-mode, .hub-game, .hub-mode img, .hub-game img, .hub-event img, .hub-toast { transition: none; }
+      }
+      /* ---------------------------------------------------------------
+         Glass skin for the notice-board screens (.board-screen.glass: the
+         classroom lobby and the loader), so every menu after the entry card
+         reads as the same family: frosted card, white rounded cards, soft
+         shadows, the yellow pill for the main action. Layout is untouched —
+         only the wood, cork, pins and screws go.
+         --------------------------------------------------------------- */
+      .board-screen.glass .board {
+        border: 2px solid rgba(255, 255, 255, 0.85);
+        border-radius: 30px;
+        background: linear-gradient(180deg, rgba(255, 255, 255, 0.8), rgba(240, 248, 255, 0.72));
+        box-shadow: 0 24px 60px rgba(10, 30, 70, 0.3), inset 0 1px 0 #fff;
+        -webkit-backdrop-filter: blur(16px) saturate(1.3);
+        backdrop-filter: blur(16px) saturate(1.3);
+        color: #1f2a44;
+        transform: none;
+        scrollbar-color: rgba(47, 125, 225, 0.4) transparent;
+      }
+      .board-screen.glass .board::before,
+      .board-screen.glass .board::after,
+      .board-screen.glass .board-sign::before,
+      .board-screen.glass .board-sign::after,
+      .board-screen.glass .board-paper::before,
+      .board-screen.glass .board-note::before { display: none; }
+      .board-screen.glass .board { padding-top: 20px; }
+      .board-screen.glass .brand-logo { filter: drop-shadow(0 4px 0 rgba(20, 40, 90, 0.16)); }
+      .board-screen.glass .board-sign {
+        border: 0;
+        background: none;
+        box-shadow: none;
+        transform: none;
+      }
+      .board-screen.glass .board-sign .game-brand { color: #1f2a44; }
+      .board-screen.glass .board-sign .game-intro { color: #45516b; }
+      .board-screen.glass .board-cork {
+        padding: 6px 2px 2px;
+        border: 0;
+        border-top: 2px solid rgba(47, 125, 225, 0.14);
+        border-radius: 0;
+        background: none;
+        box-shadow: none;
+      }
+      .board-screen.glass .mode-step h2 {
+        padding: 0;
+        border: 0;
+        background: none;
+        box-shadow: none;
+        transform: none;
+        color: #1f2a44;
+        font-size: 24px;
+      }
+      /* role choices: white rounded cards like the entry card's buttons */
+      .board-screen.glass .board-note,
+      .board-screen.glass .board-note:nth-child(n) {
+        border: 2px solid #fff;
+        border-radius: 22px;
+        background: rgba(255, 255, 255, 0.86);
+        box-shadow: 0 6px 18px rgba(20, 50, 100, 0.14);
+        transform: none;
+      }
+      .board-screen.glass .board-note:hover,
+      .board-screen.glass .board-note:focus-visible { transform: translateY(-4px); box-shadow: 0 12px 26px rgba(20, 50, 100, 0.2); }
+      .board-screen.glass .board-note:active { transform: translateY(1px); box-shadow: 0 4px 12px rgba(20, 50, 100, 0.16); }
+      .board-screen.glass .board-note[data-go="teacher"] { background: linear-gradient(170deg, #effbe9, #fff 60%); }
+      .board-screen.glass .board-note[data-go="student"] { background: linear-gradient(170deg, #e8f2ff, #fff 60%); }
+      .board-screen.glass .board-note[data-go="solo"] { background: linear-gradient(170deg, #fff3e3, #fff 60%); }
+      .board-screen.glass .board-photo { border: 0; border-radius: 16px; box-shadow: 0 3px 0 rgba(20, 40, 90, 0.14); }
+      .board-screen.glass .board-photo::after { box-shadow: none; }
+      .board-screen.glass .board-note .mode-text small { color: #56607a; }
+      .board-screen.glass .board-go,
+      .board-screen.glass .board-note[data-go] .board-go {
+        border: 0;
+        border-radius: 999px;
+        box-shadow: inset 0 -3px 0 rgba(0, 0, 0, 0.15);
+        color: #fff;
+      }
+      .board-screen.glass .board-note[data-go="teacher"] .board-go { background: #52b84d; }
+      .board-screen.glass .board-note[data-go="student"] .board-go { background: #2f7de1; }
+      .board-screen.glass .board-note[data-go="solo"] .board-go { background: #f5802b; }
+      /* the form paper and the guide beside it */
+      .board-screen.glass .board-paper,
+      .board-screen.glass .class-guide {
+        border: 2px solid #fff;
+        border-radius: 22px;
+        background: rgba(255, 255, 255, 0.86);
+        box-shadow: 0 6px 18px rgba(20, 50, 100, 0.12);
+        transform: none;
+      }
+      .board-screen.glass .class-form label { color: #1f2a44; }
+      .board-screen.glass .class-form input {
+        border: 2px solid #d5deef;
+        border-radius: 14px;
+        background: #fff;
+        box-shadow: none;
+      }
+      .board-screen.glass .class-form input:focus { border-color: #2f7de1; box-shadow: 0 0 0 4px rgba(47, 125, 225, 0.18); }
+      .board-screen.glass .class-steps li { color: #45516b; }
+      .board-screen.glass .class-steps b { color: #1f2a44; }
+      .board-screen.glass .class-steps li::before { border: 0; background: #2f7de1; color: #fff; }
+      .board-screen.glass .class-confirm { border: 0; border-radius: 16px; background: #f2f7ff; box-shadow: inset 0 0 0 2px #dbe7fb; }
+      .board-screen.glass .board-cta {
+        border: 3px solid #fff;
+        border-radius: 999px;
+        background: linear-gradient(180deg, #ffe661, #ffc800);
+        box-shadow: inset 0 -5px 0 #e19b00, 0 6px 16px rgba(225, 155, 0, 0.35);
+      }
+      .board-screen.glass .board-cta:hover { box-shadow: inset 0 -5px 0 #e19b00, 0 9px 20px rgba(225, 155, 0, 0.4); }
+      .board-screen.glass .board-cta:active { box-shadow: inset 0 -2px 0 #e19b00, 0 2px 6px rgba(225, 155, 0, 0.3); }
+      /* back and footer links: white pills */
+      .board-screen.glass .board-back,
+      .board-screen.glass .board-links .desk-link {
+        border: 2px solid #dbe5f5;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.92);
+        box-shadow: 0 3px 10px rgba(20, 50, 100, 0.12);
+        color: #2f5fa8;
+      }
+      .board-screen.glass .board-back:hover,
+      .board-screen.glass .board-links .desk-link:hover { background: #fff; box-shadow: 0 6px 14px rgba(20, 50, 100, 0.16); }
+      .board-screen.glass .board-back:active,
+      .board-screen.glass .board-links .desk-link:active { box-shadow: 0 1px 4px rgba(20, 50, 100, 0.14); }
+      /* the loader: same frosted card, a rounded progress bar */
+      #boot-overlay.glass .boot-board { transform: none; }
+      #boot-overlay.glass .boot-bar { border: 0; border-radius: 999px; background: #e3ebf8; box-shadow: inset 0 2px 0 rgba(20, 40, 90, 0.1); }
+      #boot-overlay.glass #boot-fill { border-right: 0; border-radius: 999px; }
+      #boot-overlay.glass #boot-message { color: #1f2a44; }
+      #boot-overlay.glass .boot-tip { border-top-color: rgba(47, 125, 225, 0.2); color: #56607a; }
+      #boot-overlay.glass button { border: 3px solid #fff; border-radius: 999px; background: #2f7de1; box-shadow: inset 0 -4px 0 rgba(0, 0, 0, 0.18), 0 6px 14px rgba(20, 60, 140, 0.3); }
+      .board-screen.glass:is([data-board="teacher"], [data-board="student"], [data-board="confirm"]) .board-cork { border-top: 0; padding-top: 0; }
+      #menu-motion-toggle { border: 2px solid #dbe5f5; border-radius: 999px; background: rgba(255, 255, 255, 0.92); box-shadow: 0 3px 10px rgba(20, 50, 100, 0.16); color: #2f5fa8; }
+      /* ---------------------------------------------------------------
+         Generated toy-brick skin (public/ui/hub, made from assets/ui-hub).
+         Frames are 9-slice border-images: the slice numbers are the source
+         pixels past each frame's decorated corners (assets/ui-hub/sizes.json),
+         border-image-width is how thick the rim draws, and the outset pushes
+         the rim outside the box so layout and padding are unchanged.
+         --------------------------------------------------------------- */
+      .hub-shell .hub-panel {
+        border: 0;
+        border-radius: 22px;
+        border-image: url("/ui/hub/panel-frame.webp") 100 / 25px / 10px round;
+        padding: 16px 18px;
+      }
+      .hub-right .hub-panel { border-image-source: url("/ui/hub/panel-frame-blue.webp"); border-image-slice: 96; }
+      .hub-shell .hub-panel h2 { margin-top: 2px; }
+      .hub-tabs, .hub-icons, .hub-dock {
+        border: 0;
+        border-radius: 999px;
+        border-image: url("/ui/hub/bar-frame.webp") 90 130 60 130 / 22px 30px 14px 30px / 9px 10px 6px round;
+      }
+      .hub-dock { padding: 8px 18px 6px; }
+      .hub-tabs { padding: 6px 16px; }
+      .hub-icons { padding: 6px 14px; }
+      .hub-tab.on {
+        background: url("/ui/hub/tab-active.webp") center / 100% 100% no-repeat;
+        box-shadow: none;
+        color: #1f5fbf !important;
+      }
+      .hub-ic { width: 30px; height: 30px; object-fit: contain; filter: drop-shadow(0 2px 0 rgba(0, 0, 0, 0.22)); }
+      .hub-tab .hub-ic { width: 34px; height: 30px; }
+      .hub-tab:not(.on) .hub-ic { filter: saturate(0.85) drop-shadow(0 2px 0 rgba(0, 0, 0, 0.22)); }
+      .hub-icon .hub-ic { width: 30px; height: 30px; }
+      .hub-dock .hub-ic { width: 32px; height: 32px; }
+
+      /* game cards: white brick frame; the one the start button plays is gold */
+      .hub-game {
+        border: 0;
+        border-radius: 20px;
+        border-image: url("/ui/hub/card-frame.webp") 64 60 60 60 / 18px 17px 17px 17px / 9px round;
+      }
+      .hub-game.featured {
+        border-image: url("/ui/hub/card-frame-gold.webp") 64 / 18px / 10px round;
+        box-shadow: 0 0 30px rgba(255, 210, 28, 0.6), 0 6px 0 rgba(10, 25, 60, 0.22);
+      }
+      .hub-games-head h2 {
+        padding: 12px 34px 10px;
+        border-radius: 0;
+        background: none;
+        box-shadow: none;
+        border-image: url("/ui/hub/title-plaque.webp") 40 80 30 80 fill / 12px 24px 9px 24px / 0 round;
+        filter: drop-shadow(0 4px 0 rgba(10, 25, 60, 0.3));
+      }
+
+      /* the start button is the generated yellow brick, pressed variant on :active */
+      .hub-start {
+        border: 0;
+        border-radius: 0;
+        background: none;
+        box-shadow: none;
+        border-image: url("/ui/hub/start-button.webp") 70 160 60 160 fill / 19px 43px 16px 43px / 6px 0 0 round;
+        padding-top: 8px;
+        filter: drop-shadow(0 8px 14px rgba(10, 25, 60, 0.35));
+      }
+      .hub-start:hover { filter: brightness(1.05) drop-shadow(0 10px 18px rgba(10, 25, 60, 0.4)); }
+      .hub-start:active { border-image-source: url("/ui/hub/start-button-pressed.webp"); transform: translateY(3px); box-shadow: none; }
+      .hub-start small { background: rgba(255, 255, 255, 0.55); }
+
+      /* the entry card and the classroom card: a white brick rim around the glass */
+      .board-screen.glass .board {
+        border: 0;
+        border-image: url("/ui/hub/card-frame.webp") 64 60 60 60 / 22px 21px 21px 21px / 12px round;
+      }
+      .hub-entry-btn[data-pick="field"] .hub-entry-go,
+      .hub-entry-btn[data-pick="games"] .hub-entry-go { box-shadow: inset 0 -4px 0 rgba(0, 0, 0, 0.18), 0 3px 0 rgba(20, 40, 90, 0.2); }
+      /* ---- frame fit + contrast ----
+         The generated rims sit ON the box edge (no outset) as a real
+         transparent border, and the fill is clipped to the padding box with a
+         radius matching the rim's inner curve — so the card and its frame are
+         one shape. Panels are near-opaque so text never sits on the busy art. */
+      .hub-shell .hub-panel,
+      .hub-right .hub-panel {
+        border-width: 20px; border-style: solid; border-color: transparent;
+        border-image-width: 20px;
+        border-image-outset: 0;
+        border-radius: 32px;
+        background: rgba(16, 28, 58, 0.9);
+        background-clip: padding-box;
+        padding: 4px 6px 6px;
+        box-shadow: 0 12px 28px rgba(5, 15, 40, 0.4);
+        -webkit-backdrop-filter: none;
+        backdrop-filter: none;
+      }
+      .hub-panel h2 { color: #fff; text-shadow: 0 1px 0 rgba(0, 0, 0, 0.4); }
+      .hub-soon-text, .hub-level { color: rgba(255, 255, 255, 0.88); }
+      .hub-ghost-list li { background: linear-gradient(90deg, rgba(255, 255, 255, 0.22) 0 30px, rgba(255, 255, 255, 0.1) 30px); }
+      .hub-tabs, .hub-icons, .hub-dock {
+        border-width: 14px; border-style: solid; border-color: transparent;
+        border-image-width: 22px 30px 14px 30px;
+        border-image-outset: 6px 10px 0;
+        border-radius: 999px;
+        background: rgba(16, 28, 58, 0.92);
+        background-clip: padding-box;
+        -webkit-backdrop-filter: none;
+        backdrop-filter: none;
+      }
+      .hub-tabs, .hub-icons { padding: 0 6px; }
+      .hub-dock { padding: 0 8px; }
+
+      .hub-game,
+      .hub-game.featured,
+      .hub-entry-btn {
+        border-width: 16px; border-style: solid; border-color: transparent;
+        border-image-width: 16px;
+        border-image-outset: 0;
+        border-radius: 30px;
+        background-color: #fff;
+        background-clip: padding-box;
+      }
+      .hub-game { overflow: visible; }
+      .hub-game img { border-radius: 12px 12px 0 0; }
+      .hub-game .hub-mode-text { border-radius: 0 0 12px 12px; background: #fff; }
+      .hub-entry-btn { padding: 4px 8px 4px 4px; }
+      .hub-entry-btn:hover { border-image-slice: 64; }
+      .hub-entry-btn[data-pick="field"] { background-color: #f3fbee; }
+      .hub-entry-btn[data-pick="games"] { background-color: #eef5ff; }
+
+      .board-screen.glass .board {
+        border-width: 20px; border-style: solid; border-color: transparent;
+        border-image-width: 20px;
+        border-image-outset: 0;
+        border-radius: 34px;
+        background: rgba(255, 255, 255, 0.96);
+        background-clip: padding-box;
+        padding: 10px 12px 10px;
+        -webkit-backdrop-filter: none;
+        backdrop-filter: none;
+      }
+      .board-screen.glass .board-paper,
+      .board-screen.glass .class-guide,
+      .board-screen.glass .board-note,
+      .board-screen.glass .board-note:nth-child(n) { border-color: #e3eaf6; }
+      .hub-entry-intro { background: rgba(15, 28, 58, 0.8); }
+      /* ---- one frame system for the online hub ----
+         The fill runs under the whole box (border-box), so the transparent gap
+         between a rim and its content can never show the art through it; one
+         yellow brick frame for every panel (the event banner too), one white
+         frame for every game card — the chosen card glows instead of swapping
+         to a frame of another size. */
+      .hub-shell .hub-panel,
+      .hub-right .hub-panel,
+      .hub-event {
+        border-image: url("/ui/hub/panel-frame.webp") 100 / 20px / 0 round;
+        border-width: 20px;
+        border-style: solid;
+        border-color: transparent;
+        border-radius: 26px;
+        background-clip: border-box;
+      }
+      .hub-shell .hub-panel,
+      .hub-right .hub-panel { background: #172446; background-clip: border-box; padding: 2px 4px 4px; }
+      .hub-event { min-height: 128px; padding: 6px 34px 6px 8px; box-shadow: 0 12px 28px rgba(5, 15, 40, 0.4); }
+      .hub-event img, .hub-event::after { inset: 0; border-radius: 10px; }
+      .hub-tabs, .hub-icons, .hub-dock { background: #172446; background-clip: border-box; }
+
+      .hub-game,
+      .hub-game.featured {
+        border-image: url("/ui/hub/card-frame.webp") 64 60 60 60 / 16px / 0 round;
+        border-width: 16px;
+        border-radius: 22px;
+        background: #fff;
+        background-clip: border-box;
+        transform: none;
+        box-shadow: 0 6px 0 rgba(10, 25, 60, 0.2), 0 14px 28px rgba(5, 15, 40, 0.3);
+      }
+      .hub-game.featured {
+        transform: translateY(-6px);
+        box-shadow: 0 0 0 4px #ffd21c, 0 0 0 7px #1f1f1f, 0 0 34px rgba(255, 210, 28, 0.7), 0 14px 28px rgba(5, 15, 40, 0.3);
+      }
+      .hub-game.featured::after {
+        content: "선택";
+        position: absolute;
+        top: -14px;
+        left: 50%;
+        translate: -50% 0;
+        padding: 3px 12px 4px;
+        border: 2px solid #1f1f1f;
+        border-radius: 999px;
+        background: #ffd21c;
+        color: #1f1f1f;
+        font: 800 12px/1.2 system-ui, sans-serif;
+      }
+      .hub-game img { border-radius: 8px; }
+      .hub-game .hub-mode-text { background: none; border-radius: 0; padding: 8px 4px 2px; }
+
+      .hub-entry-btn { background: #fff; background-clip: border-box; border-radius: 22px; }
+      .hub-entry-btn[data-pick="field"], .hub-entry-btn[data-pick="games"] { background-color: #fff; }
+
+      .hub-back {
+        border: 3px solid #1f1f1f;
+        background: #fff;
+        color: #1f1f1f !important;
+        box-shadow: inset 0 -4px 0 #d9d6c8, 0 4px 0 #1f1f1f;
+        -webkit-backdrop-filter: none;
+        backdrop-filter: none;
+      }
+      .hub-back:hover { background: #fffbe8; }
+      .hub-back:active { transform: translateY(3px); box-shadow: inset 0 -2px 0 #d9d6c8, 0 1px 0 #1f1f1f; }
+      .hub-games-tip { display: inline-block; justify-self: center; align-self: center; padding: 4px 14px 5px; border-radius: 999px; background: rgba(15, 28, 58, 0.8); text-shadow: none; }
+      .hub-center { align-items: center; }
+      .hub-center > .mode-step { width: 100%; text-align: center; }
+      /* older .mode-btn[data-mode] tints outrank .hub-game; every game card is plain white */
+      .mode-btn.hub-game, .mode-btn.hub-game:hover { background: #fff; background-clip: border-box; }
+      .hub-coin .hub-ic { width: 20px; height: 20px; }
+      .hub-panel h2 .hub-ic { width: 26px; height: 26px; }
+      .hub-soon-text .hub-ic { width: 20px; height: 20px; }
     </style>
   </head>
   <body>
@@ -1768,71 +2500,141 @@
       <video id="menu-background-video" muted loop playsinline preload="none" tabindex="-1" disablepictureinpicture disableremoteplayback></video>
     </div>
     <button id="menu-motion-toggle" type="button" hidden aria-pressed="false">배경 멈추기</button>
-    <main id="mode-select" class="screen mode-screen board-screen">
-      <div class="screen-card board">
-        <div class="board-head">
-        <img class="brand-logo" src="/craftyap-logo.png" alt="크래프트얍 CraftYap" />
-        <div class="board-sign">
-          <h1 class="game-brand">크래프트얍 <span>CraftYap</span></h1>
-          <p class="game-intro">설치 없이 즐기는 무료 3D 블록 게임<br />블록으로 세상을 만들고, 자동차와 비행기를 조립해요.</p>
+    <main id="mode-select" class="screen mode-screen hub" data-board="category">
+      <svg class="hub-sprite" aria-hidden="true" focusable="false">
+        <symbol id="hub-i-lock" viewBox="0 0 24 24"><rect x="5" y="10.5" width="14" height="10" rx="2" /><path d="M8 10.5V8a4 4 0 0 1 8 0v2.5" /></symbol>
+        <symbol id="hub-i-chevron" viewBox="0 0 24 24"><path d="m9 5 7 7-7 7" /></symbol>
+      </svg>
+      <h1 class="hub-sr">크래프트얍 CraftYap</h1>
+      <p class="hub-sr">설치 없이 즐기는 무료 3D 블록 게임. 블록으로 세상을 만들고, 자동차와 비행기를 조립해요.</p>
+
+      <div class="mode-step hub-entry" data-step="category">
+        <div class="hub-entry-head">
+          <h2>어떤 모드로 할까요?</h2>
+          <p class="hub-entry-intro">설치 없이 즐기는 무료 3D 블록 게임 · 블록으로 세상을 만들고, 자동차와 비행기를 조립해요</p>
         </div>
+        <div class="hub-entry-cards">
+          <button class="mode-btn hub-entry-btn" data-pick="field" type="button">
+            <img src="/home/education.webp" width="640" height="480" alt="" />
+            <span class="hub-entry-text"><b><img class="hub-ic" src="/ui/hub/icon-grad.webp" alt="" />교육 모드 <i>교실</i></b><small>끝없는 들판에서 자유롭게 만들고, 같은 교실에서 함께 건축해요</small></span>
+            <span class="hub-entry-go">시작하기 <svg><use href="#hub-i-chevron" /></svg></span>
+          </button>
+          <button class="mode-btn hub-entry-btn" data-pick="games" type="button">
+            <img src="/home/games.webp" width="640" height="480" alt="" />
+            <span class="hub-entry-text"><b><img class="hub-ic" src="/ui/hub/icon-crown.webp" alt="" />게임 모드 <i>온라인</i></b><small>블록 섬 탐험, 점프 타워, 랜드마크 건설, 로봇 배틀로얄</small></span>
+            <span class="hub-entry-go">골라 보기 <svg><use href="#hub-i-chevron" /></svg></span>
+          </button>
         </div>
-        <div class="board-cork">
-          <a class="board-news" href="/note/" hidden>
-            <span class="board-news-tag">새 소식</span>
-            <span class="board-news-title">개발 노트</span>
-            <span class="board-news-go" aria-hidden="true">&rarr;</span>
-          </a>
-          <div class="mode-step" data-step="category">
-            <h2>어떤 모드로 할까요?</h2>
-            <div class="board-notes board-notes-2">
-              <button class="mode-btn board-note" data-pick="field" type="button">
-                <span class="board-photo"><img src="/home/education.webp" width="640" height="480" alt="" /></span>
-                <span class="mode-text"><b>교육 모드</b><small>끝없는 들판에서 자유롭게 만들고, 같은 교실에서 함께 건축해요</small></span>
-                <span class="board-chips"><i>🏫 교실</i><i>🌱 끝없는 들판</i></span>
-                <span class="board-go">시작하기 <span aria-hidden="true">&rarr;</span></span>
-              </button>
-              <button class="mode-btn board-note" data-pick="games" type="button">
-                <span class="board-photo"><img src="/home/games.webp" width="640" height="480" alt="" /></span>
-                <span class="mode-text"><b>게임 모드</b><small>블록 섬 탐험, 점프 타워, 랜드마크 건설, 로봇 배틀로얄</small></span>
-                <span class="board-chips"><i>🎮 게임 4가지</i><i>👫 멀티플레이</i></span>
-                <span class="board-go">골라 보기 <span aria-hidden="true">&rarr;</span></span>
-              </button>
-            </div>
+        <nav class="hub-entry-links"><a href="/guide/">📖 게임 소개 · 조작법</a><a href="/note/">📝 개발 노트</a></nav>
+      </div>
+
+      <div class="hub-shell">
+        <header class="hub-top">
+          <img class="hub-logo" src="/craftyap-logo.png" width="512" height="300" alt="크래프트얍 CraftYap" />
+          <nav class="hub-tabs hub-glass" aria-label="메뉴">
+            <button class="hub-tab on" type="button" aria-current="page"><img class="hub-ic" src="/ui/hub/icon-home.webp" alt="" /><span>홈</span></button>
+            <button class="hub-tab" type="button" data-soon="맵 탐색"><img class="hub-ic" src="/ui/hub/icon-map.webp" alt="" /><span>맵 탐색</span></button>
+            <button class="hub-tab" type="button" data-soon="창작"><img class="hub-ic" src="/ui/hub/icon-create.webp" alt="" /><span>창작</span></button>
+            <button class="hub-tab" type="button" data-soon="커뮤니티"><img class="hub-ic" src="/ui/hub/icon-community.webp" alt="" /><span>커뮤니티</span></button>
+          </nav>
+          <div class="hub-icons hub-glass">
+            <a class="hub-icon" href="/note/" data-id="hub-bell" aria-label="새 소식 (개발 노트)"><img class="hub-ic" src="/ui/hub/icon-bell.webp" alt="" /><i class="hub-dot" hidden></i></a>
+            <button class="hub-icon" type="button" data-soon="우편함" aria-label="우편함"><img class="hub-ic" src="/ui/hub/icon-mail.webp" alt="" /></button>
+            <button class="hub-icon" type="button" data-soon="친구" aria-label="친구"><img class="hub-ic" src="/ui/hub/icon-friends.webp" alt="" /></button>
+            <button class="hub-icon" type="button" data-soon="설정" aria-label="설정"><img class="hub-ic" src="/ui/hub/icon-settings.webp" alt="" /></button>
           </div>
+        </header>
+
+        <aside class="hub-left">
+          <section class="hub-panel hub-glass hub-profile" aria-label="내 프로필">
+            <div class="hub-avatar"><img src="/home/solo.webp" width="640" height="480" alt="" /></div>
+            <div class="hub-me">
+              <b data-id="hub-name">게스트</b>
+              <span class="hub-level">Lv. —<i class="hub-bar"><i></i></i></span>
+            </div>
+            <div class="hub-wallet">
+              <span class="hub-coin"><img class="hub-ic" src="/ui/hub/icon-coin.webp" alt="" /><b>—</b></span>
+              <span class="hub-coin"><img class="hub-ic" src="/ui/hub/icon-gem.webp" alt="" /><b>—</b></span>
+              <span class="hub-soon-tag">준비 중</span>
+            </div>
+          </section>
+          <section class="hub-panel hub-glass hub-soon" aria-label="친구">
+            <h2><img class="hub-ic" src="/ui/hub/icon-friends.webp" alt="" />친구 <span class="hub-soon-tag">준비 중</span></h2>
+            <ul class="hub-ghost-list" aria-hidden="true"><li></li><li></li><li></li></ul>
+            <p class="hub-soon-text"><img class="hub-ic" src="/ui/hub/icon-lock.webp" alt="" />친구를 초대하고 함께 노는 기능을 만들고 있어요.</p>
+          </section>
+        </aside>
+
+        <aside class="hub-right">
+          <a class="hub-event" href="/note/" data-id="hub-event">
+            <img src="/home/games.webp" width="640" height="480" alt="" />
+            <span class="hub-event-tag">새 소식</span>
+            <b class="hub-event-title" data-id="hub-event-title">개발 노트</b>
+            <span class="hub-event-sub">무엇이 바뀌었는지 개발 노트에서 확인해요</span>
+            <svg class="hub-event-go"><use href="#hub-i-chevron" /></svg>
+          </a>
+          <section class="hub-panel hub-glass hub-soon" aria-label="데일리 미션">
+            <h2><img class="hub-ic" src="/ui/hub/icon-calendar.webp" alt="" />데일리 미션 <span class="hub-soon-tag">준비 중</span></h2>
+            <ul class="hub-ghost-list" aria-hidden="true"><li></li><li></li><li></li></ul>
+            <p class="hub-soon-text"><img class="hub-ic" src="/ui/hub/icon-lock.webp" alt="" />매일 바뀌는 미션을 깨고 보상을 받을 수 있게 준비하고 있어요.</p>
+          </section>
+          <section class="hub-panel hub-glass hub-soon" aria-label="출석 보상">
+            <h2><img class="hub-ic" src="/ui/hub/icon-gift.webp" alt="" />출석 보상 <span class="hub-soon-tag">준비 중</span></h2>
+            <ol class="hub-days" aria-hidden="true">
+              <li>1일</li><li>2일</li><li>3일</li><li>4일</li><li>5일</li><li>6일</li><li>7일</li>
+            </ol>
+          </section>
+        </aside>
+
+        <div class="hub-center">
           <div class="mode-step" data-step="games" hidden>
-            <div class="step-bar">
-              <button class="board-back mode-back" type="button"><span aria-hidden="true">&larr;</span> 뒤로</button>
+            <div class="hub-games-head">
+              <button class="mode-back hub-back" type="button"><svg><use href="#hub-i-chevron" /></svg>뒤로</button>
               <h2>어떤 게임을 할까요?</h2>
             </div>
-            <p class="play-kicker">Craft Island 기계 작업실에서 자동차와 비행기를 만들고 직접 움직여 보세요</p>
-            <div class="board-notes board-notes-4">
-              <button class="mode-btn board-note" data-mode="craft" type="button">
-                <span class="board-photo"><img src="/home/craft.webp" width="640" height="480" alt="" loading="lazy" /></span>
-                <span class="mode-text"><b>Craft Island</b><small>블록을 캐고 집을 짓고, 기계를 조립하는 샌드박스</small></span>
+            <div class="hub-games">
+              <button class="mode-btn hub-game" data-mode="craft" type="button">
+                <img src="/home/craft.webp" width="640" height="480" alt="" loading="lazy" />
+                <span class="hub-mode-text"><b>Craft Island</b><small>블록을 캐고 집을 짓고, 기계를 조립하는 샌드박스</small></span>
               </button>
-              <button class="mode-btn board-note" data-mode="tower" type="button">
-                <span class="board-photo"><img src="/home/tower.webp" width="640" height="480" alt="" loading="lazy" /></span>
-                <span class="mode-text"><b>Daily Tower</b><small>매일 새로운 멀티플레이 점프 타워에 도전해요</small></span>
+              <button class="mode-btn hub-game" data-mode="tower" type="button">
+                <img src="/home/tower.webp" width="640" height="480" alt="" loading="lazy" />
+                <span class="hub-mode-text"><b>Daily Tower</b><small>매일 새로운 멀티플레이 점프 타워에 도전해요</small></span>
               </button>
-              <button class="mode-btn board-note" data-mode="builder" type="button">
-                <span class="board-photo"><img src="/home/builder.webp" width="640" height="480" alt="" loading="lazy" /></span>
-                <span class="mode-text"><b>Robo Builder</b><small>로봇들이 세계의 랜드마크를 짓는 방치형 건설 게임</small></span>
+              <button class="mode-btn hub-game" data-mode="builder" type="button">
+                <img src="/home/builder.webp" width="640" height="480" alt="" loading="lazy" />
+                <span class="hub-mode-text"><b>Robo Builder</b><small>로봇들이 세계의 랜드마크를 짓는 방치형 건설 게임</small></span>
               </button>
-              <button class="mode-btn board-note" data-mode="battle" type="button">
-                <span class="board-photo"><img src="/home/battle.webp" width="640" height="480" alt="" loading="lazy" /></span>
-                <span class="mode-text"><b>Blast Royale</b><small>로봇들과 마지막까지 살아남는 배틀로얄</small></span>
+              <button class="mode-btn hub-game" data-mode="battle" type="button">
+                <img src="/home/battle.webp" width="640" height="480" alt="" loading="lazy" />
+                <span class="hub-mode-text"><b>Blast Royale</b><small>로봇들과 마지막까지 살아남는 배틀로얄</small></span>
               </button>
             </div>
+            <p class="hub-games-tip">Craft Island 기계 작업실에서 자동차와 비행기를 만들고 직접 움직여 보세요</p>
           </div>
         </div>
-        <p class="game-help board-links"><a class="desk-link" href="/guide/">📖 게임 소개 · 조작법 · 자주 묻는 질문</a><a class="desk-link" href="/note/">📝 개발 노트</a></p>
-        <noscript>
-          <p class="game-intro">게임을 시작하려면 JavaScript를 켜 주세요. 게임 소개와 조작법은 JavaScript 없이도 읽을 수 있어요.</p>
-        </noscript>
+
+        <nav class="hub-dock hub-dock-left hub-glass" aria-label="내 것">
+          <button type="button" data-soon="인벤토리"><img class="hub-ic" src="/ui/hub/icon-bag.webp" alt="" />인벤토리</button>
+          <button type="button" data-soon="상점"><img class="hub-ic" src="/ui/hub/icon-shop.webp" alt="" />상점</button>
+          <button type="button" data-soon="캐릭터"><img class="hub-ic" src="/ui/hub/icon-character.webp" alt="" />캐릭터</button>
+          <button type="button" data-soon="맵 갤러리"><img class="hub-ic" src="/ui/hub/icon-gallery.webp" alt="" />맵 갤러리</button>
+        </nav>
+        <button class="hub-start" type="button" data-id="hub-start"><span aria-hidden="true">▶</span> 게임 시작<small data-id="hub-start-label">Craft Island</small></button>
+        <nav class="hub-dock hub-dock-right hub-glass" aria-label="함께하기">
+          <button type="button" data-soon="파티 찾기"><img class="hub-ic" src="/ui/hub/icon-party.webp" alt="" />파티 찾기</button>
+          <button type="button" data-soon="친구"><img class="hub-ic" src="/ui/hub/icon-friends.webp" alt="" />친구</button>
+          <button type="button" data-soon="업적"><img class="hub-ic" src="/ui/hub/icon-trophy.webp" alt="" />업적</button>
+          <a href="/guide/"><img class="hub-ic" src="/ui/hub/icon-guide.webp" alt="" />가이드</a>
+        </nav>
       </div>
+
+      <p class="hub-toast" role="status" aria-live="polite"></p>
+      <noscript>
+        <p class="hub-noscript">게임을 시작하려면 JavaScript를 켜 주세요. <a href="/guide/">게임 소개 · 조작법 · 자주 묻는 질문</a>과 <a href="/note/">개발 노트</a>는 JavaScript 없이도 읽을 수 있어요.</p>
+      </noscript>
     </main>
-    <div id="boot-overlay" class="board-screen">
+    <div id="boot-overlay" class="board-screen glass">
       <div class="screen-card board boot-board">
         <div class="board-sign boot-sign">
           <div class="boot-bar" aria-hidden="true"><span id="boot-fill"></span></div>

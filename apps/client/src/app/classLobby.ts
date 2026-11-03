@@ -97,7 +97,7 @@ export function chooseClass(parent: HTMLElement): Promise<ClassEntry | null> {
   return new Promise((resolve) => {
     const last = remembered();
     const screen = document.createElement("div");
-    screen.className = "screen mode-screen board-screen";
+    screen.className = "screen mode-screen board-screen glass";
     screen.dataset.board = "pick"; // not data-step: that marks the steps themselves
     // the same notice board as the home menu (index.html .board-screen styles)
     screen.innerHTML = `
