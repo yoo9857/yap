@@ -1,0 +1,4 @@
+# generated or duplicated (the shipped kit lives in apps/client/public/models/machines)
+previews/review.html
+runtime/*.glb
+source/*.blend1

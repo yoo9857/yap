@@ -1,3 +1,4 @@
+import {partControls,partLesson} from "./customization.js";
 import {
   DIRECTIONS,
   PARTS,
@@ -39,6 +40,8 @@ export interface BuildView {
   mirror: boolean;
   erase: boolean;
   assist: boolean;
+  inspectMode:boolean;
+  inspected:number;
   canUndo: boolean;
   canRedo: boolean;
   running: boolean;
@@ -51,6 +54,9 @@ export interface BuildView {
 
 export interface BuildHandlers {
   selectPart(kind: PartKind): void;
+  toggleInspect():void;
+  inspectPart(index:number):void;
+  customizePart(index:number,key:string,value:string):void;
   quickStart(kind: PresetKind): void;
   toggleAssist(): void;
   setDirection(direction: number): void;
@@ -101,6 +107,16 @@ const escapeHtml = (text: string) =>
       })[c]!,
   );
 
+export function partInspectorMarkup(blueprint:Blueprint,index:number,mirror:boolean,disabled=false):string {
+  const part=blueprint.parts[index],options=blueprint.parts.map((p,i)=>`<option value="${i}" ${i===index?"selected":""}>#${i+1} · ${escapeHtml(PARTS[p.kind].name)} (${p.cell.join(", ")})</option>`).join("");
+  const select=`<label class="mw-custom-field">${t("조립한 부품","Assembled part")}<select data-inspect-index aria-label="${t("조정할 부품 선택","Choose a part to tune")}" ${disabled?"disabled":""}><option value="-1">${t("화면의 부품을 누르거나 여기서 선택","Click a part or choose here")}</option>${options}</select></label>`;
+  if(!part)return `<section class="mw-custom">${select}<p>${t("바꿀 부품을 고른 뒤 한 가지 설정만 바꾸고 시험 운전해 보세요.","Choose a part, change one setting, then test drive.")}</p></section>`;
+  const lesson=partLesson(part,PARTS[part.kind].mass);
+  let fields=partControls(part.kind).map(c=>`<label class="mw-custom-field">${escapeHtml(c.label)}<select data-custom="${c.key}" data-index="${index}" aria-label="${escapeHtml(c.label)}" ${disabled?"disabled":""}>${c.options.map(o=>`<option value="${o.value}" ${(part.custom?.[c.key]??c.defaultValue)===o.value?"selected":""}>${escapeHtml(o.label)}</option>`).join("")}</select></label>`).join("");
+  if(PARTS[part.kind].directional)fields+=`<label class="mw-custom-field">작용 방향 · R<select data-custom="direction" data-index="${index}" aria-label="작용 방향" ${disabled?"disabled":""}>${DIRECTIONS.map((d,i)=>`<option value="${i}" ${part.direction===i?"selected":""}>${escapeHtml(d.name)}</option>`).join("")}</select></label>`;
+  return `<section class="mw-custom">${select}<h3>#${index+1} · ${escapeHtml(PARTS[part.kind].name)}</h3><div class="mw-custom-fields">${fields}</div><p class="mw-custom-facts">${lesson.facts.map(escapeHtml).join(" · ")}</p><div class="mw-custom-lesson"><b>${escapeHtml(lesson.question)}</b><p>${escapeHtml(lesson.hint)}</p></div><small>${mirror?t("대칭 켜짐: 반대쪽 같은 부품도 함께 바뀝니다.","Mirror on: the matching opposite part changes too."):t("이 부품 하나만 바뀝니다.","Only this part changes.")}</small><button class="mw-btn" data-custom-reset="${index}" ${disabled?"disabled":""}>${t("이 부품 기본값","Reset this part")}</button></section>`;
+}
+
 /** Left console: palette, blueprint library, mission checklist, run button. */
 export class BuildPanel {
   readonly element = document.createElement("div");
@@ -110,6 +126,7 @@ export class BuildPanel {
   private readonly runButton: HTMLButtonElement;
   // Not "" — an empty shelf must still render its empty-state copy once.
   private lastEntries = "\u0000";
+  private lastCustom="";
 
   constructor(
     private readonly handlers: BuildHandlers,
@@ -173,6 +190,7 @@ export class BuildPanel {
       science: () => handlers.science(),
       save: () => handlers.saveSlot(),
       assist: () => handlers.toggleAssist(),
+      inspect:()=>handlers.toggleInspect(),
       import: () => handlers.importShare(this.shareField.value),
       copy: () => void this.copyShare(),
     };
@@ -187,6 +205,15 @@ export class BuildPanel {
       const id = button.dataset.slot!;
       if (button.dataset.action === "delete") handlers.deleteSlot(id);
       else handlers.loadSlot(id);
+    });
+    on(this.q('[data-id="custom"]'),"change",event=>{
+      const field=event.target as HTMLSelectElement;
+      if(field.dataset.inspectIndex!==undefined)handlers.inspectPart(Number(field.value));
+      else if(field.dataset.custom&&field.dataset.index!==undefined)handlers.customizePart(Number(field.dataset.index),field.dataset.custom,field.value);
+    });
+    on(this.q('[data-id="custom"]'),"click",event=>{
+      const button=(event.target as HTMLElement).closest<HTMLElement>('[data-custom-reset]');
+      if(button)handlers.customizePart(Number(button.dataset.customReset),"reset","");
     });
     this.syncTabs();
   }
@@ -229,6 +256,7 @@ ${part.detail}`)}">
     const keys = [
       [t("부품 붙이기 / 떼기", "Attach / remove a part"), t("클릭 / 우클릭", "Click / right click")],
       [t("부품 고르기", "Pick a part"), "1 ~ 8"],
+      [t("조립한 부품 조정", "Tune an assembled part"), "V"],
       [t("방향 돌리기", "Turn direction"), "R"],
       [t("좌우 대칭", "Mirror left/right"), "M"],
       [t("지우개", "Eraser"), "X"],
@@ -266,7 +294,7 @@ ${part.detail}`)}">
         <button class="mw-btn" data-tab="missions" aria-pressed="false">${t("임무", "Missions")}</button>
       </div>
       <div class="mw-body">
-        <div class="mw-pane" data-pane="parts">${palette}</div>
+        <div class="mw-pane" data-pane="parts"><button class="mw-btn mw-custom-toggle" data-id="inspect" aria-pressed="false">🔎 ${t("조립한 부품 조정 · V","Tune an assembled part · V")}</button><div data-id="custom"></div>${palette}</div>
         <div class="mw-pane" data-pane="library" hidden>
           <div class="mw-group">${t("예제로 시작하기", "Start from an example")}</div>
           <div class="mw-tools">${presets}</div>
@@ -358,11 +386,14 @@ ${part.detail}`)}">
   update(view: BuildView): void {
     const { stats, blueprint } = view;
     const running = view.running || view.loading;
+    this.q('[data-id="inspect"]').setAttribute("aria-pressed",String(view.inspectMode));
+    const signature=JSON.stringify([view.inspectMode,view.inspected,view.mirror,running,view.blueprint.parts]);
+    if(signature!==this.lastCustom){this.lastCustom=signature;this.q('[data-id="custom"]').innerHTML=view.inspectMode?partInspectorMarkup(view.blueprint,view.inspected,view.mirror,running):"";}
     this.element.classList.toggle("driving", view.running);
     if (document.activeElement !== this.nameField)
       this.nameField.value = blueprint.name;
     this.text("fig-parts", `${blueprint.parts.length}`);
-    this.text("fig-mass", `${stats.mass}`);
+    this.text("fig-mass", `${Math.round(stats.mass*10)/10}`);
     this.text("fig-wheels", `${stats.counts.wheel}`);
     this.text("fig-wing", stats.wingArea.toFixed(1));
     this.meter("lift", Math.min(1, stats.liftRatio / 1.6), stats.liftRatio >= 1);
@@ -414,6 +445,7 @@ ${part.detail}`)}">
     this.q<HTMLButtonElement>('[data-id="redo"]').disabled =
       running || !view.canRedo;
     for (const selector of [
+      '[data-id="inspect"]',
       "[data-part]",
       "[data-dir]",
       "[data-preset]",

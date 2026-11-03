@@ -84,11 +84,43 @@
     {
       "id": "machine-kit",
       "category": "machines",
-      "workflow": "generated from repository script",
+      "workflow": "Original Blender source -> UV/PBR HQ and mobile GLB -> per-part learning customization",
       "files": [
         {
-          "path": "tools/generate-machine-assets.mjs",
+          "path": "assets/machines/block-kit-v2/source/CraftYap_MachineKit_v2.blend",
           "role": "source"
+        },
+        {
+          "path": "assets/machines/block-kit-v2/source/CraftYap_MachineKit_Learning.blend",
+          "role": "editable-preview"
+        },
+        {
+          "path": "assets/machines/block-kit-v2/source/build_machine_kit.py",
+          "role": "generator"
+        },
+        {
+          "path": "assets/machines/block-kit-v2/source/normalize_machine_kit.mjs",
+          "role": "exporter"
+        },
+        {
+          "path": "assets/machines/block-kit-v2/source/render_learning_parts.py",
+          "role": "preview-generator"
+        },
+        {
+          "path": "assets/machines/block-kit-v2/textures",
+          "role": "textures"
+        },
+        {
+          "path": "assets/machines/block-kit-v2/runtime/machine-kit.glb",
+          "role": "canonical-runtime"
+        },
+        {
+          "path": "assets/machines/block-kit-v2/runtime/machine-kit-lod1.glb",
+          "role": "canonical-runtime-mobile"
+        },
+        {
+          "path": "assets/machines/block-kit-v2/runtime/manifest.json",
+          "role": "manifest"
         },
         {
           "path": "apps/client/public/models/machines/machine-kit.glb",
@@ -96,11 +128,38 @@
         },
         {
           "path": "apps/client/public/models/machines/machine-kit-lod1.glb",
-          "role": "runtime"
+          "role": "runtime-mobile"
         },
         {
           "path": "apps/client/public/models/machines/manifest.json",
-          "role": "manifest"
+          "role": "runtime-manifest"
+        },
+        {
+          "path": "apps/client/src/craft/machines/customization.ts",
+          "role": "learning-settings"
+        },
+        {
+          "path": "assets/machines/block-kit-v2/previews",
+          "role": "preview"
+        },
+        {
+          "path": "assets/machines/block-kit-v2/README_KO.md",
+          "role": "documentation"
+        }
+      ],
+      "version": "2.0.0",
+      "mirrors": [
+        {
+          "source": "assets/machines/block-kit-v2/runtime/machine-kit.glb",
+          "runtime": "apps/client/public/models/machines/machine-kit.glb"
+        },
+        {
+          "source": "assets/machines/block-kit-v2/runtime/machine-kit-lod1.glb",
+          "runtime": "apps/client/public/models/machines/machine-kit-lod1.glb"
+        },
+        {
+          "source": "assets/machines/block-kit-v2/runtime/manifest.json",
+          "runtime": "apps/client/public/models/machines/manifest.json"
         }
       ]
     },

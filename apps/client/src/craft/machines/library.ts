@@ -130,6 +130,7 @@ export class MachineStore {
  * machine fits in a line you can paste into a chat window.
  */
 export function encodeShare(blueprint: Blueprint): string {
+  if(blueprint.parts.some(p=>p.custom&&Object.keys(p.custom).length))return `CYM2.${encodeURIComponent(JSON.stringify(blueprint))}`;
   const body = blueprint.parts
     .map((p) =>
       [
@@ -148,6 +149,10 @@ export function encodeShare(blueprint: Blueprint): string {
 
 export function decodeShare(text: string): Blueprint | null {
   const code = text.trim();
+  if(code.startsWith("CYM2.")){
+    if(code.length>40_000)return null;
+    try{return validateBlueprint(JSON.parse(decodeURIComponent(code.slice(5))));}catch{return null;}
+  }
   if (!code.startsWith(SHARE_PREFIX) || code.length > 40_000) return null;
   const split = code.indexOf(".", SHARE_PREFIX.length);
   if (split < 0) return null;

@@ -23,6 +23,7 @@ export default defineConfig({
         connectionReview:fileURLToPath(new URL("./connection-preview.html",import.meta.url)),
         miningReview:fileURLToPath(new URL("./mining-preview.html",import.meta.url)),
         homeReview: fileURLToPath(new URL("./home-preview.html", import.meta.url)),
+        vehicleReview: fileURLToPath(new URL("./vehicle-preview.html", import.meta.url)),
       },
     },
     // no public sourcemaps in production: the rapier/bgm maps are multi-MB and

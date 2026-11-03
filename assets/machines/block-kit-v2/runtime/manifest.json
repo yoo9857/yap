@@ -1,0 +1,261 @@
+{
+  "version": 2,
+  "kitVersion": "2.0.0",
+  "source": "assets/machines/block-kit-v2/source/CraftYap_MachineKit_v2.blend",
+  "builder": "assets/machines/block-kit-v2/source/build_machine_kit.py",
+  "provenance": "Original Blender geometry, UVs and packed material maps for CraftYap",
+  "units": "metres",
+  "up": "+Y",
+  "forward": "+Z",
+  "wheelAxis": "+X",
+  "cellSize": 1,
+  "roles": [
+    "body",
+    "studs",
+    "wheel-fixed",
+    "wheel-strut",
+    "wheel-hub"
+  ],
+  "files": [
+    {
+      "file": "machine-kit.glb",
+      "bytes": 2485652,
+      "sha256": "49b5499e302f16e097794366ed98cb4be7f0bd490e16d1be1abcc7c7e6d1f868",
+      "parts": [
+        {
+          "part": "frame",
+          "triangles": 3076,
+          "primitives": 5,
+          "size": [
+            0.988,
+            1.0395,
+            0.988
+          ],
+          "roles": {
+            "body": 1188,
+            "studs": 1888
+          }
+        },
+        {
+          "part": "cockpit",
+          "triangles": 3776,
+          "primitives": 8,
+          "size": [
+            0.9829,
+            1.0845,
+            0.9765
+          ],
+          "roles": {
+            "body": 2832,
+            "studs": 944
+          }
+        },
+        {
+          "part": "ballast",
+          "triangles": 3076,
+          "primitives": 6,
+          "size": [
+            0.98,
+            1.0095,
+            1.008
+          ],
+          "roles": {
+            "body": 1188,
+            "studs": 1888
+          }
+        },
+        {
+          "part": "wheel",
+          "triangles": 8028,
+          "primitives": 11,
+          "size": [
+            0.8345,
+            1.1895,
+            1.159
+          ],
+          "roles": {
+            "body": 5844,
+            "wheel-fixed": 216,
+            "wheel-hub": 344,
+            "wheel-strut": 1624
+          }
+        },
+        {
+          "part": "thruster",
+          "triangles": 3718,
+          "primitives": 7,
+          "size": [
+            0.94,
+            1.2275,
+            0.964
+          ],
+          "roles": {
+            "body": 1830,
+            "studs": 1888
+          }
+        },
+        {
+          "part": "gyro",
+          "triangles": 3708,
+          "primitives": 8,
+          "size": [
+            0.94,
+            1.0295,
+            0.94
+          ],
+          "roles": {
+            "body": 1820,
+            "studs": 1888
+          }
+        },
+        {
+          "part": "wing",
+          "triangles": 2752,
+          "primitives": 6,
+          "size": [
+            1.2,
+            0.1895,
+            0.9
+          ],
+          "roles": {
+            "body": 864,
+            "studs": 1888
+          }
+        },
+        {
+          "part": "balloon",
+          "triangles": 1848,
+          "primitives": 4,
+          "size": [
+            0.92,
+            1.023,
+            0.92
+          ],
+          "roles": {
+            "body": 1848
+          }
+        }
+      ]
+    },
+    {
+      "file": "machine-kit-lod1.glb",
+      "bytes": 1311328,
+      "sha256": "d1295946666cdf99d08ef659ba7da3079a67b5c77a4d16a8b82138bdaea07927",
+      "parts": [
+        {
+          "part": "frame",
+          "triangles": 1220,
+          "primitives": 5,
+          "size": [
+            0.988,
+            1.0395,
+            0.988
+          ],
+          "roles": {
+            "body": 484,
+            "studs": 736
+          }
+        },
+        {
+          "part": "cockpit",
+          "triangles": 1520,
+          "primitives": 8,
+          "size": [
+            0.9829,
+            1.0845,
+            0.9765
+          ],
+          "roles": {
+            "body": 1152,
+            "studs": 368
+          }
+        },
+        {
+          "part": "ballast",
+          "triangles": 1220,
+          "primitives": 6,
+          "size": [
+            0.98,
+            1.0095,
+            1.008
+          ],
+          "roles": {
+            "body": 484,
+            "studs": 736
+          }
+        },
+        {
+          "part": "wheel",
+          "triangles": 2508,
+          "primitives": 10,
+          "size": [
+            0.8345,
+            1.1895,
+            1.159
+          ],
+          "roles": {
+            "body": 2100,
+            "wheel-fixed": 88,
+            "wheel-hub": 136,
+            "wheel-strut": 184
+          }
+        },
+        {
+          "part": "thruster",
+          "triangles": 1510,
+          "primitives": 7,
+          "size": [
+            0.94,
+            1.2275,
+            0.964
+          ],
+          "roles": {
+            "body": 774,
+            "studs": 736
+          }
+        },
+        {
+          "part": "gyro",
+          "triangles": 1468,
+          "primitives": 8,
+          "size": [
+            0.94,
+            1.0295,
+            0.94
+          ],
+          "roles": {
+            "body": 732,
+            "studs": 736
+          }
+        },
+        {
+          "part": "wing",
+          "triangles": 1088,
+          "primitives": 6,
+          "size": [
+            1.2,
+            0.1895,
+            0.9
+          ],
+          "roles": {
+            "body": 352,
+            "studs": 736
+          }
+        },
+        {
+          "part": "balloon",
+          "triangles": 728,
+          "primitives": 4,
+          "size": [
+            0.92,
+            1.023,
+            0.92
+          ],
+          "roles": {
+            "body": 728
+          }
+        }
+      ]
+    }
+  ]
+}

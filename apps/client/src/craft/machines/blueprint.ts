@@ -1,3 +1,4 @@
+import {validPartCustom,partMass,thrustForce,balloonLift,wingArea,type PartCustom} from "./customization.js";
 import { AIR } from "./aero.js";
 import { PHYSICS_RULES } from "./physicsRules.js";
 
@@ -15,6 +16,7 @@ export interface MachinePart {
   kind: PartKind;
   cell: Cell;
   direction: number;
+  custom?:PartCustom;
 }
 export interface Blueprint {
   version: 1;
@@ -211,19 +213,18 @@ export interface MachineStats {
 }
 
 export function machineStats(b: Blueprint): MachineStats {
-  const mass = b.parts.reduce((sum, p) => sum + PARTS[p.kind].mass, 0);
+  const mass = b.parts.reduce((sum, p) => sum + partMass(p,PARTS[p.kind].mass), 0);
   const center: Cell = [0, 0, 0];
   for (const p of b.parts)
     for (const i of [0, 1, 2] as const)
-      center[i] += (p.cell[i] * PARTS[p.kind].mass) / (mass || 1);
+      center[i] += (p.cell[i] * partMass(p,PARTS[p.kind].mass)) / (mass || 1);
   const counts = Object.fromEntries(
     PART_ORDER.map((kind) => [kind, 0]),
   ) as Record<PartKind, number>;
   for (const p of b.parts) counts[p.kind]++;
   const lift =
-    b.parts.filter((p) => p.kind === "thruster" && p.direction === 0).length *
-      PHYSICS_RULES.thrustPerEngine +
-    counts.balloon * AIR.balloonLift;
+    b.parts.filter((p) => p.kind === "thruster" && p.direction === 0).reduce((n,p)=>n+thrustForce(p),0) +
+    b.parts.filter(p=>p.kind==="balloon").reduce((n,p)=>n+balloonLift(p),0);
   const wheels = b.parts.filter((p) => p.kind === "wheel");
   let stanceMargin = 0;
   if (wheels.length >= 3) {
@@ -241,7 +242,7 @@ export function machineStats(b: Blueprint): MachineStats {
     center,
     liftRatio: mass ? lift / (mass * PHYSICS_RULES.gravity) : 0,
     counts,
-    wingArea: counts.wing * AIR.wingArea,
+    wingArea: b.parts.filter(p=>p.kind==="wing").reduce((n,p)=>n+wingArea(p),0),
     stanceMargin,
   };
 }
@@ -323,7 +324,8 @@ function validBlueprintShape(value: unknown): value is Blueprint {
       p.cell.every((n) => Number.isInteger(n) && Math.abs(n) <= 12) &&
       Number.isInteger(p.direction) &&
       p.direction >= 0 &&
-      p.direction < DIRECTIONS.length,
+      p.direction < DIRECTIONS.length &&
+      (p.custom===undefined||validPartCustom(p.custom,p.kind)),
   );
 }
 /** Validate local storage before any data reaches the physics engine. */

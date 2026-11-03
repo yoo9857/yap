@@ -1,0 +1,125 @@
+{
+  "date": "2026-11-03",
+  "kitVersion": "2.0.0",
+  "project": "C:/craftyap",
+  "source": "Original Blender geometry, UVs and material maps",
+  "blender": {
+    "version": "5.4.0 Alpha",
+    "build": "0d0b51704b28",
+    "method": "background CLI; existing interactive scene untouched",
+    "rendersInspected": [
+      "rover-blender.png",
+      "parts-blender.png"
+    ]
+  },
+  "checks": {
+    "fullClient": {
+      "status": "passed",
+      "testFiles": 59,
+      "tests": 532,
+      "note": "Full suite before the final two added regression tests."
+    },
+    "finalVehicle": {
+      "status": "passed",
+      "testFiles": 2,
+      "tests": 22,
+      "areas": [
+        "all eight part controls",
+        "actual Rapier force and mass behavior",
+        "undo redo and symmetry",
+        "legacy and customized share codes",
+        "mounted thruster direction",
+        "HQ and mobile UV meshes",
+        "wheel mounts and suspension transforms",
+        "paint restoration",
+        "shared texture disposal"
+      ]
+    },
+    "typecheck": "passed",
+    "lintChangedSources": "passed",
+    "productionBuild": {
+      "status": "passed",
+      "entriesInclude": "vehicle-preview.html",
+      "warnings": [
+        "existing large Three.js and Rapier chunks",
+        "isolated output folder outside project root"
+      ]
+    },
+    "machineAssetCheck": "passed",
+    "catalog": {
+      "status": "passed",
+      "groups": 8,
+      "paths": 43,
+      "identicalMirrors": 4
+    },
+    "gitWhitespaceCheck": "passed"
+  },
+  "runtime": [
+    {
+      "file": "machine-kit.glb",
+      "bytes": 2485652,
+      "sha256": "49b5499e302f16e097794366ed98cb4be7f0bd490e16d1be1abcc7c7e6d1f868",
+      "triangles": 29982,
+      "parts": 8,
+      "publicMirror": true
+    },
+    {
+      "file": "machine-kit-lod1.glb",
+      "bytes": 1311328,
+      "sha256": "d1295946666cdf99d08ef659ba7da3079a67b5c77a4d16a8b82138bdaea07927",
+      "triangles": 11262,
+      "parts": 8,
+      "publicMirror": true
+    }
+  ],
+  "portableReview": {
+    "javascriptBytes": 613193,
+    "htmlBytes": 10108602,
+    "embeddedModels": 2,
+    "embeddedPreviews": 2,
+    "modelSource": "actual game machineVisual.ts and customization.ts",
+    "externalAssets": false,
+    "sha256": "58cd78493ce77d649cdef947d6ec5b2d0193c2eaea3a9835c7a2174af6df103e",
+    "openedInCodex": "queued by open_in_codex",
+    "actualGameCode": true
+  },
+  "compatibility": {
+    "blueprintVersion": 1,
+    "defaultPhysicsPreserved": true,
+    "readCodes": [
+      "CYM1",
+      "CYM2"
+    ],
+    "writeCode": "CYM1 for default designs; CYM2 for customized designs",
+    "oldClientCannotReadCYM2": true
+  },
+  "limitations": [
+    "Browser automation is disabled in Work settings; no interactive browser QA claimed.",
+    "Preview animation demonstrates wheel structure and is not a recorded drive.",
+    "Gameplay physics uses educational approximations.",
+    "No online deployment or Git commit performed."
+  ],
+  "evidence": {
+    "client-tests.log": {
+      "sha256": "16a3de09ebb0dbe448e2c376cea97f27e488f5f2166f4bc25dcb4f3b801a217a"
+    },
+    "final-vehicle-tests.log": {
+      "sha256": "8aefaa236f2e0a075eef5844eafd3a6f9ebc6a5912a1669514a6cc8e8bf3fc75"
+    },
+    "final-typecheck.log": {
+      "sha256": "205cdc4d3bf784730ef42c6e0dbcc2c03b8e696da8c5f031263a408d3e7cbdfe"
+    },
+    "final-lint.log": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "final-build.log": {
+      "sha256": "1e178f98ee07b432e6388b14519cf979e3e6c876513b72b6b7c4d5e5e0ec8a4e"
+    },
+    "parts-render.log": {
+      "sha256": "85d0ccfa86669134f03649757f41cc48c9822585485acbdeef120681f90aa0c1"
+    },
+    "review-bundle.json": {
+      "sha256": "5f132af0a6a992d222c417d5cd00a7d8565d9e6ee61299ac459d2fded35fdd5e"
+    }
+  }
+}

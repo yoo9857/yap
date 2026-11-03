@@ -947,3 +947,11 @@
 .mw-gauge[hidden] {
   display: none;
 }
+
+/* Child-friendly per-part controls stay in the existing scrollable palette. */
+.mw-custom-toggle{width:100%;margin-bottom:10px;min-height:44px}
+.mw-custom{padding:12px;margin-bottom:14px;border:2px solid var(--ink,#232522);border-radius:12px;background:#fff9df;display:grid;gap:10px}
+.mw-custom h3{font-size:15px;margin:0}.mw-custom p{font-size:12px;line-height:1.65;margin:0}.mw-custom small{font-size:11px;line-height:1.5}
+.mw-custom-fields{display:grid;grid-template-columns:1fr 1fr;gap:8px}.mw-custom-field{display:grid;gap:5px;font-size:12px;font-weight:800;min-width:0}
+.mw-custom-field select{font:inherit;width:100%;min-height:40px;border:1px solid #858d7a;background:#fff;border-radius:8px;padding:6px;color:#26332a}
+.mw-custom-field select:focus-visible{outline:3px solid #e7b85d;outline-offset:2px}.mw-custom-lesson{padding:9px;border-radius:8px;background:#e6f0df}.mw-custom-lesson b{display:block;font-size:12px;margin-bottom:5px}.mw-custom-facts{font-weight:800}

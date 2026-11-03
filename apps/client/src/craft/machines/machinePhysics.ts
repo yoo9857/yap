@@ -1,3 +1,4 @@
+import {partMass,wheelRadius,wheelGrip,springFactor,thrustForce,gyroFactor,wingArea,balloonLift} from "./customization.js";
 import { Quaternion, Vector3 } from "three";
 import type {
   RapierModule,
@@ -76,6 +77,7 @@ export class MachinePhysics {
   private readonly normal = new Vector3();
   private readonly scratch = new Vector3();
   private readonly gyro: boolean;
+  private readonly gyroStrength:number;
   private readonly surfaces: number[] = [];
   /** Lift-thruster count and the throttle fraction that cancels gravity. */
   readonly liftThrusters: number;
@@ -116,7 +118,7 @@ export class MachinePhysics {
       const [x, y, z] = part.cell;
       const collider = rapier.ColliderDesc.cuboid(0.48, 0.48, 0.48)
         .setTranslation(x, y, z)
-        .setMass(PARTS[part.kind].mass)
+        .setMass(partMass(part,PARTS[part.kind].mass))
         .setFriction(0.6)
         .setRestitution(0.05);
       if (part.kind === "wheel") collider.setSensor(true);
@@ -129,17 +131,18 @@ export class MachinePhysics {
         { x: 0, y: -1, z: 0 },
         { x: -1, y: 0, z: 0 },
         RULES.suspensionLength,
-        RULES.wheelRadius,
+        wheelRadius(part),
       );
-      this.wheels.setWheelSuspensionStiffness(i, RULES.suspensionStiffness);
-      this.wheels.setWheelSuspensionCompression(i, RULES.suspensionCompression);
-      this.wheels.setWheelSuspensionRelaxation(i, RULES.suspensionRelaxation);
+      this.wheels.setWheelSuspensionStiffness(i, RULES.suspensionStiffness*springFactor(part));
+      this.wheels.setWheelSuspensionCompression(i, RULES.suspensionCompression*Math.sqrt(springFactor(part)));
+      this.wheels.setWheelSuspensionRelaxation(i, RULES.suspensionRelaxation*Math.sqrt(springFactor(part)));
       this.wheels.setWheelMaxSuspensionTravel(i, RULES.maxSuspensionTravel);
       this.wheels.setWheelMaxSuspensionForce(i, RULES.maxSuspensionForce);
-      this.wheels.setWheelFrictionSlip(i, RULES.tireFrictionSlip);
+      this.wheels.setWheelFrictionSlip(i, wheelGrip(part));
       this.wheels.setWheelSideFrictionStiffness(i, 1);
     });
     this.gyro = blueprint.parts.some((p) => p.kind === "gyro");
+    this.gyroStrength=Math.max(0,...blueprint.parts.filter(p=>p.kind==="gyro").map(gyroFactor));
     this.liftThrusters = blueprint.parts.filter(
       (p) => p.kind === "thruster" && p.direction === 0,
     ).length;
@@ -148,7 +151,7 @@ export class MachinePhysics {
     // not pretend otherwise.
     const weight = this.body.mass() * RULES.gravity;
     this.hoverBias = this.liftThrusters
-      ? weight / (this.liftThrusters * RULES.thrustPerEngine)
+      ? weight / blueprint.parts.filter(p=>p.kind==="thruster"&&p.direction===0).reduce((n,p)=>n+thrustForce(p),0)
       : 0;
     blueprint.parts.forEach((part, index) => {
       if (part.kind === "wing" || part.kind === "balloon")
@@ -256,7 +259,7 @@ export class MachinePhysics {
       this.wheels.setWheelEngineForce(
         i,
         magnitude < RULES.poweredSpeedLimit
-          ? input.throttle * RULES.wheelForce
+          ? input.throttle * RULES.wheelForce * RULES.wheelRadius / wheelRadius(part)
           : 0,
       );
       this.wheels.setWheelBrake(
@@ -290,7 +293,7 @@ export class MachinePhysics {
       this.force
         .fromArray(DIRECTIONS[part.direction]!.vector)
         .applyQuaternion(this.rotation)
-        .multiplyScalar(RULES.thrustPerEngine * activation);
+        .multiplyScalar(thrustForce(part) * activation);
       this.point.fromArray(part.cell).applyQuaternion(this.rotation).add(p);
       this.body.addForceAtPoint(this.force, this.point, true);
     }
@@ -304,18 +307,19 @@ export class MachinePhysics {
           input.roll * RULES.gyroRollTorque,
         )
         .applyQuaternion(this.rotation);
-      this.force.x -= angular.x * RULES.gyroDamping;
-      this.force.y -= angular.y * RULES.gyroDamping;
-      this.force.z -= angular.z * RULES.gyroDamping;
+      this.force.multiplyScalar(this.gyroStrength);
+      this.force.x -= angular.x * RULES.gyroDamping*this.gyroStrength;
+      this.force.y -= angular.y * RULES.gyroDamping*this.gyroStrength;
+      this.force.z -= angular.z * RULES.gyroDamping*this.gyroStrength;
       if (this.levelling(input)) {
         // Rotating the body's own up-vector back onto world up: the cross
         // product is the axis and its length is sin(tilt), so the correction
         // fades out exactly as the machine comes level.
         this.up.set(0, 1, 0).applyQuaternion(this.rotation);
         this.level.set(0, 1, 0).cross(this.up).multiplyScalar(-1);
-        this.force.addScaledVector(this.level, ASSIST.levelTorque);
-        this.force.x -= angular.x * ASSIST.levelDamping;
-        this.force.z -= angular.z * ASSIST.levelDamping;
+        this.force.addScaledVector(this.level, ASSIST.levelTorque*this.gyroStrength);
+        this.force.x -= angular.x * ASSIST.levelDamping*this.gyroStrength;
+        this.force.z -= angular.z * ASSIST.levelDamping*this.gyroStrength;
       }
       this.body.addTorque(this.force, true);
     }
@@ -358,8 +362,8 @@ export class MachinePhysics {
       this.arm.copy(this.point).sub(com);
       pointVelocity(linear, angular, this.arm, this.flow);
       if (part.kind === "balloon") {
-        dragForce(this.flow, AIR.balloonArea, AIR.balloonDrag, this.force);
-        this.force.y += AIR.balloonLift;
+        dragForce(this.flow, AIR.balloonArea*(balloonLift(part)/AIR.balloonLift)**(2/3), AIR.balloonDrag, this.force);
+        this.force.y += balloonLift(part);
       } else {
         this.normal
           .fromArray(DIRECTIONS[part.direction]!.vector)
@@ -367,7 +371,7 @@ export class MachinePhysics {
         panelForce(
           this.flow,
           this.normal,
-          AIR.wingArea,
+          wingArea(part),
           AIR.wingNormalCoefficient,
           this.force,
         );
@@ -378,7 +382,7 @@ export class MachinePhysics {
         this.force.add(
           dragForce(
             this.flow,
-            AIR.wingArea * 0.12,
+            wingArea(part) * 0.12,
             AIR.wingEdgeDrag,
             this.scratch,
           ),

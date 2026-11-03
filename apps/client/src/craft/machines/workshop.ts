@@ -1,3 +1,4 @@
+import {changePartCustom} from "./customization.js";
 import * as THREE from "three";
 import type { RapierModule } from "../../physics/physics.js";
 import { surfaceY, type VoxelWorld } from "../voxelWorld.js";
@@ -20,7 +21,7 @@ import {
   type PresetKind,
 } from "./blueprint.js";
 import { IDLE_INPUT, MachinePhysics } from "./machinePhysics.js";
-import { GhostPart, MachineAssets, MachineVisual } from "./machineVisual.js";
+import { GhostPart, MachineAssets, MachineVisual, wheelMountSide } from "./machineVisual.js";
 import { DustField, MachineAudio } from "./machineFx.js";
 import { MachineStore, decodeShare, encodeShare } from "./library.js";
 import { MISSIONS, MissionRun } from "./missions.js";
@@ -66,6 +67,8 @@ export class MachineWorkshop {
   private direction = 0;
   private mirror = true;
   private erase = false;
+  private inspectMode=false;
+  private inspectedCell:Cell|null=null;
   /** Beginner autopilot, on until the player turns it off. */
   private assist = true;
 
@@ -182,6 +185,9 @@ export class MachineWorkshop {
     this.panel = new BuildPanel(
       {
         selectPart: (kind) => this.pickPart(kind),
+        toggleInspect:()=>this.toggleInspect(),
+        inspectPart:index=>this.inspectPart(index),
+        customizePart:(index,key,value)=>this.customizePart(index,key,value),
         setDirection: (direction) => {
           this.direction = direction;
           this.refresh();
@@ -205,6 +211,7 @@ export class MachineWorkshop {
           );
         },
         toggleErase: () => {
+          this.inspectMode=false;
           this.erase = !this.erase;
           this.ghost.setErasing(this.erase);
           this.refresh();
@@ -303,7 +310,7 @@ export class MachineWorkshop {
         if (!click || this.physics || this.loading) return;
         this.aim(e.clientX, e.clientY);
         if (e.button === 2 || this.erase) this.removeHovered();
-        else if (e.button === 0) this.placeHere();
+        else if (e.button === 0) {if(this.inspectMode)this.inspectPart(this.hovered);else this.placeHere();}
       },
       { signal },
     );
@@ -336,6 +343,7 @@ export class MachineWorkshop {
   // ------------------------------------------------------------- editing
 
   private pickPart(kind: PartKind): void {
+    this.inspectMode=false;this.inspectedCell=null;
     this.selected = kind;
     this.erase = false;
     this.ghost.setErasing(false);
@@ -365,6 +373,31 @@ export class MachineWorkshop {
     this.undoStack.push(cloneBlueprint(this.blueprint));
     this.blueprint = next;
     this.commit();
+  }
+
+  private inspectedIndex():number {return this.inspectedCell?this.blueprint.parts.findIndex(p=>p.cell.every((v,i)=>v===this.inspectedCell![i])):-1;}
+  private toggleInspect():void {
+    if(this.physics||this.loading)return;
+    this.inspectMode=!this.inspectMode;this.erase=false;this.ghost.root.visible=false;this.ghost.setErasing(false);
+    this.visual.highlight(-1,HIGHLIGHT);this.refresh();
+  }
+  private inspectPart(index:number):void {
+    if(this.physics||this.loading)return;
+    if(index===-1){this.inspectedCell=null;this.visual.highlight(-1,HIGHLIGHT);this.refresh();return;}
+    const part=this.blueprint.parts[index];if(!part)return;
+    this.inspectMode=true;this.inspectedCell=[...part.cell];
+    this.visual.highlight(index,HIGHLIGHT);this.refresh();
+  }
+  private customizePart(index:number,key:string,value:string):void {
+    if(this.physics||this.loading)return;
+    const part=this.blueprint.parts[index];if(!part)return;
+    const next=cloneBlueprint(this.blueprint),direction=Number(value);
+    if(key==="direction"){
+      if(!PARTS[part.kind].directional||!Number.isInteger(direction)||direction<0||direction>=DIRECTIONS.length||direction===part.direction)return;
+      next.parts[index]!.direction=direction;
+    }else if(!changePartCustom(next.parts[index]!,key,value))return;
+    if(this.mirror&&part.cell[0]!==0){const twin=next.parts.find(p=>p.kind===part.kind&&p.cell[0]===-part.cell[0]&&p.cell[1]===part.cell[1]&&p.cell[2]===part.cell[2]);if(twin){if(key==="direction")twin.direction=mirrorDirection(direction);else changePartCustom(twin,key,value);}}
+    this.remember();this.blueprint=next;this.commit();
   }
 
   /** Place at the aimed cell, plus its mirrored twin when symmetry is on. */
@@ -576,6 +609,7 @@ export class MachineWorkshop {
     }
     switch (event.code) {
       case "KeyR":
+        if(this.inspectMode){const i=this.inspectedIndex(),part=this.blueprint.parts[i];if(part&&PARTS[part.kind].directional)this.customizePart(i,"direction",String((part.direction+1)%DIRECTIONS.length));break;}
         if (PARTS[this.selected].directional) {
           this.direction = (this.direction + 1) % DIRECTIONS.length;
           this.refresh();
@@ -586,7 +620,11 @@ export class MachineWorkshop {
         this.mirror = !this.mirror;
         this.say(this.mirror ? t("좌우 대칭 켜짐", "Mirror on") : t("좌우 대칭 꺼짐", "Mirror off"), "info");
         break;
+      case "KeyV":
+        this.toggleInspect();
+        break;
       case "KeyX":
+        this.inspectMode=false;
         this.erase = !this.erase;
         this.ghost.setErasing(this.erase);
         this.refresh();
@@ -700,6 +738,8 @@ export class MachineWorkshop {
       mirror: this.mirror,
       erase: this.erase,
       assist: this.assist,
+      inspectMode:this.inspectMode,
+      inspected:this.inspectedIndex(),
       canUndo: this.undoStack.length > 0,
       canRedo: this.redoStack.length > 0,
       running: !!this.physics,
@@ -709,6 +749,7 @@ export class MachineWorkshop {
       entries: this.entries,
       record: this.record,
     };
+    if(this.inspectMode&&this.inspectedIndex()>=0)this.visual.highlight(this.inspectedIndex(),HIGHLIGHT);
     this.panel.update(view);
     this.panel.setShare(encodeShare(this.blueprint));
     this.ghost.set(this.selected, this.direction);
@@ -756,17 +797,20 @@ export class MachineWorkshop {
     }
     const part = this.blueprint.parts[index]!;
     this.hovered = index;
+    if(this.inspectMode){this.visual.highlight(index,HIGHLIGHT);return;}
     this.visual.highlight(this.erase ? index : -1, HIGHLIGHT);
     if (this.erase) return;
     const offset = this.scratch
       .copy(hit.point)
       .sub(this.origin)
       .sub(this.desired.fromArray(part.cell));
+    if(part.kind==="wheel"&&["body","wheel-hub"].includes(String(hit.object.userData.machineRole??"body")))offset.y+=0.65;
     const axes = [Math.abs(offset.x), Math.abs(offset.y), Math.abs(offset.z)];
     const axis = axes.indexOf(Math.max(...axes)) as 0 | 1 | 2;
     const cell: Cell = [...part.cell];
     cell[axis] += Math.sign(offset.getComponent(axis)) || 1;
     this.placement = cell;
+    this.ghost.set(this.selected,this.direction,wheelMountSide(this.blueprint,cell));
     this.ghost.root.position.fromArray(cell).add(this.origin);
     this.ghost.root.visible = true;
   }

@@ -1,3 +1,5 @@
+import {PART_COLORS,BASE_PART_COLOR,wheelRadius,wingArea,thrustForce} from "./customization.js";
+import {AIR} from "./aero.js";
 import * as THREE from "three";
 import { castsInstancedShadow } from "../../render/instancedDepth.js";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
@@ -12,7 +14,9 @@ import { PHYSICS_RULES } from "./physicsRules.js";
 
 const WHITE = new THREE.Color(1, 1, 1);
 
+export type MachineRole="body"|"studs"|"wheel-fixed"|"wheel-strut"|"wheel-hub";
 interface Template {
+  role?:MachineRole;
   geometry: THREE.BufferGeometry;
   material: THREE.Material;
 }
@@ -24,7 +28,7 @@ export class MachineAssets {
   private promise: Promise<void> | null = null;
 
   /**
-   * Lazy on purpose. The kit is 1.2 MB of GLB and most Craft Island sessions
+   * Lazy on purpose. The detailed kit is about 2.4 MB (mobile LOD about 1.3 MB) and most Craft Island sessions
    * never open the machine lab, so the download starts the first time
    * something actually awaits it rather than during island boot.
    */
@@ -35,7 +39,7 @@ export class MachineAssets {
   private load(): Promise<void> {
     const low = window.matchMedia("(max-width: 700px)").matches;
     return new GLTFLoader()
-      .loadAsync(`/models/machines/machine-kit${low ? "-lod1" : ""}.glb`)
+      .loadAsync(`/models/machines/machine-kit${low ? "-lod1" : ""}.glb?v=2.0.0`)
       .then((gltf) => {
         for (const part of gltf.scene.children) {
           const meshes: Template[] = [];
@@ -46,6 +50,7 @@ export class MachineAssets {
               meshes.push({
                 geometry: o.geometry as THREE.BufferGeometry,
                 material: o.material as THREE.Material,
+                role:(o.userData.machineRole??"body") as MachineRole,
               });
             }
           });
@@ -61,14 +66,20 @@ export class MachineAssets {
 
   private release(): void {
     const geometries = new Set<THREE.BufferGeometry>(),
-      materials = new Set<THREE.Material>();
+      materials = new Set<THREE.Material>(),
+      textures = new Set<THREE.Texture>();
     for (const templates of this.templates.values())
       for (const t of templates) {
         geometries.add(t.geometry);
         materials.add(t.material);
       }
     for (const g of geometries) g.dispose();
-    for (const m of materials) m.dispose();
+    for (const m of materials) {
+      for (const value of Object.values(m))
+        if (value instanceof THREE.Texture) textures.add(value);
+      m.dispose();
+    }
+    for (const texture of textures) texture.dispose();
     this.templates.clear();
   }
   dispose(): void {
@@ -77,6 +88,12 @@ export class MachineAssets {
   }
 }
 
+/** A wheel bracket points inward to an adjacent structural cell. */
+export function wheelMountSide(blueprint:Blueprint,cell:readonly number[]):number {
+  const preferred=cell[0]!<0?1:-1;
+  for(const dx of [preferred,-preferred])if(blueprint.parts.some(p=>p.kind!=="wheel"&&p.cell[0]===cell[0]!+dx&&p.cell[1]===cell[1]&&p.cell[2]===cell[2]))return -dx;
+  return 0;
+}
 export class MachineVisual {
   readonly root = new THREE.Group();
   readonly meshes: THREE.InstancedMesh[] = [];
@@ -106,45 +123,57 @@ export class MachineVisual {
   private highlighted = -1;
   private blueprint: Blueprint = { version: 1, name: "", parts: [] };
 
+  private readonly angles=new THREE.Euler();
+  private readonly mounts=new Map<number,{side:number;fixed:THREE.Matrix4;strut:THREE.Matrix4;hub:THREE.Matrix4}>();
   constructor(private readonly assets: MachineAssets) {}
+  private partMatrix(index:number,role:MachineRole):THREE.Matrix4 {
+    const mount=this.mounts.get(index);
+    return role==="wheel-fixed"?mount!.fixed:role==="wheel-strut"?mount!.strut:role==="wheel-hub"?mount!.hub:this.transforms[index]!;
+  }
   rebuild(blueprint: Blueprint): void {
     this.clear();
     this.blueprint = blueprint;
-    blueprint.parts.forEach((p, index) => {
-      this.position.fromArray(p.cell);
-      this.rotation.identity();
-      if (p.kind === "wheel") this.position.y -= PHYSICS_RULES.suspensionLength;
-      if (PARTS[p.kind].directional)
-        this.rotation.setFromUnitVectors(
-          this.up,
-          this.direction.fromArray(DIRECTIONS[p.direction]!.vector),
-        );
-      this.transforms[index] = new THREE.Matrix4().compose(
-        this.position,
-        this.rotation,
-        this.scale.set(1, 1, 1),
-      );
+    const occupied=new Map(blueprint.parts.map(p=>[p.cell.join(","),p]));
+    blueprint.parts.forEach((p,index)=>{
+      this.position.fromArray(p.cell);this.rotation.identity();this.scale.set(1,1,1);
+      if(PARTS[p.kind].directional)this.rotation.setFromUnitVectors(this.up,this.direction.fromArray(DIRECTIONS[p.direction]!.vector));
+      if(p.kind==="wing"){const f=Math.sqrt(wingArea(p)/AIR.wingArea);this.scale.set(f,1,f);}
+      this.transforms[index]=new THREE.Matrix4().compose(this.position,this.rotation,this.scale);
+      if(p.kind==="wheel"){
+        this.mounts.set(index,{side:wheelMountSide(blueprint,p.cell),fixed:new THREE.Matrix4(),strut:new THREE.Matrix4(),hub:new THREE.Matrix4()});
+        this.wheel(index,PHYSICS_RULES.suspensionLength,0,0);
+      }
     });
-    for (const [kind, templates] of this.assets.templates) {
-      const indices = blueprint.parts.flatMap((p, i) =>
-        p.kind === kind ? [i] : [],
-      );
-      if (!indices.length) continue;
-      for (const t of templates) {
-        const mesh = new THREE.InstancedMesh(
-          t.geometry,
-          t.material,
-          indices.length,
-        );
-        mesh.userData.partIndices = indices;
-        castsInstancedShadow(mesh);
-        mesh.receiveShadow = true;
-        indices.forEach((index, i) =>
-          mesh.setMatrixAt(i, this.transforms[index]!),
-        );
-        mesh.computeBoundingSphere();
-        this.meshes.push(mesh);
-        this.root.add(mesh);
+    for(const [kind,templates]of this.assets.templates){
+      for(const template of templates){
+        const role=template.role??"body";
+        const indices=blueprint.parts.flatMap((p,i)=>{
+          if(p.kind!==kind)return [];
+          if(role.startsWith("wheel-")&&!this.mounts.get(i)?.side)return [];
+          if(role==="studs"){
+            const d=PARTS[kind].directional?DIRECTIONS[p.direction]!.vector:[0,1,0];
+            const above=occupied.get(p.cell.map((v,a)=>v+d[a]!).join(","));
+            if(above&&["frame","cockpit","ballast","gyro"].includes(above.kind))return [];
+          }
+          return [i];
+        });
+        if(!indices.length)continue;
+        const mesh=new THREE.InstancedMesh(template.geometry,template.material,indices.length);
+        mesh.userData.partIndices=indices;mesh.userData.machineRole=role;castsInstancedShadow(mesh);
+        if(template.material.transparent)mesh.castShadow=false;
+        mesh.receiveShadow=true;
+        const baseColors:THREE.Color[]=[];
+        indices.forEach((index,i)=>{
+          mesh.setMatrixAt(i,this.partMatrix(index,role));
+          const part=blueprint.parts[index]!,color=part.custom?.color??BASE_PART_COLOR[part.kind],tint=new THREE.Color(1,1,1);
+          if(template.material.name==="Warm enamel"){
+            tint.setHex(PART_COLORS[color].hex);const base=new THREE.Color(PART_COLORS.cream.hex);
+            tint.setRGB(tint.r/base.r,tint.g/base.g,tint.b/base.b);
+          }
+          baseColors.push(tint);mesh.setColorAt(i,tint);
+        });
+        mesh.userData.baseColors=baseColors;
+        mesh.computeBoundingSphere();this.meshes.push(mesh);this.root.add(mesh);
       }
     }
     const count = blueprint.parts.filter((p) => p.kind === "thruster").length;
@@ -175,7 +204,7 @@ export class MachineVisual {
       for (const mesh of this.meshes) {
         const slot = (mesh.userData.partIndices as number[]).indexOf(target);
         if (slot < 0) continue;
-        mesh.setColorAt(slot, tint);
+        mesh.setColorAt(slot, tint===WHITE?(mesh.userData.baseColors as THREE.Color[]|undefined)?.[slot]??WHITE:tint);
         if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
       }
     };
@@ -190,21 +219,26 @@ export class MachineVisual {
     steer: number,
     radiusScale = 1,
   ): void {
-    this.position.fromArray(this.blueprint.parts[index]!.cell);
-    this.position.y -= length;
-    this.rotation.setFromEuler(new THREE.Euler(spin, steer, 0, "YXZ"));
-    this.transforms[index]!.compose(
-      this.position,
-      this.rotation,
-      this.scale.set(radiusScale, radiusScale, radiusScale),
-    );
+    const part=this.blueprint.parts[index]!;
+    this.position.fromArray(part.cell);this.position.y-=length;
+    this.rotation.setFromEuler(this.angles.set(spin,steer,0,"YXZ"));
+    const size=radiusScale*wheelRadius(part)/PHYSICS_RULES.wheelRadius;
+    this.transforms[index]!.compose(this.position,this.rotation,this.scale.set(size,size,size));
+    const mount=this.mounts.get(index);if(!mount)return;
+    const yaw=mount.side<0?Math.PI:0;
+    this.position.fromArray(part.cell);this.rotation.setFromAxisAngle(this.up,yaw);
+    mount.fixed.compose(this.position,this.rotation,this.scale.set(1,1,1));
+    mount.strut.compose(this.position,this.rotation,this.scale.set(1,Math.max(.01,length)/PHYSICS_RULES.suspensionLength,1));
+    this.position.y-=length;this.rotation.setFromEuler(this.angles.set(0,yaw+steer,0));
+    mount.hub.compose(this.position,this.rotation,this.scale.set(1,1,1));
   }
+
   flushWheels(): void {
     for (const mesh of this.meshes) {
       const indices = mesh.userData.partIndices as number[];
       if (this.blueprint.parts[indices[0]!]!.kind !== "wheel") continue;
       indices.forEach((index, i) =>
-        mesh.setMatrixAt(i, this.transforms[index]!),
+        mesh.setMatrixAt(i, this.partMatrix(index,(mesh.userData.machineRole??"body") as MachineRole)),
       );
       mesh.instanceMatrix.needsUpdate = true;
       mesh.computeBoundingSphere();
@@ -216,7 +250,7 @@ export class MachineVisual {
     for (const p of this.blueprint.parts) {
       if (p.kind !== "thruster" || (p.direction === 0 ? lift <= 0 : !boost))
         continue;
-      const length = 1.1 + 0.2 * Math.sin(time * 37 + n * 2);
+      const length = (1.1 + 0.2 * Math.sin(time * 37 + n * 2))*thrustForce(p)/PHYSICS_RULES.thrustPerEngine;
       this.direction.fromArray(DIRECTIONS[p.direction]!.vector).negate();
       this.rotation.setFromUnitVectors(this.up, this.direction);
       this.position
@@ -238,6 +272,7 @@ export class MachineVisual {
     for (const m of this.meshes) m.dispose();
     this.meshes.length = 0;
     this.transforms.length = 0;
+    this.mounts.clear();
     this.exhaust?.dispose();
     this.exhaust = null;
     this.root.clear();
@@ -282,15 +317,22 @@ export class GhostPart {
     this.root.add(this.outline, this.arrow);
   }
 
-  set(kind: PartKind, direction: number): void {
-    const signature = `${kind}:${direction}`;
+  set(kind: PartKind, direction: number, mountSide=1): void {
+    const signature = `${kind}:${direction}:${mountSide}`;
     if (signature === this.signature) return;
     // not cached before the kit has loaded: the post-load set() must build the real part model
     if (this.assets.templates.size > 0) this.signature = signature;
     for (const mesh of this.meshes) this.root.remove(mesh);
     this.meshes.length = 0;
     for (const template of this.assets.templates.get(kind) ?? []) {
+      const role=template.role??"body";
+      if(role.startsWith("wheel-")&&!mountSide)continue;
       const mesh = new THREE.Mesh(template.geometry, this.material);
+      mesh.userData.machineRole=role;
+      if(kind==="wheel"){
+        if(role==="body"||role==="wheel-hub")mesh.position.y=-PHYSICS_RULES.suspensionLength;
+        if(role.startsWith("wheel-")&&mountSide<0)mesh.rotation.y=Math.PI;
+      }
       this.meshes.push(mesh);
       this.root.add(mesh);
     }
@@ -298,7 +340,7 @@ export class GhostPart {
     this.direction.fromArray(DIRECTIONS[direction]!.vector);
     const rotation = new THREE.Quaternion();
     if (directional) rotation.setFromUnitVectors(this.up, this.direction);
-    for (const mesh of this.meshes) mesh.quaternion.copy(rotation);
+    for (const mesh of this.meshes) if(kind!=="wheel")mesh.quaternion.copy(rotation);
     this.arrow.visible = directional;
     this.arrow.quaternion.copy(rotation);
     this.arrow.position.copy(this.direction).multiplyScalar(0.75);
