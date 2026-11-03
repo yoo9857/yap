@@ -321,7 +321,8 @@ export class CharacterRig {
   private hitFlash = 0;
   /** True until the frame that puts the calm materials back. */
   private wasFlashing = false;
-  constructor(variant: CharacterVariant = "mascot") { this.setCharacter(variant); characterDisposers.set(this.root, () => this.dispose()); }
+  /** `faceResolution`: 0.5 for classmates (their face is small on screen; a quarter of the upload). */
+  constructor(variant: CharacterVariant = "mascot", private readonly faceResolution = 1) { this.setCharacter(variant); characterDisposers.set(this.root, () => this.dispose()); }
   /** Full detail (shadow + ink outline) or plain — a big crowd keeps it for the nearest few. */
   private detail = true;
 
@@ -353,7 +354,7 @@ export class CharacterRig {
     }
     this.wasFlashing = false;
     this.variant = variant;
-    const home = createHomeRig(variant);
+    const home = createHomeRig(variant, this.faceResolution);
     this.implementation = home ?? new ProceduralCharacterRig(variant === "tt" ? "purple" : variant);
     // that model is still downloading (only the player's own is awaited at
     // boot): swap it in when it lands, if this rig still wants it

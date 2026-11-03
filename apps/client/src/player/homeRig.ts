@@ -116,7 +116,7 @@ export function preloadHomeCharacter(): Promise<boolean> {
 export function homeCharacterReady(variant: HomeVariant): Promise<boolean> | null {
     return loads.get(variant === "tt" ? "TT" : "HOME") ?? null;
 }
-export function createHomeRig(variant: HomeVariant): HomeRig | null { const source = assets.get(variant === "tt" ? "TT" : "HOME"); return source ? new HomeRig(source, variant) : null; }
+export function createHomeRig(variant: HomeVariant, faceResolution = 1): HomeRig | null { const source = assets.get(variant === "tt" ? "TT" : "HOME"); return source ? new HomeRig(source, variant, faceResolution) : null; }
 export function disposeHomeRig(root: THREE.Object3D): void { disposers.get(root)?.(); }
 const hullMaterial = new THREE.ShaderMaterial({
     side: THREE.BackSide, uniforms: { width: { value: .014 }, opacity: { value: 1 } },
@@ -207,7 +207,7 @@ export class HomeRig {
         const dig = this.work === "interact" && this.workLoop && !this.heldItem ? this.actions.get("Interact")?.getClip().duration ?? 0 : 0;
         return { gait, phase: this.phase, digPhase: dig > 0 ? (this.workAge % dig) / dig : null };
     }
-    constructor(source: HomeAssets, variant: HomeVariant) {
+    constructor(source: HomeAssets, variant: HomeVariant, faceResolution = 1) {
         this.root.name = source.character;
         this.root.userData.characterModel = source.character + "-v1.2.1";
         this.model = clone(source.scene);
@@ -217,7 +217,7 @@ export class HomeRig {
             if (node instanceof THREE.SkinnedMesh)
                 this.solids.push(node as THREE.SkinnedMesh);
         });
-        this.face = new FaceCanvas(source.character, source.faces, variant === "blue" ? "hue-rotate(150deg)" : variant === "purple" ? "hue-rotate(220deg)" : "none");
+        this.face = new FaceCanvas(source.character, source.faces, variant === "blue" ? "hue-rotate(150deg)" : variant === "purple" ? "hue-rotate(220deg)" : "none", faceResolution);
         for (const mesh of this.solids) {
             const original = (Array.isArray(mesh.material) ? mesh.material[0] : mesh.material) as THREE.MeshStandardMaterial;
             const material = original.clone();

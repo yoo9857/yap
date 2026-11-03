@@ -64,6 +64,22 @@ type SnapPlayer = Extract<ClassServerMessage, { t: "s-k-snap" }>["players"][numb
 const cm = (v: number) => Math.round(v * 100) / 100;
 
 /**
+ * When a move was MEASURED, on the server clock. With the sender's own stamp `ct`
+ * the network's delay jitter drops out: arrival − ct is (clock offset + this packet's
+ * delay), and its running minimum is the offset over the fastest packet; it may creep
+ * up 0.5 ms per move to follow drift. Without `ct` (older clients) the arrival time.
+ * Exported for the unit tests.
+ */
+export function moveTime(me: { ctOffset?: number; movedAt?: number }, ct: number | undefined, arrival: number): number {
+  if (ct === undefined) return Math.round(arrival);
+  const sample = arrival - ct;
+  const offset = me.ctOffset === undefined || Math.abs(sample - me.ctOffset) > 5000 ? sample : Math.min(me.ctOffset + 0.5, sample);
+  me.ctOffset = offset;
+  // never earlier than the move before it (a reordered packet), never in the future
+  return Math.round(Math.min(arrival, Math.max(ct + offset, (me.movedAt ?? 0) + 1)));
+}
+
+/**
  * One player's snapshot entry, small: positions to the centimetre and yaw to a
  * milliradian (the client interpolates anyway), and every presentation field
  * left out while it is at its default — the client reads a missing field as
@@ -71,6 +87,7 @@ const cm = (v: number) => Math.round(v * 100) / 100;
  */
 function compactSnap(m: Member): SnapPlayer {
   const p: SnapPlayer = { id: m.id, pos: [cm(m.pos![0]), cm(m.pos![1]), cm(m.pos![2])], yaw: Math.round(m.yaw * 1000) / 1000, anim: m.anim };
+  if (m.movedAt !== undefined) p.at = m.movedAt;
   if (m.character && m.character !== "mascot") p.character = m.character;
   if (m.emote && m.emote !== "none") { p.emote = m.emote; p.emoteSeq = m.emoteSeq ?? 0; }
   if (m.action && m.action !== "none") { p.action = m.action; p.actionSeq = m.actionSeq ?? 0; if (m.actionLoop) p.actionLoop = true; }
@@ -92,6 +109,12 @@ interface Member {
   key: string;
   peer: ClassPeer | null;
   pos: [number, number, number] | null;
+  /** When `pos` was measured, on the server clock (ms): the time every client draws it at. */
+  movedAt?: number;
+  /** Server clock minus this sender's clock: the running minimum of (arrival − ct). */
+  ctOffset?: number;
+  /** The sender's stamp on the last accepted move. */
+  lastCt?: number;
   yaw: number;
   anim: ClassAnim;
   character?: CharacterId;
@@ -419,8 +442,13 @@ export class ClassRoom {
     if (!me || this.closed) return;
     switch (msg.t) {
       case "k-move":
+        // an older measurement than the last one (cannot happen on one TCP socket, but a
+        // retried send could): the newer position stands
+        if (msg.ct !== undefined && me.lastCt !== undefined && msg.ct <= me.lastCt) break;
+        if (msg.ct !== undefined) me.lastCt = msg.ct;
         if (me.pos && Math.hypot(msg.pos[0] - me.pos[0], msg.pos[1] - me.pos[1], msg.pos[2] - me.pos[2]) > JUMP_M) me.jumpedAt = Date.now();
         me.pos = msg.pos;
+        me.movedAt = moveTime(me, msg.ct, performance.now()); // on the snapshot clock (ts): clients interpolate on it
         me.yaw = msg.yaw;
         me.anim = msg.anim;
         me.character = msg.character ?? "mascot";

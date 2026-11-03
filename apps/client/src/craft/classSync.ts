@@ -16,8 +16,10 @@ import { t } from "../ui/i18n.js";
 
 const MOVE_HZ = 10;
 /** Classmates beyond these distances (m) are posed every 3rd / 6th frame. */
-const LOD_MID_M = 30;
-const LOD_FAR_M = 60;
+const LOD_MID_M = 45;
+const LOD_FAR_M = 80;
+/** Classmates' face textures are drawn at this fraction of the player's own (a quarter of the upload). */
+const REMOTE_FACE_RESOLUTION = 0.5;
 /** Only this many nearest classmates get a shadow and the ink outline (each is another full pass). */
 const FULL_DETAIL = 10;
 /** Crowd detail is re-ranked this often (ms), not every frame. */
@@ -352,7 +354,7 @@ export class ClassSync {
 
   private sendMove(body: { x: number; y: number; z: number }, yaw: number, anim: ClassAnim, presentation?: CharacterPresentation): void {
     const [ax, az] = this.field.toAbsolute(body.x, body.z);
-    this.client.send({ t: "k-move", pos: [ax, body.y, az], yaw, anim, ...presentation });
+    this.client.send({ t: "k-move", pos: [ax, body.y, az], yaw, anim, ct: Math.round(performance.now()), ...presentation });
   }
 
   private applyBonk(msg: Extract<ClassServerMessage, { t: "s-k-bonk" }>): void {
@@ -427,7 +429,7 @@ export class ClassSync {
       // pose every 3rd / 6th frame with the time they missed (positions still move every frame),
       // staggered by id so the work spreads across frames instead of landing together.
       const dist = Math.hypot(x - this.meX, z - this.meZ);
-      const every = dist > LOD_FAR_M ? 6 : dist > LOD_MID_M ? 3 : 1;
+      const every = dist > LOD_FAR_M ? 3 : dist > LOD_MID_M ? 2 : 1;
       r.animDt = (r.animDt ?? 0) + frameDt;
       if (every === 1 || r.attacking || (this.frameNo + (r.lodSlot ??= Math.floor(Math.random() * 6))) % every === 0) {
         r.rig.update(r.anim, r.speed, r.animDt,{swimming:r.swimming,toolTime});
@@ -440,6 +442,29 @@ export class ClassSync {
       this.rankDetail();
     }
     this.fx.update(frameDt);
+  }
+
+  private warmRig: CharacterRig | null = null;
+
+  /**
+   * Boot warm-up (behind the loading screen): one stand-in classmate — a character at the
+   * classmates' face resolution with a name tag — drawn beside the player, so the one-time
+   * cost of the first classmate on screen (measured as a ~80 ms frame) is paid while loading,
+   * not the moment somebody walks into view.
+   */
+  warm(on: boolean, at?: { x: number; y: number; z: number }): void {
+    if (on && !this.warmRig && at) {
+      const rig = new CharacterRig("mascot", REMOTE_FACE_RESOLUTION);
+      rig.root.add(nameTag(" ", false));
+      rig.root.position.set(at.x + 1, at.y, at.z + 1);
+      rig.update("idle", 0, 1 / 60);
+      this.scene.add(rig.root);
+      this.warmRig = rig;
+    } else if (!on && this.warmRig) {
+      this.scene.remove(this.warmRig.root);
+      disposeRig(this.warmRig.root);
+      this.warmRig = null;
+    }
   }
 
   /**
@@ -517,7 +542,7 @@ export class ClassSync {
       if (!r) {
         const member = this.members.find((m) => m.id === p.id);
         if (!member) continue;
-        const rig = new CharacterRig();
+        const rig = new CharacterRig("mascot", REMOTE_FACE_RESOLUTION);
         rig.root.add(nameTag(member.name, member.role === "teacher"));
         this.scene.add(rig.root);
         r = {
@@ -541,7 +566,9 @@ export class ClassSync {
       r.swimming=p.swimming;
       r.target.set(...p.pos);
       r.yaw = p.yaw;
-      if (stamp !== undefined) r.track.push(stamp, p.pos[0], p.pos[1], p.pos[2], p.yaw);
+      // the position's own arrival time when the server sends it (moves and snapshots tick out of
+      // phase: stamping with the snapshot time stalled then leapt), else the snapshot's
+      if (stamp !== undefined) r.track.push(p.at ?? stamp, p.pos[0], p.pos[1], p.pos[2], p.yaw, p.at !== undefined && ts !== undefined ? ts - p.at : 0);
       r.anim = p.anim;
       r.seenAt = now;
     }

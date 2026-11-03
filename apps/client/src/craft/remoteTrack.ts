@@ -27,6 +27,11 @@ export const TELEPORT_M = 8;
 const HISTORY = 24; // ~2.4 s at full rate; far players (every 5th snapshot) keep ~12 s
 const CLOCK_CREEP_MS = 0.4; // per snapshot: how fast the offset may rise after a delay spike
 const RESYNC_MS = 5000;
+/** The jitter buffer: a lateness peak decays this much per sample (~3 ms/s at 10 Hz), and is
+ *  covered with this margin; the buffer never grows past MAX_EXTRA_MS. */
+const LATE_DECAY_MS = 0.3;
+const LATE_MARGIN_MS = 40;
+const MAX_EXTRA_MS = 600;
 /** Time constant (ms) over which a correction (path jump) is blended out instead of shown. */
 const CORRECT_MS = 120; // a stamp this far off the timeline is a new clock, not a slow packet
 
@@ -79,8 +84,17 @@ export class RemoteTrack {
   /** Extra delay on top of RENDER_DELAY_MS so a sparse track is still bracketed; eased, never jumped. */
   private extra = 0;
   private lastQuery = Number.NaN;
+  /** Recent worst age of this player's positions when they reached the snapshot (ms):
+   *  their own network's jitter. A peak that decays slowly (adaptive jitter buffer). */
+  private latePeak = 0;
 
-  push(t: number, x: number, y: number, z: number, yaw: number): void {
+  /**
+   * `age` (optional): how old this position already was when the snapshot carried it
+   * (snapshot time − measured time). A player on a bad connection delivers old positions;
+   * the track then draws them further back so they are still bracketed when drawn.
+   */
+  push(t: number, x: number, y: number, z: number, yaw: number, age = 0): void {
+    this.latePeak = Math.max(age, this.latePeak - LATE_DECAY_MS);
     const last = this.samples[this.samples.length - 1];
     if (last && t <= last.t) {
       // a duplicate / reordered snapshot: keep the newest data for that moment only
@@ -112,7 +126,7 @@ export class RemoteTrack {
     if (s.length === 0) return false;
     // a sparse track (far player) is drawn further back, eased at ±25% of real time so the
     // drawn path only slows or speeds a little while the delay changes, never steps back
-    const target = Math.max(0, this.interval - SNAP_MS);
+    const target = Math.min(MAX_EXTRA_MS, Math.max(0, this.interval - SNAP_MS, this.latePeak + LATE_MARGIN_MS - RENDER_DELAY_MS));
     const step = Number.isFinite(this.lastQuery) ? Math.max(0, renderT - this.lastQuery) * 0.25 : Number.POSITIVE_INFINITY;
     this.extra += Math.max(-step, Math.min(step, target - this.extra));
     this.lastQuery = renderT;

@@ -546,6 +546,7 @@ export class CraftGame {
     this.view.setWarm(true); // the water shader, too
     this.miningEffects.prewarm(BLOCKS.filter((def) => !def.fluid).map((def) => ({ def, materials: this.view.miningMaterials(def.id) })));
     this.warming = true;
+    this.sync?.warm(true, this.body); // a classroom: the first classmate's one-time cost, now
     try {
       await warmupGpuAsync(this.renderer.renderer, this.renderer.scene, this.renderer.camera, () => {
         if (!this.disposed && !this.started) this.render(1, 1 / 60); // once playing, the loop draws
@@ -561,6 +562,7 @@ export class CraftGame {
     this.furniture.setWarm(false);
     this.view.setWarm(false);
     this.miningEffects.endWarm();
+    this.sync?.warm(false);
     this.warmed = true;
     this.facing = this.yaw; // start facing the way the camera looks
   }

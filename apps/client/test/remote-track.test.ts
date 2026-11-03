@@ -100,3 +100,67 @@ describe("server pauses", () => {
     expect(maxStep).toBeLessThan(0.3); // without correction: ~1.3 m in one frame
   });
 });
+
+describe("timestamps: when the server RECEIVED a move, not when it snapshotted it", () => {
+  /**
+   * The real pipeline: the player sends a move every ~100 ms with network jitter; the server
+   * snapshots every 100 ms on its own phase and includes whatever move it last received.
+   * Stamped with the snapshot time, the path stalls (no new move) then leaps (two moves) —
+   * the stutter players saw. Stamped with the move's arrival time, it stays even.
+   */
+  function pipeline(stampWithArrival: boolean) {
+    const clock = new SnapClock();
+    const track = new RemoteTrack();
+    const moves = Array.from({ length: 80 }, (_, i) => ({ x: i * 0.4, at: i * 100 + 7 + ((i * 53) % 45) })); // 4 m/s, 7–52 ms in
+    const out = pose();
+    const drawn: number[] = [];
+    let snapAt = 50;
+    for (let now = 0; now < 7800; now += 1000 / 60) {
+      while (snapAt <= now) {
+        const latest = [...moves].reverse().find((m) => m.at <= snapAt);
+        if (latest) {
+          const ts = clock.observe(snapAt + 20, snapAt);
+          track.push(stampWithArrival ? latest.at : ts, latest.x, 4, 0, 0);
+        }
+        snapAt += 100;
+      }
+      if (track.draw(clock.renderTime(now), 1000 / 60, out)) drawn.push(out.x);
+    }
+    return drawn.slice(90);
+  }
+
+  it("with move-arrival stamps every frame advances about the same", () => {
+    const steps = pipeline(true).map((x, i, a) => (i ? x - a[i - 1]! : 0)).slice(1);
+    const avg = 4 / 60;
+    expect(Math.max(...steps)).toBeLessThan(avg * 1.9);
+    expect(steps.filter((s) => s < avg * 0.2).length).toBeLessThan(steps.length * 0.03); // almost never stalls
+  });
+
+  it("(the old snapshot stamps stall and leap — kept as the reason for the field)", () => {
+    const steps = pipeline(false).map((x, i, a) => (i ? x - a[i - 1]! : 0)).slice(1);
+    expect(steps.filter((s) => s < (4 / 60) * 0.2).length).toBeGreaterThan(steps.length * 0.03);
+  });
+});
+
+describe("adaptive jitter buffer", () => {
+  it("measured-time positions on a 0–200 ms link: no stalls, no leaps once the buffer has grown", () => {
+    const clock = new SnapClock();
+    const track = new RemoteTrack();
+    const moves = Array.from({ length: 140 }, (_, i) => ({ x: i * 0.4, t: i * 100, arrive: i * 100 + ((i * 97) % 200) }));
+    const out = pose();
+    const drawn: number[] = [];
+    let snapAt = 50;
+    for (let now = 0; now < 13800; now += 1000 / 60) {
+      while (snapAt <= now) {
+        const latest = moves.filter((m) => m.arrive <= snapAt).sort((a, b) => b.t - a.t)[0];
+        if (latest) { const ts = clock.observe(snapAt + 20, snapAt); track.push(latest.t, latest.x, 4, 0, 0, ts - latest.t); }
+        snapAt += 100;
+      }
+      if (track.draw(clock.renderTime(now), 1000 / 60, out)) drawn.push(out.x);
+    }
+    const steps = drawn.slice(300).map((x, i, a) => (i ? x - a[i - 1]! : 4 / 60)).slice(1);
+    const avg = 4 / 60;
+    expect(steps.filter((s) => s < avg * 0.25).length).toBe(0);
+    expect(steps.filter((s) => s > avg * 1.8).length).toBe(0);
+  });
+});

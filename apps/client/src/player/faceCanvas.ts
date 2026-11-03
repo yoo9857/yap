@@ -104,12 +104,21 @@ export class FaceCanvas {
     private base: FaceId = "neutral";
     private blinkIn = 3 + Math.random() * 2.4;
     private active: Playback | null = null;
-    constructor(private readonly character: "HOME" | "TT", private readonly sequences: FaceSequences, private readonly filter = "none") {
-        this.canvas.width = character === "TT" ? 1024 : 512;
-        this.canvas.height = 512;
+    /** Drawing space (px): every crop and draw is in these units, whatever the canvas resolution. */
+    private readonly logicalWidth: number;
+    /**
+     * `resolution` < 1 draws the same face into a smaller canvas (a classmate's face is a
+     * few dozen pixels on screen): half resolution is a quarter of the GPU upload, which
+     * is what made a frame stall when someone new appeared.
+     */
+    constructor(private readonly character: "HOME" | "TT", private readonly sequences: FaceSequences, private readonly filter = "none", resolution = 1) {
+        this.logicalWidth = character === "TT" ? 1024 : 512;
+        this.canvas.width = Math.round(this.logicalWidth * resolution);
+        this.canvas.height = Math.round(512 * resolution);
         this.ctx = this.canvas.getContext("2d")!;
+        if (resolution !== 1) this.ctx.scale(resolution, resolution);
         this.ctx.fillStyle = character === "TT" ? "#A366EF" : "#FFD147";
-        this.ctx.fillRect(0, 0, this.canvas.width, 512);
+        this.ctx.fillRect(0, 0, this.logicalWidth, 512);
         this.texture = new THREE.CanvasTexture(this.canvas);
         this.texture.flipY = false;
         this.texture.colorSpace = THREE.SRGBColorSpace;
@@ -199,7 +208,7 @@ export class FaceCanvas {
             }).catch(() => { });
         }
     }
-    private draw(image: ImageBitmap): void { this.ctx.filter = this.filter; this.ctx.drawImage(image, 0, 0, this.canvas.width, 512); this.texture.needsUpdate = true; }
+    private draw(image: ImageBitmap): void { this.ctx.filter = this.filter; this.ctx.drawImage(image, 0, 0, this.logicalWidth, 512); this.texture.needsUpdate = true; }
     dispose(): void {
         if (this.dead)
             return;

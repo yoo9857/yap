@@ -93,7 +93,13 @@ export const classClientSchema = z.discriminatedUnion("t", [
   /** "Whose class is this?" — answered with s-k-room, then the socket closes.
    *  Lets a student confirm the teacher's name before joining. */
   z.object({ t: z.literal("k-peek"), v: z.number().int(), room: classRoomNameSchema }),
-  z.object({ t: z.literal("k-move"), pos: vec3Schema, yaw: z.number().finite(), anim: classAnimSchema, ...presentationShape }),
+  z.object({
+    t: z.literal("k-move"), pos: vec3Schema, yaw: z.number().finite(), anim: classAnimSchema,
+    /** The sender's clock (ms) when it measured `pos`. The server maps it onto its own clock,
+     *  so the timeline everyone draws on carries no network jitter. Optional (older clients). */
+    ct: z.number().finite().nonnegative().optional(),
+    ...presentationShape,
+  }),
   /** Up to one placed piece (4 cells) per message. */
   z.object({ t: z.literal("k-edit"), edits: z.array(classEditSchema).min(1).max(8) }),
   z.object({
@@ -188,7 +194,13 @@ export const classServerSchema = z.discriminatedUnion("t", [
     /** Server clock (ms) when this snapshot was taken: clients draw others on this timeline
      *  (craft/remoteTrack.ts). Optional: older servers send none and clients fall back. */
     ts: z.number().finite().nonnegative().optional(),
-    players: z.array(z.object({ id: z.string(), pos: vec3Schema, yaw: z.number(), anim: classAnimSchema, ...presentationShape })),
+    players: z.array(z.object({
+      id: z.string(), pos: vec3Schema, yaw: z.number(), anim: classAnimSchema,
+      /** Server clock (ms) when this position ARRIVED. Interpolating on the snapshot's time
+       *  instead stalls then leaps, because moves and snapshots tick out of phase. */
+      at: z.number().finite().nonnegative().optional(),
+      ...presentationShape,
+    })),
   }),
   z.object({ t: z.literal("s-k-edit"), by: z.string(), edits: z.array(classEditSchema) }),
   z.object({
