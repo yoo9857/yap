@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { SLAB_BASE, STAIRS_BASE, MAX_BLOCK_SHAPE, CORNER_BASE, slabShape, stairsShape, blockShapeFamily, shapeIntersectsBox, raycastBlockShape, rampHeight, holdsFurniture, isBlockShape } from "../src/blockShapes.js";
+import { shapeBounds, SLAB_BASE, STAIRS_BASE, MAX_BLOCK_SHAPE, CORNER_BASE, slabShape, stairsShape, blockShapeFamily, shapeIntersectsBox, raycastBlockShape, rampHeight, holdsFurniture, isBlockShape } from "../src/blockShapes.js";
 import { decodeClassClient } from "../src/protocol/classroom.js";
 
 const box = (x0: number, y0: number, z0: number, x1: number, y1: number, z1: number) => ({ min: [x0, y0, z0] as [number, number, number], max: [x1, y1, z1] as [number, number, number] });
@@ -53,5 +53,15 @@ describe("half block and stairs", () => {
     expect(holdsFurniture(slabShape(3, 2))).toBe(true); // upside down: the top is the whole cell
     expect(holdsFurniture(0)).toBe(true);
     expect(holdsFurniture(CORNER_BASE)).toBe(true); // older shapes keep their rule
+  });
+
+  it("the aim box frames the half block's half, after its turn", () => {
+    expect(shapeBounds(slabShape(0, 0))).toEqual({ min: [0, 0, 0], max: [1, 0.5, 1] });
+    expect(shapeBounds(slabShape(0, 2))).toEqual({ min: [0, 0.5, 0], max: [1, 1, 1] }); // upside down
+    const standing = shapeBounds(slabShape(0, 1)); // tipped: a thin wall
+    expect(standing.max[1] - standing.min[1]).toBeCloseTo(1, 6);
+    expect(Math.min(standing.max[0] - standing.min[0], standing.max[2] - standing.min[2])).toBeCloseTo(0.5, 6);
+    expect(shapeBounds(stairsShape(1, 0))).toEqual({ min: [0, 0, 0], max: [1, 1, 1] });
+    expect(shapeBounds(0)).toEqual({ min: [0, 0, 0], max: [1, 1, 1] });
   });
 });

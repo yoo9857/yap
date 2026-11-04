@@ -671,8 +671,8 @@ export class VoxelView {
     return { holes, pending, checked };
   }
 
-  setHighlight(voxel: [number, number, number] | null, mining = false): void {
-    this.highlight.show(voxel, mining);
+  setHighlight(voxel: [number, number, number] | null, mining = false, bounds?: { min: readonly number[]; max: readonly number[] }): void {
+    this.highlight.show(voxel, mining, bounds);
   }
 
   // ------------------------------------------------------------ per frame

@@ -24,6 +24,19 @@ export const shapeTilt = (n: number): number => ((n - rotationBase(n)) >> 2) & 3
 export const slopeYaw = shapeYaw, slopeTilt = shapeTilt;
 export const isFullCubeShape = (n: number): boolean => n === CUBE || n === KIT_CUBE;
 export function blockShapeFamily(n: number): BlockShapeFamily { return n === ROUND ? "round" : n >= STAIRS_BASE ? "stairs" : n >= SLAB_BASE ? "slab" : n >= CORNER_BASE ? "corner" : isOrientedShape(n) ? "slope" : "cube"; }
+/** The cell-space box the shape occupies, after its turn (half blocks: their half; everything
+ *  else: the whole cell). What the aim box frames. */
+export function shapeBounds(shape: number): ShapeBox {
+    const boxes = shapeBoxes(blockShapeFamily(shape));
+    if (!boxes) return { min: [0, 0, 0], max: [1, 1, 1] };
+    const min: ShapePoint = [Infinity, Infinity, Infinity], max: ShapePoint = [-Infinity, -Infinity, -Infinity];
+    for (const b of boxes) for (const x of [b.min[0], b.max[0]]) for (const y of [b.min[1], b.max[1]]) for (const z of [b.min[2], b.max[2]]) {
+        const v = rotateShapeVector([x - .5, y - .5, z - .5], shape);
+        for (let i = 0; i < 3; i++) { min[i] = Math.min(min[i]!, v[i]! + .5); max[i] = Math.max(max[i]!, v[i]! + .5); }
+    }
+    const tidy = (n: number) => Math.round(n * 1e6) / 1e6;
+    return { min: min.map(tidy) as ShapePoint, max: max.map(tidy) as ShapePoint };
+}
 /**
  * Can furniture stand on this cell's top? Half blocks and stairs only when turned so their top is
  * the whole cell (upside down); otherwise a chair "on" a half block floated half a metre over it.

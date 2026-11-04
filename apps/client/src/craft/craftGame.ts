@@ -45,7 +45,7 @@ import { adoptPosture, moveScale, POSTURE_EYE, type Posture } from "./posture.js
 import { gaitBlend } from "../player/motionPolicy.js";
 import { CRAFT_SPAWN, surfaceY, type RayHit } from "./voxelWorld.js";
 import { PIECES, MAX_PIECE_CELLS, pieceCells, pieceShape } from "./pieces.js";
-import { ROUND, KIT_CUBE, isOrientedShape, blockShapeFamily, shapeBoxes } from "./shapes.js";
+import { ROUND, KIT_CUBE, isOrientedShape, blockShapeFamily, shapeBoxes, shapeBounds } from "./shapes.js";
 import {kitCubeGeometry,kitRampGeometry,kitConnectorGeometry,kitRoundGeometry,kitCellsGeometry,kitBoxesGeometry} from "./kitGeometry.js";
 import {planPiecePlacement} from "./blockPlacement.js";
 import {
@@ -1746,7 +1746,8 @@ export class CraftGame {
     // the shards distracting).
     const aimed = this.aim && !this.aimFurniture ? this.aim.voxel : null;
     const breaking = !!aimed && this.miningEffects.breaking(aimed);
-    this.view.setHighlight(this.warming ? [0, -1000, 0] : breaking ? null : aimed);
+    const aimBounds = aimed && !breaking ? shapeBounds(this.state.world.getShape(...aimed)) : undefined;
+    this.view.setHighlight(this.warming ? [0, -1000, 0] : breaking ? null : aimed, false, aimBounds);
 
     this.rig.root.position.copy(drawn);
     this.updateView(frameDt);

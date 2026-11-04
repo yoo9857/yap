@@ -85,9 +85,14 @@ export class AimOutline {
   }
 
   /** Centre on a cell (its min corner), or hide. `mining`: the cell is breaking (see PULL_MINING_M). */
-  show(voxel: readonly [number, number, number] | null, mining = false): void {
+  show(voxel: readonly [number, number, number] | null, mining = false, bounds?: { min: readonly number[]; max: readonly number[] }): void {
     this.object.visible = !!voxel;
-    if (voxel) this.object.position.set(voxel[0] + 0.5, voxel[1] + 0.5, voxel[2] + 0.5);
+    if (voxel) {
+      // framed to what the cell holds (a half block: its half), not always the whole cell
+      const lo = bounds?.min ?? [0, 0, 0], hi = bounds?.max ?? [1, 1, 1];
+      this.object.position.set(voxel[0] + (lo[0]! + hi[0]!) / 2, voxel[1] + (lo[1]! + hi[1]!) / 2, voxel[2] + (lo[2]! + hi[2]!) / 2);
+      this.object.scale.set(hi[0]! - lo[0]!, hi[1]! - lo[1]!, hi[2]! - lo[2]!);
+    }
     this.pull.value = mining ? PULL_MINING_M : PULL_M;
   }
 

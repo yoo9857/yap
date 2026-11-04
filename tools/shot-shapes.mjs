@@ -57,6 +57,24 @@ try {
   await page.evaluate(([X, Y, Z]) => { const c = globalThis.__roboCraft; c.teleport(X + 9, Y + 2.5, Z - 3); c.look(Math.PI / 2 + 0.5, -0.45); }, P);
   await frames(40);
   await page.screenshot({ path: `${OUT}/2-tipped.png` });
+  // aim at a half block: the box frames its half; then break a half block and a stairs block
+  const aimed = await page.evaluate(async ([X, Y, Z]) => {
+    const c = globalThis.__roboCraft;
+    c.setPieceShape(4, 0, 0); c.give("stone", 2); c.placePiece(X, Y, Z - 2, "stone");
+    c.setPieceShape(5, 0, 0); c.give("stone", 2); c.placePiece(X + 1, Y, Z - 2, "stone");
+    c.renderFlags({ robot: false });
+    c.teleport(X + 0.5, Y + 1.2, Z + 0.6); c.look(Math.PI, -0.75);
+    for (let i = 0; i < 30; i++) await new Promise((r) => requestAnimationFrame(r));
+    let box = null; c.scene().traverse((o) => { if (o.isLineSegments2 && !box && o.parent.visible) box = { y: +o.parent.position.y.toFixed(3), sy: +o.parent.scale.y.toFixed(3) }; });
+    const info = c.aimInfo().voxel;
+    for (const [x, p] of [[X, 0.5], [X + 1, 0.85]]) { c.mineProgress(x, Y, Z - 2, p); for (let i = 0; i < 40; i++) await new Promise((r) => requestAnimationFrame(r)); }
+    const fractures = c.miningVisual().fractures;
+    c.mineProgress(0, 0, 0, null);
+    return { info, box, fractures, want: [X, Y, Z - 2] };
+  }, P);
+  await page.screenshot({ path: `${OUT}/5-aim-half.png` });
+  check("the aim box frames a half block's half (not the whole cell)", aimed.box?.sy === 0.5 && Math.abs(aimed.box.y - (Y + 0.25)) < 0.01, JSON.stringify(aimed));
+  check("half blocks and stairs crack when dug (fracture copies built)", aimed.fractures >= 1, JSON.stringify(aimed.fractures));
   // the far form: step back 40 m
   await page.evaluate(([X, Y, Z]) => { const c = globalThis.__roboCraft; c.renderFlags({ robot: false }); c.teleport(X + 0.5, Y + 12, Z + 34); c.look(Math.PI, -0.35); }, P);
   await page.waitForFunction(() => globalThis.__roboCraft.chunks().queued === 0, { timeout: 30000 }).catch(() => {});
