@@ -621,8 +621,8 @@ export class VoxelView {
     this.studsDirty = true;
   }
 
-  setHighlight(voxel: [number, number, number] | null): void {
-    this.highlight.show(voxel);
+  setHighlight(voxel: [number, number, number] | null, mining = false): void {
+    this.highlight.show(voxel, mining);
   }
 
   // ------------------------------------------------------------ per frame

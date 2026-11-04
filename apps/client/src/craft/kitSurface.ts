@@ -57,7 +57,7 @@ export function framelessTile(source:THREE.Texture):THREE.Texture {
     const inner=document.createElement("canvas");inner.width=cw;inner.height=ch;
     const ig=inner.getContext("2d",{willReadFrequently:true})!;ig.drawImage(image,left,top,cw,ch,0,0,cw,ch);
     const wrapped=wrapSeamless(ig.getImageData(0,0,cw,ch));
-    const flat=document.createElement("canvas");flat.width=wrapped.width;flat.height=wrapped.height;flat.getContext("2d")!.putImageData(wrapped,0,0);
+    const flat=document.createElement("canvas");flat.width=wrapped.width;flat.height=wrapped.height;flat.getContext("2d")!.putImageData(new ImageData(wrapped.data,wrapped.width,wrapped.height),0,0);
     const canvas=document.createElement("canvas");canvas.width=w;canvas.height=h;
     const cg=canvas.getContext("2d")!;cg.imageSmoothingQuality="high";cg.drawImage(flat,0,0,w,h);
     const tile=new THREE.CanvasTexture(canvas);tile.name=`${source.name||"tile"} (frameless)`;tile.colorSpace=source.colorSpace;
@@ -70,10 +70,11 @@ export function framelessTile(source:THREE.Texture):THREE.Texture {
  * from the far side and the far strip dropped, so the last column sits next to its own original
  * neighbour when the texture wraps. (The classic offset-and-blend; output is `m` smaller per axis.)
  */
-export function wrapSeamless(src:ImageData,fraction=.12):ImageData {
-  const pass=(img:ImageData,horizontal:boolean):ImageData=>{
+export interface Pixels {width:number;height:number;data:Uint8ClampedArray}
+export function wrapSeamless(src:Pixels,fraction=.12):Pixels {
+  const pass=(img:Pixels,horizontal:boolean):Pixels=>{
     const w=img.width,h=img.height,len=horizontal?w:h,m=Math.max(1,Math.round(len*fraction)),out=len-m;
-    const ow=horizontal?out:w,oh=horizontal?h:out,dst=new ImageData(ow,oh),a=img.data,b=dst.data;
+    const ow=horizontal?out:w,oh=horizontal?h:out,dst={width:ow,height:oh,data:new Uint8ClampedArray(ow*oh*4)},a=img.data,b=dst.data;
     for(let y=0;y<oh;y++)for(let x=0;x<ow;x++){
       const i=horizontal?x:y,o=(y*ow+x)*4,s1=(y*w+x)*4;
       if(i>=m){for(let c=0;c<4;c++)b[o+c]=a[s1+c]!;continue;}

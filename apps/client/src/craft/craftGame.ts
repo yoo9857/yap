@@ -168,6 +168,8 @@ export class CraftGame {
   private classSession: { room: string; you: string } | null = null;
   private seatBlendDuration = .65;
   private mining = false;
+  /** Dev hook (`__roboCraft.mineProgress`): a dig shown on a cell without a captured mouse. */
+  private debugMine: { cell: [number, number, number]; progress: number } | null = null;
   private placing = false;
   private miningTarget: [number, number, number] | null = null;
   private miningProgress = 0;
@@ -1688,7 +1690,8 @@ export class CraftGame {
   private render(alpha: number, frameDt: number): void {
     this.syncLock();
     const target=this.miningTarget,progress=this.miningFrac;
-    if(this.locked&&(this.mining||this.itemAttack.active)&&!this.workshop.active&&target&&progress!==null&&!this.aimFurniture){
+    if(this.debugMine){const t=this.debugMine.cell,def=blockById(this.state.world.get(...t));if(def){const shape=this.state.world.getShape(...t);this.miningEffects.setProgress(t,def,shape,this.debugMine.progress,()=>this.view.miningShape(shape,def.id,t,this.state.world));}}
+    else if(this.locked&&(this.mining||this.itemAttack.active)&&!this.workshop.active&&target&&progress!==null&&!this.aimFurniture){
       const def=blockById(this.state.world.get(...target));if(def){const shape=this.state.world.getShape(...target);this.miningEffects.setProgress(target,def,shape,progress,()=>this.view.miningShape(shape,def.id,target,this.state.world));}else this.miningEffects.clearTarget();
     }else this.miningEffects.clearTarget();
     this.miningEffects.update(frameDt,this.state.world);
@@ -1729,7 +1732,10 @@ export class CraftGame {
     // cell of a two-cell sofa, or the block under a rug
     // (during the boot warm-up the cell box draws far below the world, so its
     // line shader compiles behind the loading screen, not on the first aim)
-    this.view.setHighlight(this.warming ? [0, -1000, 0] : this.aim && !this.aimFurniture ? this.aim.voxel : null);
+    // while that cell is being broken its cracked copy opens outward: the box stays on top of it
+    const aimed = this.aim && !this.aimFurniture ? this.aim.voxel : null;
+    const breaking = !!aimed && this.miningEffects.breaking(aimed);
+    this.view.setHighlight(this.warming ? [0, -1000, 0] : aimed, breaking);
 
     this.rig.root.position.copy(drawn);
     this.updateView(frameDt);
@@ -2017,6 +2023,10 @@ export class CraftGame {
         this.writeCell(x, y, z, AIR, 0);
         addItem(this.state.inventory, dropOf(def));
         return true;
+      },
+      /** Show a dig in progress on a cell (0..1) without a captured mouse; null stops it. */
+      mineProgress: (x: number, y: number, z: number, progress: number | null) => {
+        this.debugMine = progress === null ? null : { cell: [x, y, z], progress };
       },
       placeAt: (x: number, y: number, z: number, key: string) => {
         const def = blockByKey(key);

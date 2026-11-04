@@ -63,6 +63,8 @@ export class MiningEffects {
   this.current?.setProgress(progress);
   if(nextStage!==this.stage){this.stage=nextStage;this.chips(cell,def,shape,nextStage);}
  }
+ /** Is this cell currently drawn as its cracked copy (the dig under way)? */
+ breaking(cell:readonly [number,number,number]):boolean {const c=this.current;return !!c&&this.targetKey.startsWith(cell.join(",")+"|");}
  /** Prepare geometry during the wind-up without showing cracks or hiding the intact block. */
  primeTarget(cell:readonly [number,number,number],def:BlockDef,shape:number,makeShape:()=>DamageShape):void {
   if(this.disposed)return;const waiting=this.waiting;this.prepare(cell,def,shape,makeShape());this.waiting=waiting;

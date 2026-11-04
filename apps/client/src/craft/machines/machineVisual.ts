@@ -1,6 +1,7 @@
 import {PART_COLORS,BASE_PART_COLOR,wheelRadius,wingArea,thrustForce} from "./customization.js";
 import {AIR} from "./aero.js";
 import * as THREE from "three";
+import { AimOutline } from "../aimOutline.js";
 import { castsInstancedShadow } from "../../render/instancedDepth.js";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import {
@@ -297,10 +298,8 @@ export class GhostPart {
     opacity: 0.5,
     depthWrite: false,
   });
-  private readonly outline = new THREE.LineSegments(
-    new THREE.EdgesGeometry(new THREE.BoxGeometry(1.02, 1.02, 1.02)),
-    new THREE.LineBasicMaterial({ color: 0x1f1f1f, depthTest: false }),
-  );
+  /** The same two-tone, constant-width box as the world's aim (a 1 px line vanished on parts). */
+  private readonly outline = new AimOutline({ size: 1.02, xray: true });
   private readonly arrow = new THREE.Mesh(
     new THREE.ConeGeometry(0.17, 0.46, 10),
     new THREE.MeshBasicMaterial({ color: 0xffd21c, depthTest: false }),
@@ -312,9 +311,9 @@ export class GhostPart {
 
   constructor(private readonly assets: MachineAssets) {
     this.root.visible = false;
-    this.outline.renderOrder = 12;
+    this.outline.object.visible = true; // shown with the cursor (the root carries visibility)
     this.arrow.renderOrder = 12;
-    this.root.add(this.outline, this.arrow);
+    this.root.add(this.outline.object, this.arrow);
   }
 
   set(kind: PartKind, direction: number, mountSide=1): void {
@@ -353,8 +352,7 @@ export class GhostPart {
 
   dispose(): void {
     this.material.dispose();
-    this.outline.geometry.dispose();
-    (this.outline.material as THREE.Material).dispose();
+    this.outline.dispose();
     this.arrow.geometry.dispose();
     (this.arrow.material as THREE.Material).dispose();
     this.root.clear();

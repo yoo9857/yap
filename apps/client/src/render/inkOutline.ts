@@ -192,9 +192,10 @@ export class InkOutline {
   private width = 1;
   private height = 1;
 
-  /** Line weight in PIXELS. 1.6 read fine in a close-up and vanished at
-   *  gameplay distance, where the old world-space hull had been worth ~2.6px
-   *  on a character — which is the weight this art style expects. */
+  /** Line weight in PIXELS, painted outside the silhouette only. 1.6 read fine
+   *  in a close-up and vanished at gameplay distance; 2.6 was set while the
+   *  line was also painted inside the body (≈5 px in all, paws went black).
+   *  2.2 outside is a clean line that still holds at distance. */
   constructor(renderer: THREE.WebGLRenderer, thickness = 2.2) {
     const size = renderer.getDrawingBufferSize(new THREE.Vector2());
     this.width = Math.max(1, size.x);
