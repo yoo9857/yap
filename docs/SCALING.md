@@ -96,16 +96,27 @@ the same 8 cores, not the server: its loops are half idle.)
   any seat change (same tick, before a page can navigate); shards report
   players per party code once a second for the hub's "game still running".
 
-## Turning it on
+## Turning it on — it turns itself on
 
-`SHARDS` (env): `1` (default — exactly the old single process), `N`, or `auto`
-(cores − 1, max 8). It only helps with cores to run on: raise the compose
-`cpus` limit first, e.g. `cpus: "3"` + `SHARDS=2`, and `mem_limit` by ~70 MiB
-per process. Read the numbers from inside the container:
+Production runs `SHARDS=auto` (compose default). At boot `cluster/capacity.ts`
+reads what the container may use — cores (`availableParallelism`), the cgroup
+CPU quota (`cpu.max` / v1 cfs files), the memory limit
+(`process.constrainedMemory`) — and decides: 1 usable core → the single
+process (no hop, no extra 70 MiB), otherwise a shard per core (max 8), never
+more than the memory holds (80 MiB primary + 150 MiB per shard). Unreadable
+inputs count as "less". The decision and its reason are logged once
+(`"game processes"`). An explicit `SHARDS=N` is honoured but lowered if the
+memory cannot hold it.
+
+Compose sets no `cpus:` on purpose: a value above the host's core count stops
+docker from creating the container, so a hard-coded number turns a server
+downsize into an outage. Today's server is 1 core / 2 GB → single process,
+with the 0.5-core cap gone. Upgrading the plan and restarting is all it takes.
+
+Read the numbers from inside the container:
 `docker compose exec -T app curl -s localhost:8081/metrics` (`/metrics` answers
 loopback only — through nginx or docker's port map it is a 404, and
-`tools/smoke-prod.mjs` checks that). `SHARDS=auto` also caps itself by the
-container's memory limit (80 MiB primary + 150 MiB per shard).
+`tools/smoke-prod.mjs` checks that).
 
 ## Measuring
 

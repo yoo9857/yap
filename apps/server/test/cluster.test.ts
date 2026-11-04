@@ -98,7 +98,9 @@ describe("cluster (primary + 2 shards)", () => {
   it("frees the connection slot of a hub handshake that never completes", async () => {
     const { connect } = await import("node:net");
     const totals = async () => ((await (await fetch(`http://127.0.0.1:${PORT}/metrics`)).json()) as { totals: { sockets: number } }).totals.sockets;
-    const before = await totals();
+    // the previous test's sockets close asynchronously: start from a settled count
+    let before = await totals();
+    for (let i = 0; i < 30 && before !== 0; i++) { await new Promise((r) => setTimeout(r, 100)); before = await totals(); }
     await new Promise<void>((resolve) => {
       const raw = connect(PORT, "127.0.0.1", () => {
         // an upgrade with no Sec-WebSocket-Key: ws answers 400 and never makes a WebSocket

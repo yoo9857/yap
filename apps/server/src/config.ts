@@ -21,8 +21,9 @@ const envSchema = z.object({
   /**
    * Game processes. 1 = everything in this one process (the default, and what dev runs).
    * N > 1 = a primary (HTTP, connection limits, party hub) handing each socket to one of N
-   * shard processes by its room (cluster/directory.ts). "auto" = cores − 1, at most 8.
-   * Only worth raising together with the container's CPU limit (docker-compose `cpus`).
+   * shard processes by its room (cluster/directory.ts). "auto" (production, via compose) = from
+   * the cores/quota/memory the container may use: 1 core → single process, else a shard per
+   * core (cluster/capacity.ts).
    */
   SHARDS: z
     .string()

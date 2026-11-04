@@ -4,8 +4,49 @@
   <link href="https://craftyap.com/note/" />
   <link rel="self" href="https://craftyap.com/note/feed.xml" />
   <id>https://craftyap.com/note/</id>
-  <updated>2026-11-03T00:00:00+09:00</updated>
+  <updated>2026-11-04T00:00:00+09:00</updated>
   <author><name>크래프트얍(CraftYap)</name></author>
+  <entry xml:base="https://craftyap.com/">
+    <title>11월 4일 패치 노트 — 서버가 커지는 만큼 자동으로 나뉘어요</title>
+    <link href="https://craftyap.com/note/patch-2026-11-04-1/" />
+    <id>https://craftyap.com/note/patch-2026-11-04-1/</id>
+    <published>2026-11-04T00:00:00+09:00</published>
+    <updated>2026-11-04T00:00:00+09:00</updated>
+    <summary>게임 서버가 컴퓨터의 코어 수에 맞춰 스스로 여러 프로세스로 나뉘도록 바꿨어요. 테스트 환경에서 1,040명이 동시에 지을 때 블록이 친구 화면에 뜨기까지 4.2초 걸리던 것이 0.2초로 줄었어요.</summary>
+    <content type="html">&lt;h2&gt;한눈에 보기&lt;/h2&gt;
+&lt;p&gt;지금까지 게임 서버는 &lt;strong&gt;프로세스 하나&lt;/strong&gt;로 모든 반과 방을 돌렸고, 그 프로세스는 컴퓨터 코어를 하나만 쓸 수 있었어요. 측정해 보니 동시 접속 &lt;strong&gt;약 500명&lt;/strong&gt;에서 그 코어가 꽉 찼어요. 이제 서버는 &lt;strong&gt;코어 수에 맞춰 스스로 여러 프로세스로 나뉘고&lt;/strong&gt;, 반마다 가장 한가한 곳에서 돌아가요. 오늘 운영 서버에서는 걸려 있던 &lt;strong&gt;CPU 한도(0.5코어)를 풀어 쓸 수 있는 CPU가 두 배&lt;/strong&gt;가 됐고, 서버 사양을 올리면 설정을 고치지 않아도 자동으로 나뉘어요.&lt;/p&gt;
+&lt;h2&gt;BEFORE / AFTER&lt;/h2&gt;
+&lt;p&gt;&lt;strong&gt;반 40개 × 학생 25명 = 1,040명이 동시에 걷고 블록을 놓을 때&lt;/strong&gt; (테스트 환경, 8코어 PC) — 프로세스 하나일 때는 CPU가 100%로 포화돼서 친구 움직임이 0.7초마다 끊겨 도착하고, 블록은 4초 넘게 늦게 떴어요. 4개로 나누니 각 프로세스가 절반만 쓰면서 블록을 0.2초 안에 전해요. 1,560명에서도 마찬가지였어요.&lt;/p&gt;
+&lt;p&gt;&lt;img src=&quot;/note/assets/20261104-server-shards-ba.webp&quot; alt=&quot;서버 부하 비교: 테스트 환경 1,040명 기준 친구 움직임 간격 p99가 702 ms에서 196 ms로, 블록이 친구 화면에 뜨기까지 p99가 4.2초에서 201 ms로 줄어든 막대 그래프&quot;&gt;&lt;/p&gt;
+&lt;h2&gt;새로 추가&lt;/h2&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;서버가 스스로 몇 개로 나뉠지 정해요&lt;/strong&gt; — 켜질 때 쓸 수 있는 코어, CPU 한도, 메모리를 읽어서 정해요. 코어가 하나면 예전처럼 하나로, 두 개 이상이면 코어마다 하나씩 나뉘어요. 메모리가 모자라면 그만큼 덜 나눠요.&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;반을 가장 한가한 곳에 배정해요&lt;/strong&gt; — 새 반은 그 순간 가장 여유 있는 프로세스에서 열리고, 그 반의 선생님과 학생은 언제나 같은 곳에서 만나요. 같은 반이 두 곳에서 동시에 열리는 일은 생기지 않게 막아 뒀어요.&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;부하 측정 도구&lt;/strong&gt; — 실제와 똑같이 걷고 블록을 놓는 가상 학생 수천 명으로 서버를 시험할 수 있게 됐어요. 이번 숫자도 모두 이 도구로 쟀어요.&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2&gt;개선&lt;/h2&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;CPU 한도를 풀었어요&lt;/strong&gt; — 운영 서버가 CPU를 0.5코어만 쓰도록 묶여 있던 것을 풀어, 지금 서버의 코어 하나를 다 써요.&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;하나가 멈춰도 다른 반은 계속돼요&lt;/strong&gt; — 나뉜 프로세스 중 하나에 문제가 생기면 그것만 1초 안에 다시 켜지고, 그 반은 저장된 상태에서 이어져요.&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;업데이트할 때 반이 저장돼요&lt;/strong&gt; — 서버가 다시 켜질 때 모든 프로세스가 각자 반을 저장한 뒤 꺼져요. 다시 켜지는 동안 들어온 접속은 끊지 않고 잠깐 기다렸다가 이어 줘요.&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;비밀번호 잠금, 접속 수 제한&lt;/strong&gt;은 나뉜 뒤에도 서버 전체에서 하나로 지켜져요.&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2&gt;기술 스택&lt;/h2&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;언어는 그대로&lt;/strong&gt; TypeScript(Node.js 22)예요. 클라이언트와 서버가 같은 코드(레벨 생성, 물 흐름, 통신 규약)를 그대로 함께 써요.&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;멀티프로세스&lt;/strong&gt;: Node &lt;code&gt;cluster&lt;/code&gt; — 앞문 프로세스 하나가 웹소켓 연결을 받아, TCP 소켓 자체를 IPC로 게임 프로세스에 넘겨요. 넘긴 뒤 게임 데이터는 앞문을 거치지 않아요.&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;방 디렉토리&lt;/strong&gt;: 방 → 프로세스 배정을 기억하는 할당기(부하 기준 배정, 소켓 인계 수 비교로 안전하게 반납). 나중에 서버를 여러 대로 늘릴 때 Redis로 바꿔 끼울 수 있게 경계를 나눠 뒀어요.&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;자동 용량 판단&lt;/strong&gt;: cgroup v1/v2(&lt;code&gt;cpu.max&lt;/code&gt;, CFS)와 &lt;code&gt;process.constrainedMemory()&lt;/code&gt;로 컨테이너 한도를 읽어요.&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;저장&lt;/strong&gt;: SQLite(better-sqlite3, WAL) 한 파일을 모든 프로세스가 같이 써요. 한 반은 한 프로세스만 쓰기 때문에 서로 덮어쓰지 않아요.&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;배포&lt;/strong&gt;: Docker Compose + nginx, GitHub Actions(테스트를 통과해야 배포). 운영 지표는 서버 안에서만 보이는 &lt;code&gt;/metrics&lt;/code&gt;(CPU, 이벤트 루프 부하, 지연, 메모리)로 봐요.&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2&gt;알려진 문제&lt;/h2&gt;
+&lt;ul&gt;
+&lt;li&gt;이미 열려 있던 교실 탭은 업데이트 뒤 &lt;strong&gt;한 번 자동으로 새로고침&lt;/strong&gt;될 수 있어요. 새로고침하면 같은 반, 같은 자리로 돌아와요.&lt;/li&gt;
+&lt;li&gt;오늘 운영 서버는 코어가 하나라 아직 &lt;strong&gt;하나로 돌아가요&lt;/strong&gt;. 서버 사양을 올리면 다시 켜는 것만으로 나뉘어요.&lt;/li&gt;
+&lt;/ul&gt;
+</content>
+  </entry>
   <entry xml:base="https://craftyap.com/">
     <title>11월 3일 패치 노트 (9) — 보는 곳에서 파고, 다시 들어와도 그 자리에</title>
     <link href="https://craftyap.com/note/patch-2026-11-03-9/" />
@@ -859,48 +900,6 @@
 &lt;h2&gt;앞으로&lt;/h2&gt;
 &lt;p&gt;큰 기능이 들어가거나 무언가를 크게 고칠 때마다 이곳에 짧게라도 남기겠습니다.
 최신 소식은 &lt;a href=&quot;/note/feed.xml&quot;&gt;RSS 피드&lt;/a&gt;로도 받아 볼 수 있습니다.&lt;/p&gt;
-</content>
-  </entry>
-  <entry xml:base="https://craftyap.com/">
-    <title>10월 26일 패치 노트 — 물이 흐릅니다</title>
-    <link href="https://craftyap.com/note/patch-2026-10-26/" />
-    <id>https://craftyap.com/note/patch-2026-10-26/</id>
-    <published>2026-10-26T00:00:00+09:00</published>
-    <updated>2026-10-26T00:00:00+09:00</updated>
-    <summary>양동이로 물을 붓고, 흘러내리는 물에서 헤엄칠 수 있습니다. 교실에서는 모두가 같은 물을 봅니다. 저장 안정성과 교실 입장도 함께 개선했습니다.</summary>
-    <content type="html">&lt;h2&gt;한눈에 보기&lt;/h2&gt;
-&lt;p&gt;블록 세상에 &lt;strong&gt;흐르는 물&lt;/strong&gt;이 들어왔습니다. 웅덩이를 파고 물을 부으면 퍼지고, 낮은 곳으로
-흘러내리고, 막힌 곳에 고입니다. 폭포도 만들 수 있습니다. 물은 계산이 많은 기능이라
-이번 업데이트의 절반은 물이 많아져도 게임과 교실이 버티게 하는 작업이었습니다.&lt;/p&gt;
-&lt;h2&gt;새로 추가&lt;/h2&gt;
-&lt;h3&gt;물&lt;/h3&gt;
-&lt;ul&gt;
-&lt;li&gt;&lt;strong&gt;양동이&lt;/strong&gt; — 단축칸 0번에 무한 양동이가 있습니다. 물을 붓거나 다시 퍼 담을 수 있습니다.&lt;/li&gt;
-&lt;li&gt;&lt;strong&gt;흐름&lt;/strong&gt; — 물은 옆으로 퍼지고 아래로 떨어지며, 막힌 웅덩이에는 고입니다. 아래쪽에 구멍이 나면 고인 물이 빠져나갑니다.&lt;/li&gt;
-&lt;li&gt;&lt;strong&gt;헤엄&lt;/strong&gt; — 물속에서 헤엄치고, 얕은 물은 걸어서 지나가고, 물가로 기어 올라올 수 있습니다. &lt;kbd&gt;Space&lt;/kbd&gt;로 위로 올라갑니다.&lt;/li&gt;
-&lt;li&gt;물속에서는 시야가 물빛으로 바뀌고, 붓는 소리와 첨벙 소리가 납니다.&lt;/li&gt;
-&lt;li&gt;수면은 하나로 이어진 매끈한 물로 그려지고, 물살과 떨어지는 곳의 물보라가 보입니다.&lt;/li&gt;
-&lt;li&gt;&lt;strong&gt;교실&lt;/strong&gt; — 서버가 물의 흐름을 계산해 반 전체가 같은 물을 봅니다.&lt;/li&gt;
-&lt;/ul&gt;
-&lt;h2&gt;개선&lt;/h2&gt;
-&lt;ul&gt;
-&lt;li&gt;&lt;strong&gt;교실 입장&lt;/strong&gt; — 이미 많이 지어진 교실에 늦게 들어와도 들판을 나눠 받아서, 다른 사람의 화면이 느려지지 않습니다. 재접속하면 들판과 내 위치가 정확히 복구됩니다.&lt;/li&gt;
-&lt;li&gt;&lt;strong&gt;자동 저장&lt;/strong&gt; — 저장에 실패하면 경고를 띄우고 다시 시도합니다. 복구되면 알려 줍니다.&lt;/li&gt;
-&lt;li&gt;누군가 교실이나 타워에 접속해 있으면 서버 업데이트가 끼어들지 않습니다. 접속이 2분 넘게 이어지면 그 업데이트는 다음으로 미룹니다.&lt;/li&gt;
-&lt;li&gt;물이 아주 많아져도 흐름이 조금 느려질 뿐 화면은 끊기지 않도록 계산량에 상한을 두었습니다.&lt;/li&gt;
-&lt;/ul&gt;
-&lt;h2&gt;버그 수정&lt;/h2&gt;
-&lt;ul&gt;
-&lt;li&gt;크게 지은 섬(수정한 칸 20만 개 이상)을 다시 불러오면 섬이 초기화되던 문제를 고쳤습니다.&lt;/li&gt;
-&lt;li&gt;들판을 오가다 돌아오면 저장된 물이 멈춰 있던 문제를 고쳤습니다.&lt;/li&gt;
-&lt;li&gt;교실 서버 저장이 잠깐 실패하면 그 변경이 저장되지 않던 문제를 고쳤습니다. 다음 저장 때 다시 저장합니다.&lt;/li&gt;
-&lt;li&gt;모드를 오가면 소리, 입력, 그래픽 자원이 남아 쌓이던 문제를 고쳤습니다.&lt;/li&gt;
-&lt;/ul&gt;
-&lt;h2&gt;알려진 문제&lt;/h2&gt;
-&lt;ul&gt;
-&lt;li&gt;바다나 호수가 처음부터 있는 지형은 아직 없습니다. 지금은 플레이어가 부은 물만 흐릅니다.&lt;/li&gt;
-&lt;li&gt;물은 게임용으로 단순하게 계산하기 때문에 실제 물처럼 양이 정확히 보존되지는 않습니다.&lt;/li&gt;
-&lt;/ul&gt;
 </content>
   </entry>
 </feed>

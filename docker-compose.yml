@@ -18,11 +18,16 @@ services:
     # leaderboard SQLite (records.db + WAL) lives here.
     volumes:
       - ${DB_DIR:-/srv/craftyap/data}:/app/apps/server/data
-    # One game process uses one core and saturates at ~500 users (docs/SCALING.md).
-    # To scale: raise `cpus` (e.g. "3"), set SHARDS=2+ in .env, and add ~70 MiB of
-    # mem_limit per extra process. SHARDS defaults to 1 (single process).
-    mem_limit: 400m
-    cpus: "0.50"
+    # Game processes follow the machine (docs/SCALING.md): SHARDS=auto reads the
+    # cores, CPU quota and memory limit this container gets at boot — 1 core runs
+    # the single process, 2+ cores a shard per core. Resizing the server needs no
+    # change here. No hard `cpus:` on purpose: a value above the host's cores makes
+    # docker refuse to start the container at all. To cap CPU, set it in .env
+    # (CPU_LIMIT, below the host's core count) and add `cpus: ${CPU_LIMIT}`.
+    environment:
+      SHARDS: ${SHARDS:-auto}
+    # ~80 MiB primary + 150 MiB per shard; auto never starts more than this holds
+    mem_limit: ${MEM_LIMIT:-768m}
     healthcheck:
       test: ["CMD", "curl", "-fsS", "http://localhost:8081/healthz"]
       interval: 30s

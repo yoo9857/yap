@@ -6,7 +6,14 @@
     <atom:link href="https://craftyap.com/feed.xml" rel="self" type="application/rss+xml" />
     <description>크래프트얍(CraftYap) 패치 노트와 개발 이야기</description>
     <language>ko</language>
-    <lastBuildDate>Mon, 02 Nov 2026 15:00:00 +0000</lastBuildDate>
+    <lastBuildDate>Tue, 03 Nov 2026 15:00:00 +0000</lastBuildDate>
+    <item>
+      <title>11월 4일 패치 노트 — 서버가 커지는 만큼 자동으로 나뉘어요</title>
+      <link>https://craftyap.com/note/patch-2026-11-04-1/</link>
+      <guid isPermaLink="true">https://craftyap.com/note/patch-2026-11-04-1/</guid>
+      <pubDate>Tue, 03 Nov 2026 15:00:00 +0000</pubDate>
+      <description>게임 서버가 컴퓨터의 코어 수에 맞춰 스스로 여러 프로세스로 나뉘도록 바꿨어요. 테스트 환경에서 1,040명이 동시에 지을 때 블록이 친구 화면에 뜨기까지 4.2초 걸리던 것이 0.2초로 줄었어요.</description>
+    </item>
     <item>
       <title>11월 3일 패치 노트 (9) — 보는 곳에서 파고, 다시 들어와도 그 자리에</title>
       <link>https://craftyap.com/note/patch-2026-11-03-9/</link>
@@ -139,13 +146,6 @@
       <guid isPermaLink="true">https://craftyap.com/note/hello-dev-notes/</guid>
       <pubDate>Tue, 27 Oct 2026 15:00:00 +0000</pubDate>
       <description>크래프트얍을 만들며 무엇을 바꿨고 왜 그렇게 했는지 이곳에 남기려고 합니다. 첫 글로 10월에 바뀐 것들을 정리했습니다.</description>
-    </item>
-    <item>
-      <title>10월 26일 패치 노트 — 물이 흐릅니다</title>
-      <link>https://craftyap.com/note/patch-2026-10-26/</link>
-      <guid isPermaLink="true">https://craftyap.com/note/patch-2026-10-26/</guid>
-      <pubDate>Sun, 25 Oct 2026 15:00:00 +0000</pubDate>
-      <description>양동이로 물을 붓고, 흘러내리는 물에서 헤엄칠 수 있습니다. 교실에서는 모두가 같은 물을 봅니다. 저장 안정성과 교실 입장도 함께 개선했습니다.</description>
     </item>
   </channel>
 </rss>
