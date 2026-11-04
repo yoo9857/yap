@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { BONK_HOP, BONK_SPEED, bonkBlocked, bonkEye, lookDirection, pickBonk, type BonkAttacker } from "../src/bonk.js";
+import { BONK_HOP, BONK_SPEED, bonkBlocked, bonkEye, lookDirection, pickBonk, tapBeatsDig, type BonkAttacker } from "../src/bonk.js";
 
 const me = (yaw = 0, pitch = 0): BonkAttacker => ({ x: 0, y: 4, z: 0.5, yaw, pitch, eye: bonkEye("idle") });
 
@@ -79,5 +79,26 @@ describe("classroom tap: body aim (the client)", () => {
     expect(pickBonk(me(), others)?.id).toBe("near");
     expect(pickBonk(me(), others, { only: "named", reach: 2.6 })?.id).toBe("named");
     expect(pickBonk(me(), others, { only: "nobody" })).toBeNull();
+  });
+});
+
+describe("tap or dig (players: 'beside a friend, my digging hit them instead')", () => {
+  const me = { x: 0, y: 4, z: 0, yaw: 0, pitch: -0.5, eye: 1.55 };
+  it("a classmate overlapping us never takes a dig click while a block is aimed", () => {
+    const hit = pickBonk(me, [{ id: "a", x: 0.2, y: 4, z: 0.1 }], { aim: "body" })!;
+    expect(hit).not.toBeNull();
+    expect(hit.dist).toBeLessThan(0.3);
+    expect(tapBeatsDig(me, hit, 2.2)).toBe(false);
+    expect(tapBeatsDig(me, hit, null)).toBe(true); // nothing aimed: the tap still pushes them out
+  });
+  it("a classmate beside us whose body clips the ray near the eye does not steal the dig", () => {
+    const hit = pickBonk(me, [{ id: "a", x: 0.5, y: 4, z: 0.3 }], { aim: "body" });
+    if (hit) expect(tapBeatsDig(me, hit, 2.2)).toBe(false);
+  });
+  it("a classmate clearly in front of the aimed block is tapped", () => {
+    const level = { ...me, pitch: 0 };
+    const hit = pickBonk(level, [{ id: "a", x: 0, y: 4, z: 1.4 }], { aim: "body" })!;
+    expect(tapBeatsDig(level, hit, 4)).toBe(true);
+    expect(tapBeatsDig(level, hit, hit.dist + 0.1)).toBe(false); // the block is right at their body: dig
   });
 });

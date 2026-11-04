@@ -8,6 +8,13 @@
     <language>ko</language>
     <lastBuildDate>Tue, 03 Nov 2026 15:00:00 +0000</lastBuildDate>
     <item>
+      <title>11월 4일 패치 노트 (9) — 친구 옆에서 블록을 캐도 친구가 밀리지 않아요</title>
+      <link>https://craftyap.com/note/patch-2026-11-04-9/</link>
+      <guid isPermaLink="true">https://craftyap.com/note/patch-2026-11-04-9/</guid>
+      <pubDate>Tue, 03 Nov 2026 15:00:00 +0000</pubDate>
+      <description>교실에서 친구와 겹치거나 바로 옆에 서서 블록을 캐면 블록 대신 친구가 밀리고, 친구가 서 있는 칸에 블록을 놓으면 친구가 블록 위로 튕겨 올라가던 문제를 고쳤어요. 여러 명이 계속 밀어도 날아다니지 않고, 오래 수업해도 접속이 끊기지 않아요.</description>
+    </item>
+    <item>
       <title>11월 4일 패치 노트 (8) — 물이 모양 블록 안으로 흘러 들어가요</title>
       <link>https://craftyap.com/note/patch-2026-11-04-8/</link>
       <guid isPermaLink="true">https://craftyap.com/note/patch-2026-11-04-8/</guid>
@@ -139,13 +146,6 @@
       <guid isPermaLink="true">https://craftyap.com/note/patch-2026-10-30-3/</guid>
       <pubDate>Thu, 29 Oct 2026 15:00:00 +0000</pubDate>
       <description>친구의 소리가 앞뒤·위아래 방향과 거리에 따라 들립니다. 벽 너머의 소리는 작고 먹먹해지고, 동굴이나 집 안에서는 소리가 울리며, 물속에서는 모든 소리가 둔해집니다. 발소리도 한 번 더 작고 부드럽게 줄였습니다.</description>
-    </item>
-    <item>
-      <title>10월 30일 패치 노트 (2) — 블록마다 다른 소리, 동작에 맞춘 효과음, 친구의 소리</title>
-      <link>https://craftyap.com/note/patch-2026-10-30-2/</link>
-      <guid isPermaLink="true">https://craftyap.com/note/patch-2026-10-30-2/</guid>
-      <pubDate>Thu, 29 Oct 2026 15:00:00 +0000</pubDate>
-      <description>실제로 녹음한 효과음으로 블록 캐기·부수기, 발소리, 곡괭이, 친구 밀기, 물소리를 새로 만들었습니다. 소리가 캐릭터 동작과 같은 순간에 나도록 맞추고, 교실에서는 친구의 발소리와 블록 소리가 친구가 있는 쪽에서 들립니다.</description>
     </item>
   </channel>
 </rss>

@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { BONK_COOLDOWN_MS, BONK_HOP, BONK_SPEED, MAX_SOLID_ID, classSettingsSchema, decodeClassClient, decodeClassServer, type ClassFurniture, type ClassServerMessage } from "@robo/shared";
+import { BONK_COOLDOWN_MS, BONK_HOP, BONK_SPEED, BONK_TARGET_REST_MS, MAX_SOLID_ID, classSettingsSchema, decodeClassClient, decodeClassServer, type ClassFurniture, type ClassServerMessage } from "@robo/shared";
 import { ClassRoom, type ClassPeer } from "../src/classroom/classRoom.js";
 import { MemoryClassStore, hashPassword } from "../src/classroom/classStore.js";
 
@@ -444,6 +444,32 @@ describe("classroom taps", () => {
       vi.setSystemTime(1_000_000 + BONK_COOLDOWN_MS);
       room.handle(teacher, { ...tap, seq: 5 });
       expect(teacher.inbox.filter((m) => m.t === "s-k-bonk")).toHaveLength(2);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("a player just shoved rests: a second tap from someone else lands but pushes nothing", () => {
+    vi.useFakeTimers();
+    try {
+      vi.setSystemTime(2_000_000);
+      const { room, teacher } = classWithTeacher();
+      const target = new Peer(), other = new Peer();
+      room.joinStudent(target, "Minji");
+      room.joinStudent(other, "Jun");
+      place(room, teacher, [0, 4, 0.5]);
+      place(room, other, [0, 4, 3.3]);
+      place(room, target, [0, 4, 1.9]);
+      room.handle(teacher, { t: "k-bonk", target: target.welcome().you, yaw: 0, pitch: 0, seq: 1 });
+      expect(target.last("s-k-bonk")!.vz).toBeCloseTo(BONK_SPEED, 5);
+      vi.setSystemTime(2_000_000 + 100);
+      room.handle(other, { t: "k-bonk", target: target.welcome().you, yaw: Math.PI, pitch: 0, seq: 1 });
+      const second = target.last("s-k-bonk")!;
+      expect(second.by).toBe(other.welcome().you);
+      expect([second.vx, second.vy, second.vz]).toEqual([0, 0, 0]);
+      vi.setSystemTime(2_000_000 + BONK_TARGET_REST_MS + 50);
+      room.handle(other, { t: "k-bonk", target: target.welcome().you, yaw: Math.PI, pitch: 0, seq: 2 });
+      expect(target.last("s-k-bonk")!.vz).toBeCloseTo(-BONK_SPEED, 5);
     } finally {
       vi.useRealTimers();
     }

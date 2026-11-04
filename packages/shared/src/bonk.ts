@@ -21,6 +21,14 @@ export const BONK_DECAY = 8;
 export const BONK_PUSH_CAP = 7;
 /** Minimum time between taps that actually connect (ms). */
 export const BONK_COOLDOWN_MS = 420;
+/** A player who was just shoved is not shoved again for this long (ms): several classmates
+ *  clicking at once, or one whose digging kept turning into taps, threw them around the field.
+ *  Taps in that window still land (the flash), they just push nothing. */
+export const BONK_TARGET_REST_MS = 900;
+/** Bodies closer than this (horizontally, m) overlap: the look ray starts inside the other one. */
+export const BONK_OVERLAP = 0.6;
+/** A classmate must be at least this much nearer than the aimed block for a click to tap them. */
+export const BONK_BLOCK_MARGIN = 0.35;
 /** Chest height above the feet. The impact and the aim point. */
 export const BONK_CHEST = 1.05;
 /**
@@ -179,4 +187,16 @@ export function pickBonk(
     best = { id: other.id, vx: kx * BONK_SPEED, vz: kz * BONK_SPEED, vy: BONK_HOP, at, dist };
   }
   return best;
+}
+
+/**
+ * Does a click tap this classmate, or dig the block under the aim box? With a block aimed in reach
+ * the dig wins unless the classmate stands clearly in front of it and is not overlapping us. A
+ * classmate inside or right beside us crosses the look ray at ~0 m, which used to turn every dig
+ * into a tap (and the classmate was flung about while we tried to mine).
+ */
+export function tapBeatsDig(attacker: { x: number; z: number }, hit: Pick<BonkHit, "at" | "dist">, aimDist: number | null): boolean {
+  if (aimDist === null) return true;
+  if (Math.hypot(hit.at[0] - attacker.x, hit.at[2] - attacker.z) < BONK_OVERLAP) return false;
+  return hit.dist + BONK_BLOCK_MARGIN < aimDist;
 }

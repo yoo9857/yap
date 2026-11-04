@@ -55,6 +55,10 @@ const SAVE_MS = 15_000;
 /** Water-only changes (see ClassRoom.waterDirty) are saved at most this often. */
 const WATER_SAVE_MS = 120_000;
 
+/** Strikes forgiven per second: a flood (hundreds a second) still closes the socket within a
+ *  second or two, steady play that sometimes trips a bucket never does. */
+const STRIKE_DECAY_PER_S = 2;
+
 /** Token buckets per message family. */
 const LIMITS: Record<string, { rate: number; burst: number }> = {
   move: { rate: 30, burst: 60 },
@@ -74,6 +78,7 @@ class ClassSocket implements ClassPeer {
   alive = true;
   private closed = false;
   private strikes = 0;
+  private strikeAt = Date.now();
   private stream: Generator<ClassEdit[], void, unknown> | null = null;
   private readonly outbound: string[] = [];
   private queuedBytes = 0;
@@ -163,7 +168,12 @@ class ClassSocket implements ClassPeer {
     return true;
   }
 
+  /** Over-limit and malformed messages. They wear off (STRIKE_DECAY_PER_S): counted for a whole
+   *  session they added up over a long lesson of busy clicking and dropped the student mid-class. */
   strike(): false {
+    const now = Date.now();
+    this.strikes = Math.max(0, this.strikes - ((now - this.strikeAt) / 1000) * STRIKE_DECAY_PER_S);
+    this.strikeAt = now;
     if (++this.strikes > 200) this.close("protocol violations");
     return false;
   }

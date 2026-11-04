@@ -10,6 +10,7 @@ import {
   CLASS_MAX_COORD,
   CLASS_MAX_Y,
   bonkBlocked,
+  BONK_TARGET_REST_MS,
   bonkEye,
   pickBonk,
   FluidSim,
@@ -130,6 +131,8 @@ interface Member {
   toolPhase?: number;
   /** Wall-clock ms of the last tap that connected. */
   bonkAt?: number;
+  /** Server ms when this player was last shoved (BONK_TARGET_REST_MS). */
+  shovedAt?: number;
   /** Wall-clock ms of the last position jump (see JUMP_M). */
   jumpedAt?: number;
 }
@@ -704,14 +707,18 @@ export class ClassRoom {
     );
     if (!hit) return;
     me.bonkAt = now;
+    // a player just shoved rests: the tap still lands (flash, sound), it pushes nothing
+    const target = [...this.byPeer.values()].find((m) => m.id === hit.id);
+    const resting = target !== undefined && now - (target.shovedAt ?? 0) < BONK_TARGET_REST_MS;
+    if (target && !resting) target.shovedAt = now;
     this.broadcast({
       t: "s-k-bonk",
       by: me.id,
       target: hit.id,
       seq: msg.seq,
-      vx: hit.vx,
-      vz: hit.vz,
-      vy: hit.vy,
+      vx: resting ? 0 : hit.vx,
+      vz: resting ? 0 : hit.vz,
+      vy: resting ? 0 : hit.vy,
       at: hit.at,
     });
   }

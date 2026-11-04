@@ -39,7 +39,7 @@ import type { ClassClient, ClassSession } from "../net/classClient.js";
 import { SWIM_DEPTH, pointInWater, stepBody, unstick, overlapsShapedVoxel, wishFromInput, type Body } from "./voxelBody.js";
 import {SandSim} from "./sandSim.js";
 import { WaterSim } from "./waterSim.js";
-import { WATER, WATER_SETTLED, isWater, emoteDef, lookDirection, pickBonk, bonkBlocked, BONK_COOLDOWN_MS, BONK_DECAY, BONK_PUSH_CAP, type EmoteId, type CharacterId, type ClassAnim, type CharacterAction, type CharacterPresentation, postureTransition } from "@robo/shared";
+import { WATER, WATER_SETTLED, isWater, emoteDef, lookDirection, pickBonk, bonkBlocked, tapBeatsDig, BONK_COOLDOWN_MS, BONK_DECAY, BONK_PUSH_CAP, type EmoteId, type CharacterId, type ClassAnim, type CharacterAction, type CharacterPresentation, postureTransition } from "@robo/shared";
 import { EmoteMenu } from "./emoteMenu.js";
 import { adoptPosture, moveScale, POSTURE_EYE, type Posture } from "./posture.js";
 import { gaitBlend } from "../player/motionPolicy.js";
@@ -466,10 +466,11 @@ export class CraftGame {
   }
 
   /** Is the selected hotbar slot the water bucket? */
-  /** Cells a placed block may not take: solid furniture, and the pet (a block
-   *  dropped on it buried it until the recall teleported it out). */
+  /** Cells a placed block may not take: solid furniture, the pet (a block dropped on it buried it
+   *  until the recall teleported it out), and a classmate (it popped them up out of the block). */
   private readonly buildBlocked = (x: number, y: number, z: number): boolean =>
-    this.furniture.blocksCell(x, y, z) || overlapsShapedVoxel(this.pet.body, x, y, z, 0);
+    this.furniture.blocksCell(x, y, z) || overlapsShapedVoxel(this.pet.body, x, y, z, 0) ||
+    (this.sync?.bodyInGridCell(x, y, z, 0) ?? false);
 
   private holdingWater(): boolean {
     return !this.emptyHands && blockByKey(this.heldKey())?.fluid === true;
@@ -1129,8 +1130,9 @@ export class CraftGame {
       { aim: "body", blocked: (from, to) => bonkBlocked(from, to, (x, y, z) => this.state.world.isBlocked(x, y, z)) },
     );
     if (!hit) return false;
-    // the crosshair is on a block in front of them: that click digs the block
-    if (this.aim && this.aim.dist < hit.dist) return false;
+    // a block under the aim box is dug unless the classmate is clearly in front of it (and not
+    // overlapping us — then they cross the look ray at ~0 m whatever we aim at)
+    if (!tapBeatsDig(this.body, hit, this.aim ? this.aim.dist : null)) return false;
     if (performance.now() < this.bonkAt) return true;
     this.bonkAt = performance.now() + BONK_COOLDOWN_MS;
     this.actionHold = ACTION_FACE_TIME;
@@ -2079,6 +2081,15 @@ export class CraftGame {
         this.pieceTilt = ((tilt % 4) + 4) % 4;
       },
       placePiece: (x: number, y: number, z: number, key: string) => this.stampPiece([x, y, z], key),
+      /** What a left click would do now: the classmates it can see, the tap hit, the aimed block. */
+      tapInfo: () => {
+        const targets = this.sync?.bonkTargets() ?? [];
+        const hit = this.sync ? pickBonk(
+          { x: this.body.x, y: this.body.y, z: this.body.z, yaw: this.yaw, pitch: this.pitch, eye: POSTURE_EYE[this.seated ? "sit" : this.posture] },
+          targets, { aim: "body", blocked: (from, to) => bonkBlocked(from, to, (x, y, z) => this.state.world.isBlocked(x, y, z)) }) : null;
+        return { me: [this.body.x, this.body.y, this.body.z], targets, hit, aim: this.aim?.dist ?? null,
+          taps: hit ? tapBeatsDig(this.body, hit, this.aim ? this.aim.dist : null) : false, allowed: this.sync?.tapsAllowed ?? false };
+      },
       pieces: () => PIECES.map((p) => p.key),
       look: (yaw: number, pitch?: number) => {
         this.yaw = yaw;

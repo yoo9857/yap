@@ -10,6 +10,7 @@ import { ClassHud } from "./classHud.js";
 import { turnToward } from "./smoothing.js";
 import { RemoteTrack, SnapClock, type TrackPose } from "./remoteTrack.js";
 import { SOLID_ID, blockById } from "./blocks.js";
+import { BODY_WIDTH, overlapsShapedVoxel } from "./voxelBody.js";
 import type { FieldWindow } from "./fieldWorld.js";
 import type { VoxelView } from "./voxelView.js";
 import { t } from "../ui/i18n.js";
@@ -351,6 +352,21 @@ export class ClassSync {
       out.push({ id, x, y: remote.pos.y, z });
     }
     return out;
+  }
+
+  /** Would a block in this GRID cell land inside a classmate? Checked against both where they are
+   *  drawn (~0.1 s behind) and where they last reported, with a slightly widened body. A brick
+   *  dropped on someone used to bury them, and their client then popped them up out of it —
+   *  players felt "flung" whenever they stood close. */
+  bodyInGridCell(x: number, y: number, z: number, shape: number): boolean {
+    for (const remote of this.remotes.values()) {
+      for (const p of [remote.pos, remote.target]) {
+        const [rx, rz] = this.field.toGrid(p.x, p.z);
+        if (Math.abs(rx - x - 0.5) > 1.5 || Math.abs(rz - z - 0.5) > 1.5 || Math.abs(p.y - y) > 2.5) continue;
+        if (overlapsShapedVoxel({ x: rx, y: p.y, z: rz, vx: 0, vy: 0, vz: 0, grounded: true, w: BODY_WIDTH + 0.16 }, x, y, z, shape)) return true;
+      }
+    }
+    return false;
   }
 
   /** The field window scrolled under the player. */
