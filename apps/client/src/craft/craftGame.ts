@@ -1732,10 +1732,12 @@ export class CraftGame {
     // cell of a two-cell sofa, or the block under a rug
     // (during the boot warm-up the cell box draws far below the world, so its
     // line shader compiles behind the loading screen, not on the first aim)
-    // while that cell is being broken its cracked copy opens outward: the box stays on top of it
+    // While that cell is breaking, the cracking block IS the feedback: the box steps aside and
+    // comes back when the dig stops or the next block is aimed at (players found a box drawn over
+    // the shards distracting).
     const aimed = this.aim && !this.aimFurniture ? this.aim.voxel : null;
     const breaking = !!aimed && this.miningEffects.breaking(aimed);
-    this.view.setHighlight(this.warming ? [0, -1000, 0] : aimed, breaking);
+    this.view.setHighlight(this.warming ? [0, -1000, 0] : breaking ? null : aimed);
 
     this.rig.root.position.copy(drawn);
     this.updateView(frameDt);

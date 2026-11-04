@@ -36,3 +36,35 @@ describe("wrapSeamless (world block tiles)", () => {
     expect(out.data[3]).toBe(255);
   });
 });
+
+describe("removeInk (the tile art's own lines)", () => {
+  /** A flat warm tile (200) crossed by a 3 px near-black line, like plank gaps. */
+  function lined(size = 48): Pixels {
+    const data = new Uint8ClampedArray(size * size * 4);
+    for (let y = 0; y < size; y++) for (let x = 0; x < size; x++) {
+      const v = y >= 20 && y < 23 ? 15 : 200;
+      data.set([v, v, v, 255], (y * size + x) * 4);
+    }
+    return { width: size, height: size, data };
+  }
+
+  it("lifts a black line into the colour around it, a little shaded so the shape still shows", async () => {
+    const { removeInk } = await import("../src/craft/kitSurface.js");
+    const out = removeInk(lined());
+    const line = at(out, 10, 21), around = at(out, 10, 5);
+    expect(around).toBe(200); // the material itself is untouched
+    expect(line).toBeGreaterThan(160); // was 15
+    expect(line).toBeLessThan(around); // still a faint seam
+  });
+
+  it("leaves a tile without ink exactly as it was", async () => {
+    const { removeInk } = await import("../src/craft/kitSurface.js");
+    const flat: Pixels = { width: 16, height: 16, data: new Uint8ClampedArray(16 * 16 * 4).fill(180) };
+    expect([...removeInk(flat).data]).toEqual([...flat.data]);
+  });
+
+  it("keeps the dark parts of picture tiles", async () => {
+    const { KEEP_INK } = await import("../src/craft/kitSurface.js");
+    for (const key of ["coal-ore", "question-block", "pumpkin", "furnace-front", "cracked-stone-bricks"]) expect(KEEP_INK.has(key)).toBe(true);
+  });
+});

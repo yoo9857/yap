@@ -34,15 +34,18 @@ export function createKitSurfaceMaps(size=256):KitSurfaceMaps {
  * assumed, and cropped with one extra pixel for its anti-aliased edge. One cropped copy per
  * source texture; callers clone it for their own wrapping (clones share the upload).
  */
-const frameless=new WeakMap<THREE.Texture,THREE.Texture>();
-export function framelessTile(source:THREE.Texture):THREE.Texture {
-  const cached=frameless.get(source);if(cached)return cached;
+const frameless=new WeakMap<THREE.Texture,THREE.Texture>(),framelessInked=new WeakMap<THREE.Texture,THREE.Texture>();
+export function framelessTile(source:THREE.Texture,keepInk=false):THREE.Texture {
+  const cache=keepInk?framelessInked:frameless,cached=cache.get(source);if(cached)return cached;
+  const result=buildFrameless(source,keepInk);cache.set(source,result);return result;
+}
+function buildFrameless(source:THREE.Texture,keepInk:boolean):THREE.Texture {
   const image=source.image as CanvasImageSource&{width:number;height:number}|undefined;
   const w=image?.width??0,h=image?.height??0;
-  if(!image||w<16||h<16||typeof document==="undefined"){frameless.set(source,source);return source;}
+  if(!image||w<16||h<16||typeof document==="undefined")return source;
   try{
     const probe=document.createElement("canvas");probe.width=w;probe.height=h;
-    const g=probe.getContext("2d",{willReadFrequently:true});if(!g){frameless.set(source,source);return source;}
+    const g=probe.getContext("2d",{willReadFrequently:true});if(!g)return source;
     g.drawImage(image,0,0);const d=g.getImageData(0,0,w,h).data;
     const lum=(x:number,y:number)=>{const i=(y*w+x)*4;return .3*d[i]!+.59*d[i+1]!+.11*d[i+2]!;};
     const line=(i:number,vertical:boolean)=>{let sum=0,n=0;const len=vertical?h:w;for(let j=Math.floor(len/4);j<Math.ceil(len*3/4);j++){sum+=vertical?lum(i,j):lum(j,i);n++;}return sum/n;};
@@ -50,20 +53,20 @@ export function framelessTile(source:THREE.Texture):THREE.Texture {
     const limit=Math.floor(Math.min(w,h)*.1),dark=Math.max(18,inside*.45);
     const depth=(at:(i:number)=>number)=>{let i=0;while(i<limit&&at(i)<dark)i++;return i===0?0:Math.min(limit,i+1);};
     const left=depth(i=>line(i,true)),right=depth(i=>line(w-1-i,true)),top=depth(i=>line(i,false)),bottom=depth(i=>line(h-1-i,false));
-    if(left+right+top+bottom===0){frameless.set(source,source);return source;}
+    if(left+right+top+bottom===0)return source;
     // the frameless inside, then made to wrap: a doodle tile was never drawn to repeat, and some carry
     // a second ring just inside the frame — cropping alone left a faint line at every tile boundary
     const cw=w-left-right,ch=h-top-bottom;
     const inner=document.createElement("canvas");inner.width=cw;inner.height=ch;
     const ig=inner.getContext("2d",{willReadFrequently:true})!;ig.drawImage(image,left,top,cw,ch,0,0,cw,ch);
-    const wrapped=wrapSeamless(ig.getImageData(0,0,cw,ch));
+    const seamless=wrapSeamless(ig.getImageData(0,0,cw,ch)),wrapped=keepInk?seamless:removeInk(seamless);
     const flat=document.createElement("canvas");flat.width=wrapped.width;flat.height=wrapped.height;flat.getContext("2d")!.putImageData(new ImageData(wrapped.data,wrapped.width,wrapped.height),0,0);
     const canvas=document.createElement("canvas");canvas.width=w;canvas.height=h;
     const cg=canvas.getContext("2d")!;cg.imageSmoothingQuality="high";cg.drawImage(flat,0,0,w,h);
     const tile=new THREE.CanvasTexture(canvas);tile.name=`${source.name||"tile"} (frameless)`;tile.colorSpace=source.colorSpace;
     tile.wrapS=tile.wrapT=THREE.RepeatWrapping;tile.anisotropy=4;tile.needsUpdate=true;
-    frameless.set(source,tile);return tile;
-  }catch{frameless.set(source,source);return source;} // a tainted/odd image keeps its frame rather than failing
+    return tile;
+  }catch{return source;} // a tainted/odd image keeps its frame rather than failing
 }
 /**
  * Make an image tile without a seam: a margin `m` at each edge is cross-faded with the matching strip
@@ -85,7 +88,38 @@ export function wrapSeamless(src:Pixels,fraction=.12):Pixels {
   };
   return pass(pass(src,true),false);
 }
+/**
+ * Lift the tile art's own ink lines (stone outlines, mortar, plank gaps) into the colour around them,
+ * so a wall reads as soft material rather than a drawing of one. Dark = under half the tile's mean
+ * luminance; each dark pixel is replaced by the average of the NON-dark pixels within `radius`
+ * (wrapping, so a repeated tile stays seamless), shaded a little so the shape still shows. Box sums
+ * over a mask: O(pixels) per tile, cheap enough to run as each texture arrives.
+ */
+export function removeInk(src:Pixels,radius=7):Pixels {
+  const {width:w,height:h,data:d}=src,n=w*h,lum=(i:number)=>.3*d[i*4]!+.59*d[i*4+1]!+.11*d[i*4+2]!;
+  let total=0;for(let i=0;i<n;i++)total+=lum(i);const mean=total/n;
+  // masked colour + count, box-summed separably with wrap
+  const acc=new Float32Array(n*4);
+  for(let i=0;i<n;i++){if(lum(i)<mean*.5)continue;acc[i*4]=d[i*4]!;acc[i*4+1]=d[i*4+1]!;acc[i*4+2]=d[i*4+2]!;acc[i*4+3]=1;}
+  const blur=(a:Float32Array,horizontal:boolean):Float32Array=>{
+    const out=new Float32Array(n*4),len=horizontal?w:h,lines=horizontal?h:w,run=new Float32Array(4);
+    for(let line=0;line<lines;line++){
+      const at=(k:number)=>(horizontal?line*w+((k%w)+w)%w:(((k%h)+h)%h)*w+line)*4;
+      run.fill(0);for(let k=-radius;k<=radius;k++){const j=at(k);for(let c=0;c<4;c++)run[c]=run[c]!+a[j+c]!;}
+      for(let k=0;k<len;k++){const o=at(k);for(let c=0;c<4;c++)out[o+c]=run[c]!;const add=at(k+radius+1),sub=at(k-radius);for(let c=0;c<4;c++)run[c]=run[c]!+a[add+c]!-a[sub+c]!;}
+    }
+    return out;
+  };
+  const sum=blur(blur(acc,true),false),out={width:w,height:h,data:new Uint8ClampedArray(d)},q=out.data;
+  for(let i=0;i<n;i++){
+    const t=Math.max(0,Math.min(1,(mean*.62-lum(i))/(mean*.5))),k=sum[i*4+3]!;if(t<=0||k<=0)continue;
+    for(let c=0;c<3;c++)q[i*4+c]=d[i*4+c]!*(1-t)+(sum[i*4+c]!/k)*.9*t;
+  }
+  return out;
+}
+/** Tiles whose dark parts ARE the picture (coal, a face, a firebox, cracks): their ink stays. */
+export const KEEP_INK=new Set(["coal-ore","question-block","pumpkin","furnace-front","cracked-stone-bricks","workbench-top","chest-front"]);
 /** Do not mutate the registry texture: terrain and construction may use different wrapping. */
-export function repeatingKitTexture(source:THREE.Texture):THREE.Texture {const map=framelessTile(source).clone();map.wrapS=map.wrapT=THREE.RepeatWrapping;map.anisotropy=4;map.needsUpdate=true;return map;}
+export function repeatingKitTexture(source:THREE.Texture,keepInk=false):THREE.Texture {const map=framelessTile(source,keepInk).clone();map.wrapS=map.wrapT=THREE.RepeatWrapping;map.anisotropy=4;map.needsUpdate=true;return map;}
 export function disposeKitSurfaceMaps(maps:KitSurfaceMaps):void {maps.albedo.dispose();maps.normal.dispose();maps.roughness.dispose();}
 

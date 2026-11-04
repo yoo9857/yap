@@ -8,6 +8,13 @@
     <language>ko</language>
     <lastBuildDate>Tue, 03 Nov 2026 15:00:00 +0000</lastBuildDate>
     <item>
+      <title>11월 4일 패치 노트 (4) — 블록 안의 검은 선을 빼고, 부술 땐 테두리를 숨겨요</title>
+      <link>https://craftyap.com/note/patch-2026-11-04-4/</link>
+      <guid isPermaLink="true">https://craftyap.com/note/patch-2026-11-04-4/</guid>
+      <pubDate>Tue, 03 Nov 2026 15:00:00 +0000</pubDate>
+      <description>블록 그림 안에 그려져 있던 검은 선(돌마다 둘린 선, 판자 사이 선)을 빼서 벽과 바닥이 부드러운 재료처럼 보여요. 블록을 부수는 동안에는 조준 테두리를 잠시 숨겨요.</description>
+    </item>
+    <item>
       <title>11월 4일 패치 노트 (3) — 조준 테두리를 차분하게, 깜빡임 없이</title>
       <link>https://craftyap.com/note/patch-2026-11-04-3/</link>
       <guid isPermaLink="true">https://craftyap.com/note/patch-2026-11-04-3/</guid>
@@ -139,13 +146,6 @@
       <guid isPermaLink="true">https://craftyap.com/note/patch-2026-10-29-2/</guid>
       <pubDate>Wed, 28 Oct 2026 15:00:00 +0000</pubDate>
       <description>첫 화면과 교육 모드 화면을 나무 게시판으로 새로 꾸미고, 화면이 바뀔 때 깜빡이던 문제를 고쳤습니다. 로딩창에는 진행 막대와 조작 팁이 생겼습니다.</description>
-    </item>
-    <item>
-      <title>10월 29일 패치 노트 — 감정표현, 새 캐릭터 TT, 기어가기</title>
-      <link>https://craftyap.com/note/patch-2026-10-29/</link>
-      <guid isPermaLink="true">https://craftyap.com/note/patch-2026-10-29/</guid>
-      <pubDate>Wed, 28 Oct 2026 15:00:00 +0000</pubDate>
-      <description>C 키로 표정과 동작을 고르는 감정표현 창이 생겼습니다. 새 캐릭터 TT를 고를 수 있고, Z로 기어갈 수 있습니다. 조합 창은 I 키로 옮겼습니다.</description>
     </item>
   </channel>
 </rss>

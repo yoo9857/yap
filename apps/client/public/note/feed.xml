@@ -7,6 +7,33 @@
   <updated>2026-11-04T00:00:00+09:00</updated>
   <author><name>크래프트얍(CraftYap)</name></author>
   <entry xml:base="https://craftyap.com/">
+    <title>11월 4일 패치 노트 (4) — 블록 안의 검은 선을 빼고, 부술 땐 테두리를 숨겨요</title>
+    <link href="https://craftyap.com/note/patch-2026-11-04-4/" />
+    <id>https://craftyap.com/note/patch-2026-11-04-4/</id>
+    <published>2026-11-04T00:00:00+09:00</published>
+    <updated>2026-11-04T00:00:00+09:00</updated>
+    <summary>블록 그림 안에 그려져 있던 검은 선(돌마다 둘린 선, 판자 사이 선)을 빼서 벽과 바닥이 부드러운 재료처럼 보여요. 블록을 부수는 동안에는 조준 테두리를 잠시 숨겨요.</summary>
+    <content type="html">&lt;h2&gt;한눈에 보기&lt;/h2&gt;
+&lt;p&gt;블록을 이어 붙여도 블록 그림 &lt;strong&gt;안쪽에 그려진 검은 선&lt;/strong&gt;(돌 하나하나의 테두리, 판자 사이 틈)이 남아서 그림처럼 딱딱해 보였어요. 이제 그 선을 블록 자신의 색으로 바꿔서 &lt;strong&gt;벽과 바닥이 부드러운 재료&lt;/strong&gt;처럼 보여요. 블록을 &lt;strong&gt;부수는 동안에는 조준 테두리를 숨겨서&lt;/strong&gt; 갈라지는 블록이 잘 보여요.&lt;/p&gt;
+&lt;h2&gt;BEFORE / AFTER&lt;/h2&gt;
+&lt;p&gt;&lt;strong&gt;위: 조약돌 바닥 가까이&lt;/strong&gt; — 이전에는 돌마다 검은 선이 둘려 있었어요. &lt;strong&gt;아래: 돌·벽돌·판자 벽과 조약돌·양털 바닥&lt;/strong&gt; — 같은 자리에서 찍었어요.&lt;/p&gt;
+&lt;p&gt;&lt;img src=&quot;/note/assets/20261104-inkless-ba.webp&quot; alt=&quot;블록 안쪽 선 비교: 위 줄은 조약돌 바닥 가까이, 왼쪽은 돌마다 검은 선이 있는 이전 화면, 오른쪽은 선 없이 부드러운 새 화면. 아래 줄은 같은 벽과 바닥을 멀리서 본 이전과 새 화면&quot;&gt;&lt;/p&gt;
+&lt;h2&gt;개선&lt;/h2&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;블록 안쪽 검은 선 빼기&lt;/strong&gt; — 돌, 조약돌, 벽돌, 판자, 나무, 잎 등 거의 모든 블록에서 그림 안의 검은 선을 주변 색으로 바꿨어요. 모양은 옅은 그늘로 남아요.&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;그림이 곧 블록인 것은 그대로&lt;/strong&gt;예요: 석탄 광석의 석탄, 물음표 블록, 호박 얼굴, 화로, 금 간 돌벽돌, 작업대, 상자.&lt;/li&gt;
+&lt;li&gt;가방과 단축칸의 블록 아이콘은 이전 그림 그대로예요.&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;부수는 동안 조준 테두리 숨기기&lt;/strong&gt; — 블록이 갈라지기 시작하면 테두리가 잠시 사라지고, 손을 떼거나 다른 블록을 보면 다시 나타나요.&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2&gt;알려진 문제&lt;/h2&gt;
+&lt;ul&gt;
+&lt;li&gt;이미 열려 있던 탭은 &lt;strong&gt;새로고침&lt;/strong&gt;해야 바뀐 화면이 보여요.&lt;/li&gt;
+&lt;/ul&gt;
+</content>
+  </entry>
+  <entry xml:base="https://craftyap.com/">
     <title>11월 4일 패치 노트 (3) — 조준 테두리를 차분하게, 깜빡임 없이</title>
     <link href="https://craftyap.com/note/patch-2026-11-04-3/" />
     <id>https://craftyap.com/note/patch-2026-11-04-3/</id>
@@ -833,39 +860,6 @@
 &lt;li&gt;&lt;strong&gt;화면이 바뀔 때 깜빡이던 문제&lt;/strong&gt; — 교육 모드를 누를 때 잠깐 빈 하늘색 화면이 보이고 배경 영상이 끊기던 문제를 고쳤어요. 이제 게임이 시작될 때까지 배경 그림과 영상이 이어져요.&lt;/li&gt;
 &lt;li&gt;&lt;strong&gt;로딩창에 로고가 두 번 보이던 문제&lt;/strong&gt; — 배경 그림의 로고와 로딩창 로고가 겹치던 것을 정리했어요.&lt;/li&gt;
 &lt;li&gt;&lt;strong&gt;로딩 중 게임 버튼이 비쳐 보이던 문제&lt;/strong&gt; — 로딩창 뒤로 기계 작업실 같은 게임 버튼이 보이던 문제를 고쳤어요.&lt;/li&gt;
-&lt;/ul&gt;
-</content>
-  </entry>
-  <entry xml:base="https://craftyap.com/">
-    <title>10월 29일 패치 노트 — 감정표현, 새 캐릭터 TT, 기어가기</title>
-    <link href="https://craftyap.com/note/patch-2026-10-29/" />
-    <id>https://craftyap.com/note/patch-2026-10-29/</id>
-    <published>2026-10-29T00:00:00+09:00</published>
-    <updated>2026-10-29T00:00:00+09:00</updated>
-    <summary>C 키로 표정과 동작을 고르는 감정표현 창이 생겼습니다. 새 캐릭터 TT를 고를 수 있고, Z로 기어갈 수 있습니다. 조합 창은 I 키로 옮겼습니다.</summary>
-    <content type="html">&lt;blockquote&gt;
-&lt;p&gt;Craft Island와 교육 모드(들판·교실)에 적용됩니다.&lt;/p&gt;
-&lt;/blockquote&gt;
-&lt;h2&gt;한눈에 보기&lt;/h2&gt;
-&lt;p&gt;말 대신 &lt;strong&gt;표정과 몸짓으로 마음을 전할 수 있게&lt;/strong&gt; 되었습니다. C를 누르면 20가지 표정과
-손 흔들기, 앉기, 눕기를 고를 수 있고, 교실에서는 친구들에게도 그대로 보입니다. 두 번째
-캐릭터 &lt;strong&gt;TT&lt;/strong&gt;도 함께 찾아왔습니다.&lt;/p&gt;
-&lt;h2&gt;새로 추가&lt;/h2&gt;
-&lt;ul&gt;
-&lt;li&gt;&lt;strong&gt;감정표현 (C)&lt;/strong&gt; — 미소, 윙크, 깜짝, 시무룩, 뾰로통, 스르르 같은 표정과 손 흔들기, 신나게, 말하기 동작을 고를 수 있습니다. 창에서 숫자 1–9로 빠르게 고를 수 있습니다.&lt;/li&gt;
-&lt;li&gt;&lt;strong&gt;앉기 · 눕기 · 일어나기&lt;/strong&gt; — 감정표현 창에서 고릅니다. 앉아 있다가 움직이면 일어서고, 누워 있다가 움직이면 기어갑니다. Space를 누르면 언제든 일어섭니다.&lt;/li&gt;
-&lt;li&gt;&lt;strong&gt;기어가기 (Z)&lt;/strong&gt; — Z를 누르면 몸을 낮추고 천천히 기어갑니다. 다시 Z를 누르면 일어섭니다. 머리 위 공간이 모자라거나 공중·물속이면 자세가 바뀌지 않습니다.&lt;/li&gt;
-&lt;li&gt;&lt;strong&gt;새 캐릭터 TT&lt;/strong&gt; — 감정표현 창 위쪽에서 HOME과 TT 중 하나를 고를 수 있습니다. 고른 캐릭터는 다음에 들어와도 그대로입니다.&lt;/li&gt;
-&lt;li&gt;&lt;strong&gt;교실에서 함께 보기&lt;/strong&gt; — 교실에서는 다른 친구의 캐릭터, 표정, 자세가 내 화면에도 보입니다.&lt;/li&gt;
-&lt;/ul&gt;
-&lt;h2&gt;개선&lt;/h2&gt;
-&lt;ul&gt;
-&lt;li&gt;&lt;strong&gt;조합 창은 I 키&lt;/strong&gt; — 감정표현이 C 키를 쓰게 되어, 재료로 블록을 만드는 조합 창은 &lt;strong&gt;I&lt;/strong&gt; 키로 옮겼습니다. 아래 키 안내와 H 조작법에도 반영했습니다.&lt;/li&gt;
-&lt;li&gt;캐릭터 얼굴이 표정마다 움직이는 애니메이션으로 바뀌었습니다.&lt;/li&gt;
-&lt;/ul&gt;
-&lt;h2&gt;알려진 문제&lt;/h2&gt;
-&lt;ul&gt;
-&lt;li&gt;업데이트 전에 열어 둔 교실 화면은 접속이 끊길 수 있습니다. 새로고침하면 다시 들어올 수 있습니다.&lt;/li&gt;
 &lt;/ul&gt;
 </content>
   </entry>

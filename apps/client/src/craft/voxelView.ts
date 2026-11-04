@@ -1,7 +1,7 @@
 import {kitCubeGeometry,kitRampGeometry,kitConnectorGeometry,kitRoundGeometry,kitCellsGeometry} from "./kitGeometry.js";
 import * as THREE from "three";
 import {mergeGeometries} from "three/examples/jsm/utils/BufferGeometryUtils.js";
-import {framelessTile,repeatingKitTexture} from "./kitSurface.js";
+import {KEEP_INK,framelessTile,repeatingKitTexture} from "./kitSurface.js";
 import { AimOutline } from "./aimOutline.js";
 import {BlockMaterialLibrary,linkSurfaceTwin,materialFaceGroups,needsCatalogTexture} from "./blockMaterials.js";
 import { castsInstancedShadow } from "../render/instancedDepth.js";
@@ -237,7 +237,7 @@ export class VoxelView {
       this.kitMaterials.set(def.id,kit);
       for(const m of kit)if(m.name.endsWith("/ grass"))m.color.setRGB(...GRASS_TINT);
       const far=kit.map(m=>{const twin=m.clone();linkSurfaceTwin(m,twin);return twin;});this.materialIndex.set(def.id,this.materialList.length);this.faceMaterialIndices.set(def.id,far.map((_,i)=>this.materialList.length+i));this.materialList.push(...far);merged.dispose();
-      if(options.catalogTextures!==false&&needsCatalogTexture(def))void loadTexture(textureUrl(def)).then(tex=>{if(this.disposed||!tex)return;const map=repeatingKitTexture(tex);this.clonedBlockTextures.add(map);for(const m of [...kit,...far]){m.map=map;m.color.set(0xffffff);if(def.emissive)m.emissiveMap=map;m.needsUpdate=true;}});
+      if(options.catalogTextures!==false&&needsCatalogTexture(def))void loadTexture(textureUrl(def)).then(tex=>{if(this.disposed||!tex)return;const map=repeatingKitTexture(tex,KEEP_INK.has(def.texture));this.clonedBlockTextures.add(map);for(const m of [...kit,...far]){m.map=map;m.color.set(0xffffff);if(def.emissive)m.emissiveMap=map;m.needsUpdate=true;}});
       if (def.seeThrough) this.seeThrough.add(def.id);
     }
     scene.add(this.highlight.object);
@@ -335,7 +335,7 @@ export class VoxelView {
     }
     if(this.options.catalogTextures!==false)void loadTexture(textureUrl(def)).then((tex) => {
       if (this.disposed || !tex) return; // keep the solid crayon colour
-      const tile = framelessTile(tex); // no icon frame: joined bricks must not grid into tiles
+      const tile = framelessTile(tex, KEEP_INK.has(def.texture)); // no icon frame or ink grid (kitSurface)
       material.map = tile;
       material.color.set(0xffffff); // the tile carries the hue, exactly like the tower
       if (def.emissive) material.emissiveMap = tile;
