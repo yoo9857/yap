@@ -23,7 +23,7 @@ import puppeteer from "puppeteer-core";
 
 const EDGE = "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe";
 const PROFILE = process.argv.includes("--profile");
-/** Extra URL params (e.g. `--url=&ink=0`) and render switches (`--no-shadows`,
+/** Extra URL params (e.g. `--url=&ink=1` to measure with the outline pass) and render switches (`--no-shadows`,
  *  `--no-robot`), for bisecting where a cost comes from. */
 const URL_EXTRA = (process.argv.find((a) => a.startsWith("--url=")) ?? "--url=").slice(6);
 const FLAGS = { shadows: !process.argv.includes("--no-shadows"), robot: !process.argv.includes("--no-robot") };
