@@ -24,7 +24,7 @@ import { fileURLToPath } from "node:url";
 
 const SELF = fileURLToPath(import.meta.url);
 const ROOT = join(dirname(SELF), "..");
-const CLASS_V = 9; // CLASS_PROTOCOL_VERSION — a mismatch shows up as bad-version below
+const CLASS_V = 10; // CLASS_PROTOCOL_VERSION — a mismatch shows up as bad-version below
 
 function args(argv) {
   const o = { classes: 10, students: 20, duration: 30, warmup: 8, editEvery: 2, water: false, shards: 1, botProcs: 2, url: "", out: "", port: 8090 };

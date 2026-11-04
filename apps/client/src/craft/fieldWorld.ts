@@ -70,6 +70,9 @@ export class FieldWindow {
   /** Absolute cell key → [blockId, shape], for cells outside the live window
    *  (and, after a bank(), inside it too). */
   private readonly edits = new Map<VoxelKey, [number, number]>();
+  /** Absolute cell key → the water a shaped block holds (VoxelWorld.wet), banked like `edits` so a
+   *  scroll keeps it. Simulation state: never saved. */
+  private readonly wet = new Map<VoxelKey, number>();
   /** Absolute coordinate of grid cell (0, 0). */
   private originX = -CENTER_X;
   private originZ = -CENTER_Z;
@@ -116,11 +119,11 @@ export class FieldWindow {
     if (this.world.version === this.bankedVersion) return;
     // forget the window's old entries, then re-record what differs now —
     // keys are only built for edited cells, never for the 1.4M pristine ones
-    for (const key of this.edits.keys()) {
+    for (const map of [this.edits, this.wet]) for (const key of map.keys()) {
       const [ax, y, az] = voxelCoordinates(key);
-      if (this.world.inBounds(ax - this.originX, y, az - this.originZ)) this.edits.delete(key);
+      if (this.world.inBounds(ax - this.originX, y, az - this.originZ)) map.delete(key);
     }
-    const { cells, shapes } = this.world;
+    const { cells, shapes, wet } = this.world;
     for (let y = 0; y < WORLD_Y; y++) {
       const pristine = this.column[y]!;
       let i = VoxelWorld.index(0, y, 0);
@@ -128,6 +131,7 @@ export class FieldWindow {
         for (let x = 0; x < WORLD_X; x++, i++) {
           if (cells[i] === pristine && shapes[i] === 0) continue;
           this.edits.set(voxelKey(x + this.originX, y, z + this.originZ), [cells[i]!, shapes[i]!]);
+          if (wet[i]) this.wet.set(voxelKey(x + this.originX, y, z + this.originZ), wet[i]!);
         }
       }
     }
@@ -136,12 +140,13 @@ export class FieldWindow {
 
   /** Rebuild the window from the flat field plus banked edits. */
   private fill(): void {
-    const { cells, shapes } = this.world;
+    const { cells, shapes, wet } = this.world;
     for (let y = 0; y < WORLD_Y; y++) {
       const start = VoxelWorld.index(0, y, 0);
       cells.fill(this.column[y]!, start, start + WORLD_X * WORLD_Z);
     }
     shapes.fill(0);
+    wet.fill(0);
     for (const [key, [block, shape]] of this.edits) {
       const [ax, y, az] = voxelCoordinates(key);
       const x = ax - this.originX;
@@ -150,6 +155,11 @@ export class FieldWindow {
       const i = VoxelWorld.index(x, y, z);
       cells[i] = block;
       shapes[i] = shape;
+    }
+    for (const [key, water] of this.wet) {
+      const [ax, y, az] = voxelCoordinates(key);
+      const x = ax - this.originX, z = az - this.originZ;
+      if (this.world.inBounds(x, y, z)) wet[VoxelWorld.index(x, y, z)] = water;
     }
     this.world.version++;
     this.bankedVersion = this.world.version;
@@ -174,6 +184,27 @@ export class FieldWindow {
     return this.edits.get(voxelKey(ax, y, az)) ?? [this.column[y] ?? 0, 0];
   }
 
+  /** The water a shaped block at an absolute cell holds (0: none). */
+  wetAt(ax: number, y: number, az: number): number {
+    const [x, z] = this.toGrid(ax, az);
+    if (this.world.inBounds(x, y, z)) return this.world.wet[VoxelWorld.index(x, y, z)]!;
+    return this.wet.get(voxelKey(ax, y, az)) ?? 0;
+  }
+
+  /** Set the water a shaped block holds (classroom: the server's flow). Grid cell when it is in the
+   *  live window (the caller redraws its water), else null. */
+  applyWet(ax: number, y: number, az: number, water: number): [number, number, number] | null {
+    const [x, z] = this.toGrid(ax, az);
+    if (this.world.inBounds(x, y, z)) {
+      this.world.setWet(x, y, z, water);
+      return [x, y, z];
+    }
+    const key = voxelKey(ax, y, az);
+    if (water) this.wet.set(key, water);
+    else this.wet.delete(key);
+    return null;
+  }
+
   /**
    * Write a cell someone else changed. Returns its grid coordinates when it
    * is inside the live window (the caller re-renders that chunk), else null.
@@ -185,6 +216,7 @@ export class FieldWindow {
       return [x, y, z];
     }
     const key = voxelKey(ax, y, az);
+    this.wet.delete(key); // a written cell holds no water until the flow says so (VoxelWorld.set)
     if (block === (this.column[y] ?? 0) && shape === 0) this.edits.delete(key);
     else this.edits.set(key, [block, shape]);
     return null;
@@ -197,6 +229,7 @@ export class FieldWindow {
   /** Replace the whole field with the class's (join / reconnect). */
   replaceAll(edits: readonly (readonly [number, number, number, number, number])[]): void {
     this.edits.clear();
+    this.wet.clear();
     for (const [ax, y, az, block, shape] of edits) {
       if (y >= 0 && y < WORLD_Y && (block !== this.column[y] || shape !== 0)) this.edits.set(voxelKey(ax, y, az), [block, shape]);
     }
@@ -260,6 +293,7 @@ export class FieldWindow {
     this.originX = d.originX;
     this.originZ = d.originZ;
     this.edits.clear();
+    this.wet.clear();
     for (const [x, y, zz, block, shape] of d.edits) {
       if (y < 0 || y >= WORLD_Y || shape < 0 || shape > MAX_BLOCK_SHAPE) continue;
       if (!isKnownCell(block)) continue;

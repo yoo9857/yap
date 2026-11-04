@@ -1,4 +1,4 @@
-import { FLUID_STEP, FluidSim, WATER, isWater, type FluidWorld } from "@robo/shared";
+import { FLUID_STEP, FluidSim, WATER, holdsWaterlog, isWater, shapeSeal, type FluidWorld } from "@robo/shared";
 import type { FieldWindow } from "./fieldWorld.js";
 import type { VoxelView } from "./voxelView.js";
 import { WORLD_X, WORLD_Z, type VoxelWorld } from "./voxelWorld.js";
@@ -39,7 +39,23 @@ export class WaterSim {
   private readonly fluidWorld: FluidWorld = {
     // outside the scrolled window the field's banked edits hold the water: reading the plain
     // column there (air) drained every stream whose source had just scrolled out of view
-    get: (ax, y, az) => this.field ? this.field.cellAt(ax, y, az)[0] : this.world.get(ax - this.ox, y, az - this.oz),
+    // a shaped block's cell reads (and takes) the water it holds, not its block id (waterlog.ts).
+    // Hot path: cells in the live window read the grid directly (field.cellAt allocates).
+    get: (ax, y, az) => {
+      const x = ax - this.ox, z = az - this.oz;
+      if (!this.field || this.world.inBounds(x, y, z)) {
+        const block = this.world.get(x, y, z);
+        return block !== 0 && holdsWaterlog(block, this.world.getShape(x, y, z)) ? this.world.wetAt(x, y, z) : block;
+      }
+      const [block, shape] = this.field.cellAt(ax, y, az);
+      return holdsWaterlog(block, shape) ? this.field.wetAt(ax, y, az) : block;
+    },
+    seal: (ax, y, az) => {
+      const x = ax - this.ox, z = az - this.oz;
+      if (!this.field || this.world.inBounds(x, y, z)) return this.world.waterSeal(x, y, z);
+      const [block, shape] = this.field.cellAt(ax, y, az);
+      return holdsWaterlog(block, shape) ? shapeSeal(shape) : 0;
+    },
     open: (ax, y, az) => {
       const x = ax - this.ox;
       const z = az - this.oz;
@@ -48,7 +64,8 @@ export class WaterSim {
     set: (ax, y, az, id) => {
       const x = ax - this.ox;
       const z = az - this.oz;
-      this.world.setShaped(x, y, z, id, 0);
+      if (holdsWaterlog(this.world.get(x, y, z), this.world.getShape(x, y, z))) this.world.setWet(x, y, z, id);
+      else this.world.setShaped(x, y, z, id, 0);
       this.view.markWaterDirty(x, y, z); // water ↔ air never changes a brick
     },
   };
@@ -96,7 +113,8 @@ export class WaterSim {
       if ((i & 1023) === 0 && performance.now() - start >= 1) break;
       this.wakeCursor++;
       const id = cells[i]!;
-      if (id === 0 || !isWater(id)) continue;
+      // water cells, and shaped blocks holding water (a field scroll restores both)
+      if ((id === 0 || !isWater(id)) && !this.world.wet[i]) continue;
       // VoxelWorld.index: (y * WORLD_Z + z) * WORLD_X + x
       const x = i % WORLD_X;
       const z = Math.floor(i / WORLD_X) % WORLD_Z;

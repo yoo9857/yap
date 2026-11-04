@@ -43,7 +43,7 @@ import { WATER, WATER_SETTLED, isWater, emoteDef, lookDirection, pickBonk, bonkB
 import { EmoteMenu } from "./emoteMenu.js";
 import { adoptPosture, moveScale, POSTURE_EYE, type Posture } from "./posture.js";
 import { gaitBlend } from "../player/motionPolicy.js";
-import { CRAFT_SPAWN, surfaceY, type RayHit } from "./voxelWorld.js";
+import { CRAFT_SPAWN, WORLD_X, WORLD_Z, surfaceY, type RayHit } from "./voxelWorld.js";
 import { PIECES, MAX_PIECE_CELLS, pieceCells, pieceShape } from "./pieces.js";
 import { ROUND, KIT_CUBE, isOrientedShape, blockShapeFamily, shapeBoxes, shapeBounds } from "./shapes.js";
 import {kitCubeGeometry,kitRampGeometry,kitConnectorGeometry,kitRoundGeometry,kitCellsGeometry,kitBoxesGeometry} from "./kitGeometry.js";
@@ -1360,7 +1360,11 @@ export class CraftGame {
     const world = this.state.world;
     const prevBlock = world.get(x, y, z);
     const prevShape = world.getShape(x, y, z);
+    // mining a shaped block that held water leaves that water standing in the cell (no dry flash
+    // until the next flow step). A classroom still sends air: the server makes the same swap.
+    const held = block === AIR ? world.wetAt(x, y, z) : 0;
     world.setShaped(x, y, z, block, shape);
+    if (held) world.set(x, y, z, held);
     if (SOLID_ID[prevBlock] === 0 && SOLID_ID[block] === 0) this.view.markWaterDirty(x, y, z);
     else { this.view.markCellDirty(x, y, z); this.view.markWaterDirty(x, y, z); }
     this.water?.touch(x, y, z); // water around it may flow in, or drain
@@ -2040,6 +2044,19 @@ export class CraftGame {
       debugWalk: (strafe: number, forward: number) => {
         this.debugWalkInput = strafe || forward ? [strafe, forward] : null;
       },
+      /** Water held inside shaped blocks: how many cells hold it now, how many the last water mesh
+       *  drew, and each wet shaped cell [x, y, z, waterId] (grid coordinates). */
+      waterlogStats: () => {
+        const { wet, cells, shapes } = this.state.world, held: number[][] = [];
+        let dry = 0;
+        for (let i = 0; i < wet.length; i++) {
+          if (wet[i]) held.push([i % WORLD_X, Math.floor(i / (WORLD_X * WORLD_Z)), Math.floor(i / WORLD_X) % WORLD_Z, wet[i]!]);
+          else if (shapes[i] && cells[i] && !isWater(cells[i]!)) dry++;
+        }
+        return { held: held.length, dryShaped: dry, drawn: this.view.lastWaterlog, cells: held.slice(0, 200) };
+      },
+      /** The water a cell holds: its own water id, or what a shaped block holds (0: none). */
+      waterAt: (x: number, y: number, z: number) => this.state.world.waterAt(x, y, z),
       /** Faces bordering air that no shell draws (see VoxelView.auditFaces). */
       auditFaces: (limit?: number) => this.view.auditFaces(this.state.world, limit),
       /** Show a dig in progress on a cell (0..1) without a captured mouse; null stops it. */

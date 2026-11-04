@@ -1,6 +1,5 @@
 import { isFullCubeShape, raycastBlockShape } from "./shapes.js";
-import { isBlockShape } from "@robo/shared";
-import { isWater } from "@robo/shared";
+import { holdsWaterlog, isBlockShape, isWater, shapeSeal } from "@robo/shared";
 import { AIR, SOLID_ID, blockByKey } from "./blocks.js";
 
 /**
@@ -51,6 +50,9 @@ export class VoxelWorld {
   /** Stable per-cell shape code, shared by rendering, collision, aiming and saves.
    *  Cleared to 0 whenever a plain cube/air is written. */
   readonly shapes = new Uint8Array(WORLD_X * WORLD_Y * WORLD_Z);
+  /** Water held INSIDE a shaped block (waterlog.ts): a water id, or 0. Only meaningful where
+   *  `holdsWaterlog(cell, shape)`; cleared whenever a cell is written. Simulation state, never saved. */
+  readonly wet = new Uint8Array(WORLD_X * WORLD_Y * WORLD_Z);
   /** Block id per height for every column OUTSIDE the grid, or null for the
    *  island (outside is open air). The infinite education field sets this so
    *  physics, rays and machines always have ground under them. */
@@ -81,6 +83,7 @@ export class VoxelWorld {
       const i = VoxelWorld.index(x, y, z);
       this.cells[i] = id;
       this.shapes[i] = 0; // a plain cube / air — never keep a stale shape
+      this.wet[i] = 0;
       this.version++;
     }
   }
@@ -94,8 +97,38 @@ export class VoxelWorld {
       // buffer. Unknown shapes can otherwise produce invalid rotations and
       // undefined geometry in the renderer.
       this.shapes[i] = isBlockShape(shape) ? shape : 0;
+      this.wet[i] = 0;
       this.version++;
     }
+  }
+
+  /** Set the water a shaped block holds (the water simulation; a classroom's server). */
+  setWet(x: number, y: number, z: number, id: number): void {
+    if (!this.inBounds(x, y, z)) return;
+    const i = VoxelWorld.index(x, y, z);
+    if (this.wet[i] === id) return;
+    this.wet[i] = id;
+    this.version++;
+  }
+
+  /** The water a shaped block holds (0: none, or out of the grid). */
+  wetAt(x: number, y: number, z: number): number {
+    return this.inBounds(x, y, z) ? this.wet[VoxelWorld.index(x, y, z)]! : 0;
+  }
+
+  /** The water in a cell: a water cell's own id, the water a shaped block holds, else 0. What
+   *  swimming, the underwater camera and the water mesher read. */
+  waterAt(x: number, y: number, z: number): number {
+    const id = this.get(x, y, z);
+    if (isWater(id)) return id;
+    return this.inBounds(x, y, z) ? this.wet[VoxelWorld.index(x, y, z)]! : 0;
+  }
+
+  /** Faces of this cell water cannot pass (fluid.ts FACE_* bits); 0 for air/water. */
+  waterSeal(x: number, y: number, z: number): number {
+    if (!this.inBounds(x, y, z)) return 0;
+    const i = VoxelWorld.index(x, y, z), shape = this.shapes[i]!;
+    return shape !== 0 && holdsWaterlog(this.cells[i]!, shape) ? shapeSeal(shape) : 0;
   }
 
   getShape(x: number, y: number, z: number): number {

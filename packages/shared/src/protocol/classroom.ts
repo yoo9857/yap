@@ -16,8 +16,8 @@ import { characterIdSchema, emoteIdSchema, characterActionSchema, heldItemSchema
  * selected with `?mode=class`.
  */
 
-/** 3: named classrooms. 4: water. 5: paced live-world streaming + reliable replay. 6: character emotes and low postures. 7: construction shapes through code 50. 8: light player taps. */
-export const CLASS_PROTOCOL_VERSION = 9;
+/** 3: named classrooms. 4: water. 5: paced live-world streaming + reliable replay. 6: character emotes and low postures. 7: construction shapes through code 50. 8: light player taps. 9: half blocks and stairs. 10: water inside shaped blocks (s-k-wet). */
+export const CLASS_PROTOCOL_VERSION = 10;
 /** Highest block layer of the field grid (WORLD_Y - 1). */
 export const CLASS_MAX_Y = 55;
 /** Field coordinates are bounded so a hostile client can't grow the store
@@ -55,6 +55,15 @@ export const classEditSchema = z.tuple([
   z.number().int().min(0).max(MAX_BLOCK_SHAPE),
 ]);
 export type ClassEdit = z.infer<typeof classEditSchema>;
+
+/** The water a shaped block holds (waterlog.ts): absolute x/z, y, water id or 0 (dry). */
+export const classWetSchema = z.tuple([
+  coordSchema,
+  z.number().int().min(0).max(CLASS_MAX_Y),
+  coordSchema,
+  z.number().int().min(0).max(255),
+]);
+export type ClassWet = z.infer<typeof classWetSchema>;
 
 /** Exact furniture value, including colour and open/closed state. */
 const furnitureBase = z.tuple([
@@ -203,6 +212,9 @@ export const classServerSchema = z.discriminatedUnion("t", [
     })),
   }),
   z.object({ t: z.literal("s-k-edit"), by: z.string(), edits: z.array(classEditSchema) }),
+  /** Water moved inside shaped blocks (the server's flow; also the whole layer after a join, and the
+   *  cells of a refused edit). A written block clears its cell's water on both sides by itself. */
+  z.object({ t: z.literal("s-k-wet"), cells: z.array(classWetSchema) }),
   z.object({
     t: z.literal("s-k-chat"),
     from: z.string(),

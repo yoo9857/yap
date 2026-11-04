@@ -195,6 +195,12 @@ export class ClassSync {
     };
     client.onSnap = (players, ts) => this.applySnap(players, ts);
     client.onEdit = (edits, by) => this.applyEdits(edits, by);
+    client.onWet = (cells) => {
+      for (const [ax, y, az, water] of cells) {
+        const cell = field.applyWet(ax, y, az, water);
+        if (cell) view.markWaterDirty(cell[0], cell[1], cell[2]);
+      }
+    };
     client.onFurniture = (items, rejected) => {
       furniture.load(items, true);
       hooks.furnitureMoved?.();

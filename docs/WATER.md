@@ -186,21 +186,40 @@ production E2E 9/9. The production jump check missed input once and passed a cle
 rerun without product changes. Terrain/pit/stair QA remains error-free and six
 pour/replace cycles plateau at 93 geometries and 26 shader programs.
 
-## Water against shaped blocks (2026-11-04)
+## Water inside shaped blocks — waterlogging (2026-11-04)
 
-The simulation keeps water out of every solid cell, including a triangle,
-corner, half block or stairs that fills only part of its cell. The mesher used
-to stop at that cell's boundary, leaving a box-shaped gap where the open part
-should be under water. `waterlogShapes` (voxelView) now fills those cells in
-the MESHER's snapshot only: covered by water → full; otherwise the highest
-water beside it — unless air is beside it on a side the shape leaves open
-below that water level (`sideClosed`, probed with `shapeIntersectsBox`): a
-half block at a pool's edge stays dry (filling it would stand a wall of water
-on dry land), while stairs or a ramp whose high back holds back the land
-fills. Before this, a shape against a wall also left a dark wedge where the
-surface folded short of the wall ("the wall breaks"). It never chains (one waterlogged cell does not feed the
-next), so the inner cells of a wide half-block floor lying exactly at the
-water surface stay unfilled. The world, the simulation, saves and the server
-are untouched. Real waterlogging (water flowing through shaped cells) would
-need a water layer beside the block id and a save-format change.
+A triangle, corner, round, half block or stairs fills only part of its cell, and
+the simulation now puts water in the rest (`packages/shared/src/waterlog.ts`):
 
+- **A water layer beside the block.** The cell keeps its block id and shape; the
+  water it holds is a separate value (`VoxelWorld.wet`, the field's banked `wet`
+  map, the server's `ClassRoom.wet`). `FluidWorld.get/set` read and write that
+  layer for such cells (`holdsWaterlog(block, shape)`), so the rules in `fluid.ts`
+  run unchanged on them. Writing a cell (place, mine, a classmate's edit) clears
+  its water on every side; the flow refills it the next step. Mining such a block
+  is the exception: its water stays in the cell (client `writeCell`, server
+  `applyEdits` → an `s-k-edit` from "" to everyone), so no dry hole flashes.
+- **Sealed faces.** `FluidWorld.seal` gives the faces water cannot pass (FACE_*
+  bits): a face covered by more than 77 % of the shape (`shapeSeal`, sampled
+  16×16). Ramps: back + floor; half blocks: floor (upside down: roof); stairs: back
+  + floor (their 75 % sides stay open); corners: floor; round: top + bottom (a disc
+  covers 79 %). Movement between two cells needs both shared faces open, sideways
+  and up/down: water falls into a ramp or half block from above, but spreads over a
+  round's top as over a floor.
+- **Never saved.** It is flow state. A reloaded island/field or a restored class
+  re-flows it from the saved water around it within a few steps (sources wake their
+  neighbours). Saves, the field bank format and the classroom store are unchanged,
+  so a rollback reads every row.
+- **Classroom:** protocol 10 adds `s-k-wet` (absolute x, y, z, water id or 0). The
+  server sends it for flow changes inside shaped cells, the whole layer after a join
+  (replayed after the streamed world), and the cells of a refused edit.
+- **Rendering:** the mesher's snapshot takes the layer as that cell's water id
+  (`waterlogSnapshot`); the opaque block covers what falls inside its solid part.
+  Swimming and the underwater camera read `VoxelWorld.waterAt`.
+- Limits: the bucket cannot scoop water out of a shaped block. A half block in a
+  pool's rim lets water out onto the land (its sides are half open).
+
+Checked by `packages/shared/test/waterlog.test.ts`, `apps/client/test/water-shapes.test.ts`,
+the classroom water test and `node tools/shot-water-mixed.mjs` (triangle + round pairs,
+clusters, against a wall, at the surface, in the rim, and a stream on open ground;
+fails if any shaped cell the water reaches stays dry).

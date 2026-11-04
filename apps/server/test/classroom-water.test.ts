@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { WATER, WATER_SETTLED, CLASS_MAX_COORD, decodeClassServer, flowingWater, type ClassServerMessage } from "@robo/shared";
+import { ROUND, WATER, WATER_SETTLED, CLASS_MAX_COORD, decodeClassServer, flowingWater, kitSlopeShape, type ClassServerMessage } from "@robo/shared";
 import { ClassRoom, type ClassPeer } from "../src/classroom/classRoom.js";
 import { hashPassword } from "../src/classroom/classStore.js";
 
@@ -34,7 +34,44 @@ function settle(room: ClassRoom): void {
   for (let i = 0; i < 100; i++) room.stepFluids(Infinity);
 }
 
+/** Every water-inside-a-shaped-block cell the server sent, last write wins. */
+function wet(peer: Peer): Map<string, number> {
+  const cells = new Map<string, number>();
+  for (const m of peer.inbox) if (m.t === "s-k-wet") for (const [x, y, z, w] of m.cells) cells.set(`${x},${y},${z}`, w);
+  return cells;
+}
+
 describe("classroom water", () => {
+  it("flows into shaped blocks: sent as s-k-wet, the block stays; late joiners get it; a write clears it", () => {
+    const room = new ClassRoom("Wet", AUTH), teacher = new Peer();
+    room.hostTeacher(teacher);
+    // a source with a round and a ramp beside it on open ground
+    room.handle(teacher, { t: "k-edit", edits: [[1, Y, 0, 3, ROUND], [0, Y, 1, 3, kitSlopeShape(2, 0)], [0, Y, 0, WATER, 0]] });
+    settle(room);
+    const sent = wet(teacher);
+    expect(sent.get(`1,${Y},0`)).toBe(flowingWater(1));
+    expect(sent.get(`0,${Y},1`)).toBe(flowingWater(1));
+    expect(teacher.water().has(`1,${Y},0`)).toBe(false); // the block itself was never overwritten
+    expect(teacher.water().get(`2,${Y},0`)).toBe(flowingWater(2)); // the stream went on through the round
+    const late = new Peer();
+    room.joinStudent(late, "Late");
+    expect(late.inbox.find((m) => m.t === "s-k-wet")).toBeDefined();
+    expect(wet(late).get(`1,${Y},0`)).toBe(flowingWater(1));
+    expect(decodeClassServer(JSON.stringify(late.inbox.find((m) => m.t === "s-k-wet")))).not.toBeNull();
+    // the saved class keeps the blocks, not the flow state
+    expect(JSON.stringify(room.toSaved())).not.toContain("wet");
+    // replacing the round with a cube: its water is gone, nothing more is sent for it
+    teacher.inbox = [];
+    room.handle(teacher, { t: "k-edit", edits: [[1, Y, 0, 3, 0]] });
+    settle(room);
+    expect(wet(teacher).has(`1,${Y},0`)).toBe(false);
+    // mining the ramp that holds water leaves its water in the cell, for everyone, the miner too
+    teacher.inbox = []; late.inbox = [];
+    room.handle(teacher, { t: "k-edit", edits: [[0, Y, 1, 0, 0]] });
+    expect(teacher.water().get(`0,${Y},1`)).toBe(flowingWater(1));
+    expect(late.water().get(`0,${Y},1`)).toBe(flowingWater(1));
+  });
+
   it("never exceeds the saved-cell limit when one step fills several new cells", () => {
     const initial = new ClassRoom("Capacity", AUTH), teacher = new Peer();
     initial.hostTeacher(teacher);

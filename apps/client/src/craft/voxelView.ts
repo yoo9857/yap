@@ -6,7 +6,6 @@ import { AimOutline } from "./aimOutline.js";
 import {BlockMaterialLibrary,linkSurfaceTwin,materialFaceGroups,needsCatalogTexture} from "./blockMaterials.js";
 import { castsInstancedShadow } from "../render/instancedDepth.js";
 import { BLOCKS, SOLID_ID, blockById, textureUrl, type BlockDef } from "./blocks.js";
-import { WATER, isWater, waterLevel, waterHeight, shapeIntersectsBox } from "@robo/shared";
 import { animateWater, buildWaterGeometry, makeWaterMaterial, prepareWaterTransition } from "./waterMesh.js";
 import type { WaterWorkerRequest, WaterWorkerResponse } from "./waterWorkerTypes.js";
 import { loadTexture } from "../render/textures.js";
@@ -125,53 +124,25 @@ const FACE_CORNERS: readonly (readonly [number, number])[] = [
 ];
 
 /**
- * Water against a triangle, corner, half block or stairs (players: "water is cut off at slopes and
- * stairs"): the simulation keeps water out of every solid cell, so the water surface stopped at the
- * shaped cell's boundary and left a box-shaped gap where its open half should be under water.
- * For the MESHER only (its own snapshot, never the world or the simulation), a shaped cell takes
- * the water around it: covered by water → full; otherwise the highest water beside it — unless air
- * is beside it on a side the shape leaves open below that water (a pool's edge), where filling it
- * would stand a wall of water on dry land. The
- * block itself is drawn opaque over whatever of that water falls inside its solid part.
+ * The water mesher sees one id per cell, so a shaped block holding water (VoxelWorld.wet, filled by
+ * the water simulation — waterlog.ts) is handed to it AS that water, in the mesher's own snapshot
+ * only. The block is drawn opaque over whatever of the water falls inside its solid part, so the
+ * surface runs on through the open part of a ramp, round, half block or stairs and meets its face.
+ * Only the chunks being rebuilt (plus a one-cell rim) are touched. Returns how many cells it filled.
  */
-export function waterlogShapes(cells: Uint8Array, world: Pick<VoxelWorld, "shapes">, regions: readonly { x: number; z: number; minY: number; maxY: number }[], seeThrough: ReadonlySet<number>): number {
-  const at = (x: number, y: number, z: number) => (y * WORLD_Z + z) * WORLD_X + x;
-  const inside = (x: number, y: number, z: number) => x >= 0 && x < WORLD_X && z >= 0 && z < WORLD_Z && y >= 0 && y < WORLD_Y;
-  const changed: [number, number][] = [];
+export function waterlogSnapshot(cells: Uint8Array, wet: Uint8Array, regions: readonly { x: number; z: number; minY: number; maxY: number }[]): number {
+  let filled = 0;
   for (const r of regions) {
     for (let y = Math.max(0, r.minY - 1); y <= Math.min(WORLD_Y - 1, r.maxY + 1); y++)
-      for (let z = Math.max(0, r.z - 1); z < Math.min(WORLD_Z, r.z + CHUNK + 1); z++)
-        for (let x = Math.max(0, r.x - 1); x < Math.min(WORLD_X, r.x + CHUNK + 1); x++) {
-          const i = at(x, y, z), block = cells[i]!, shape = world.shapes[i]!;
-          if (block === 0 || isWater(block) || SOLID_ID[block] !== 1 || isFullCubeShape(shape) || seeThrough.has(block)) continue;
-          if (y + 1 < WORLD_Y && isWater(cells[at(x, y + 1, z)]!)) { changed.push([i, WATER]); continue; }
-          let best = -1;
-          const airSides: (readonly [number, number])[] = [];
-          for (const side of [[1, 0], [-1, 0], [0, 1], [0, -1]] as const) {
-            if (!inside(x + side[0], y, z + side[1])) continue;
-            const n = cells[at(x + side[0], y, z + side[1])]!;
-            if (n === 0) airSides.push(side);
-            else if (isWater(n) && (best < 0 || waterLevel(n) < waterLevel(best))) best = n;
-          }
-          // Air beside it only keeps the cell dry if the water could get out that way: a stairs or
-          // ramp whose high back holds back the dry land still fills (steps down into a pool).
-          if (best >= 0 && airSides.every(([dx, dz]) => sideClosed(shape, dx, dz, waterHeight(best)))) changed.push([i, best]);
+      for (let z = Math.max(0, r.z - 1); z < Math.min(WORLD_Z, r.z + CHUNK + 1); z++) {
+        let i = (y * WORLD_Z + z) * WORLD_X + Math.max(0, r.x - 1);
+        for (let x = Math.max(0, r.x - 1); x < Math.min(WORLD_X, r.x + CHUNK + 1); x++, i++) {
+          const w = wet[i]!;
+          if (w !== 0 && cells[i] !== w) { cells[i] = w; filled++; }
         }
+      }
   }
-  // applied after the scan, so one waterlogged cell never feeds the next (no chains into dry land)
-  for (const [i, id] of changed) cells[i] = id;
-  return changed.length;
-}
-
-/** Is the shape's side toward (dx, dz) solid from the floor up to `height`? Probed with small boxes
- *  just inside that face (shapeIntersectsBox), so it holds for every shape and turn. */
-export function sideClosed(shape: number, dx: number, dz: number, height: number): boolean {
-  const e = 0.02;
-  for (const v of [0.08, 0.3, 0.5, 0.7, 0.92]) for (let h = e; h < height - e; h += Math.max(0.05, (height - 2 * e) / 4)) {
-    const px = dx > 0 ? 1 - e : dx < 0 ? e : v, pz = dz > 0 ? 1 - e : dz < 0 ? e : v;
-    if (!shapeIntersectsBox(shape, { min: [px - 0.005, h - 0.005, pz - 0.005], max: [px + 0.005, h + 0.005, pz + 0.005] })) return false;
-  }
-  return true;
+  return filled;
 }
 
 /** Far meshes append raw triangles, so baked shapes must be non-indexed. */
@@ -282,6 +253,8 @@ export class VoxelView {
   private readonly seeThrough = new Set<number>();
   /** The seam colour seen through gaps between bricks (GAP_BACKING). */
   private readonly backingMaterial = new THREE.MeshBasicMaterial({ color: 0x1d1a16, side: THREE.BackSide });
+  /** Shaped cells the last water build drew as water (dev audit: __roboCraft.waterlogStats). */
+  lastWaterlog = 0;
   /** The crosshair's box: thick, two-tone, never lost in a joined neighbour (aimOutline.ts). */
   private readonly highlight = new AimOutline();
   private dirty = true;
@@ -518,7 +491,7 @@ export class VoxelView {
       if (jobs.length === 0) return;
       const snapshot = this.waterSnapshot ??= new Uint8Array(world.cells.length);
       snapshot.set(world.cells);
-      waterlogShapes(snapshot, world, jobs.map(([id, range]) => ({ x: chunkX(id) * CHUNK, z: chunkZ(id) * CHUNK, minY: range[0], maxY: range[1] })), this.seeThrough);
+      this.lastWaterlog = waterlogSnapshot(snapshot, world.wet, jobs.map(([id, range]) => ({ x: chunkX(id) * CHUNK, z: chunkZ(id) * CHUNK, minY: range[0], maxY: range[1] })));
       const outside = world.outsideColumn?.slice();
       const frozen = { get: (x: number, y: number, z: number) =>
         x >= 0 && x < WORLD_X && z >= 0 && z < WORLD_Z && y >= 0 && y < WORLD_Y

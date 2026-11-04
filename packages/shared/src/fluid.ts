@@ -68,6 +68,35 @@ export interface FluidWorld {
   /** Return false if a write is refused (for example, a store filled during
    *  this synchronous step). Only committed writes become fluid changes. */
   set(x: number, y: number, z: number, id: number): void | boolean;
+  /** Faces of this cell that water cannot pass (FACE_* bits): a shaped block's walls and floor
+   *  (waterlog.ts `shapeSeal`). Cells whose shape holds water report its water through get/set.
+   *  Omitted: every face is open (plain air/water/cube grids). */
+  seal?(x: number, y: number, z: number): number;
+}
+
+/** Face bits, one per direction (`FluidWorld.seal`). */
+export const FACE_PX = 1, FACE_NX = 2, FACE_PY = 4, FACE_NY = 8, FACE_PZ = 16, FACE_NZ = 32;
+
+/** The face bit toward a unit direction (exactly one of dx/dy/dz is ±1). */
+export function faceBit(dx: number, dy: number, dz: number): number {
+  return dx > 0 ? FACE_PX : dx < 0 ? FACE_NX : dy > 0 ? FACE_PY : dy < 0 ? FACE_NY : dz > 0 ? FACE_PZ : FACE_NZ;
+}
+
+/** Can water pass from this cell to its neighbour (dx, dy, dz)? Neither side may seal the face. */
+function passes(world: FluidWorld, x: number, y: number, z: number, dx: number, dy: number, dz: number): boolean {
+  if (!world.seal) return true;
+  return (world.seal(x, y, z) & faceBit(dx, dy, dz)) === 0 &&
+    (world.seal(x + dx, y + dy, z + dz) & faceBit(-dx, -dy, -dz)) === 0;
+}
+
+/** Would water here fall into the cell below (open passage, room below)? */
+function falls(world: FluidWorld, x: number, y: number, z: number): boolean {
+  return holds(world, x, y - 1, z) && passes(world, x, y, z, 0, -1, 0);
+}
+
+/** Is there a reservoir directly below that this cell's water rests on/joins? */
+function onReservoir(world: FluidWorld, x: number, y: number, z: number): boolean {
+  return reservoir(world.get(x, y - 1, z)) && passes(world, x, y, z, 0, -1, 0);
 }
 
 export type FluidChange = [x: number, y: number, z: number, id: number];
@@ -135,11 +164,11 @@ function holds(world: FluidWorld, x: number, y: number, z: number): boolean {
 
 /** Water spreads sideways only where it cannot fall: over a floor or a source. */
 function spreadsSideways(world: FluidWorld, x: number, y: number, z: number): boolean {
-  const below = world.get(x, y - 1, z);
+  const pool = onReservoir(world, x, y, z);
   // A fall enters an existing pool instead of building a second, raised
   // sheet across its surface. Contained basins still fill via settledBasin.
-  if (reservoir(below) && world.get(x, y, z) === WATER_FALLING) return false;
-  return reservoir(below) || !holds(world, x, y - 1, z);
+  if (pool && world.get(x, y, z) === WATER_FALLING) return false;
+  return pool || !falls(world, x, y, z);
 }
 
 /** A fed depression with a closed rim and no lower outlet can retain water.
@@ -151,12 +180,11 @@ function settledBasin(world: FluidWorld, x: number, y: number, z: number, memo: 
   let contained = true, fed = false;
   for (let i = 0; i < cells.length; i++) {
     const [cx, cz] = cells[i]!;
-    const below = world.get(cx, y - 1, cz);
-    if (!reservoir(below) && holds(world, cx, y - 1, cz)) contained = false;
-    fed ||= reservoir(world.get(cx, y, cz)) || isWater(world.get(cx, y + 1, cz));
+    if (!onReservoir(world, cx, y, cz) && falls(world, cx, y, cz)) contained = false;
+    fed ||= reservoir(world.get(cx, y, cz)) || isWater(world.get(cx, y + 1, cz)) && passes(world, cx, y, cz, 0, 1, 0);
     for (const [dx, dz] of N4) {
       const nx = cx + dx, nz = cz + dz, k = voxelKey(nx, y, nz);
-      if (seen.has(k) || !holds(world, nx, y, nz)) continue;
+      if (seen.has(k) || !holds(world, nx, y, nz) || !passes(world, cx, y, cz, dx, 0, dz)) continue;
       seen.add(k); cells.push([nx, nz]);
     }
     if (cells.length > 256) { contained = false; break; }
@@ -176,15 +204,15 @@ export function nextState(world: FluidWorld, x: number, y: number, z: number, no
   let best = 8;
   for (const [dx, dz] of N4) {
     const id = world.get(x + dx, y, z + dz);
-    if (!isWater(id)) continue;
+    if (!isWater(id) || !passes(world, x, y, z, dx, 0, dz)) continue;
     if (id === WATER) sources++;
     if (!spreadsSideways(world, x + dx, y, z + dz)) continue;
     best = Math.min(best, waterLevel(id));
   }
-  const below = world.get(x, y - 1, z);
-  if (sources >= 2 && (below === WATER || !holds(world, x, y - 1, z))) return WATER;
-  if ((isWater(now) || reservoir(below) || best <= WATER_MAX_LEVEL) &&
-    (reservoir(below) || !holds(world, x, y - 1, z)) && settledBasin(world, x, y, z, basins)) return WATER_SETTLED;
-  if (isWater(world.get(x, y + 1, z))) return WATER_FALLING;
+  const fall = falls(world, x, y, z), pool = onReservoir(world, x, y, z);
+  if (sources >= 2 && (pool && world.get(x, y - 1, z) === WATER || !fall)) return WATER;
+  if ((isWater(now) || pool || best <= WATER_MAX_LEVEL) &&
+    (pool || !fall) && settledBasin(world, x, y, z, basins)) return WATER_SETTLED;
+  if (isWater(world.get(x, y + 1, z)) && passes(world, x, y, z, 0, 1, 0)) return WATER_FALLING;
   return best + 1 <= WATER_MAX_LEVEL ? flowingWater(best + 1) : 0;
 }

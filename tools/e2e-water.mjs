@@ -24,6 +24,8 @@ async function open(query) {
       placeAt: (x, y, z, block) => { const [gx, gz] = grid(x, z); return game.placeAt(gx, y, gz, block); },
       mineAt: (x, y, z) => { const [gx, gz] = grid(x, z); return game.mineAt(gx, y, gz); },
       blockAt: (x, y, z) => { const [gx, gz] = grid(x, z); return game.blockAt(gx, y, gz); },
+      waterAt: (x, y, z) => { const [gx, gz] = grid(x, z); return game.waterAt(gx, y, gz); },
+      placePiece: (x, y, z, block) => { const [gx, gz] = grid(x, z); return game.placePiece(gx, y, gz, block); },
       designCell: ([x, y, z]) => { const p = game.snapshot().pos, a = game.absolute(); return [x + a[0] - p[0] - origin[0], y, z + a[1] - p[2] - origin[1]]; },
     };
   });
@@ -114,6 +116,10 @@ try {
   await teacher.evaluate(() => globalThis.__waterTest.placeAt(76, 4, 86, "water"));
   await until(student, () => globalThis.__waterTest.blockAt(83, 4, 86) === 26);
   check("server-generated flow reaches the other browser", await student.evaluate(() => globalThis.__waterTest.blockAt(76, 4, 86) === 19));
+  // water INSIDE shaped blocks (s-k-wet): a round in the stream fills on the other browser and stays a round
+  const wool = await teacher.evaluate(() => { const c = globalThis.__waterTest; c.setPieceShape(3, 0, 0); c.give("white-wool", 2); c.placePiece(77, 4, 88, "white-wool"); return c.blockAt(77, 4, 88); });
+  const filled = await until(student, () => globalThis.__waterTest.waterAt(77, 4, 88) > 0).then(() => true, () => false);
+  check("water flows into a classmate's round block (s-k-wet), the block stays", filled && await student.evaluate((id) => globalThis.__waterTest.blockAt(77, 4, 88) === id, wool));
   await teacher.evaluate(() => globalThis.__roboCraft.classSend({ t: "k-settings", chatLocked: false, buildLocked: true }));
   await wait(300); await capture(student); await student.keyboard.press("Digit0");
   await student.evaluate(() => { const c = globalThis.__waterTest; c.teleport(85.5, 4, 78.5); c.look(0, -0.65); });

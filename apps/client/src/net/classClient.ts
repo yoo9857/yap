@@ -4,6 +4,7 @@ import {
   decodeClassServer,
   type ClassClientMessage,
   type ClassEdit,
+  type ClassWet,
   type ClassFurniture,
   type ClassErrorCode,
   type ClassMember,
@@ -175,6 +176,8 @@ export class ClassClient {
   /** `ts`: the server's stamp (ms) for interpolation; undefined from older servers. */
   onSnap: ((players: Extract<ClassServerMessage, { t: "s-k-snap" }>["players"], ts?: number) => void) | null = null;
   onEdit: ((edits: ClassEdit[], by: string) => void) | null = null;
+  /** Water inside shaped blocks changed (server flow, a join's whole layer, a refused edit's cells). */
+  onWet: ((cells: ClassWet[]) => void) | null = null;
   onFurniture: ((items: ClassFurniture[], rejected: boolean) => void) | null = null;
   onReject: ((edits: ClassEdit[], authoritative: boolean) => void) | null = null;
   onChat: ((msg: Extract<ClassServerMessage, { t: "s-k-chat" }>) => void) | null = null;
@@ -270,7 +273,7 @@ export class ClassClient {
     this.first?.reject("offline"); this.first = null;
     const ws = this.ws; this.ws = null;
     if (ws) { ws.onopen = ws.onmessage = ws.onclose = ws.onerror = null; ws.close(1000, "left"); }
-    this.onMembers = this.onSnap = this.onEdit = this.onFurniture = this.onReject = this.onChat = null;
+    this.onMembers = this.onSnap = this.onEdit = this.onWet = this.onFurniture = this.onReject = this.onChat = null;
     this.onGather = this.onBonk = this.onSettings = this.onResync = this.onWorldReset = this.onEnded = this.onConnection = null;
   }
 
@@ -417,7 +420,7 @@ export class ClassClient {
     if (this.pending || !this.active) {
       if (msg.t === "s-k-snap" || msg.t === "s-k-bonk") return;
       this.earlyEdits += msg.t === "s-k-edit" || msg.t === "s-k-reject" ? msg.edits.length
-        : msg.t === "s-k-furniture" ? msg.furniture.length : 0;
+        : msg.t === "s-k-wet" ? msg.cells.length : msg.t === "s-k-furniture" ? msg.furniture.length : 0;
       this.early.push(msg);
       if (this.early.length >= 1024 || this.earlyEdits > 65_536) {
         // A class with running water sends edits all the time, so a slow first load used to
@@ -441,6 +444,9 @@ export class ClassClient {
         return;
       case "s-k-edit":
         this.onEdit?.(msg.edits, msg.by);
+        return;
+      case "s-k-wet":
+        this.onWet?.(msg.cells);
         return;
       case "s-k-reject":
         this.onReject?.(msg.edits, msg.authoritative === true);
@@ -493,7 +499,7 @@ export class ClassClient {
     flush();
     for (const msg of out) {
       edits += msg.t === "s-k-edit" || msg.t === "s-k-reject" ? msg.edits.length
-        : msg.t === "s-k-furniture" ? msg.furniture.length : 0;
+        : msg.t === "s-k-wet" ? msg.cells.length : msg.t === "s-k-furniture" ? msg.furniture.length : 0;
     }
     this.early = out;
     this.earlyEdits = edits;

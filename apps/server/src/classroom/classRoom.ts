@@ -1,6 +1,6 @@
 import { FurnitureLayout, type PlacementWorld } from "@robo/shared/furniture/layout";
 import type { PlacedFurniture } from "@robo/shared/furniture/types";
-import { holdsFurniture } from "@robo/shared";
+import { holdsFurniture, holdsWaterlog, shapeSeal, type ClassWet } from "@robo/shared";
 import { randomBytes, randomUUID } from "node:crypto";
 import {
   BONK_COOLDOWN_MS,
@@ -145,6 +145,9 @@ export class ClassRoom {
   private readonly byPeer = new Map<ClassPeer, Member>();
   /** Compact coordinate → [block, shape]; only cells differing from the field. */
   private readonly edits = new Map<VoxelKey, [number, number]>();
+  /** Compact coordinate → the water a shaped block holds (waterlog.ts). Pure flow state: never
+   *  saved (a restored class re-flows it from the saved water) and cleared whenever its cell is written. */
+  private readonly wet = new Map<VoxelKey, number>();
   /** Shared append log: joining peers retain a prefix length, not their own
    *  copy of every key. Periodic compaction bounds historical tombstones. */
   private editKeys: VoxelKey[] = [];
@@ -205,14 +208,27 @@ export class ClassRoom {
   private fluidRescan: MapIterator<[VoxelKey, [number, number]]> | null = null;
   private fluidRescanLeft = 0;
   private readonly fluidWorld: FluidWorld = {
-    get: (x, y, z) => this.edits.get(voxelKey(x, y, z))?.[0] ?? pristine(y),
+    get: (x, y, z) => {
+      const key = voxelKey(x, y, z), edit = this.edits.get(key);
+      if (!edit) return pristine(y);
+      return holdsWaterlog(edit[0], edit[1]) ? this.wet.get(key) ?? 0 : edit[0];
+    },
+    seal: (x, y, z) => {
+      const edit = this.edits.get(voxelKey(x, y, z));
+      return edit && holdsWaterlog(edit[0], edit[1]) ? shapeSeal(edit[1]) : 0;
+    },
     open: (x, y, z) =>
       Math.abs(x) <= CLASS_MAX_COORD && Math.abs(z) <= CLASS_MAX_COORD &&
       y >= 1 && y <= CLASS_MAX_Y && !this.furniture.occupied(x, y, z) &&
       // a full store takes no new cells — water included
       (this.edits.has(voxelKey(x, y, z)) || this.hasFluidCapacity()),
     set: (x, y, z, block) => {
-      const cell = voxelKey(x, y, z);
+      const cell = voxelKey(x, y, z), edit = this.edits.get(cell);
+      if (edit && holdsWaterlog(edit[0], edit[1])) { // water inside a shaped block: no new cell
+        if (block) this.wet.set(cell, block);
+        else this.wet.delete(cell);
+        return;
+      }
       // A step reads all candidates before writing them. Several candidates
       // may have seen the same last slot, so enforce the cap at commit too.
       if (block !== pristine(y) && !this.edits.has(cell) && !this.hasFluidCapacity()) return false;
@@ -252,11 +268,18 @@ export class ClassRoom {
     if (!this.fluid.busy) return 0;
     const changes = this.fluid.step(this.fluidWorld, maxMs);
     if (changes.length === 0) return 0;
-    this.waterDirty = true;
-    const edits: ClassEdit[] = changes.map(([x, y, z, block]) => [x, y, z, block, 0]);
+    const edits: ClassEdit[] = [], wet: ClassWet[] = [];
+    for (const [x, y, z, block] of changes) {
+      const edit = this.edits.get(voxelKey(x, y, z));
+      if (edit && holdsWaterlog(edit[0], edit[1])) wet.push([x, y, z, block]);
+      else edits.push([x, y, z, block, 0]);
+    }
+    // water inside shaped blocks is never saved: only real cell changes make a save worth writing
+    if (edits.length > 0) this.waterDirty = true;
     for (let i = 0; i < edits.length; i += 500) {
       this.broadcast({ t: "s-k-edit", by: "", edits: edits.slice(i, i + 500) });
     }
+    for (let i = 0; i < wet.length; i += 500) this.broadcast({ t: "s-k-wet", cells: wet.slice(i, i + 500) });
     return changes.length;
   }
 
@@ -415,6 +438,7 @@ export class ClassRoom {
     // slow client loads; reliable edits replay after its initial world arrives.
     if (peer.streamWorld) {
       peer.streamWorld(this.worldBatches(keys, count), count);
+      this.sendWet(peer); // replayed after the streamed world, like any reliable update
       this.broadcastMembers();
       return;
     }
@@ -429,6 +453,7 @@ export class ClassRoom {
       }
     }
     if (batch.length > 0) peer.send({ t: "s-k-world", edits: batch });
+    this.sendWet(peer);
     this.broadcastMembers();
   }
 
@@ -518,6 +543,7 @@ export class ClassRoom {
         return;
       case "k-reset-world":
         this.edits.clear();
+        this.wet.clear();
         this.editKeys = [];
         this.fluidAtCapacity = false; this.fluidRescan = null;
         this.fluid.clear();
@@ -538,6 +564,7 @@ export class ClassRoom {
     const furnitureVersion = this.furniture.version;
     const accepted: ClassEdit[] = [];
     const refused: ClassEdit[] = [];
+    const keptWater: ClassEdit[] = [];
     for (const edit of edits) {
       const [x, y, z, block, shape] = edit;
       const cell = voxelKey(x, y, z);
@@ -548,7 +575,10 @@ export class ClassRoom {
         refused.push(edit);
         continue;
       }
-      this.writeEdit(cell, block === pristine(y) && shape === 0 ? null : [block, shape]);
+      // mining a shaped block that held water leaves that water in the cell (the client does the same)
+      const held = block === 0 ? this.wet.get(cell) ?? 0 : 0;
+      this.writeEdit(cell, held ? [held, 0] : block === pristine(y) && shape === 0 ? null : [block, shape]);
+      if (held) keptWater.push([x, y, z, held, 0]);
       accepted.push(edit);
       this.fluid.touch(x, y, z); // water around it may flow in, or drain
       if (block === 0) this.furniture.afterBlockRemoved(x, y, z, this.placementWorld);
@@ -564,6 +594,7 @@ export class ClassRoom {
     for (const [other, member] of this.byPeer) {
       if (member !== me) other.send({ t: "s-k-edit", by: me.id, edits: accepted });
     }
+    if (keptWater.length > 0) this.broadcast({ t: "s-k-edit", by: "", edits: keptWater });
   }
 
   /** Refusals carry the current cell, so a repeated write rolls back to the
@@ -574,6 +605,22 @@ export class ClassRoom {
       const [block, shape] = this.edits.get(voxelKey(x, y, z)) ?? [pristine(y), 0];
       return [x, y, z, block, shape];
     }) });
+    // restoring a block clears its water on the client: give back what it holds
+    const wet = edits.flatMap<ClassWet>(([x, y, z]) => {
+      const water = this.wet.get(voxelKey(x, y, z));
+      return water ? [[x, y, z, water]] : [];
+    });
+    if (wet.length > 0) peer.send({ t: "s-k-wet", cells: wet });
+  }
+
+  /** Every shaped block holding water, to a peer that just loaded the field. */
+  private sendWet(peer: ClassPeer): void {
+    let cells: ClassWet[] = [];
+    for (const [key, water] of this.wet) {
+      cells.push([...voxelCoordinates(key), water]);
+      if (cells.length === WORLD_BATCH) { peer.send({ t: "s-k-wet", cells }); cells = []; }
+    }
+    if (cells.length > 0) peer.send({ t: "s-k-wet", cells });
   }
 
   /** Refused furniture (rate limit): the sender alone gets the layout back. */
@@ -748,6 +795,7 @@ export class ClassRoom {
   }
 
   private writeEdit(key: VoxelKey, value: [number, number] | null): void {
+    this.wet.delete(key); // a written cell holds no water until the flow fills it again
     if (value === null) { this.edits.delete(key); return; }
     if (!this.edits.has(key)) {
       if (this.editKeys.length >= MAX_EDITS * 2) this.editKeys = [...this.edits.keys()];

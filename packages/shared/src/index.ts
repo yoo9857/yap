@@ -15,3 +15,4 @@ export * from "./character.js";
 export * from "./bonk.js";
 
 export * from "./blockShapes.js";
+export * from "./waterlog.js";

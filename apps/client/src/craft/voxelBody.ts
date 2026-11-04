@@ -44,9 +44,9 @@ export function submersion(world: VoxelWorld, body: Body): number {
   const cz = Math.floor(body.z);
   let surface = -Infinity;
   for (let y = Math.floor(body.y); y <= Math.floor(body.y + h); y++) {
-    const id = world.get(cx, y, cz);
+    const id = world.waterAt(cx, y, cz);
     if (!isWater(id)) continue;
-    surface = Math.max(surface, y + waterHeight(id, isWater(world.get(cx, y + 1, cz))));
+    surface = Math.max(surface, y + waterHeight(id, isWater(world.waterAt(cx, y + 1, cz))));
   }
   if (surface === -Infinity) return 0;
   return Math.min(1, Math.max(0, (surface - body.y) / h));
@@ -55,9 +55,9 @@ export function submersion(world: VoxelWorld, body: Body): number {
 /** Is this point (the camera's eye) underwater? */
 export function pointInWater(world: VoxelWorld, x: number, y: number, z: number): boolean {
   const cy = Math.floor(y);
-  const id = world.get(Math.floor(x), cy, Math.floor(z));
+  const id = world.waterAt(Math.floor(x), cy, Math.floor(z));
   if (!isWater(id)) return false;
-  return y < cy + waterHeight(id, isWater(world.get(Math.floor(x), cy + 1, Math.floor(z))));
+  return y < cy + waterHeight(id, isWater(world.waterAt(Math.floor(x), cy + 1, Math.floor(z))));
 }
 
 export interface Body {
