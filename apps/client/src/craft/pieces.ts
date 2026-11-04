@@ -1,7 +1,7 @@
-import { KIT_CUBE, ROUND, kitSlopeShape, cornerShape } from "./shapes.js";
+import { KIT_CUBE, ROUND, kitSlopeShape, cornerShape, slabShape, stairsShape } from "./shapes.js";
 /** Unit-grid construction footprints. Old persisted shape codes remain separate from this palette. */
 /** Geometry family for a piece's cells (round/slope are single-cell shapes). */
-export type PieceShape = "cube" | "round" | "slope" | "cornerSlope";
+export type PieceShape = "cube" | "round" | "slope" | "cornerSlope" | "slab" | "stairs";
 export interface Piece {
     key: string;
     name: string;
@@ -18,19 +18,18 @@ export interface Piece {
     /** Per-cell brick geometry (defaults to cube). */
     shape?: PieceShape;
 }
+/**
+ * One cell each, six shapes (owner's palette, 2026-11-04): the multi-cell bars, plates and L pieces
+ * are gone — building is shape by shape. Keys are stable (only appended); blocks already placed
+ * with an old piece are plain cells and stay. R turns, T tips, Shift+R resets.
+ */
 export const PIECES: readonly Piece[] = [
-    { key: "1x1", name: "Brick 1×1", ko: "블록 1×1", cells: [[0, 0, 0]], rotatable: false },
-    { key: "1x2", name: "Bar 1×2", ko: "막대 1×2", cells: [[0, 0, 0], [1, 0, 0]], rotatable: true },
-    { key: "1x3", name: "Bar 1×3", ko: "막대 1×3", cells: [[0, 0, 0], [1, 0, 0], [2, 0, 0]], rotatable: true },
-    { key: "corner", name: "Corner L", ko: "L자 모서리", cells: [[0, 0, 0], [1, 0, 0], [0, 0, 1]], rotatable: true },
-    { key: "2x2", name: "Plate 2×2", ko: "판 2×2", cells: [[0, 0, 0], [1, 0, 0], [0, 0, 1], [1, 0, 1]], rotatable: true },
-    { key: "round", name: "Round ○", ko: "둥근 기둥 ○", cells: [[0, 0, 0]], rotatable: false, shape: "round" },
-    { key: "slope", name: "Slope ◺", ko: "경사 ◺", cells: [[0, 0, 0]], rotatable: true, shape: "slope" },
-    { key: "1x4", name: "Bar 1×4", ko: "긴 블록 1×4", cells: [[0, 0, 0], [1, 0, 0], [2, 0, 0], [3, 0, 0]], rotatable: true },
-    { key: "2x3", name: "Plate 2×3", ko: "조립판 2×3", cells: [[0, 0, 0], [1, 0, 0], [0, 0, 1], [1, 0, 1], [0, 0, 2], [1, 0, 2]], rotatable: true },
-    { key: "2x4", name: "Plate 2×4", ko: "조립판 2×4", cells: [[0, 0, 0], [1, 0, 0], [0, 0, 1], [1, 0, 1], [0, 0, 2], [1, 0, 2], [0, 0, 3], [1, 0, 3]], rotatable: true },
-    { key: "corner-long", name: "Long corner L", ko: "긴 모서리 L", cells: [[0, 0, 0], [1, 0, 0], [2, 0, 0], [0, 0, 1]], rotatable: true },
-    { key: "corner-slope", name: "Corner ramp", ko: "모서리 경사", cells: [[0, 0, 0]], rotatable: true, shape: "cornerSlope" },
+    { key: "1x1", name: "Square", ko: "네모형", cells: [[0, 0, 0]], rotatable: false },
+    { key: "slope", name: "Triangle", ko: "삼각형", cells: [[0, 0, 0]], rotatable: true, shape: "slope" },
+    { key: "corner-slope", name: "Corner", ko: "모서리형", cells: [[0, 0, 0]], rotatable: true, shape: "cornerSlope" },
+    { key: "round", name: "Round", ko: "원형", cells: [[0, 0, 0]], rotatable: false, shape: "round" },
+    { key: "slab", name: "Half block", ko: "반블록형", cells: [[0, 0, 0]], rotatable: true, shape: "slab" },
+    { key: "stairs", name: "Stairs", ko: "계단형", cells: [[0, 0, 0]], rotatable: true, shape: "stairs" },
 ];
 const wrap4 = (n: number): number => ((n % 4) + 4) % 4;
 const nz0 = (n: number): number => (n === 0 ? 0 : n); // normalise −0 → 0
@@ -64,5 +63,5 @@ export function pieceCells(piece: Piece, yaw: number, tilt = 0): [
     });
 }
 /** Persisted geometry for new construction, independent of the material colour. */
-export function pieceShape(piece: Piece, yaw: number, tilt: number): number { return piece.shape === "round" ? ROUND : piece.shape === "slope" ? kitSlopeShape(yaw, tilt) : piece.shape === "cornerSlope" ? cornerShape(yaw, tilt) : KIT_CUBE; }
+export function pieceShape(piece: Piece, yaw: number, tilt: number): number { return piece.shape === "round" ? ROUND : piece.shape === "slope" ? kitSlopeShape(yaw, tilt) : piece.shape === "cornerSlope" ? cornerShape(yaw, tilt) : piece.shape === "slab" ? slabShape(yaw, tilt) : piece.shape === "stairs" ? stairsShape(yaw, tilt) : KIT_CUBE; }
 export const MAX_PIECE_CELLS = Math.max(...PIECES.map(p => p.cells.length));

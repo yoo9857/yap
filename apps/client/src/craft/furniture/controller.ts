@@ -1,4 +1,5 @@
 import type { ClassFurniture } from "@robo/shared";
+import { holdsFurniture } from "@robo/shared";
 import type * as THREE from "three";
 import { withObjectParticle } from "../korean.js";
 import { t } from "../../ui/i18n.js";
@@ -231,6 +232,10 @@ export class FurnitureController {
   /** The layout's view of the world, in absolute cells. */
   private readonly placementWorld: PlacementWorld = {
     isBlock: (x, y, z) => this.host.world.isSolid(x - this.host.originX(), y, z - this.host.originZ()),
+    isFloor: (x, y, z) => {
+      const gx = x - this.host.originX(), gz = z - this.host.originZ();
+      return this.host.world.isSolid(gx, y, gz) && holdsFurniture(this.host.world.getShape(gx, y, gz));
+    },
     hasBody: (x, y, z) => overlapsVoxel(this.host.player(), x - this.host.originX(), y, z - this.host.originZ()) ||
       (this.host.othersIn?.(x, y, z) ?? false),
   };

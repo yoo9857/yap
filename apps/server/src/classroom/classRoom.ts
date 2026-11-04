@@ -1,5 +1,6 @@
 import { FurnitureLayout, type PlacementWorld } from "@robo/shared/furniture/layout";
 import type { PlacedFurniture } from "@robo/shared/furniture/types";
+import { holdsFurniture } from "@robo/shared";
 import { randomBytes, randomUUID } from "node:crypto";
 import {
   BONK_COOLDOWN_MS,
@@ -589,6 +590,10 @@ export class ClassRoom {
     isBlock: (x, y, z) => {
       const block = this.edits.get(voxelKey(x, y, z))?.[0] ?? pristine(y);
       return block !== 0 && !isWater(block);
+    },
+    isFloor: (x, y, z) => {
+      const edit = this.edits.get(voxelKey(x, y, z)), block = edit?.[0] ?? pristine(y);
+      return block !== 0 && !isWater(block) && holdsFurniture(edit?.[1] ?? 0);
     },
     hasBody: (x, y, z) => [...this.byPeer.values()].some((m) => m !== this.placer && m.pos !== null && ((pos) =>
       pos[0] + 0.3 > x && pos[0] - 0.3 < x + 1 &&

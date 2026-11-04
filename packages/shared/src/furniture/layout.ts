@@ -55,9 +55,14 @@ export type PlaceVerdict =
 export interface PlacementWorld {
   /** The cell holds a block (something to stand on or hang from). */
   isBlock(x: number, y: number, z: number): boolean;
+  /** The cell's block has a whole flat top to stand furniture on (blockShapes holdsFurniture).
+   *  Omitted = any block does (worlds without shaped cells). */
+  isFloor?(x: number, y: number, z: number): boolean;
   /** A body stands in the cell; only solid pieces are refused there. */
   hasBody?(x: number, y: number, z: number): boolean;
 }
+
+const floor = (world: PlacementWorld, x: number, y: number, z: number): boolean => world.isFloor ? world.isFloor(x, y, z) : world.isBlock(x, y, z);
 
 /** Hard cap on placed pieces — keeps a hostile save (and the instance
  *  buffers) bounded. Far beyond what a child furnishes by hand. */
@@ -244,11 +249,11 @@ export class FurnitureLayout {
       switch (def.placement) {
         case "floor":
           if (world.hasBody?.(x, y, z)) return "body";
-          if (y === p.y && !world.isBlock(x, y - 1, z)) return "floating";
+          if (y === p.y && !floor(world, x, y - 1, z)) return "floating";
           break;
         case "rug":
         case "surface":
-          if (!world.isBlock(x, y - 1, z)) return "floating";
+          if (!floor(world, x, y - 1, z)) return "floating";
           break;
         case "wall": {
           const [fx, fz] = frontOf(p.rot);
@@ -304,7 +309,7 @@ export class FurnitureLayout {
     switch (def.placement) {
       case "floor":
       case "rug":
-        return cells.some(([x, y, z]) => y === item.y && world.isBlock(x, y - 1, z));
+        return cells.some(([x, y, z]) => y === item.y && floor(world, x, y - 1, z));
       case "surface":
         return cells.some(([x, y, z]) => this.at("solid", x, y, z) !== undefined || world.isBlock(x, y - 1, z));
       case "wall": {

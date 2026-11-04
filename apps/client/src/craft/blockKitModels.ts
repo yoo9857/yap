@@ -3,16 +3,16 @@ import {naturalCellsGeometry,type NaturalBlockKey} from "./naturalBlockGeometry.
 import {connectedNaturalWorld,type NaturalWorldCell} from "./connectedNaturalGeometry.js";
 import {BlockMaterialLibrary,materialFaceGroups} from "./blockMaterials.js";
 import {PIECES,pieceCells,pieceShape,type Piece} from "./pieces.js";
-import {ROUND,isOrientedShape,blockShapeFamily} from "./shapes.js";
+import {ROUND,isOrientedShape,blockShapeFamily,shapeBoxes} from "./shapes.js";
 import {brickOrientation} from "./brickGeometry.js";
-import {kitCellsGeometry,kitRampGeometry,kitRoundGeometry,kitConnectorGeometry} from "./kitGeometry.js";
-export function pieceFamily(piece:Piece):string{return piece.shape==="cornerSlope"?"모서리":piece.shape==="slope"?"경사":piece.shape==="round"?"둥근":piece.key.startsWith("corner")?"모서리":piece.key.startsWith("2x")?"판":piece.cells.length>1?"긴 블록":"큐브";}
-export const KIT_COLOURS:Readonly<Record<string,string>>={"큐브":"#edbd46","긴 블록":"#77b693","판":"#87a1d8","경사":"#df946f","모서리":"#ad89cf","둥근":"#daa2b7"};
+import {kitCellsGeometry,kitRampGeometry,kitRoundGeometry,kitConnectorGeometry,kitBoxesGeometry} from "./kitGeometry.js";
+export function pieceFamily(piece:Piece):string{return piece.shape==="slab"?"반블록":piece.shape==="stairs"?"계단":piece.shape==="cornerSlope"?"모서리":piece.shape==="slope"?"경사":piece.shape==="round"?"둥근":piece.key.startsWith("corner")?"모서리":piece.key.startsWith("2x")?"판":piece.cells.length>1?"긴 블록":"큐브";}
+export const KIT_COLOURS:Readonly<Record<string,string>>={"큐브":"#edbd46","긴 블록":"#77b693","판":"#87a1d8","경사":"#df946f","모서리":"#ad89cf","둥근":"#daa2b7","반블록":"#9bc3a2","계단":"#c9a27a"};
 /** Explicit kit/nature inspection modes. Natural prototypes preserve grid bounds without changing runtime terrain. */
 export class BlockKitModels {
   constructor(private readonly design:"kit"|"nature"="nature"){}
   private readonly surfaceLibrary=new BlockMaterialLibrary(true);
-  private readonly slope=kitRampGeometry();private readonly corner=kitRampGeometry(true);private readonly round=kitRoundGeometry();private readonly cap=kitConnectorGeometry();
+  private readonly slope=kitRampGeometry();private readonly corner=kitRampGeometry(true);private readonly slab=kitBoxesGeometry(shapeBoxes("slab")!);private readonly stairs=kitBoxesGeometry(shapeBoxes("stairs")!);private readonly round=kitRoundGeometry();private readonly cap=kitConnectorGeometry();
   private readonly shells=new Map<string,THREE.BufferGeometry>();
   private readonly connections=new Map<string,ReturnType<typeof connectedNaturalWorld>>();
   build(piece:Piece,yaw=0,tilt=0,materialKey="coat",variant=0):THREE.Group {
@@ -28,9 +28,10 @@ export class BlockKitModels {
       if(!geometry){geometry=natural?naturalCellsGeometry(cells,materialKey as NaturalBlockKey,variant):kitCellsGeometry(cells);if(materials.length>1&&!natural)materialFaceGroups(geometry);this.shells.set(key,geometry);}
       const body=new THREE.Mesh(geometry,material);body.name="Soft continuous shell and low closed connectors";body.castShadow=true;body.receiveShadow=true;root.add(body);
     }else{
-      let geometry=shape===ROUND?this.round:blockShapeFamily(shape)==="corner"?this.corner:this.slope;
+      const family=blockShapeFamily(shape);
+      let geometry=shape===ROUND?this.round:family==="corner"?this.corner:family==="slab"?this.slab:family==="stairs"?this.stairs:this.slope;
       if(natural&&shape===ROUND){const key="natural-round|"+materialKey;let grouped=this.shells.get(key);if(!grouped){grouped=naturalCellsGeometry([[0,0,0]],materialKey as NaturalBlockKey,variant,true);grouped.translate(-.5,-.5,-.5);this.shells.set(key,grouped);}geometry=grouped;}
-      else if(natural){const key="natural-ramp|"+piece.key+"|"+materialKey;let grouped=this.shells.get(key);if(!grouped){grouped=kitRampGeometry(piece.shape==="cornerSlope",.045,false);this.shells.set(key,grouped);}geometry=grouped;}
+      else if(natural&&(family==="slope"||family==="corner")){const key="natural-ramp|"+piece.key+"|"+materialKey;let grouped=this.shells.get(key);if(!grouped){grouped=kitRampGeometry(piece.shape==="cornerSlope",.045,false);this.shells.set(key,grouped);}geometry=grouped;}
       if(materials.length>1&&!(natural&&shape===ROUND)){const key=piece.key+"|"+yaw+"|"+tilt+"|"+materialKey;let grouped=this.shells.get(key);if(!grouped){grouped=materialFaceGroups(geometry.clone(),isOrientedShape(shape)?brickOrientation(yaw,tilt):undefined);this.shells.set(key,grouped);}geometry=grouped;}
       const body=new THREE.Mesh(geometry,material);body.name="Soft "+piece.shape;body.position.set(.5,.5,.5);
       if(isOrientedShape(shape))body.quaternion.copy(brickOrientation(yaw,tilt));body.castShadow=true;body.receiveShadow=true;root.add(body);

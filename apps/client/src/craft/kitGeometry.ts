@@ -1,10 +1,35 @@
 import * as THREE from "three";
+import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import { kitFootprintGeometry } from "./kitShell.js";
 export {kitFootprintGeometry,kitConnectorGeometry,kitRoundGeometry,kitCellsGeometry,KIT_CONNECTOR_HEIGHT} from "./kitShell.js";
 import { ConvexGeometry } from "three/examples/jsm/geometries/ConvexGeometry.js";
 import { blockShapePlanes } from "@robo/shared";
 /** One-cell construction bodies, bounded by the same unit cell as collision. */
 export function kitCubeGeometry(): THREE.BufferGeometry {const g=kitFootprintGeometry([[0,0]]);g.translate(-.5,-.5,-.5);return g;}
+/**
+ * A box-union brick (half block, stairs: blockShapes `shapeBoxes`), centred on the cell like the
+ * other kit geometries. Each box is the kit cube's bevelled shell fitted to that box, its planar UVs
+ * recomputed AFTER the fit, so a half block shows the same texture scale as a whole one (scaling
+ * the cube's UVs along with it squashed the tile into half the height).
+ */
+export function kitBoxesGeometry(boxes: readonly {min: readonly number[]; max: readonly number[]}[]): THREE.BufferGeometry {
+  const parts=boxes.map(b=>{const g=kitFootprintGeometry([[0,0]]);g.scale(b.max[0]!-b.min[0]!,b.max[1]!-b.min[1]!,b.max[2]!-b.min[2]!);g.translate(b.min[0]!-.5,b.min[1]!-.5,b.min[2]!-.5);g.computeVertexNormals();planarUV(g);return g;});
+  const merged=mergeGeometries(parts.map(g=>g.index?g.toNonIndexed():g));
+  for(const g of parts)g.dispose();
+  merged.computeBoundingBox();merged.computeBoundingSphere();return merged;
+}
+/** World-planar UVs from each vertex's normal (the KitMesh convention: 1 texture tile per metre). */
+function planarUV(g:THREE.BufferGeometry):void {
+  const p=g.getAttribute("position"),n=g.getAttribute("normal"),uv=new Float32Array(p.count*2);
+  const normal=new THREE.Vector3(),u=new THREE.Vector3(),v=new THREE.Vector3(),point=new THREE.Vector3();
+  for(let i=0;i<p.count;i++){
+    normal.fromBufferAttribute(n,i);const x=Math.abs(normal.x),y=Math.abs(normal.y),z=Math.abs(normal.z);
+    if(y>=x&&y>=z){u.set(1,0,0).addScaledVector(normal,-normal.x).normalize();v.crossVectors(normal,u);}
+    else{v.set(0,1,0).addScaledVector(normal,-normal.y).normalize();u.crossVectors(v,normal);}
+    point.fromBufferAttribute(p,i).addScalar(.5);uv[i*2]=point.dot(u);uv[i*2+1]=point.dot(v);
+  }
+  g.setAttribute("uv",new THREE.BufferAttribute(uv,2));
+}
 /** Insets each supporting plane, then rounds the convex core. No vertex extends outside the original ramp. */
 export function kitRampGeometry(corner = false, bevel = .028, _details=true): THREE.BufferGeometry {
     const planes = blockShapePlanes(corner ? "corner" : "slope").map(([x, y, z, d]) => { const l = Math.hypot(x, y, z); return { n: new THREE.Vector3(x / l, y / l, z / l), d: d / l - bevel - (bevel>0 && (x!==0||z===-1||y===1&&z===1)? .006:0) }; });

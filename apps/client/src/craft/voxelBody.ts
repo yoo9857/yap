@@ -169,12 +169,33 @@ function nearbyRampFloor(world:VoxelWorld,body:Body):number|null {
 
 /** Sub-step cap keeps fast falls from tunnelling through 1m cells. */
 const MAX_STEP = 0.45;
+/**
+ * The tallest ledge a walking body climbs without jumping: a half block or one stair (0.5 m), never a
+ * whole block. Owner's call (2026-11-04): stairs you have to jump up every step are not stairs.
+ */
+export const STEP_UP = 0.51;
+
+/** Blocked while walking: lift onto the ledge if it is at most STEP_UP tall and there is headroom,
+ *  landing exactly on its top (bisected), or leave the body where it was. */
+function stepUp(world: VoxelWorld, body: Body): boolean {
+  const oldY = body.y;
+  body.y = oldY + STEP_UP;
+  if (collides(world, body)) { body.y = oldY; return false; }
+  let blocked = 0, free = STEP_UP;
+  for (let i = 0; i < 12; i++) {
+    const mid = (blocked + free) / 2;
+    body.y = oldY + mid;
+    if (collides(world, body)) blocked = mid; else free = mid;
+  }
+  body.y = oldY + free;
+  return true;
+}
 
 /**
  * Move one axis with bisected contact resolution — slides flush against walls
- * and floors with no floaty gap. NO auto-step: a full-block ledge stops you,
- * so climbing is a deliberate jump (auto-climb read as the camera teleporting
- * up while you brushed a wall).
+ * and floors with no floaty gap. A full-block ledge stops you, so climbing it is a
+ * deliberate jump (auto-climb read as the camera teleporting up while you brushed a
+ * wall); only half-block ledges (STEP_UP) are walked up.
  */
 function moveAxis(world: VoxelWorld, body: Body, axis: "x" | "y" | "z", amount: number, followRamp=false): void {
   let remaining = amount;
@@ -184,6 +205,7 @@ function moveAxis(world: VoxelWorld, body: Body, axis: "x" | "y" | "z", amount: 
     const prev = body[axis];
     body[axis] = prev + step;
     if(followRamp&&axis!=="y"){const top=nearbyRampFloor(world,body);if(top!==null&&Math.abs(top-body.y)<=Math.abs(step)+.015){const oldY=body.y;body.y=top+EPS;if(!collides(world,body)){body.vy=0;body.grounded=true;continue;}body.y=oldY;}}
+    if (collides(world, body) && followRamp && axis !== "y" && stepUp(world, body)) { body.vy = 0; body.grounded = true; continue; }
     if (collides(world, body)) {
       let free = 0;
       let blocked = step;

@@ -1,4 +1,4 @@
-import {kitCubeGeometry,kitRampGeometry,kitConnectorGeometry,kitRoundGeometry,kitCellsGeometry} from "./kitGeometry.js";
+import {kitCubeGeometry,kitRampGeometry,kitConnectorGeometry,kitRoundGeometry,kitCellsGeometry,kitBoxesGeometry} from "./kitGeometry.js";
 import * as THREE from "three";
 import {mergeGeometries} from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import {KEEP_INK,framelessTile,repeatingKitTexture} from "./kitSurface.js";
@@ -10,7 +10,7 @@ import { animateWater, buildWaterGeometry, makeWaterMaterial, prepareWaterTransi
 import type { WaterWorkerRequest, WaterWorkerResponse } from "./waterWorkerTypes.js";
 import { loadTexture } from "../render/textures.js";
 import { WORLD_X, WORLD_Y, WORLD_Z, type VoxelWorld } from "./voxelWorld.js";
-import { ROUND, KIT_CUBE, isOrientedShape, shapeYaw, shapeTilt, isFullCubeShape, blockShapeFamily } from "./shapes.js";
+import { ROUND, KIT_CUBE, isOrientedShape, shapeYaw, shapeTilt, isFullCubeShape, blockShapeFamily, shapeBoxes } from "./shapes.js";
 import {
   brickOrientation,
   cubeBrickGeometry,
@@ -206,6 +206,11 @@ export class VoxelView {
   private readonly kitSlopeGeo=kitRampGeometry();
   private readonly cornerGeo=kitRampGeometry(true);
   private readonly farCorner=kitRampGeometry(true,0);
+  /** Half block and stairs (blockShapes shapeBoxes): one bevelled box-union each, near and far. */
+  private readonly slabGeo=kitBoxesGeometry(shapeBoxes("slab")!);
+  private readonly stairsGeo=kitBoxesGeometry(shapeBoxes("stairs")!);
+  private readonly farSlab=nonIndexed(kitBoxesGeometry(shapeBoxes("slab")!));
+  private readonly farStairs=nonIndexed(kitBoxesGeometry(shapeBoxes("stairs")!));
   private readonly cubeGeo = cubeBrickGeometry();
   private readonly roundGeo = kitRoundGeometry();
   private readonly slopeGeo = slopeBrickGeometry();
@@ -252,7 +257,8 @@ export class VoxelView {
   }
 
   private geometryFor(shape: number): THREE.BufferGeometry {
-    return isFullCubeShape(shape)?this.kitCubeGeo:shape===ROUND?this.roundGeo:blockShapeFamily(shape)==="corner"?this.cornerGeo:isOrientedShape(shape)?(shape>=19?this.kitSlopeGeo:this.slopeGeo):this.cubeGeo;
+    const family=blockShapeFamily(shape);if(family==="slab")return this.slabGeo;if(family==="stairs")return this.stairsGeo;
+    return isFullCubeShape(shape)?this.kitCubeGeo:shape===ROUND?this.roundGeo:family==="corner"?this.cornerGeo:isOrientedShape(shape)?(shape>=19?this.kitSlopeGeo:this.slopeGeo):this.cubeGeo;
   }
 
   /** Visual masking never mutates world cells, collision, saves or inventory. */
@@ -964,7 +970,8 @@ export class VoxelView {
 
   /** Append a round/slope brick's cheap geometry, transformed, to a far buffer. */
   private bakeShape(buffers:Map<number,FarBuffers>,block:number, x: number, y: number, z: number, shape: number): void {
-    const geo = shape === ROUND ? this.farRound : blockShapeFamily(shape)==="corner"?this.farCorner:this.farSlope;
+    const family = blockShapeFamily(shape);
+    const geo = shape === ROUND ? this.farRound : family==="corner"?this.farCorner:family==="slab"?this.farSlab:family==="stairs"?this.farStairs:this.farSlope;
     if (isOrientedShape(shape)) brickOrientation(shapeYaw(shape), shapeTilt(shape), this.tmpQ);
     else this.tmpQ.identity();
     const p = geo.attributes.position!;
@@ -1262,6 +1269,7 @@ export class VoxelView {
     this.scene.remove(this.highlight.object);
     this.highlight.dispose();
     this.kitCubeGeo.dispose();this.kitSlopeGeo.dispose();this.cornerGeo.dispose();this.farCorner.dispose();
+    this.slabGeo.dispose();this.stairsGeo.dispose();this.farSlab.dispose();this.farStairs.dispose();
     this.cubeGeo.dispose();
     this.roundGeo.dispose();
     this.slopeGeo.dispose();

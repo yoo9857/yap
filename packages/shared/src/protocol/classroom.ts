@@ -17,7 +17,7 @@ import { characterIdSchema, emoteIdSchema, characterActionSchema, heldItemSchema
  */
 
 /** 3: named classrooms. 4: water. 5: paced live-world streaming + reliable replay. 6: character emotes and low postures. 7: construction shapes through code 50. 8: light player taps. */
-export const CLASS_PROTOCOL_VERSION = 8;
+export const CLASS_PROTOCOL_VERSION = 9;
 /** Highest block layer of the field grid (WORLD_Y - 1). */
 export const CLASS_MAX_Y = 55;
 /** Field coordinates are bounded so a hostile client can't grow the store

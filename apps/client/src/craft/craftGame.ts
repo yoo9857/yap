@@ -45,8 +45,8 @@ import { adoptPosture, moveScale, POSTURE_EYE, type Posture } from "./posture.js
 import { gaitBlend } from "../player/motionPolicy.js";
 import { CRAFT_SPAWN, surfaceY, type RayHit } from "./voxelWorld.js";
 import { PIECES, MAX_PIECE_CELLS, pieceCells, pieceShape } from "./pieces.js";
-import { ROUND, KIT_CUBE, isOrientedShape, blockShapeFamily } from "./shapes.js";
-import {kitCubeGeometry,kitRampGeometry,kitConnectorGeometry,kitRoundGeometry,kitCellsGeometry} from "./kitGeometry.js";
+import { ROUND, KIT_CUBE, isOrientedShape, blockShapeFamily, shapeBoxes } from "./shapes.js";
+import {kitCubeGeometry,kitRampGeometry,kitConnectorGeometry,kitRoundGeometry,kitCellsGeometry,kitBoxesGeometry} from "./kitGeometry.js";
 import {planPiecePlacement} from "./blockPlacement.js";
 import {
   brickOrientation,
@@ -170,6 +170,8 @@ export class CraftGame {
   private mining = false;
   /** Dev hook (`__roboCraft.mineProgress`): a dig shown on a cell without a captured mouse. */
   private debugMine: { cell: [number, number, number]; progress: number } | null = null;
+  /** Dev hook (`__roboCraft.debugWalk`): [strafe, forward] held without a captured mouse. */
+  private debugWalkInput: [number, number] | null = null;
   private placing = false;
   private miningTarget: [number, number, number] | null = null;
   private miningProgress = 0;
@@ -204,6 +206,8 @@ export class CraftGame {
   private ghostRoundGeo!: THREE.BufferGeometry;
   private ghostSlopeGeo!: THREE.BufferGeometry;
   private ghostCornerGeo!:THREE.BufferGeometry;
+  private ghostSlabGeo!: THREE.BufferGeometry;
+  private ghostStairsGeo!: THREE.BufferGeometry;
   private ghostCapGeo!:THREE.BufferGeometry;
   private ghostShellGeo:THREE.BufferGeometry|null=null;
   private ghostShellKey="";
@@ -637,7 +641,7 @@ export class CraftGame {
     this.sfx.dispose();
     this.perf.dispose();
     this.hud.dispose();
-    this.ghostCubeGeo.dispose(); this.ghostRoundGeo.dispose(); this.ghostSlopeGeo.dispose();this.ghostCornerGeo.dispose();this.ghostCapGeo.dispose();this.ghostShellGeo?.dispose();
+    this.ghostCubeGeo.dispose(); this.ghostRoundGeo.dispose(); this.ghostSlopeGeo.dispose();this.ghostCornerGeo.dispose();this.ghostSlabGeo.dispose();this.ghostStairsGeo.dispose();this.ghostCapGeo.dispose();this.ghostShellGeo?.dispose();
     this.ghostOk.dispose(); this.ghostBad.dispose();
     for (const material of this.robotMaterials ?? []) material.dispose();
     this.robotMaterials = null;
@@ -846,6 +850,8 @@ export class CraftGame {
       if (this.keys.has("KeyA")) strafe -= 1;
       if (this.keys.has("KeyD")) strafe += 1;
     }
+    // dev hook (`__roboCraft.debugWalk`): hold movement without a captured mouse, for headless checks
+    if (this.debugWalkInput) { fwd = this.debugWalkInput[1]; strafe = this.debugWalkInput[0]; }
     const [rawX, rawZ] = wishFromInput(this.yaw, fwd, strafe);
     // the way the keys point (camera-relative), for the body to turn toward
     if (fwd || strafe) this.moveYaw = Math.atan2(rawX, rawZ);
@@ -1378,6 +1384,8 @@ export class CraftGame {
     this.ghostCubeGeo = kitCubeGeometry();
     this.ghostRoundGeo = kitRoundGeometry();
     this.ghostSlopeGeo = kitRampGeometry();
+    this.ghostSlabGeo = kitBoxesGeometry(shapeBoxes("slab")!);
+    this.ghostStairsGeo = kitBoxesGeometry(shapeBoxes("stairs")!);
     this.ghostCornerGeo=kitRampGeometry(true);this.ghostCapGeo=kitConnectorGeometry();
     // polygonOffset pulls the preview toward the camera: where it shares
     // surfaces with what is already there (a red "taken" preview over a placed
@@ -1416,7 +1424,8 @@ export class CraftGame {
     // the bucket pours one cell, whatever brick shape is picked
     const piece = this.holdingWater() ? PIECES[0]! : PIECES[this.pieceIndex]!;
     const shape=pieceShape(piece,this.pieceRot,this.pieceTilt);
-    const geo=shape===ROUND?this.ghostRoundGeo:blockShapeFamily(shape)==="corner"?this.ghostCornerGeo:isOrientedShape(shape)?this.ghostSlopeGeo:this.ghostCubeGeo;
+    const family=blockShapeFamily(shape);
+    const geo=shape===ROUND?this.ghostRoundGeo:family==="corner"?this.ghostCornerGeo:family==="slab"?this.ghostSlabGeo:family==="stairs"?this.ghostStairsGeo:isOrientedShape(shape)?this.ghostSlopeGeo:this.ghostCubeGeo;
     if(isOrientedShape(shape))brickOrientation(this.pieceRot,this.pieceTilt,this.ghostQuat);else this.ghostQuat.identity();
     const cells = this.holdingWater() ? [[0, 0, 0] as const] : pieceCells(piece, this.pieceRot, this.pieceTilt);
     const [ax, ay, az] = this.aim.before;
@@ -2025,6 +2034,10 @@ export class CraftGame {
         this.writeCell(x, y, z, AIR, 0);
         addItem(this.state.inventory, dropOf(def));
         return true;
+      },
+      /** Hold movement (strafe, forward) as if the keys were down; (0, 0) releases. */
+      debugWalk: (strafe: number, forward: number) => {
+        this.debugWalkInput = strafe || forward ? [strafe, forward] : null;
       },
       /** Faces bordering air that no shell draws (see VoxelView.auditFaces). */
       auditFaces: (limit?: number) => this.view.auditFaces(this.state.world, limit),

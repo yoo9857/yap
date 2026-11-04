@@ -35,8 +35,10 @@ describe("custom block kit", () => {
         }
     });
     it("plans eight-cell plates atomically, including inventory, furniture and player overlap", () => {
-        const world = new VoxelWorld(), b = body(), piece = PIECES.find(p => p.key === "2x4")!;
-        expect(MAX_PIECE_CELLS).toBe(8);
+        // the palette is one cell per piece now; placement still plans any footprint atomically
+        const world = new VoxelWorld(), b = body(), piece = { key: "t-2x4", name: "plate", ko: "판", rotatable: true,
+            cells: [[0, 0, 0], [1, 0, 0], [0, 0, 1], [1, 0, 1], [0, 0, 2], [1, 0, 2], [0, 0, 3], [1, 0, 3]] as const };
+        expect(MAX_PIECE_CELLS).toBe(1);
         expect(planPiecePlacement(world, b, piece, 0, 0, [20, 2, 20], 8, () => false)?.cost).toBe(8);
         expect(planPiecePlacement(world, b, piece, 0, 0, [20, 2, 20], 7, () => false)).toBeNull();
         expect(planPiecePlacement(world, b, piece, 0, 0, [20, 2, 20], 8, (x, _y, z) => x === 21 && z === 23)).toBeNull();

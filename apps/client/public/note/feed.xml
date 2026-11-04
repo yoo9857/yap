@@ -7,6 +7,35 @@
   <updated>2026-11-04T00:00:00+09:00</updated>
   <author><name>크래프트얍(CraftYap)</name></author>
   <entry xml:base="https://craftyap.com/">
+    <title>11월 4일 패치 노트 (6) — 모양 바꾸기: 반블록과 계단이 생겼어요</title>
+    <link href="https://craftyap.com/note/patch-2026-11-04-6/" />
+    <id>https://craftyap.com/note/patch-2026-11-04-6/</id>
+    <published>2026-11-04T00:00:00+09:00</published>
+    <updated>2026-11-04T00:00:00+09:00</updated>
+    <summary>F로 바꾸는 블록 모양을 한 칸짜리 여섯 가지(네모형, 삼각형, 모서리형, 원형, 반블록형, 계단형)로 정리했어요. 새로 생긴 반블록과 계단은 점프 없이 걸어서 올라가요.</summary>
+    <content type="html">&lt;h2&gt;한눈에 보기&lt;/h2&gt;
+&lt;p&gt;&lt;strong&gt;F 모양 바꾸기&lt;/strong&gt;를 한 칸짜리 &lt;strong&gt;여섯 가지 모양&lt;/strong&gt;으로 정리했어요: &lt;strong&gt;네모형, 삼각형, 모서리형, 원형, 반블록형, 계단형&lt;/strong&gt;. 막대, L자, 판처럼 여러 칸을 한 번에 놓던 조각은 뺐어요. 새로 생긴 &lt;strong&gt;반블록과 계단은 점프하지 않고 걸어서&lt;/strong&gt; 올라가요.&lt;/p&gt;
+&lt;h2&gt;BEFORE / AFTER&lt;/h2&gt;
+&lt;p&gt;&lt;strong&gt;위: 모양 목록 전체를 한 줄로 놓은 모습&lt;/strong&gt; — 이전에는 막대, L자, 판 같은 여러 칸 조각까지 12가지였어요. 이제는 한 칸 모양 6가지예요. &lt;strong&gt;아래: 6가지를 네 방향으로 놓고, 반블록과 계단은 세우고 뒤집은 모습&lt;/strong&gt;, 그리고 걸어서 오르는 계단이에요.&lt;/p&gt;
+&lt;p&gt;&lt;img src=&quot;/note/assets/20261104-shapes-ba.webp&quot; alt=&quot;모양 바꾸기 비교: 위 왼쪽은 여러 칸 조각까지 12가지가 놓인 이전 모습, 위 오른쪽은 한 칸 모양 6가지가 놓인 새 모습, 아래는 6가지 모양을 여러 방향으로 놓은 줄과 나무 계단&quot;&gt;&lt;/p&gt;
+&lt;h2&gt;새로 추가&lt;/h2&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;반블록형&lt;/strong&gt; — 한 칸의 절반 높이 블록이에요. &lt;strong&gt;R&lt;/strong&gt;로 돌리고 &lt;strong&gt;T&lt;/strong&gt;로 세우거나 뒤집을 수 있어서, 바닥에 깔면 낮은 단, 뒤집으면 천장 쪽 절반, 세우면 얇은 벽이 돼요.&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;계단형&lt;/strong&gt; — 아래 반은 꽉 차고 위 반은 뒤쪽만 있는 계단 블록이에요. 이어 놓으면 계단이 되고, 뒤집으면 처마나 아치 모양도 만들 수 있어요.&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;걸어서 오르기&lt;/strong&gt; — 반블록 높이(0.5칸)까지의 턱은 걸으면 자연스럽게 올라가요. 한 칸짜리 턱은 지금처럼 점프해야 해요.&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2&gt;개선&lt;/h2&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;모양 목록 정리&lt;/strong&gt; — 막대(1×2, 1×3, 1×4), L자, 판(2×2, 2×3, 2×4)을 빼고 한 칸 모양만 남겼어요. 이미 지은 건물은 그대로예요.&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;가구&lt;/strong&gt; — 가구는 반블록이나 계단의 반쪽 위에 놓으면 떠 보여서, &lt;strong&gt;윗면이 꽉 찬 경우(뒤집어 놓은 반블록·계단)&lt;/strong&gt; 에만 놓여요.&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2&gt;알려진 문제&lt;/h2&gt;
+&lt;ul&gt;
+&lt;li&gt;이미 열려 있던 탭은 &lt;strong&gt;새로고침&lt;/strong&gt;해야 새 모양이 보여요. 교실은 업데이트 뒤 자동으로 한 번 새로고침돼요.&lt;/li&gt;
+&lt;/ul&gt;
+</content>
+  </entry>
+  <entry xml:base="https://craftyap.com/">
     <title>11월 4일 패치 노트 (5) — 구멍 난 블록을 고치고, 검은 테두리를 모두 걷어냈어요</title>
     <link href="https://craftyap.com/note/patch-2026-11-04-5/" />
     <id>https://craftyap.com/note/patch-2026-11-04-5/</id>
@@ -724,129 +753,6 @@
 &lt;li&gt;친구 밀기는 &lt;strong&gt;교실 모드&lt;/strong&gt;에서만 돼요. 혼자 하기와 게임 모드에는 다른 플레이어가 없어요.&lt;/li&gt;
 &lt;li&gt;업데이트가 올라가는 몇 초 동안 수업 연결이 잠깐 끊길 수 있어요. 끊겨도 자동으로 다시 들어와요.&lt;/li&gt;
 &lt;/ul&gt;
-</content>
-  </entry>
-  <entry xml:base="https://craftyap.com/">
-    <title>10월 29일 패치 노트 (3) — 블록의 모양과 질감, 채굴과 모래 낙하</title>
-    <link href="https://craftyap.com/note/patch-2026-10-29-3/" />
-    <id>https://craftyap.com/note/patch-2026-10-29-3/</id>
-    <published>2026-10-29T00:00:00+09:00</published>
-    <updated>2026-10-29T00:00:00+09:00</updated>
-    <summary>작은 원형 돌기로 블록의 조립감을 살리고, 흙과 모래의 질감과 쌓임을 다듬었습니다. 돌·통나무의 단계별 파손과 싱글 모드의 모래 낙하를 개선했습니다.</summary>
-    <content type="html">&lt;blockquote&gt;
-&lt;p&gt;사진은 실제 게임 코드에서 추출한 형상·재질의 모델 검수 렌더이며, 운영 사이트의 배포 전후 화면 캡처는 아닙니다.&lt;/p&gt;
-&lt;/blockquote&gt;
-&lt;h2&gt;한눈에 보기&lt;/h2&gt;
-&lt;p&gt;블록의 조립감은 살리면서, 표면과 쌓임이 더 부드럽게 이어지도록 다듬었습니다. 흙·모래의 큰 자갈 무늬를 고운 질감으로 바꾸고, 돌과 통나무는 금이 생긴 자리에서 실제 조각이 떨어지도록 개선했습니다. 싱글 모드에서는 받침을 없앤 모래가 아래로 떨어져 다시 쌓입니다.&lt;/p&gt;
-&lt;h2&gt;BEFORE / AFTER&lt;/h2&gt;
-&lt;h3&gt;블록 모양 — 큰 사각 돌기에서 작은 원형 돌기로&lt;/h3&gt;
-&lt;p&gt;&lt;img src=&quot;/note/assets/20261029-block-form-ba.webp&quot; alt=&quot;같은 구도 비교: 왼쪽은 큰 사각 돌기와 진한 바닥 테두리, 오른쪽은 작은 원형 돌기 4개와 정리된 외곽&quot;&gt;&lt;/p&gt;
-&lt;p&gt;큰 사각 돌기의 가운데 구멍과 과한 바닥 테두리를 줄였습니다. 윗면에는 작은 원형 돌기 4개를 남겨, 멀리서도 조립 블록의 인상이 보이도록 맞췄습니다.&lt;/p&gt;
-&lt;h3&gt;흙·모래 표면 — 큰 자갈 무늬에서 고운 잔결로&lt;/h3&gt;
-&lt;details&gt;
-&lt;summary&gt;텍스처 BEFORE / AFTER 펼쳐 보기 · 이전의 촘촘한 자갈 무늬 포함&lt;/summary&gt;
-
-&lt;p&gt;&lt;img src=&quot;/note/assets/20261029-ground-surface-ba.webp&quot; alt=&quot;같은 구도 비교: 왼쪽은 원형 자갈 무늬가 두드러진 이전 표면, 오른쪽은 잔결 위주로 바뀐 흙·모래와 잔디 쌓임&quot;&gt;&lt;/p&gt;
-&lt;/details&gt;
-
-&lt;p&gt;흙 옆면에 동그란 자갈이 박혀 보이던 무늬를 없애고, 모래의 요철과 색 대비를 낮췄습니다. 아래의 확대 사진에서 최종 질감을 확인할 수 있습니다.&lt;/p&gt;
-&lt;h3&gt;균열 패턴 — 반복되던 모양을 블록마다 다르게&lt;/h3&gt;
-&lt;p&gt;&lt;img src=&quot;/note/assets/20261029-stone-fracture-ba.webp&quot; alt=&quot;같은 구도에서 본 돌 균열: 왼쪽은 반복되던 모서리 배치, 오른쪽은 작은 조각과 큰 덩어리가 섞인 새 패턴&quot;&gt;&lt;/p&gt;
-&lt;p&gt;&lt;img src=&quot;/note/assets/20261029-wood-fracture-ba.webp&quot; alt=&quot;같은 구도에서 본 나무 균열: 왼쪽은 일정하던 분할, 오른쪽은 결 방향을 유지하면서 달라진 조각 폭&quot;&gt;&lt;/p&gt;
-&lt;p&gt;고정된 세 패턴을 재사용하던 구조에서 &lt;strong&gt;32개 패턴 중 블록 위치에 따라 선택하는 방식&lt;/strong&gt;으로 바꿨습니다. 돌은 균열 경로와 조각 수·크기가 달라지고, 나무는 결을 유지하면서 쪼개지는 폭이 달라집니다. 같은 블록을 파는 도중에는 패턴을 유지합니다.&lt;/p&gt;
-&lt;h2&gt;새로 추가&lt;/h2&gt;
-&lt;ul&gt;
-&lt;li&gt;&lt;strong&gt;모래의 중력 낙하&lt;/strong&gt; — 싱글 모드에서 모래·붉은 모래의 받침을 없애면 아래로 떨어져 다시 쌓입니다. 바닥과 가구에 막히며, 플레이어·동물이 아래에 있으면 이동을 기다립니다. 흙과 사암은 낙하 대상이 아닙니다.&lt;/li&gt;
-&lt;li&gt;&lt;strong&gt;형태가 변하는 채굴 손상&lt;/strong&gt; — 금이 표면에만 보이던 표현에서, 균열 가장자리가 실제로 패이고 내부 단면이 드러나는 단계별 파손으로 바꿨습니다.&lt;/li&gt;
-&lt;li&gt;&lt;strong&gt;연결·지형 검수 화면&lt;/strong&gt; — 같은 재질과 다른 재질의 옆면 연결, 모서리, 잔디·흙의 수직 쌓임, 모래 낙하를 각각 확인할 수 있는 배치를 추가했습니다.&lt;/li&gt;
-&lt;/ul&gt;
-&lt;h3&gt;모래가 떨어지고 다시 쌓이는 과정&lt;/h3&gt;
-&lt;p&gt;&lt;img src=&quot;/note/assets/20261029-sand-fall.webp&quot; alt=&quot;왼쪽부터 받침이 있는 모래, 받침 제거 후 낙하 시작, 아래로 연속 낙하, 바닥에 다시 쌓인 상태&quot;&gt;&lt;/p&gt;
-&lt;p&gt;받침 유지 → 받침 제거 → 낙하 → 다시 쌓임. 실제 모래 시뮬레이션의 네 시점을 나란히 배치했습니다. 이동 중에도 블록 형태가 이어지고, 새로 드러나는 윗돌기도 유지됩니다.&lt;/p&gt;
-&lt;h2&gt;개선&lt;/h2&gt;
-&lt;h3&gt;블록 모양과 연결&lt;/h3&gt;
-&lt;ul&gt;
-&lt;li&gt;&lt;strong&gt;작은 원형 돌기 2×2&lt;/strong&gt; — 평평한 블록 윗면에 작은 원형 돌기 4개를 배치했습니다. 이웃 블록의 돌기와도 일정한 간격으로 이어집니다.&lt;/li&gt;
-&lt;li&gt;&lt;strong&gt;외곽 정리&lt;/strong&gt; — 큰 사각 돌기의 가운데 구멍, 깊은 아랫면 홈, 진한 테두리를 제거했습니다. 바닥은 평평하게 정리하고 모서리는 부드럽게 다듬었습니다.&lt;/li&gt;
-&lt;li&gt;&lt;strong&gt;옆면 밀착&lt;/strong&gt; — 꽉 찬 블록은 재질이 달라도 옆면이 밀착하도록 개선했습니다. 나무와 돌처럼 재질이 다른 경우에는 표면 경계가 유지됩니다.&lt;/li&gt;
-&lt;li&gt;&lt;strong&gt;수직 쌓임&lt;/strong&gt; — 위아래 접합부에서 과하게 패이던 홈을 줄였습니다. 이웃 블록을 없애면 새로 드러난 바깥 모서리가 원래 마감으로 돌아옵니다.&lt;/li&gt;
-&lt;/ul&gt;
-&lt;p&gt;&lt;img src=&quot;/note/assets/20261029-block-connections.webp&quot; alt=&quot;같은 나무끼리의 연결과 나무·돌 사이의 연결을 확인하는 모델 검수 사진&quot;&gt;&lt;/p&gt;
-&lt;p&gt;같은 재질은 한 덩어리처럼 이어지고, 다른 재질은 표면 차이를 남기면서 옆면이 맞닿습니다. 경사·판처럼 빈 공간이 있는 형태까지 무조건 메우지는 않습니다.&lt;/p&gt;
-&lt;h3&gt;흙·잔디·모래 질감&lt;/h3&gt;
-&lt;p&gt;&lt;img src=&quot;/note/assets/20261029-ground-detail.webp&quot; alt=&quot;최종 재질 확대: 왼쪽 잔디와 흙의 경계, 가운데 고운 흙 잔결, 오른쪽 미세한 무광 모래&quot;&gt;&lt;/p&gt;
-&lt;ul&gt;
-&lt;li&gt;&lt;strong&gt;묻힌 층의 초록 띠 제거&lt;/strong&gt; — 완전히 덮인 잔디·꽃잔디 층은 흙으로 표시하고, 드러난 맨 위에만 얇은 잔디층을 남깁니다. 저장된 블록 종류와 획득 아이템은 유지됩니다.&lt;/li&gt;
-&lt;li&gt;&lt;strong&gt;부드러운 흙 표면&lt;/strong&gt; — 흙과 잔디 옆면의 큰 원형 자갈 무늬와 강한 요철을 없앴습니다. 밝은 갈색의 잔결과 낮은 대비로 표면을 정리했습니다.&lt;/li&gt;
-&lt;li&gt;&lt;strong&gt;고운 모래 표면&lt;/strong&gt; — 덩어리나 구멍이 박힌 인상을 줄이고, 미세한 입자와 부드러운 색 변화가 보이는 무광 표면으로 다듬었습니다.&lt;/li&gt;
-&lt;li&gt;&lt;strong&gt;새 표면 유지&lt;/strong&gt; — 생성 에셋 검수 모드에서도 새 흙 표면을 유지하도록 맞췄습니다. 풀·눈·보석 등 다른 생성 재질은 유지합니다.&lt;/li&gt;
-&lt;/ul&gt;
-&lt;h3&gt;텍스처 변환과 적용&lt;/h3&gt;
-&lt;p&gt;색상 그림만 교체하지 않고, 색·요철·빛 반응을 나눠 조정했습니다. 이번 최종 흙·모래 표면은 코드에서 만드는 재질 맵을 사용합니다.&lt;/p&gt;
-&lt;table&gt;
-&lt;thead&gt;
-&lt;tr&gt;
-&lt;th&gt;구성&lt;/th&gt;
-&lt;th&gt;최종 적용 내용&lt;/th&gt;
-&lt;/tr&gt;
-&lt;/thead&gt;
-&lt;tbody&gt;&lt;tr&gt;
-&lt;td&gt;색상 · 알베도&lt;/td&gt;
-&lt;td&gt;흙은 은은한 갈색 얼룩과 잔결, 모래는 밝은 색과 낮은 대비로 정리했습니다. 반복되는 원형 자갈 무늬를 없앴습니다.&lt;/td&gt;
-&lt;/tr&gt;
-&lt;tr&gt;
-&lt;td&gt;요철 · 노멀&lt;/td&gt;
-&lt;td&gt;큰 돌알갱이가 튀어나와 보이던 느낌을 줄였습니다. 흙은 눌린 잔결, 모래는 더 미세하고 약한 입자로 표현합니다.&lt;/td&gt;
-&lt;/tr&gt;
-&lt;tr&gt;
-&lt;td&gt;거칠기 · 러프니스&lt;/td&gt;
-&lt;td&gt;흙과 모래의 무광 성격을 유지합니다. 다른 재질의 금속 반사나 보석 광택까지 같은 질감으로 바꾸지는 않습니다.&lt;/td&gt;
-&lt;/tr&gt;
-&lt;tr&gt;
-&lt;td&gt;면과 층의 구분&lt;/td&gt;
-&lt;td&gt;잔디 윗면·옆면·아랫면을 나눠 적용하고, 덮인 잔디 층은 흙 표면으로 이어지게 했습니다.&lt;/td&gt;
-&lt;/tr&gt;
-&lt;tr&gt;
-&lt;td&gt;이전 텍스처 처리&lt;/td&gt;
-&lt;td&gt;새 흙·잔디 옆면 위에 이전 생성 텍스처가 다시 덮이는 경로를 정리했습니다.&lt;/td&gt;
-&lt;/tr&gt;
-&lt;/tbody&gt;&lt;/table&gt;
-&lt;h3&gt;돌·통나무 파손&lt;/h3&gt;
-&lt;p&gt;&lt;img src=&quot;/note/assets/20261029-mining-stages.webp&quot; alt=&quot;위쪽은 돌, 아래쪽은 통나무의 정상 상태·균열 성장·조각 분리 단계&quot;&gt;&lt;/p&gt;
-&lt;p&gt;위쪽은 돌, 아래쪽은 통나무입니다. 왼쪽의 온전한 블록에서 가운데의 균열을 거쳐 오른쪽의 조각 분리로 진행합니다. 최종 블록 모양을 적용한 실제 파손 코드의 단계별 상태입니다.&lt;/p&gt;
-&lt;ul&gt;
-&lt;li&gt;&lt;strong&gt;반복감이 줄어든 균열&lt;/strong&gt; — 시작점, 작은 조각의 위치, 큰 덩어리의 비율을 바꿨습니다. 작은 조각이 모이는 부분과 큰 덩어리가 남는 부분을 섞었습니다.&lt;/li&gt;
-&lt;li&gt;&lt;strong&gt;안정적인 무작위성&lt;/strong&gt; — 같은 위치는 채굴 취소·재개 후에도 같은 형태로 갈라집니다. 파편의 분리 지연·회전·낙하 속도는 조금씩 달라지고, 손상 중이던 실제 조각은 그대로 이어집니다.&lt;/li&gt;
-&lt;li&gt;&lt;strong&gt;돌의 균열&lt;/strong&gt; — 맞은 지점에서 금이 뻗고, 균열 가장자리가 패인 뒤 모서리부터 떨어지도록 다듬었습니다. 몸체 전체가 동시에 부풀어 벌어지던 느낌을 줄였습니다.&lt;/li&gt;
-&lt;li&gt;&lt;strong&gt;나무의 결과 속살&lt;/strong&gt; — 결을 따라 금이 내려가고, 밝은 속살과 가는 나뭇조각이 먼저 드러납니다. 마지막에는 긴 조각이 순서대로 분리됩니다.&lt;/li&gt;
-&lt;li&gt;&lt;strong&gt;연속되는 파편&lt;/strong&gt; — 완전히 부서질 때 새 정육면체 파편으로 갑자기 바뀌지 않고, 손상 중이던 조각의 위치와 회전을 이어서 낙하합니다.&lt;/li&gt;
-&lt;li&gt;&lt;strong&gt;바닥 접촉&lt;/strong&gt; — 돌 조각이 바닥에 파묻히거나 서로 겹치는 부분을 보정했습니다. 긴 나무 조각은 바닥에 닿은 뒤 기둥처럼 서서 멈추지 않고 옆으로 넘어지도록 개선했습니다.&lt;/li&gt;
-&lt;li&gt;&lt;strong&gt;취소와 재개&lt;/strong&gt; — 채굴을 취소하면 원래 블록이 복원됩니다. 수동으로 부술 때도 현재 손상 상태에서 이어집니다.&lt;/li&gt;
-&lt;/ul&gt;
-&lt;h2&gt;버그 수정&lt;/h2&gt;
-&lt;ul&gt;
-&lt;li&gt;절단면이 돌출부와 홈 사이의 빈 공간까지 잘못 연결해, 초반부터 크게 찢어진 것처럼 보이던 문제를 수정했습니다.&lt;/li&gt;
-&lt;li&gt;새 흙 질감 위에 이전 자갈 텍스처가 다시 덮어씌워지던 경로를 수정했습니다.&lt;/li&gt;
-&lt;li&gt;모래 낙하가 시작될 때 드러난 윗돌기가 사라지던 문제를 수정했습니다.&lt;/li&gt;
-&lt;li&gt;청크 경계와 월드 밖 좌표에서 낙하 셀을 숨기는 처리가 다른 셀의 표시에 영향을 줄 수 있던 문제를 수정했습니다.&lt;/li&gt;
-&lt;li&gt;월드가 스크롤된 뒤 모래 데이터는 남아 있는데 화면에서 빈칸처럼 보일 수 있던 문제를 수정했습니다.&lt;/li&gt;
-&lt;li&gt;높은 쌓임을 볼 때 검수 카메라가 모델을 제대로 담지 못하던 부분을 조정했습니다.&lt;/li&gt;
-&lt;li&gt;검수 화면에 &lt;strong&gt;다른 균열 보기&lt;/strong&gt;를 추가했습니다. 일시정지 중 선택해도 계산 완료 후 새 패턴이 나타나며, 계산 중에는 원래 블록이 유지됩니다.&lt;/li&gt;
-&lt;li&gt;드물게 체적이 맞지 않는 절단 결과는 그대로 사용하지 않고 다른 시드로 다시 계산하도록 개선했습니다.&lt;/li&gt;
-&lt;li&gt;모래 낙하를 다시 확인할 수 있도록 &lt;strong&gt;다시 배치하기&lt;/strong&gt;를 추가하고, 받침 제거 버튼의 상태를 정리했습니다.&lt;/li&gt;
-&lt;/ul&gt;
-&lt;h2&gt;알려진 문제&lt;/h2&gt;
-&lt;ul&gt;
-&lt;li&gt;모래 낙하는 &lt;strong&gt;싱글 플레이&lt;/strong&gt; 적용 범위입니다. 교실 모드의 서버 물리는 이번 패치에 포함되지 않습니다.&lt;/li&gt;
-&lt;li&gt;파손 연출의 정밀 조정과 모델 검수는 &lt;strong&gt;돌·통나무 큐브&lt;/strong&gt;를 중심으로 진행했습니다. 다른 재질과 긴 블록·판·경사·모서리의 모든 파손 경우를 같은 수준으로 검수한 상태는 아닙니다.&lt;/li&gt;
-&lt;/ul&gt;
-&lt;h2&gt;검증&lt;/h2&gt;
-&lt;ul&gt;
-&lt;li&gt;최종 클라이언트 자동 검사 &lt;strong&gt;421개 통과&lt;/strong&gt;.&lt;/li&gt;
-&lt;li&gt;타입 검사, 변경 파일 린트, 프로덕션 빌드 통과.&lt;/li&gt;
-&lt;li&gt;재질·연결·쌓임·파손·모래 낙하의 모델 렌더와 동작 검사 수행.&lt;/li&gt;
-&lt;/ul&gt;
-&lt;p&gt;돌 큐브·통나무 큐브·돌 경사의 32개 패턴, 총 &lt;strong&gt;96개 조합&lt;/strong&gt;에서 원래 형상의 체적이 유지되는지 확인했습니다. 사진에는 블록·표면·균열의 전후 비교와 연결·파손·모래 낙하 과정을 담았습니다.&lt;/p&gt;
 </content>
   </entry>
 </feed>
