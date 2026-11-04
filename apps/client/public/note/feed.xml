@@ -7,6 +7,32 @@
   <updated>2026-11-04T00:00:00+09:00</updated>
   <author><name>크래프트얍(CraftYap)</name></author>
   <entry xml:base="https://craftyap.com/">
+    <title>11월 4일 패치 노트 (3) — 조준 테두리를 차분하게, 깜빡임 없이</title>
+    <link href="https://craftyap.com/note/patch-2026-11-04-3/" />
+    <id>https://craftyap.com/note/patch-2026-11-04-3/</id>
+    <published>2026-11-04T00:00:00+09:00</published>
+    <updated>2026-11-04T00:00:00+09:00</updated>
+    <summary>오늘 바꾼 조준 테두리의 검은색과 흰색이 너무 세게 부딪혀 보이고, 화면을 돌릴 때 흰 선이 깜빡이던 문제를 고쳤어요. 이제 흰 선에 옅은 그림자만 깔아 어떤 블록 위에서도 차분하고 또렷해요.</summary>
+    <content type="html">&lt;h2&gt;한눈에 보기&lt;/h2&gt;
+&lt;p&gt;(2)에서 바꾼 조준 테두리는 &lt;strong&gt;검은 선 위에 흰 선&lt;/strong&gt;이라 블록 위에서 너무 튀었고, &lt;strong&gt;화면을 돌릴 때마다 흰 선이 깜빡&lt;/strong&gt;였어요. 이제 &lt;strong&gt;흰 선 + 옅은 그림자&lt;/strong&gt; 한 가지로 바꿔서 어두운 돌, 흰 양털, 빨간 벽돌 어디서나 차분하게 잘 보이고, 깜빡이지 않아요.&lt;/p&gt;
+&lt;h2&gt;BEFORE / AFTER&lt;/h2&gt;
+&lt;p&gt;&lt;strong&gt;같은 자리에서 같은 블록을 바라볼 때&lt;/strong&gt; — 위는 (2)의 검정+흰색 테두리, 아래는 새 테두리예요.&lt;/p&gt;
+&lt;p&gt;&lt;img src=&quot;/note/assets/20261104-aim-soft-ba.webp&quot; alt=&quot;조준 테두리 비교: 위 줄은 어두운 돌, 흰 양털, 빨간 벽돌 위의 검정+흰색 테두리, 아래 줄은 같은 블록 위의 흰 선과 옅은 그림자 테두리&quot;&gt;&lt;/p&gt;
+&lt;h2&gt;버그 수정&lt;/h2&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;화면을 움직이면 흰 선이 깜빡이던 문제&lt;/strong&gt; — 검은 선과 흰 선이 정확히 같은 깊이에 그려져서, 화면이 조금만 움직여도 어느 쪽이 앞에 보일지가 매번 바뀌었어요. 화면을 돌리며 측정해 보니 흰 선이 거의 보이지 않는 화면도 있었어요. 이제 두 선이 서로 겨루지 않게 그려서 매 화면 같은 모습이에요. 멀리 있는 블록에서 선이 블록 면과 겨루던 것도 함께 고쳤어요.&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2&gt;개선&lt;/h2&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;조준 테두리 색&lt;/strong&gt; — 검은색과 흰색이 세게 부딪혀 보이던 것을, 흰 선 아래 옅은 그림자만 까는 방식으로 바꿨어요. 흰 블록 위에서는 그림자가, 어두운 블록 위에서는 흰 선이 테두리를 보여 줘요. 기계 작업실 조립 커서도 같아요.&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2&gt;알려진 문제&lt;/h2&gt;
+&lt;ul&gt;
+&lt;li&gt;이미 열려 있던 탭은 &lt;strong&gt;새로고침&lt;/strong&gt;해야 바뀐 화면이 보여요.&lt;/li&gt;
+&lt;/ul&gt;
+</content>
+  </entry>
+  <entry xml:base="https://craftyap.com/">
     <title>11월 4일 패치 노트 (2) — 붙인 블록은 한 면으로, 조준과 윤곽선은 또렷하게</title>
     <link href="https://craftyap.com/note/patch-2026-11-04-2/" />
     <id>https://craftyap.com/note/patch-2026-11-04-2/</id>
@@ -840,53 +866,6 @@
 &lt;h2&gt;알려진 문제&lt;/h2&gt;
 &lt;ul&gt;
 &lt;li&gt;업데이트 전에 열어 둔 교실 화면은 접속이 끊길 수 있습니다. 새로고침하면 다시 들어올 수 있습니다.&lt;/li&gt;
-&lt;/ul&gt;
-</content>
-  </entry>
-  <entry xml:base="https://craftyap.com/">
-    <title>10월 28일 패치 노트 — 새 게임 화면, HOME 캐릭터, 한국어 첫 화면</title>
-    <link href="https://craftyap.com/note/patch-2026-10-28/" />
-    <id>https://craftyap.com/note/patch-2026-10-28/</id>
-    <published>2026-10-28T00:00:00+09:00</published>
-    <updated>2026-10-28T00:00:00+09:00</updated>
-    <summary>게임 화면을 블록 장난감 느낌으로 새로 꾸미고 한국어·설정·시작 메뉴를 넣었습니다. 주인공이 HOME 캐릭터로 바뀌었고, 게임 안내 페이지와 이 개발 노트도 열었습니다.</summary>
-    <content type="html">&lt;h2&gt;한눈에 보기&lt;/h2&gt;
-&lt;p&gt;&lt;strong&gt;처음 온 사람도 헤매지 않게&lt;/strong&gt; 다듬은 날입니다. 게임 화면은 한국어가 기본이 되었고, 시작/일시정지
-메뉴에서 조작법과 설정을 바로 볼 수 있습니다. 주인공 로봇은 새 HOME 캐릭터로 바뀌었고,
-웹사이트에는 게임 안내 페이지와 이 개발 노트가 생겼습니다.&lt;/p&gt;
-&lt;h2&gt;새로 추가&lt;/h2&gt;
-&lt;h3&gt;게임 화면&lt;/h3&gt;
-&lt;ul&gt;
-&lt;li&gt;&lt;strong&gt;시작 · 일시정지 메뉴&lt;/strong&gt; — 모든 게임에 같은 메뉴가 생겼습니다. 플레이, 조작법, 설정, 처음으로 버튼이 있고, 플레이 중 &lt;strong&gt;Esc&lt;/strong&gt;를 누르면 열립니다. &lt;strong&gt;H&lt;/strong&gt;를 누르면 전체 조작법을 볼 수 있습니다.&lt;/li&gt;
-&lt;li&gt;&lt;strong&gt;설정&lt;/strong&gt; — 언어(한국어/English), 마우스 감도, 음악과 효과음 크기를 바꿀 수 있습니다. 설정은 브라우저에 저장됩니다.&lt;/li&gt;
-&lt;li&gt;&lt;strong&gt;HOME 캐릭터&lt;/strong&gt; — 주인공이 새 캐릭터 HOME으로 바뀌었습니다. 걷기, 뛰기, 점프, 착지, 앉기 동작이 새로 들어갔습니다.&lt;/li&gt;
-&lt;li&gt;&lt;strong&gt;Q 빈손 모드&lt;/strong&gt; — Craft Island와 교육 모드에서 Q를 누르면 손이 비고, 다시 누르면 블록을 듭니다. 빈손일 때는 캐기, 문 열기, 앉기만 되고 블록이 놓이지 않아서, 실수로 블록을 놓을 걱정 없이 돌아다닐 수 있습니다.&lt;/li&gt;
-&lt;li&gt;&lt;strong&gt;Y 입양&lt;/strong&gt; — 반려동물 입양 창을 Y 키로 열 수 있습니다.&lt;/li&gt;
-&lt;/ul&gt;
-&lt;h3&gt;웹사이트&lt;/h3&gt;
-&lt;ul&gt;
-&lt;li&gt;&lt;strong&gt;&lt;a href=&quot;/guide/&quot;&gt;게임 안내&lt;/a&gt;&lt;/strong&gt; — 모드 소개, PC 조작법, 교실 참여 방법, 저장 방식, 자주 묻는 질문을 담았습니다. 페이지의 사진은 모두 게임을 직접 실행해서 찍은 장면입니다.&lt;/li&gt;
-&lt;li&gt;&lt;strong&gt;&lt;a href=&quot;/note/&quot;&gt;개발 노트&lt;/a&gt;&lt;/strong&gt; — 패치 노트와 개발 이야기를 날짜별로 올립니다. &lt;a href=&quot;/note/feed.xml&quot;&gt;RSS 피드&lt;/a&gt;로 구독할 수 있습니다.&lt;/li&gt;
-&lt;li&gt;게임 안내에서 &amp;quot;함께 만드는 교실 열기&amp;quot;를 누르면 교육 모드의 선생님/학생/혼자 하기 선택 화면으로 바로 갑니다.&lt;/li&gt;
-&lt;/ul&gt;
-&lt;h2&gt;개선&lt;/h2&gt;
-&lt;ul&gt;
-&lt;li&gt;&lt;strong&gt;조작법을 그림으로&lt;/strong&gt; — W 위에 A·S·D가 놓인 실제 키보드 배열과, 누를 버튼이 색칠된 마우스 그림으로 조작법을 보여 줍니다. 게임 안의 메뉴와 게임 안내 페이지가 같은 그림을 씁니다.&lt;/li&gt;
-&lt;li&gt;&lt;strong&gt;블록 장난감 디자인&lt;/strong&gt; — 메뉴, 단축칸, 오른쪽 위 버튼, 가구 모드, 입양 창을 두꺼운 테두리와 스터드가 달린 블록 모양으로 통일했습니다. 고른 단축칸은 노란 테두리로 또렷하게 보입니다.&lt;/li&gt;
-&lt;li&gt;&lt;strong&gt;가구 모드&lt;/strong&gt; — 아래쪽에 가구 모드 전용 키 안내가 생겼고, 카탈로그 창에 닫기 버튼이 생겼습니다.&lt;/li&gt;
-&lt;li&gt;Daily Tower, Robo Builder, Blast Royale도 한국어로 바꿨습니다. Robo Builder에서는 돈이 모자라면 &amp;quot;💰 nG 더 필요&amp;quot;처럼 얼마가 더 필요한지 알려 줍니다.&lt;/li&gt;
-&lt;li&gt;첫 화면에 움직이는 Sunny Village 배경을 넣고, 게임 선택 메뉴를 한국어로 정리했습니다.&lt;/li&gt;
-&lt;li&gt;검색 엔진이 크래프트얍을 정확히 찾을 수 있도록 사이트 정보를 정리했습니다. 반 이름이나 학생 이름이 들어간 교실 주소는 검색에 노출되지 않습니다.&lt;/li&gt;
-&lt;li&gt;예전 소개 페이지 주소로 들어와도 게임 첫 화면으로 연결됩니다.&lt;/li&gt;
-&lt;/ul&gt;
-&lt;h2&gt;버그 수정&lt;/h2&gt;
-&lt;ul&gt;
-&lt;li&gt;&lt;strong&gt;기계 작업실에서 마우스가 사라지던 문제&lt;/strong&gt; — 작업실을 연 채 Esc를 누르면 일시정지 메뉴가 작업실 위에 남아, 마우스가 잠기고 보이지 않던 문제를 고쳤습니다.&lt;/li&gt;
-&lt;li&gt;&lt;strong&gt;창을 닫으면 일시정지로 빠지던 문제&lt;/strong&gt; — 입양, 가구, 조합 창이나 기계 작업실을 닫거나 그 안에서 고르면 바로 게임으로 돌아갑니다.&lt;/li&gt;
-&lt;li&gt;&lt;strong&gt;창을 닫을 때 화면이 깜빡이던 문제&lt;/strong&gt; — 게임으로 돌아가는 순간 일시정지 메뉴가 잠깐 보이던 현상을 없앴습니다.&lt;/li&gt;
-&lt;li&gt;&lt;strong&gt;마우스 포인터가 고정되던 문제&lt;/strong&gt; — 창을 내리거나 다른 창으로 전환한 뒤에 마우스가 게임에 붙잡혀 있던 문제를 고쳤습니다. 이제 다른 창으로 가면 게임이 일시정지합니다.&lt;/li&gt;
-&lt;li&gt;&lt;strong&gt;시점이 갑자기 튀거나 눈높이에서 굳던 문제&lt;/strong&gt; — 마우스를 다시 잡는 순간 들어오는 비정상적인 큰 움직임을 무시해서, 특히 가구 모드에서 시점이 한 번에 크게 꺾이지 않도록 했습니다. Blast Royale에도 적용했습니다.&lt;/li&gt;
-&lt;li&gt;Blast Royale은 화면을 클릭해 시작하기 전에는 경기가 진행되지 않습니다.&lt;/li&gt;
 &lt;/ul&gt;
 </content>
   </entry>

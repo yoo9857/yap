@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>11월 4일 패치 노트 (3) — 조준 테두리를 차분하게, 깜빡임 없이 | 크래프트얍 개발 노트</title>
+    <meta name="description" content="오늘 바꾼 조준 테두리의 검은색과 흰색이 너무 세게 부딪혀 보이고, 화면을 돌릴 때 흰 선이 깜빡이던 문제를 고쳤어요. 이제 흰 선에 옅은 그림자만 깔아 어떤 블록 위에서도 차분하고 또렷해요." />
+    <meta name="robots" content="index, follow, max-image-preview:large" />
+    <meta name="theme-color" content="#ffd21c" />
+    <meta name="generator" content="tools/build-notes.mjs" />
+    <link rel="canonical" href="https://craftyap.com/note/patch-2026-11-04-3/" />
+    <link rel="alternate" type="application/rss+xml" title="크래프트얍 개발 노트" href="/feed.xml" />
+    <link rel="alternate" type="application/atom+xml" title="크래프트얍 개발 노트 (Atom)" href="/note/feed.xml" />
+    <link rel="icon" type="image/png" sizes="48x48" href="/favicon-48.png" />
+    <link rel="stylesheet" href="/guide/guide.css?v=0f9762e0f8" />
+    <link rel="stylesheet" href="/note/note.css?v=e5352788b0" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Jua&family=Noto+Sans+KR:wght@400;700;900&display=swap" rel="stylesheet" />
+    <meta property="og:type" content="article" />
+    <meta property="og:locale" content="ko_KR" />
+    <meta property="og:site_name" content="크래프트얍(CraftYap)" />
+    <meta property="og:title" content="11월 4일 패치 노트 (3) — 조준 테두리를 차분하게, 깜빡임 없이 | 크래프트얍 개발 노트" />
+    <meta property="og:description" content="오늘 바꾼 조준 테두리의 검은색과 흰색이 너무 세게 부딪혀 보이고, 화면을 돌릴 때 흰 선이 깜빡이던 문제를 고쳤어요. 이제 흰 선에 옅은 그림자만 깔아 어떤 블록 위에서도 차분하고 또렷해요." />
+    <meta property="og:url" content="https://craftyap.com/note/patch-2026-11-04-3/" />
+    <meta property="og:image" content="https://craftyap.com/craftyap-banner.jpg" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="675" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="11월 4일 패치 노트 (3) — 조준 테두리를 차분하게, 깜빡임 없이 | 크래프트얍 개발 노트" />
+    <meta name="twitter:description" content="오늘 바꾼 조준 테두리의 검은색과 흰색이 너무 세게 부딪혀 보이고, 화면을 돌릴 때 흰 선이 깜빡이던 문제를 고쳤어요. 이제 흰 선에 옅은 그림자만 깔아 어떤 블록 위에서도 차분하고 또렷해요." />
+    <meta name="twitter:image" content="https://craftyap.com/craftyap-banner.jpg" />
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "BlogPosting",
+      "@id": "https://craftyap.com/note/patch-2026-11-04-3/#post",
+      "url": "https://craftyap.com/note/patch-2026-11-04-3/",
+      "headline": "11월 4일 패치 노트 (3) — 조준 테두리를 차분하게, 깜빡임 없이",
+      "description": "오늘 바꾼 조준 테두리의 검은색과 흰색이 너무 세게 부딪혀 보이고, 화면을 돌릴 때 흰 선이 깜빡이던 문제를 고쳤어요. 이제 흰 선에 옅은 그림자만 깔아 어떤 블록 위에서도 차분하고 또렷해요.",
+      "datePublished": "2026-11-04",
+      "dateModified": "2026-11-04",
+      "inLanguage": "ko",
+      "keywords": "패치 노트, 버그 수정, 블록, 화면",
+      "image": "https://craftyap.com/craftyap-banner.jpg",
+      "isPartOf": {
+        "@id": "https://craftyap.com/note/#blog"
+      },
+      "author": {
+        "@type": "Organization",
+        "name": "크래프트얍(CraftYap)",
+        "url": "https://craftyap.com/"
+      },
+      "about": {
+        "@id": "https://craftyap.com/#game"
+      }
+    },
+    {
+      "@type": "BreadcrumbList",
+      "itemListElement": [
+        {
+          "@type": "ListItem",
+          "position": 1,
+          "name": "크래프트얍",
+          "item": "https://craftyap.com/"
+        },
+        {
+          "@type": "ListItem",
+          "position": 2,
+          "name": "개발 노트",
+          "item": "https://craftyap.com/note/"
+        },
+        {
+          "@type": "ListItem",
+          "position": 3,
+          "name": "11월 4일 패치 노트 (3) — 조준 테두리를 차분하게, 깜빡임 없이",
+          "item": "https://craftyap.com/note/patch-2026-11-04-3/"
+        }
+      ]
+    }
+  ]
+}
+    </script>
+    <script src="/guide/guide.js?v=b6f46abba1" defer></script>
+  </head>
+
+  <body>
+    <a class="skip-link" href="#content">본문으로 이동</a>
+    <header class="site-header"><div class="header-inner">
+      <a class="brand" href="/" aria-label="크래프트얍 게임 홈"><img src="/craftyap-logo.webp" width="64" height="64" alt="" /><span>크래프트얍<small>CRAFTYAP</small></span></a>
+      <nav class="header-nav" id="site-nav" aria-label="주요 메뉴"><a href="/note/">개발 노트</a><a href="/guide/">게임 안내</a><a href="/guide/#controls">조작법</a><a href="/guide/#faq">FAQ</a></nav>
+      <a class="button button-dark header-play" href="/">지금 플레이 <span aria-hidden="true">↗</span></a>
+      <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="site-nav" aria-label="메뉴 열기" hidden><span></span><span></span></button>
+    </div></header>
+    <main id="content" class="note-main section-shell">
+      <article class="note-article" aria-labelledby="post-title">
+        <nav class="note-crumb" aria-label="현재 위치"><a href="/note/">← 개발 노트</a></nav>
+        <header class="note-head">
+          <p class="note-date"><time datetime="2026-11-04">2026.11.04</time></p>
+          <h1 id="post-title">11월 4일 패치 노트 (3) — 조준 테두리를 차분하게, 깜빡임 없이</h1>
+          <p class="note-summary">오늘 바꾼 조준 테두리의 검은색과 흰색이 너무 세게 부딪혀 보이고, 화면을 돌릴 때 흰 선이 깜빡이던 문제를 고쳤어요. 이제 흰 선에 옅은 그림자만 깔아 어떤 블록 위에서도 차분하고 또렷해요.</p>
+          <ul class="note-tags" aria-label="태그"><li>패치 노트</li><li>버그 수정</li><li>블록</li><li>화면</li></ul>
+          <nav class="note-chips" aria-label="이번 노트의 변경 사항"><a class="note-chip note-chip--fix" href="#fix">수정 <b>1</b></a><a class="note-chip note-chip--up" href="#up">개선 <b>1</b></a><a class="note-chip note-chip--known" href="#known">알려진 문제 <b>1</b></a></nav>
+        </header>
+        <div class="note-body">
+<section class="note-sec note-sec--summary" id="s0" aria-labelledby="s0-h">
+<h2 id="s0-h"><span class="note-badge" aria-hidden="true">요약</span>한눈에 보기</h2>
+<div class="note-sec-body">
+<p>(2)에서 바꾼 조준 테두리는 <strong>검은 선 위에 흰 선</strong>이라 블록 위에서 너무 튀었고, <strong>화면을 돌릴 때마다 흰 선이 깜빡</strong>였어요. 이제 <strong>흰 선 + 옅은 그림자</strong> 한 가지로 바꿔서 어두운 돌, 흰 양털, 빨간 벽돌 어디서나 차분하게 잘 보이고, 깜빡이지 않아요.</p>
+</div>
+</section>
+<section class="note-sec">
+<h2>BEFORE / AFTER</h2>
+<p><strong>같은 자리에서 같은 블록을 바라볼 때</strong> — 위는 (2)의 검정+흰색 테두리, 아래는 새 테두리예요.</p>
+<p><img src="/note/assets/20261104-aim-soft-ba.webp" alt="조준 테두리 비교: 위 줄은 어두운 돌, 흰 양털, 빨간 벽돌 위의 검정+흰색 테두리, 아래 줄은 같은 블록 위의 흰 선과 옅은 그림자 테두리"></p>
+</section>
+<section class="note-sec note-sec--fix" id="fix" aria-labelledby="fix-h">
+<h2 id="fix-h"><span class="note-badge" aria-hidden="true">FIX</span>버그 수정 <small>1</small></h2>
+<div class="note-sec-body">
+<ul>
+<li><strong class="item-title">화면을 움직이면 흰 선이 깜빡이던 문제</strong>검은 선과 흰 선이 정확히 같은 깊이에 그려져서, 화면이 조금만 움직여도 어느 쪽이 앞에 보일지가 매번 바뀌었어요. 화면을 돌리며 측정해 보니 흰 선이 거의 보이지 않는 화면도 있었어요. 이제 두 선이 서로 겨루지 않게 그려서 매 화면 같은 모습이에요. 멀리 있는 블록에서 선이 블록 면과 겨루던 것도 함께 고쳤어요.</li>
+</ul>
+</div>
+</section>
+<section class="note-sec note-sec--up" id="up" aria-labelledby="up-h">
+<h2 id="up-h"><span class="note-badge" aria-hidden="true">UP</span>개선 <small>1</small></h2>
+<div class="note-sec-body">
+<ul>
+<li><strong class="item-title">조준 테두리 색</strong>검은색과 흰색이 세게 부딪혀 보이던 것을, 흰 선 아래 옅은 그림자만 까는 방식으로 바꿨어요. 흰 블록 위에서는 그림자가, 어두운 블록 위에서는 흰 선이 테두리를 보여 줘요. 기계 작업실 조립 커서도 같아요.</li>
+</ul>
+</div>
+</section>
+<section class="note-sec note-sec--known" id="known" aria-labelledby="known-h">
+<h2 id="known-h"><span class="note-badge" aria-hidden="true">!</span>알려진 문제 <small>1</small></h2>
+<div class="note-sec-body">
+<ul>
+<li>이미 열려 있던 탭은 <strong>새로고침</strong>해야 바뀐 화면이 보여요.</li>
+</ul>
+</div>
+</section>
+        </div>
+      </article>
+      <nav class="note-pager" aria-label="다른 노트"><a class="note-prev" href="/note/patch-2026-11-04-2/"><small>이전 노트</small>11월 4일 패치 노트 (2) — 붙인 블록은 한 면으로, 조준과 윤곽선은 또렷하게</a><span></span></nav>
+    </main>
+    <footer class="site-footer section-shell"><div><a class="footer-brand" href="/">크래프트얍 <span>CraftYap</span></a><p>블록 하나에서 시작되는, 네가 만드는 세상.</p></div><nav aria-label="하단 메뉴"><a href="/">게임 홈</a><a href="/note/">개발 노트</a><a href="/guide/">게임 안내</a><a href="/feed.xml">RSS</a><a href="#content">맨 위로 ↑</a></nav><small>크래프트얍 개발 노트 · <time datetime="2026-11-04">2026.11.04 업데이트</time></small></footer>
+  </body>
+</html>

@@ -3,14 +3,20 @@ import { LineMaterial } from "three/examples/jsm/lines/LineMaterial.js";
 import { LineSegments2 } from "three/examples/jsm/lines/LineSegments2.js";
 import { LineSegmentsGeometry } from "three/examples/jsm/lines/LineSegmentsGeometry.js";
 
-/** Ink and paper: a dark line reads on wool and sand, the light core on stone and coal. */
-const INK = 0x17120f;
-const PAPER = 0xfff6d8;
-/** CSS pixels at any distance (scaled by the renderer's pixel ratio when drawn). The ink shows
- *  (INK_PX - PAPER_PX) / 2 ≈ 2 px either side of the paper core — at 1.3 px it did not read. */
-const INK_PX = 6;
-const PAPER_PX = 2.2;
-/** Edges are pulled this far toward the eye before the depth test. */
+/**
+ * A white line over a soft shadow. The first version was a hard black line with a white core:
+ * readable, but the pure black against pure white jumped out of the soft crayon world. The
+ * shadow is just dark enough to lift the line off white wool; on stone and brick the white reads.
+ */
+const SHADOW = 0x000000;
+const SHADOW_OPACITY = 0.28;
+const LINE = 0xffffff;
+const LINE_OPACITY = 0.95;
+/** CSS pixels at any distance (scaled by the renderer's pixel ratio when drawn). */
+const SHADOW_PX = 5;
+const LINE_PX = 2.5;
+/** Edges are pulled this far toward the eye before the depth test, plus 0.6 % of their distance
+ *  (depth precision falls with distance: a fixed pull z-fought the block face far away). */
 const PULL_M = 0.045;
 /** While the block is being broken its cracked copy opens outward by a few cm (miningFracture's
  *  seams), and seen at an angle a 4.5 cm pull covers less than that along the surface: the
@@ -44,20 +50,22 @@ export class AimOutline {
     const edges = new THREE.EdgesGeometry(new THREE.BoxGeometry(size, size, size));
     this.geometry = new LineSegmentsGeometry().fromEdgesGeometry(edges);
     edges.dispose();
-    for (const [color, px, order] of [[INK, INK_PX, 10], [PAPER, PAPER_PX, 11]] as const) {
-      const material = new LineMaterial({ color, linewidth: px, worldUnits: false, fog: false, depthTest: !options.xray });
+    for (const [color, px, opacity, order] of [[SHADOW, SHADOW_PX, SHADOW_OPACITY, 10], [LINE, LINE_PX, LINE_OPACITY, 11]] as const) {
+      // depthWrite off: the two lines sit at the SAME depth, and with both writing it, rounding
+      // decided frame by frame which one won — the core blinked whenever the camera moved
+      const material = new LineMaterial({ color, linewidth: px, worldUnits: false, fog: false, depthTest: !options.xray, depthWrite: false, transparent: true, opacity });
       material.onBeforeCompile = (shader) => {
         shader.uniforms.aimPull = this.pull;
         shader.vertexShader = "uniform float aimPull;\n" + shader.vertexShader.replace(
           "vec4 end = modelViewMatrix * vec4( instanceEnd, 1.0 );",
           `vec4 end = modelViewMatrix * vec4( instanceEnd, 1.0 );
-			start.xyz -= normalize( start.xyz ) * aimPull;
-			end.xyz -= normalize( end.xyz ) * aimPull;`,
+			start.xyz -= normalize( start.xyz ) * ( aimPull + 0.006 * length( start.xyz ) );
+			end.xyz -= normalize( end.xyz ) * ( aimPull + 0.006 * length( end.xyz ) );`,
         );
       };
       material.customProgramCacheKey = () => "craftyap-aim-outline";
       const line = new LineSegments2(this.geometry, material);
-      line.renderOrder = order; // the paper core after the ink, on top of it
+      line.renderOrder = order; // the white line after its shadow, on top of it
       line.frustumCulled = false; // one box; the boot warm-up draws it far below the world
       // never something to hit: LineSegments2.raycast also throws without `raycaster.camera`,
       // which any scene-wide raycast (tests, picking) does not set
