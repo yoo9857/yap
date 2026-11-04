@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>11월 4일 패치 노트 (2) — 붙인 블록은 한 면으로, 조준과 윤곽선은 또렷하게 | 크래프트얍 개발 노트</title>
-    <meta name="description" content="블록을 붙여 쌓으면 블록마다 검은 줄이 생겨 바둑판처럼 보이던 문제, 조준 테두리가 1픽셀이라 잘 안 보이고 붙은 면에서 끊기던 문제, 캐릭터와 펫의 검은 윤곽선이 너무 두꺼워 발과 팔이 까맣게 뭉개지던 문제를 고쳤어요." />
+    <meta name="description" content="블록을 붙여 쌓으면 블록마다 검은 줄이 생겨 바둑판처럼 보이던 문제, 조준 테두리가 1픽셀이라 잘 안 보이고 붙은 면에서 끊기거나 부수는 동안 연해지던 문제, 캐릭터와 펫의 검은 윤곽선이 너무 두꺼워 발과 팔이 까맣게 뭉개지던 문제를 고쳤어요." />
     <meta name="robots" content="index, follow, max-image-preview:large" />
     <meta name="theme-color" content="#ffd21c" />
     <meta name="generator" content="tools/build-notes.mjs" />
@@ -21,14 +21,14 @@
     <meta property="og:locale" content="ko_KR" />
     <meta property="og:site_name" content="크래프트얍(CraftYap)" />
     <meta property="og:title" content="11월 4일 패치 노트 (2) — 붙인 블록은 한 면으로, 조준과 윤곽선은 또렷하게 | 크래프트얍 개발 노트" />
-    <meta property="og:description" content="블록을 붙여 쌓으면 블록마다 검은 줄이 생겨 바둑판처럼 보이던 문제, 조준 테두리가 1픽셀이라 잘 안 보이고 붙은 면에서 끊기던 문제, 캐릭터와 펫의 검은 윤곽선이 너무 두꺼워 발과 팔이 까맣게 뭉개지던 문제를 고쳤어요." />
+    <meta property="og:description" content="블록을 붙여 쌓으면 블록마다 검은 줄이 생겨 바둑판처럼 보이던 문제, 조준 테두리가 1픽셀이라 잘 안 보이고 붙은 면에서 끊기거나 부수는 동안 연해지던 문제, 캐릭터와 펫의 검은 윤곽선이 너무 두꺼워 발과 팔이 까맣게 뭉개지던 문제를 고쳤어요." />
     <meta property="og:url" content="https://craftyap.com/note/patch-2026-11-04-2/" />
     <meta property="og:image" content="https://craftyap.com/craftyap-banner.jpg" />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="675" />
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content="11월 4일 패치 노트 (2) — 붙인 블록은 한 면으로, 조준과 윤곽선은 또렷하게 | 크래프트얍 개발 노트" />
-    <meta name="twitter:description" content="블록을 붙여 쌓으면 블록마다 검은 줄이 생겨 바둑판처럼 보이던 문제, 조준 테두리가 1픽셀이라 잘 안 보이고 붙은 면에서 끊기던 문제, 캐릭터와 펫의 검은 윤곽선이 너무 두꺼워 발과 팔이 까맣게 뭉개지던 문제를 고쳤어요." />
+    <meta name="twitter:description" content="블록을 붙여 쌓으면 블록마다 검은 줄이 생겨 바둑판처럼 보이던 문제, 조준 테두리가 1픽셀이라 잘 안 보이고 붙은 면에서 끊기거나 부수는 동안 연해지던 문제, 캐릭터와 펫의 검은 윤곽선이 너무 두꺼워 발과 팔이 까맣게 뭉개지던 문제를 고쳤어요." />
     <meta name="twitter:image" content="https://craftyap.com/craftyap-banner.jpg" />
     <script type="application/ld+json">
 {
@@ -39,7 +39,7 @@
       "@id": "https://craftyap.com/note/patch-2026-11-04-2/#post",
       "url": "https://craftyap.com/note/patch-2026-11-04-2/",
       "headline": "11월 4일 패치 노트 (2) — 붙인 블록은 한 면으로, 조준과 윤곽선은 또렷하게",
-      "description": "블록을 붙여 쌓으면 블록마다 검은 줄이 생겨 바둑판처럼 보이던 문제, 조준 테두리가 1픽셀이라 잘 안 보이고 붙은 면에서 끊기던 문제, 캐릭터와 펫의 검은 윤곽선이 너무 두꺼워 발과 팔이 까맣게 뭉개지던 문제를 고쳤어요.",
+      "description": "블록을 붙여 쌓으면 블록마다 검은 줄이 생겨 바둑판처럼 보이던 문제, 조준 테두리가 1픽셀이라 잘 안 보이고 붙은 면에서 끊기거나 부수는 동안 연해지던 문제, 캐릭터와 펫의 검은 윤곽선이 너무 두꺼워 발과 팔이 까맣게 뭉개지던 문제를 고쳤어요.",
       "datePublished": "2026-11-04",
       "dateModified": "2026-11-04",
       "inLanguage": "ko",
@@ -100,9 +100,9 @@
         <header class="note-head">
           <p class="note-date"><time datetime="2026-11-04">2026.11.04</time></p>
           <h1 id="post-title">11월 4일 패치 노트 (2) — 붙인 블록은 한 면으로, 조준과 윤곽선은 또렷하게</h1>
-          <p class="note-summary">블록을 붙여 쌓으면 블록마다 검은 줄이 생겨 바둑판처럼 보이던 문제, 조준 테두리가 1픽셀이라 잘 안 보이고 붙은 면에서 끊기던 문제, 캐릭터와 펫의 검은 윤곽선이 너무 두꺼워 발과 팔이 까맣게 뭉개지던 문제를 고쳤어요.</p>
+          <p class="note-summary">블록을 붙여 쌓으면 블록마다 검은 줄이 생겨 바둑판처럼 보이던 문제, 조준 테두리가 1픽셀이라 잘 안 보이고 붙은 면에서 끊기거나 부수는 동안 연해지던 문제, 캐릭터와 펫의 검은 윤곽선이 너무 두꺼워 발과 팔이 까맣게 뭉개지던 문제를 고쳤어요.</p>
           <ul class="note-tags" aria-label="태그"><li>패치 노트</li><li>버그 수정</li><li>블록</li><li>화면</li></ul>
-          <nav class="note-chips" aria-label="이번 노트의 변경 사항"><a class="note-chip note-chip--fix" href="#fix">수정 <b>3</b></a><a class="note-chip note-chip--known" href="#known">알려진 문제 <b>1</b></a></nav>
+          <nav class="note-chips" aria-label="이번 노트의 변경 사항"><a class="note-chip note-chip--fix" href="#fix">수정 <b>5</b></a><a class="note-chip note-chip--known" href="#known">알려진 문제 <b>1</b></a></nav>
         </header>
         <div class="note-body">
 <section class="note-sec note-sec--summary" id="s0" aria-labelledby="s0-h">
@@ -117,11 +117,13 @@
 <p><img src="/note/assets/20261104-block-borders-ba.webp" alt="블록 테두리 비교: 왼쪽 위는 블록마다 검은 격자와 두꺼운 윤곽선이 있는 이전 화면, 오른쪽 위는 이어진 바닥과 가는 윤곽선의 새 화면, 왼쪽 아래는 조준선이 거의 보이지 않는 이전 화면, 오른쪽 아래는 두 색 조준 테두리가 또렷한 새 화면"></p>
 </section>
 <section class="note-sec note-sec--fix" id="fix" aria-labelledby="fix-h">
-<h2 id="fix-h"><span class="note-badge" aria-hidden="true">FIX</span>버그 수정 <small>3</small></h2>
+<h2 id="fix-h"><span class="note-badge" aria-hidden="true">FIX</span>버그 수정 <small>5</small></h2>
 <div class="note-sec-body">
 <ul>
 <li><strong class="item-title">붙인 블록 사이의 검은 줄</strong>블록 그림마다 아이콘용 검은 테두리가 그려져 있어서, 모양은 하나로 합쳐져도 1 m마다 굵은 검은 줄이 생겼어요. 이제 월드에서는 그 테두리를 빼고, 블록 그림이 이음매 없이 이어지게 해요. 가방과 단축칸의 블록 아이콘은 그대로예요.</li>
 <li><strong class="item-title">조준 테두리가 잘 안 보이고 크기가 안 맞던 문제</strong>1픽셀 선이라 무늬 많은 블록 위에서 사라졌고, 붙어 있는 블록과 맞닿은 모서리는 옆 블록에 묻혀 끊겨 보였어요. 이제 <strong>어두운 테두리 + 밝은 심</strong>의 두 색 선이 거리와 관계없이 같은 굵기로 그려지고, 모든 모서리가 보여요.</li>
+<li><strong class="item-title">블록을 부수기 시작하면 조준 테두리가 연해지던 문제</strong>부수는 동안 블록이 금 간 조각으로 바뀌면서 조각이 조금씩 벌어지는데, 그 조각이 테두리를 덮어서 선이 흐려졌어요. 이제 부수는 동안에도 테두리가 조각 위에 또렷하게 남아요.</li>
+<li><strong>기계 작업실 조립 커서</strong>도 같은 두 색 테두리로 바꿨어요. 1픽셀 선이라 부품 사이에서 잘 안 보였어요.</li>
 <li><strong class="item-title">캐릭터·펫 윤곽선이 너무 두껍던 문제</strong>윤곽선이 몸 바깥뿐 아니라 안쪽에도 한 번 더 그려져 두께가 두 배였어요. 그래서 가는 발이나 팔은 통째로 까맣게 보였어요. 이제 <strong>몸 바깥에만</strong> 가늘게 그려요.</li>
 </ul>
 </div>

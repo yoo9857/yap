@@ -12,7 +12,7 @@
       <link>https://craftyap.com/note/patch-2026-11-04-2/</link>
       <guid isPermaLink="true">https://craftyap.com/note/patch-2026-11-04-2/</guid>
       <pubDate>Tue, 03 Nov 2026 15:00:00 +0000</pubDate>
-      <description>블록을 붙여 쌓으면 블록마다 검은 줄이 생겨 바둑판처럼 보이던 문제, 조준 테두리가 1픽셀이라 잘 안 보이고 붙은 면에서 끊기던 문제, 캐릭터와 펫의 검은 윤곽선이 너무 두꺼워 발과 팔이 까맣게 뭉개지던 문제를 고쳤어요.</description>
+      <description>블록을 붙여 쌓으면 블록마다 검은 줄이 생겨 바둑판처럼 보이던 문제, 조준 테두리가 1픽셀이라 잘 안 보이고 붙은 면에서 끊기거나 부수는 동안 연해지던 문제, 캐릭터와 펫의 검은 윤곽선이 너무 두꺼워 발과 팔이 까맣게 뭉개지던 문제를 고쳤어요.</description>
     </item>
     <item>
       <title>11월 4일 패치 노트 — 서버가 커지는 만큼 자동으로 나뉘어요</title>
