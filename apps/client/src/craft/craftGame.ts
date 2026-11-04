@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { framelessTile } from "./kitSurface.js";
 import { GameLoop } from "../app/loop.js";
 import { GameRenderer } from "../render/renderer.js";
 import { texturesReady, warmupGpu, warmupGpuAsync } from "../render/textures.js";
@@ -1624,7 +1625,7 @@ export class CraftGame {
     this.fieldGround = ground;
     void loadTexture(textureUrl(blockByKey("grass")!)).then((tex) => {
       if (this.disposed || !tex) return;
-      const tiled = tex.clone();
+      const tiled = framelessTile(tex).clone(); // the far plane continues the bricks: no tile grid
       tiled.wrapS = tiled.wrapT = THREE.RepeatWrapping;
       tiled.repeat.set(size, size);
       tiled.needsUpdate = true;

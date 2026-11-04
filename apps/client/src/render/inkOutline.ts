@@ -150,6 +150,10 @@ void main() {
   // The edge test runs on the mask NORMALISED by the object's weight, so a
   // light-weight object still gets a crisp line — just a fainter one.
   float edge = smoothstep(0.2, 0.8, e / max(best, 1e-3));
+  // Ink only OUTSIDE the silhouette (this pixel is less inked than its brightest neighbour). Testing
+  // both sides painted a second line just inside the body: twice the intended weight, and a paw or
+  // an arm thinner than that went solid black.
+  edge *= smoothstep(0.02, 0.12, best - c);
 
   // A line of constant PIXEL width is right up close and wrong far away: a
   // distant chair is a few pixels of furniture inside a frame of ink, while
@@ -191,7 +195,7 @@ export class InkOutline {
   /** Line weight in PIXELS. 1.6 read fine in a close-up and vanished at
    *  gameplay distance, where the old world-space hull had been worth ~2.6px
    *  on a character — which is the weight this art style expects. */
-  constructor(renderer: THREE.WebGLRenderer, thickness = 2.6) {
+  constructor(renderer: THREE.WebGLRenderer, thickness = 2.2) {
     const size = renderer.getDrawingBufferSize(new THREE.Vector2());
     this.width = Math.max(1, size.x);
     this.height = Math.max(1, size.y);

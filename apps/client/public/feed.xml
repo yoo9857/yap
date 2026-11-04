@@ -8,6 +8,13 @@
     <language>ko</language>
     <lastBuildDate>Tue, 03 Nov 2026 15:00:00 +0000</lastBuildDate>
     <item>
+      <title>11월 4일 패치 노트 (2) — 붙인 블록은 한 면으로, 조준과 윤곽선은 또렷하게</title>
+      <link>https://craftyap.com/note/patch-2026-11-04-2/</link>
+      <guid isPermaLink="true">https://craftyap.com/note/patch-2026-11-04-2/</guid>
+      <pubDate>Tue, 03 Nov 2026 15:00:00 +0000</pubDate>
+      <description>블록을 붙여 쌓으면 블록마다 검은 줄이 생겨 바둑판처럼 보이던 문제, 조준 테두리가 1픽셀이라 잘 안 보이고 붙은 면에서 끊기던 문제, 캐릭터와 펫의 검은 윤곽선이 너무 두꺼워 발과 팔이 까맣게 뭉개지던 문제를 고쳤어요.</description>
+    </item>
+    <item>
       <title>11월 4일 패치 노트 — 서버가 커지는 만큼 자동으로 나뉘어요</title>
       <link>https://craftyap.com/note/patch-2026-11-04-1/</link>
       <guid isPermaLink="true">https://craftyap.com/note/patch-2026-11-04-1/</guid>
@@ -139,13 +146,6 @@
       <guid isPermaLink="true">https://craftyap.com/note/patch-2026-10-28/</guid>
       <pubDate>Tue, 27 Oct 2026 15:00:00 +0000</pubDate>
       <description>게임 화면을 블록 장난감 느낌으로 새로 꾸미고 한국어·설정·시작 메뉴를 넣었습니다. 주인공이 HOME 캐릭터로 바뀌었고, 게임 안내 페이지와 이 개발 노트도 열었습니다.</description>
-    </item>
-    <item>
-      <title>개발 노트를 시작합니다</title>
-      <link>https://craftyap.com/note/hello-dev-notes/</link>
-      <guid isPermaLink="true">https://craftyap.com/note/hello-dev-notes/</guid>
-      <pubDate>Tue, 27 Oct 2026 15:00:00 +0000</pubDate>
-      <description>크래프트얍을 만들며 무엇을 바꿨고 왜 그렇게 했는지 이곳에 남기려고 합니다. 첫 글로 10월에 바뀐 것들을 정리했습니다.</description>
     </item>
   </channel>
 </rss>

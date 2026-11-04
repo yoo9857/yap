@@ -1,7 +1,8 @@
 import {kitCubeGeometry,kitRampGeometry,kitConnectorGeometry,kitRoundGeometry,kitCellsGeometry} from "./kitGeometry.js";
 import * as THREE from "three";
 import {mergeGeometries} from "three/examples/jsm/utils/BufferGeometryUtils.js";
-import {repeatingKitTexture} from "./kitSurface.js";
+import {framelessTile,repeatingKitTexture} from "./kitSurface.js";
+import { AimOutline } from "./aimOutline.js";
 import {BlockMaterialLibrary,linkSurfaceTwin,materialFaceGroups,needsCatalogTexture} from "./blockMaterials.js";
 import { castsInstancedShadow } from "../render/instancedDepth.js";
 import { BLOCKS, SOLID_ID, blockById, textureUrl, type BlockDef } from "./blocks.js";
@@ -217,7 +218,8 @@ export class VoxelView {
   private readonly seeThrough = new Set<number>();
   /** The seam colour seen through gaps between bricks (GAP_BACKING). */
   private readonly backingMaterial = new THREE.MeshBasicMaterial({ color: 0x1d1a16, side: THREE.BackSide });
-  private readonly highlight: THREE.LineSegments;
+  /** The crosshair's box: thick, two-tone, never lost in a joined neighbour (aimOutline.ts). */
+  private readonly highlight = new AimOutline();
   private dirty = true;
   private primed = false;
   private readonly focus = new THREE.Vector3(Infinity, Infinity, Infinity);
@@ -238,14 +240,7 @@ export class VoxelView {
       if(options.catalogTextures!==false&&needsCatalogTexture(def))void loadTexture(textureUrl(def)).then(tex=>{if(this.disposed||!tex)return;const map=repeatingKitTexture(tex);this.clonedBlockTextures.add(map);for(const m of [...kit,...far]){m.map=map;m.color.set(0xffffff);if(def.emissive)m.emissiveMap=map;m.needsUpdate=true;}});
       if (def.seeThrough) this.seeThrough.add(def.id);
     }
-    const edges = new THREE.EdgesGeometry(new THREE.BoxGeometry(1.002, 1.002, 1.002));
-    this.highlight = new THREE.LineSegments(
-      edges,
-      new THREE.LineBasicMaterial({ color: 0x1f1f1f, linewidth: 2 }),
-    );
-    this.highlight.visible = false;
-    this.highlight.frustumCulled = false; // one box: never worth culling, and the boot warm-up draws it far below the world
-    scene.add(this.highlight);
+    scene.add(this.highlight.object);
   }
 
   private geometryFor(shape: number): THREE.BufferGeometry {
@@ -340,9 +335,10 @@ export class VoxelView {
     }
     if(this.options.catalogTextures!==false)void loadTexture(textureUrl(def)).then((tex) => {
       if (this.disposed || !tex) return; // keep the solid crayon colour
-      material.map = tex;
+      const tile = framelessTile(tex); // no icon frame: joined bricks must not grid into tiles
+      material.map = tile;
       material.color.set(0xffffff); // the tile carries the hue, exactly like the tower
-      if (def.emissive) material.emissiveMap = tex;
+      if (def.emissive) material.emissiveMap = tile;
       material.needsUpdate = true;
     });
     return material;
@@ -626,12 +622,7 @@ export class VoxelView {
   }
 
   setHighlight(voxel: [number, number, number] | null): void {
-    if (!voxel) {
-      this.highlight.visible = false;
-      return;
-    }
-    this.highlight.visible = true;
-    this.highlight.position.set(voxel[0] + 0.5, voxel[1] + 0.5, voxel[2] + 0.5);
+    this.highlight.show(voxel);
   }
 
   // ------------------------------------------------------------ per frame
@@ -1214,9 +1205,8 @@ export class VoxelView {
     this.kitMaterials.clear();this.blockSurfaces.dispose();for(const map of this.clonedBlockTextures)map.dispose();this.clonedBlockTextures.clear();
     for (const material of this.materialList) material.dispose(); // the merged twins
     this.materials.clear(); this.materialList.length = 0;
-    this.scene.remove(this.highlight);
-    this.highlight.geometry.dispose();
-    (this.highlight.material as THREE.Material).dispose();
+    this.scene.remove(this.highlight.object);
+    this.highlight.dispose();
     this.kitCubeGeo.dispose();this.kitSlopeGeo.dispose();this.cornerGeo.dispose();this.farCorner.dispose();
     this.cubeGeo.dispose();
     this.roundGeo.dispose();

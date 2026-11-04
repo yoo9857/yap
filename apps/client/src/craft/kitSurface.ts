@@ -24,7 +24,67 @@ export function createKitSurfaceMaps(size=256):KitSurfaceMaps {
   const texture=(data:Uint8Array,name:string,srgb=false)=>{const t=new THREE.DataTexture(data,size,size,THREE.RGBAFormat);t.name=name;t.wrapS=t.wrapT=THREE.RepeatWrapping;t.magFilter=THREE.LinearFilter;t.minFilter=THREE.LinearMipmapLinearFilter;t.generateMipmaps=true;t.colorSpace=srgb?THREE.SRGBColorSpace:THREE.NoColorSpace;t.needsUpdate=true;return t;};
   return {albedo:texture(albedo,"CraftYap coat colour",true),normal:texture(normal,"CraftYap mould grain normal"),roughness:texture(roughness,"CraftYap packed roughness metalness")};
 }
+/**
+ * The catalog tiles are drawn as framed icons: a 3–7 px near-black border on every side (the
+ * width differs per image). Repeated across joined blocks, that frame becomes a thick black grid
+ * line every metre, so a wall the shell geometry merged into one piece still reads as separate
+ * tiles. The world draws the tile without it; the hotbar/bag icons keep it.
+ *
+ * The frame is MEASURED per side (columns/rows much darker than the tile's inside), never
+ * assumed, and cropped with one extra pixel for its anti-aliased edge. One cropped copy per
+ * source texture; callers clone it for their own wrapping (clones share the upload).
+ */
+const frameless=new WeakMap<THREE.Texture,THREE.Texture>();
+export function framelessTile(source:THREE.Texture):THREE.Texture {
+  const cached=frameless.get(source);if(cached)return cached;
+  const image=source.image as CanvasImageSource&{width:number;height:number}|undefined;
+  const w=image?.width??0,h=image?.height??0;
+  if(!image||w<16||h<16||typeof document==="undefined"){frameless.set(source,source);return source;}
+  try{
+    const probe=document.createElement("canvas");probe.width=w;probe.height=h;
+    const g=probe.getContext("2d",{willReadFrequently:true});if(!g){frameless.set(source,source);return source;}
+    g.drawImage(image,0,0);const d=g.getImageData(0,0,w,h).data;
+    const lum=(x:number,y:number)=>{const i=(y*w+x)*4;return .3*d[i]!+.59*d[i+1]!+.11*d[i+2]!;};
+    const line=(i:number,vertical:boolean)=>{let sum=0,n=0;const len=vertical?h:w;for(let j=Math.floor(len/4);j<Math.ceil(len*3/4);j++){sum+=vertical?lum(i,j):lum(j,i);n++;}return sum/n;};
+    let inside=0;for(let i=Math.floor(w/4);i<Math.ceil(w*3/4);i+=4)inside+=line(i,true);inside/=Math.ceil(w/8);
+    const limit=Math.floor(Math.min(w,h)*.1),dark=Math.max(18,inside*.45);
+    const depth=(at:(i:number)=>number)=>{let i=0;while(i<limit&&at(i)<dark)i++;return i===0?0:Math.min(limit,i+1);};
+    const left=depth(i=>line(i,true)),right=depth(i=>line(w-1-i,true)),top=depth(i=>line(i,false)),bottom=depth(i=>line(h-1-i,false));
+    if(left+right+top+bottom===0){frameless.set(source,source);return source;}
+    // the frameless inside, then made to wrap: a doodle tile was never drawn to repeat, and some carry
+    // a second ring just inside the frame — cropping alone left a faint line at every tile boundary
+    const cw=w-left-right,ch=h-top-bottom;
+    const inner=document.createElement("canvas");inner.width=cw;inner.height=ch;
+    const ig=inner.getContext("2d",{willReadFrequently:true})!;ig.drawImage(image,left,top,cw,ch,0,0,cw,ch);
+    const wrapped=wrapSeamless(ig.getImageData(0,0,cw,ch));
+    const flat=document.createElement("canvas");flat.width=wrapped.width;flat.height=wrapped.height;flat.getContext("2d")!.putImageData(wrapped,0,0);
+    const canvas=document.createElement("canvas");canvas.width=w;canvas.height=h;
+    const cg=canvas.getContext("2d")!;cg.imageSmoothingQuality="high";cg.drawImage(flat,0,0,w,h);
+    const tile=new THREE.CanvasTexture(canvas);tile.name=`${source.name||"tile"} (frameless)`;tile.colorSpace=source.colorSpace;
+    tile.wrapS=tile.wrapT=THREE.RepeatWrapping;tile.anisotropy=4;tile.needsUpdate=true;
+    frameless.set(source,tile);return tile;
+  }catch{frameless.set(source,source);return source;} // a tainted/odd image keeps its frame rather than failing
+}
+/**
+ * Make an image tile without a seam: a margin `m` at each edge is cross-faded with the matching strip
+ * from the far side and the far strip dropped, so the last column sits next to its own original
+ * neighbour when the texture wraps. (The classic offset-and-blend; output is `m` smaller per axis.)
+ */
+export function wrapSeamless(src:ImageData,fraction=.12):ImageData {
+  const pass=(img:ImageData,horizontal:boolean):ImageData=>{
+    const w=img.width,h=img.height,len=horizontal?w:h,m=Math.max(1,Math.round(len*fraction)),out=len-m;
+    const ow=horizontal?out:w,oh=horizontal?h:out,dst=new ImageData(ow,oh),a=img.data,b=dst.data;
+    for(let y=0;y<oh;y++)for(let x=0;x<ow;x++){
+      const i=horizontal?x:y,o=(y*ow+x)*4,s1=(y*w+x)*4;
+      if(i>=m){for(let c=0;c<4;c++)b[o+c]=a[s1+c]!;continue;}
+      const t=i/m,s2=horizontal?(y*w+x+out)*4:((y+out)*w+x)*4;
+      for(let c=0;c<4;c++)b[o+c]=Math.round(a[s2+c]!*(1-t)+a[s1+c]!*t);
+    }
+    return dst;
+  };
+  return pass(pass(src,true),false);
+}
 /** Do not mutate the registry texture: terrain and construction may use different wrapping. */
-export function repeatingKitTexture(source:THREE.Texture):THREE.Texture {const map=source.clone();map.wrapS=map.wrapT=THREE.RepeatWrapping;map.anisotropy=4;map.needsUpdate=true;return map;}
+export function repeatingKitTexture(source:THREE.Texture):THREE.Texture {const map=framelessTile(source).clone();map.wrapS=map.wrapT=THREE.RepeatWrapping;map.anisotropy=4;map.needsUpdate=true;return map;}
 export function disposeKitSurfaceMaps(maps:KitSurfaceMaps):void {maps.albedo.dispose();maps.normal.dispose();maps.roughness.dispose();}
 
