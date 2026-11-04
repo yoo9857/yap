@@ -9,10 +9,10 @@ const region = [{ x: 0, z: 0, minY: 0, maxY: 10 }];
 describe("water around half blocks, stairs and ramps (mesher snapshot only)", () => {
   it("a half block in a pool takes the water around it; a whole block never does", () => {
     const w = new VoxelWorld();
-    for (const [x, z] of [[4, 5], [6, 5], [5, 4], [5, 6]]) w.set(x, 3, z, flowingWater(2));
+    for (const [x, z] of [[4, 5], [6, 5], [5, 4], [5, 6]] as const) w.set(x, 3, z, flowingWater(2));
     w.setShaped(5, 3, 5, 3, slabShape(0, 0));
     w.set(9, 3, 9, 3);
-    for (const [x, z] of [[8, 9], [10, 9], [9, 8], [9, 10]]) w.set(x, 3, z, WATER);
+    for (const [x, z] of [[8, 9], [10, 9], [9, 8], [9, 10]] as const) w.set(x, 3, z, WATER);
     const cells = w.cells.slice();
     waterlogShapes(cells, w, region, new Set());
     expect(cells[at(5, 3, 5)]).toBe(flowingWater(2));
