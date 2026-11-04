@@ -47,6 +47,7 @@ node tools/e2e-machines.mjs       # machine lab: build shortcuts, library/share,
 node tools/e2e-battle.mjs         # battle: bots live/roam, storm shrink, win & lose paths
 node tools/e2e-builder-vr.mjs     # builder VR: rig placement, comfort contract, teardown (needs no headset)
 node tools/e2e-production.mjs     # built dist on a single port (no dev server needed)
+node tools/load-server.mjs --classes 40 --students 25 --shards 4   # server load: real WS bots vs an isolated server (own port + temp DB); /metrics + what students saw
 node tools/perf-craft.mjs [--profile|--alloc|--no-soak]  # field: frame time / camera judder / garbage per scenario (open, wall slide, back-to-wall, corner) + 10-round leak soak
 node tools/builder-gallery.mjs <outdir> [i]   # screenshot each landmark for visual review
 node tools/builder-shots.mjs <outdir> [i]     # screenshot each camera shot type
@@ -63,6 +64,17 @@ pnpm monorepo. `packages/shared` is consumed **as TypeScript source** (`"exports
 - `packages/shared` — zod wire protocol (single discriminated union on `t`, `PROTOCOL_VERSION` gate), deterministic level generator (`generateLevel(seed)` — identical output on client and server), daily-tower math (`daily.ts`: seed = f(date in KST), day boundaries), gameplay constants ported from the legacy prototype at 40 px/m (`constants.ts` — these define game feel, don't tweak casually).
 - `apps/client/src/main.ts` — mode selector first; each mode lazy-loads. Rapier WASM (~2 MB) loads only for tower mode (craft/battle use the rapier-free voxel physics). `?mode=tower|builder|craft|battle|field` deep-links skip the selector (all E2E relies on this); `&reset=1` wipes a mode's localStorage save.
 - `apps/server` — `ws` + pino. `Room` per ≤8 players on today's seed; `game/validation.ts` is the pure anti-cheat (unit-tested); `game/records.ts` persists daily bests in SQLite (better-sqlite3, falls back to in-memory if the native module is broken).
+
+### Server cluster (`apps/server/src/cluster/`, full design + measurements in `docs/SCALING.md`)
+
+`SHARDS=1` (default, dev, production today) is the old single process (`single.ts`). `SHARDS=N|auto` runs a **primary** (HTTP, `/healthz`, `/metrics`, connection limits, the party hub) that hands each game socket — the raw TCP socket over IPC, after reading the upgrade — to one of N **shards** (classes, party fields, tower rooms). One process saturates at ~500 users; the primary relays no game traffic.
+
+- **Every game socket names its game in the URL** (`?mode=class&room=…`, `?party=CODE`): that is its route (`directory.ts routeOf`). A new game socket type must put its key in the URL, or it cannot be routed.
+- **The directory is sticky and load-aware, not a hash** (`LiveDirectory`): hashing spread class COUNT, not size, and left one shard at 100 % next to one at 22 %. Release is a compare-and-delete on a hand-off counter (`RouteLedger.seen` vs `handed`): never delete a mapping while a socket may be in flight, or a class opens on two shards with diverging fields.
+- Shards guard ownership (`ClassManager.owns`, `ownsTower`) and answer a misrouted socket `bad-version` (it reloads routed) — never serve it.
+- Party hub ↔ games is a mirror: roster pushed to shards on every seat change (`PartyManager.onRosterChange`), player counts reported back. `PartyGames.prepare` cannot fail in cluster mode.
+- `/metrics` answers only direct loopback requests (anything with X-Real-IP/X-Forwarded-For is refused). `/healthz` is 503 until every shard is up; upgrades wait ≤5 s for a booting shard.
+- `send()`'s boolean on IPC is backpressure, not failure — real failures arrive in the callback.
 
 ### Tower mode invariants (the anti-jitter contract)
 

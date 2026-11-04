@@ -90,6 +90,36 @@ export class RoomManager {
     return n;
   }
 
+  /** Any public (non-party) tower room alive here? */
+  holdsPublic(): boolean {
+    for (const key of this.rooms.keys()) if (!key.startsWith("party-")) return true;
+    return false;
+  }
+
+  /** Any tower room of this party alive here (today's or yesterday's)? */
+  holdsParty(code: string): boolean {
+    for (const key of this.rooms.keys()) if (key === `party-${code}` || key.startsWith(`party-${code}~`)) return true;
+    return false;
+  }
+
+  /** Tower rooms and the players in them (for /metrics). */
+  stats(): { rooms: number; players: number } {
+    let players = 0;
+    for (const room of this.rooms.values()) players += room.size;
+    return { rooms: this.rooms.size, players };
+  }
+
+  /** Players per party code in its tower rooms (the party hub's "is the game still running"). */
+  partyCounts(): Map<string, number> {
+    const out = new Map<string, number>();
+    for (const [key, room] of this.rooms) {
+      if (!key.startsWith("party-") || room.size === 0) continue;
+      const code = key.slice("party-".length).split("~")[0]!;
+      out.set(code, (out.get(code) ?? 0) + room.size);
+    }
+    return out;
+  }
+
   /** Is `code` a live hub room? Set by the server; unset (tests) means any code. */
   partyGate: ((code: string) => boolean) | null = null;
 

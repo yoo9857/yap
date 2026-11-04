@@ -30,9 +30,13 @@ export class GameSocket {
   private enabled = false;
   private malformedTimes: number[] = [];
 
+  /** `party`: a hub room's code. A sharded server routes the socket by it, so the party's
+   *  tower room lives in one process (server cluster/directory.ts). */
+  constructor(private readonly party = "") {}
+
   private get url(): string {
     const proto = location.protocol === "https:" ? "wss" : "ws";
-    return `${proto}://${location.host}/ws`;
+    return `${proto}://${location.host}/ws${this.party ? `?party=${encodeURIComponent(this.party)}` : ""}`;
   }
 
   get connectionState(): ConnectionState {

@@ -18,6 +18,9 @@ services:
     # leaderboard SQLite (records.db + WAL) lives here.
     volumes:
       - ${DB_DIR:-/srv/craftyap/data}:/app/apps/server/data
+    # One game process uses one core and saturates at ~500 users (docs/SCALING.md).
+    # To scale: raise `cpus` (e.g. "3"), set SHARDS=2+ in .env, and add ~70 MiB of
+    # mem_limit per extra process. SHARDS defaults to 1 (single process).
     mem_limit: 400m
     cpus: "0.50"
     healthcheck:

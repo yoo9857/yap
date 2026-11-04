@@ -20,7 +20,7 @@ interface Member {
 export const PARTY_SEAT_TTL_MS = 15 * 60_000;
 
 /** Same name in a room = same person: matched like class names, case- and space-insensitively. */
-const nameKey = (name: string) => name.trim().replace(/\s+/g, " ").toLowerCase();
+export const nameKey = (name: string) => name.trim().replace(/\s+/g, " ").toLowerCase();
 const tidy = (s: string) => s.trim().replace(/\s+/g, " ");
 
 export type JoinResult = { ok: true; member: string } | { ok: false; code: "full" | "name-taken" | "kicked" };
@@ -52,6 +52,11 @@ export class PartyRoom {
   }
 
   /** Is `name` seated here (connected or in the game)? The game servers admit only these. */
+  /** Every seated name (connected or in the game): what the game shards mirror for `hasMember`. */
+  memberNames(): string[] {
+    return [...this.members.values()].map((m) => m.name);
+  }
+
   hasMember(name: string): boolean {
     const key = nameKey(name);
     for (const m of this.members.values()) if (nameKey(m.name) === key) return true;

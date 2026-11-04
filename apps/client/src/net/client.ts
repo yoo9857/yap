@@ -69,7 +69,7 @@ export class NetworkClient {
   daily: DailyInfo | null = null;
   /** Has any session welcomed us yet? (The next one is a rejoin.) */
   private welcomed = false;
-  private readonly socket = new GameSocket();
+  private readonly socket = new GameSocket(PARTY_CODE);
   private readonly clock = new ServerClock();
   private readonly remotes = new Map<string, RemotePlayer>();
   private playerId: string | null = null;

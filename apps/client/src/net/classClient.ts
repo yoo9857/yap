@@ -113,9 +113,11 @@ function keyStoreName(join: ClassJoin): string {
   return `craftyap-class:${classKey(join.room)}:${who}`;
 }
 
-function classSocketUrl(): string {
+/** The class name rides in the URL too: a sharded server routes the socket to the one process
+ *  that holds this class before reading a single message (server cluster/directory.ts). */
+function classSocketUrl(room: string): string {
   const proto = location.protocol === "https:" ? "wss" : "ws";
-  return `${proto}://${location.host}/ws?mode=class`;
+  return `${proto}://${location.host}/ws?mode=class&room=${encodeURIComponent(room)}`;
 }
 
 /**
@@ -127,7 +129,7 @@ export function peekClass(room: string): Promise<ClassPeek> {
   return new Promise((resolve, rejectWith) => {
     // rejects with a code, like connect() — the lobby maps codes to messages
     const reject: (code: ClassErrorCode | "offline") => void = rejectWith;
-    const ws = new WebSocket(classSocketUrl());
+    const ws = new WebSocket(classSocketUrl(room));
     let settled = false;
     const finish = (fn: () => void) => {
       if (settled) return;
@@ -210,7 +212,7 @@ export class ClassClient {
   constructor(readonly join: ClassJoin) {}
 
   private get url(): string {
-    return classSocketUrl();
+    return classSocketUrl(this.join.room);
   }
 
   connect(): Promise<ClassSession> {

@@ -306,6 +306,8 @@ export class PartyManager {
 
   /** Coalesce list updates: a burst of joins sends one list. */
   private listChanged(): void {
+    // every seat change passes through here: the cluster mirrors the roster to the game shards
+    this.onRosterChange?.();
     if (this.listTimer) return;
     this.listTimer = setTimeout(() => {
       this.listTimer = null;
@@ -378,6 +380,14 @@ export class PartyManager {
    *  can take a member's name in the game first, and a kicked player cannot walk back in. */
   isMember(code: string, name: string): boolean {
     return this.rooms.get(code)?.hasMember(name) ?? false;
+  }
+
+  /** Called (synchronously) whenever rooms or seats may have changed. Set by the cluster primary. */
+  onRosterChange: (() => void) | null = null;
+
+  /** Every room and its seated names, for the game shards' `has`/`isMember` mirror. */
+  roster(): [code: string, names: string[]][] {
+    return [...this.rooms.values()].map((r) => [r.code, r.memberNames()]);
   }
 
   room(code: string): PartyRoom | undefined {

@@ -191,6 +191,8 @@ export class ClassManager {
   partyGate: ((code: string) => boolean) | null = null;
   /** Is `name` seated in party room `code`? Set by the server; unset (tests) admits anyone. */
   partyMember: ((code: string, name: string) => boolean) | null = null;
+  /** Does this process own the class under `key`? Set on a cluster shard; unset = owns everything. */
+  owns: ((key: string) => boolean) | null = null;
   private readonly passwordFails = new Map<string, { fails: number; lockedUntil: number; lockMs: number; lastFailAt: number }>();
 
   constructor(private readonly store: ClassStore) {
@@ -266,6 +268,12 @@ export class ClassManager {
 
   /** A socket's first message: peek, host or join. Returns the class it entered. */
   private enter(socket: ClassSocket, msg: ClassClientMessage, joinTimer: NodeJS.Timeout): ClassRoom | null {
+    // A class lives on exactly one shard. Only a page from before routing (no `room` in its
+    // socket URL) can land elsewhere; "bad-version" makes it reload straight back into its class,
+    // now routed. Answering here instead would open the class twice (two diverging fields).
+    if ((msg.t === "k-peek" || msg.t === "k-host" || msg.t === "k-join") && this.owns && !this.owns(classKey(msg.room))) {
+      return this.refuse(socket, "bad-version");
+    }
     if (msg.t === "k-peek") {
       if (msg.v !== CLASS_PROTOCOL_VERSION) return this.refuse(socket, "bad-version");
       clearTimeout(joinTimer);
@@ -425,6 +433,33 @@ export class ClassManager {
   partyOnline(code: string): number {
     const room = this.classes.get(classKey(`${PARTY_PREFIX}${code}`));
     return room && !room.closed ? room.onlineCount : 0;
+  }
+
+  /** Is the class under `key` in memory here, in any state (a closed one still awaiting its save
+   *  counts)? A cluster shard only gives a class back to the directory once this is false. */
+  holds(key: string): boolean {
+    return this.classes.has(key);
+  }
+
+  /** Live classes, party fields and the people in them (for /metrics). */
+  stats(): { classes: number; partyFields: number; online: number; sockets: number } {
+    let classes = 0, partyFields = 0, online = 0;
+    for (const room of this.classes.values()) {
+      if (room.closed) continue;
+      if (room.ephemeral) partyFields++; else classes++;
+      online += room.onlineCount;
+    }
+    return { classes, partyFields, online, sockets: this.sockets.size };
+  }
+
+  /** People online per party code in its field (the party hub's "is the game still running"). */
+  partyCounts(): Map<string, number> {
+    const out = new Map<string, number>();
+    for (const room of this.classes.values()) {
+      if (!room.ephemeral || room.closed || room.onlineCount === 0) continue;
+      out.set(room.roomName.slice(PARTY_PREFIX.length), room.onlineCount);
+    }
+    return out;
   }
 
   private snapshot(): void {
