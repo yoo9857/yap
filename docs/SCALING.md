@@ -68,6 +68,16 @@ the same 8 cores, not the server: its loops are half idle.)
 
 ## Known trade-offs
 
+- **Open issue — fix before turning shards on:** on the Linux CI runner the
+  cluster integration test intermittently gets no answer to a test's first
+  socket (2026-11-04, three different tests, never locally). The suspect is a
+  socket handed to a shard over IPC that the shard never adopts (the
+  handle-less message path counts it out, but the client is left hanging).
+  The test retries for now (`apps/server/test/cluster.test.ts`); the fix is a
+  primary-side adoption acknowledgement with a timeout that closes the
+  client's socket so it reconnects. Production runs `SHARDS=1` (1 core), so
+  no player meets it today.
+
 - A party start cannot fail in cluster mode (`PartyGames.prepare` is answered
   by the primary, which does not know a shard's party-field cap). The cap is
   per shard (300 each); past it, players get `no-class` on join instead of
