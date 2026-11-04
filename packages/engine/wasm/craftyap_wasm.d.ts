@@ -107,6 +107,15 @@ export class WasmWater {
     write(i: number, block: number, shape: number, wet: number): void;
 }
 
+/**
+ * Brick shells (`kit.rs`, a port of `kitShell.ts` `kitCellsGeometry(cells, false, joined)`).
+ * `cells` is flat x, y, z; `mask` answers "joined" for the box (x0, y0, z0) + (sx, sy, sz),
+ * indexed ((y * sz + z) * sx + x). Returns one Float32Array:
+ * [vertex count, mask misses, positions (3n), normals (3n), colours (3n), uvs (2n)];
+ * a vertex count of -1 is an open contour (the TypeScript throws there).
+ */
+export function kit_cells_geometry(cells: Int32Array | number[], mask: Uint8Array | number[], x0: number, y0: number, z0: number, sx: number, sy: number, sz: number): Float32Array;
+
 export type InitInput = RequestInfo | URL | Response | BufferSource | WebAssembly.Module;
 
 export interface InitOutput {
@@ -114,6 +123,7 @@ export interface InitOutput {
     readonly __wbg_wasmclasswater_free: (a: number, b: number) => void;
     readonly __wbg_wasmfluid_free: (a: number, b: number) => void;
     readonly __wbg_wasmwater_free: (a: number, b: number) => void;
+    readonly kit_cells_geometry: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number, j: number) => [number, number];
     readonly wasmclasswater_busy: (a: number) => number;
     readonly wasmclasswater_clear: (a: number) => void;
     readonly wasmclasswater_edit_count: (a: number) => number;

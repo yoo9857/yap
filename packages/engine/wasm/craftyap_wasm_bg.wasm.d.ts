@@ -4,6 +4,7 @@ export const memory: WebAssembly.Memory;
 export const __wbg_wasmclasswater_free: (a: number, b: number) => void;
 export const __wbg_wasmfluid_free: (a: number, b: number) => void;
 export const __wbg_wasmwater_free: (a: number, b: number) => void;
+export const kit_cells_geometry: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number, j: number) => [number, number];
 export const wasmclasswater_busy: (a: number) => number;
 export const wasmclasswater_clear: (a: number) => void;
 export const wasmclasswater_edit_count: (a: number) => number;

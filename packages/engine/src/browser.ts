@@ -4,7 +4,7 @@
  */
 import type * as Wasm from "../wasm/craftyap_wasm.js";
 
-export type RustEngine = Pick<typeof Wasm, "WasmWater">;
+export type RustEngine = Pick<typeof Wasm, "WasmWater" | "kit_cells_geometry">;
 
 /** Fetch and start the module. Rejects if the browser cannot run it; callers fall back to TS. */
 export async function loadRustEngine(): Promise<RustEngine> {

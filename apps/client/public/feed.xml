@@ -64,6 +64,13 @@
       <description>블록을 붙여 쌓으면 블록마다 검은 줄이 생겨 바둑판처럼 보이던 문제, 조준 테두리가 1픽셀이라 잘 안 보이고 붙은 면에서 끊기거나 부수는 동안 연해지던 문제, 캐릭터와 펫의 검은 윤곽선이 너무 두꺼워 발과 팔이 까맣게 뭉개지던 문제를 고쳤어요.</description>
     </item>
     <item>
+      <title>11월 4일 패치 노트 (11) — 새 Rust 엔진: 블록 화면 만들기도 옮겼어요</title>
+      <link>https://craftyap.com/note/patch-2026-11-04-11/</link>
+      <guid isPermaLink="true">https://craftyap.com/note/patch-2026-11-04-11/</guid>
+      <pubDate>Tue, 03 Nov 2026 15:00:00 +0000</pubDate>
+      <description>새 Rust 엔진으로 두 번째 부품을 옮겼어요. 가까운 블록을 그리는 장난감 블록 껍데기를 만드는 계산이에요. 화면은 픽셀까지 똑같고 만드는 시간은 3~5배 줄었어요. 이번에도 아직은 꺼 둔 상태라 게임은 그대로예요.</description>
+    </item>
+    <item>
       <title>11월 4일 패치 노트 (10) — 새 Rust 엔진 준비: 물 계산을 먼저 옮겼어요</title>
       <link>https://craftyap.com/note/patch-2026-11-04-10/</link>
       <guid isPermaLink="true">https://craftyap.com/note/patch-2026-11-04-10/</guid>
@@ -139,13 +146,6 @@
       <guid isPermaLink="true">https://craftyap.com/note/patch-2026-11-03/</guid>
       <pubDate>Mon, 02 Nov 2026 15:00:00 +0000</pubDate>
       <description>교육 모드의 반 만들기·반 참여하기 화면, 게임 안의 시작/일시정지 메뉴, 조작법, Daily Tower 시작 화면을 스크롤 없이 한 화면에 보이도록 다시 짰습니다. 잘 안 보이던 뒤로 버튼은 왼쪽 위의 큰 버튼이 됐어요.</description>
-    </item>
-    <item>
-      <title>10월 30일 패치 노트 (4) — 내 소리도 입체로, 가구가 소리를 막아요, 일시정지 화면 수정</title>
-      <link>https://craftyap.com/note/patch-2026-10-30-4/</link>
-      <guid isPermaLink="true">https://craftyap.com/note/patch-2026-10-30-4/</guid>
-      <pubDate>Thu, 29 Oct 2026 15:00:00 +0000</pubDate>
-      <description>내가 캐고 부수고 놓는 블록 소리도 그 블록이 있는 방향에서 들립니다. 가구가 소리를 조금 막아 주고, 가구 모드에서 일시정지하면 종류 바꾸기 버튼이 가려지던 문제를 고쳤습니다.</description>
     </item>
   </channel>
 </rss>

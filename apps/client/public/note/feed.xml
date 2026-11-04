@@ -226,6 +226,32 @@
 </content>
   </entry>
   <entry xml:base="https://craftyap.com/">
+    <title>11월 4일 패치 노트 (11) — 새 Rust 엔진: 블록 화면 만들기도 옮겼어요</title>
+    <link href="https://craftyap.com/note/patch-2026-11-04-11/" />
+    <id>https://craftyap.com/note/patch-2026-11-04-11/</id>
+    <published>2026-11-04T00:00:00+09:00</published>
+    <updated>2026-11-04T00:00:00+09:00</updated>
+    <summary>새 Rust 엔진으로 두 번째 부품을 옮겼어요. 가까운 블록을 그리는 장난감 블록 껍데기를 만드는 계산이에요. 화면은 픽셀까지 똑같고 만드는 시간은 3~5배 줄었어요. 이번에도 아직은 꺼 둔 상태라 게임은 그대로예요.</summary>
+    <content type="html">&lt;h2&gt;한눈에 보기&lt;/h2&gt;
+&lt;p&gt;걸어 다니면 가까워진 블록이 장난감 블록 모양으로 바뀌어요. 이때 붙어 있는 블록들을 &lt;strong&gt;하나의 매끈한 껍데기로 깎는 계산&lt;/strong&gt;이 꽤 무거웠어요. 청크(16×16칸) 하나에 길게는 37 ms가 걸렸는데, 한 프레임에 쓸 수 있는 시간은 4 ms예요. 이 계산을 새 &lt;strong&gt;Rust 엔진&lt;/strong&gt;으로 옮겼어요.&lt;/p&gt;
+&lt;h2&gt;BEFORE / AFTER&lt;/h2&gt;
+&lt;p&gt;섬에서 같은 경로를 걸으며 TypeScript(이전)와 Rust(새 엔진)를 비교했어요. 두 엔진으로 찍은 화면은 &lt;strong&gt;픽셀까지 똑같았어요&lt;/strong&gt;.&lt;/p&gt;
+&lt;p&gt;&lt;img src=&quot;/note/assets/20261104-rust-shells-ba.webp&quot; alt=&quot;블록 화면 만들기 시간 비교: 가까운 블록 70청크 만들기 합계가 665 ms에서 139 ms로, 가장 오래 걸린 청크 하나가 37 ms에서 11 ms로, 청크 만들기 전체가 749 ms에서 229 ms로 줄어든 막대 그래프&quot;&gt;&lt;/p&gt;
+&lt;h2&gt;이번에 달라진 점&lt;/h2&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;아직은 꺼져 있어요.&lt;/strong&gt; 이번 배포로 게임에서 달라지는 건 없어요. 물 계산과 함께 확인한 다음 켜요.&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;똑같은 모양.&lt;/strong&gt; 블록 껍데기의 꼭짓점·면 방향·색·무늬 좌표를 하나하나 비교해서, 소수점 끝자리까지 같아야 통과하는 자동 검사를 붙였어요. 무작위 지형 40개와 고리, 속이 빈 상자 같은 특이한 모양도 검사해요.&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;문제가 생기면 자동으로 원래대로.&lt;/strong&gt; 새 엔진에서 오류가 나면 바로 기존 계산으로 돌아가요.&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2&gt;앞으로&lt;/h2&gt;
+&lt;ol&gt;
+&lt;li&gt;멀리 보이는 블록 화면과 청크 훑기도 옮기기&lt;/li&gt;
+&lt;li&gt;화면을 멈추지 않도록 별도 작업 스레드에서 만들기&lt;/li&gt;
+&lt;li&gt;Rust 엔진을 기본으로 켜기&lt;/li&gt;
+&lt;/ol&gt;
+</content>
+  </entry>
+  <entry xml:base="https://craftyap.com/">
     <title>11월 4일 패치 노트 (10) — 새 Rust 엔진 준비: 물 계산을 먼저 옮겼어요</title>
     <link href="https://craftyap.com/note/patch-2026-11-04-10/" />
     <id>https://craftyap.com/note/patch-2026-11-04-10/</id>
@@ -580,33 +606,6 @@
 &lt;ul&gt;
 &lt;li&gt;&lt;strong&gt;Daily Tower 시작 화면&lt;/strong&gt; — 플레이와 오늘의 순위를 나란히 두고, 다른 게임으로 가는 버튼을 크게 달았어요.&lt;/li&gt;
 &lt;li&gt;&lt;strong&gt;Blast Royale 결과 화면&lt;/strong&gt; — &amp;quot;처음 화면으로&amp;quot;를 작은 링크에서 버튼으로 바꿨어요.&lt;/li&gt;
-&lt;/ul&gt;
-</content>
-  </entry>
-  <entry xml:base="https://craftyap.com/">
-    <title>10월 30일 패치 노트 (4) — 내 소리도 입체로, 가구가 소리를 막아요, 일시정지 화면 수정</title>
-    <link href="https://craftyap.com/note/patch-2026-10-30-4/" />
-    <id>https://craftyap.com/note/patch-2026-10-30-4/</id>
-    <published>2026-10-30T00:00:00+09:00</published>
-    <updated>2026-10-30T00:00:00+09:00</updated>
-    <summary>내가 캐고 부수고 놓는 블록 소리도 그 블록이 있는 방향에서 들립니다. 가구가 소리를 조금 막아 주고, 가구 모드에서 일시정지하면 종류 바꾸기 버튼이 가려지던 문제를 고쳤습니다.</summary>
-    <content type="html">&lt;h2&gt;한눈에 보기&lt;/h2&gt;
-&lt;p&gt;(3)편의 입체 음향을 &lt;strong&gt;내 소리까지&lt;/strong&gt; 넓혔어요. 오른쪽 블록을 캐면 오른쪽에서, 위의 블록을 캐면 위에서 소리가 나요. &lt;strong&gt;가구도 소리를 조금 막아&lt;/strong&gt; 주고, 가구 모드에서 일시정지했을 때 &lt;strong&gt;종류 바꾸기 버튼이 가려지던 문제&lt;/strong&gt;도 고쳤어요.&lt;/p&gt;
-&lt;h2&gt;BEFORE / AFTER&lt;/h2&gt;
-&lt;p&gt;&lt;strong&gt;가구 모드에서 일시정지&lt;/strong&gt; — 일시정지 카드가 아래로 길어져 가구 종류를 바꾸는 ◀ ▶ 버튼을 덮고 있었어요. 이제 카드가 그 위에서 멈춰, 마우스로 바로 누를 수 있어요.&lt;/p&gt;
-&lt;p&gt;&lt;img src=&quot;/note/assets/20261030-pause-furniture-ba.webp&quot; alt=&quot;가구 모드 일시정지 화면 비교: 왼쪽은 카드가 가구 종류 버튼을 덮은 이전 화면, 오른쪽은 카드 아래로 종류 버튼과 가구 칸이 모두 보이는 새 화면&quot;&gt;&lt;/p&gt;
-&lt;h2&gt;새로 추가&lt;/h2&gt;
-&lt;ul&gt;
-&lt;li&gt;&lt;strong&gt;내 블록 소리의 방향&lt;/strong&gt; — 캐기 · 부수기 · 놓기 소리가 그 블록이 있는 쪽에서 들려요. 가까운 거리에서는 크기는 그대로이고 방향만 느껴져요.&lt;/li&gt;
-&lt;li&gt;&lt;strong&gt;가구가 막는 소리&lt;/strong&gt; — 소파 · 책장 · 옷장 같은 가구 너머의 친구 소리는 조금 작고 부드럽게 들려요. 블록 벽보다는 덜 막아요.&lt;/li&gt;
-&lt;/ul&gt;
-&lt;h2&gt;버그 수정&lt;/h2&gt;
-&lt;ul&gt;
-&lt;li&gt;&lt;strong&gt;가구 모드 일시정지&lt;/strong&gt; — 일시정지 카드가 가구 종류 바꾸기 버튼(◀ ▶)과 겹쳐 누를 수 없던 문제를 고쳤어요. 화면이 낮으면 카드 안을 스크롤해요.&lt;/li&gt;
-&lt;/ul&gt;
-&lt;h2&gt;알려진 문제&lt;/h2&gt;
-&lt;ul&gt;
-&lt;li&gt;문이 열려 있든 닫혀 있든 같은 정도로 소리를 막아요. 열린 문은 다음 업데이트에서 소리를 더 통과시키도록 할게요.&lt;/li&gt;
 &lt;/ul&gt;
 </content>
   </entry>

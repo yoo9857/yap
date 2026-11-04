@@ -197,3 +197,30 @@ impl WasmClassWater {
         out
     }
 }
+
+/// Brick shells (`kit.rs`, a port of `kitShell.ts` `kitCellsGeometry(cells, false, joined)`).
+/// `cells` is flat x, y, z; `mask` answers "joined" for the box (x0, y0, z0) + (sx, sy, sz),
+/// indexed ((y * sz + z) * sx + x). Returns one Float32Array:
+/// [vertex count, mask misses, positions (3n), normals (3n), colours (3n), uvs (2n)];
+/// a vertex count of -1 is an open contour (the TypeScript throws there).
+#[wasm_bindgen]
+#[allow(clippy::too_many_arguments)]
+pub fn kit_cells_geometry(cells: &[i32], mask: &[u8], x0: i32, y0: i32, z0: i32, sx: i32, sy: i32, sz: i32) -> Vec<f32> {
+    use craftyap_core::kit::{kit_cells_geometry as build, JoinMask};
+    let list: Vec<(i32, i32, i32)> = cells.as_chunks::<3>().0.iter().map(|c| (c[0], c[1], c[2])).collect();
+    let m = JoinMask { x0, y0, z0, sx, sy, sz, cells: mask, missed: Default::default() };
+    match build(&list, &m) {
+        Err(_) => vec![-1.0, m.missed.get() as f32],
+        Ok(g) => {
+            let n = g.pos.len() / 3;
+            let mut out = Vec::with_capacity(2 + n * 11);
+            out.push(n as f32);
+            out.push(m.missed.get() as f32);
+            out.extend_from_slice(&g.pos);
+            out.extend_from_slice(&g.nrm);
+            out.extend_from_slice(&g.col);
+            out.extend_from_slice(&g.uv);
+            out
+        }
+    }
+}

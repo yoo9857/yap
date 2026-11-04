@@ -2,13 +2,14 @@ name: Engine (Rust) checks
 
 # The Rust engine grows beside the TypeScript game (docs/ENGINE.md). It is not shipped yet, so this
 # runs on its own and never blocks a deploy: Rust unit tests, the WASM build, and the parity test
-# that the Rust water makes exactly the TypeScript water's changes.
+# that the Rust water makes exactly the TypeScript water's changes, and the brick shells are the
+# same float32s as kitShell.ts.
 on:
   pull_request:
-    paths: ["engine/**", "packages/engine/**", "apps/client/src/engine/**", "apps/server/src/classroom/classRoom.ts", "apps/server/test/rust-class-water.test.ts", "apps/client/src/craft/waterSim.ts", "apps/client/test/rust-water.test.ts", "packages/shared/src/fluid.ts", "packages/shared/src/waterlog.ts", "packages/shared/test/rust-*.ts", ".github/workflows/engine.yml"]
+    paths: ["engine/**", "packages/engine/**", "apps/client/src/engine/**", "apps/server/src/classroom/classRoom.ts", "apps/server/test/rust-class-water.test.ts", "apps/client/src/craft/waterSim.ts", "apps/client/test/rust-water.test.ts", "packages/shared/src/fluid.ts", "packages/shared/src/waterlog.ts", "packages/shared/test/rust-*.ts", "apps/client/src/craft/kitShell.ts", "apps/client/src/craft/kitRust.ts", "apps/client/test/rust-kit*.ts", ".github/workflows/engine.yml"]
   push:
     branches: [main]
-    paths: ["engine/**", "packages/engine/**", "apps/client/src/engine/**", "apps/server/src/classroom/classRoom.ts", "apps/server/test/rust-class-water.test.ts", "apps/client/src/craft/waterSim.ts", "apps/client/test/rust-water.test.ts", "packages/shared/src/fluid.ts", "packages/shared/src/waterlog.ts", "packages/shared/test/rust-*.ts", ".github/workflows/engine.yml"]
+    paths: ["engine/**", "packages/engine/**", "apps/client/src/engine/**", "apps/server/src/classroom/classRoom.ts", "apps/server/test/rust-class-water.test.ts", "apps/client/src/craft/waterSim.ts", "apps/client/test/rust-water.test.ts", "packages/shared/src/fluid.ts", "packages/shared/src/waterlog.ts", "packages/shared/test/rust-*.ts", "apps/client/src/craft/kitShell.ts", "apps/client/src/craft/kitRust.ts", "apps/client/test/rust-kit*.ts", ".github/workflows/engine.yml"]
   workflow_dispatch:
 
 permissions:
@@ -45,4 +46,6 @@ jobs:
         run: pnpm --filter @robo/client exec vitest run test/rust-water.test.ts
       - name: A class's water on Rust = TypeScript (ClassRoom, message by message)
         run: pnpm --filter @robo/server exec vitest run test/rust-class-water.test.ts
+      - name: Brick shells on Rust = TypeScript (kitCellsGeometry, bit for bit)
+        run: pnpm --filter @robo/client exec vitest run test/rust-kit.test.ts
       - run: pnpm engine:bench

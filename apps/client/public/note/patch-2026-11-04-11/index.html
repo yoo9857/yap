@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>11월 4일 패치 노트 (11) — 새 Rust 엔진: 블록 화면 만들기도 옮겼어요 | 크래프트얍 개발 노트</title>
+    <meta name="description" content="새 Rust 엔진으로 두 번째 부품을 옮겼어요. 가까운 블록을 그리는 장난감 블록 껍데기를 만드는 계산이에요. 화면은 픽셀까지 똑같고 만드는 시간은 3~5배 줄었어요. 이번에도 아직은 꺼 둔 상태라 게임은 그대로예요." />
+    <meta name="robots" content="index, follow, max-image-preview:large" />
+    <meta name="theme-color" content="#ffd21c" />
+    <meta name="generator" content="tools/build-notes.mjs" />
+    <link rel="canonical" href="https://craftyap.com/note/patch-2026-11-04-11/" />
+    <link rel="alternate" type="application/rss+xml" title="크래프트얍 개발 노트" href="/feed.xml" />
+    <link rel="alternate" type="application/atom+xml" title="크래프트얍 개발 노트 (Atom)" href="/note/feed.xml" />
+    <link rel="icon" type="image/png" sizes="48x48" href="/favicon-48.png" />
+    <link rel="stylesheet" href="/guide/guide.css?v=0f9762e0f8" />
+    <link rel="stylesheet" href="/note/note.css?v=e5352788b0" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Jua&family=Noto+Sans+KR:wght@400;700;900&display=swap" rel="stylesheet" />
+    <meta property="og:type" content="article" />
+    <meta property="og:locale" content="ko_KR" />
+    <meta property="og:site_name" content="크래프트얍(CraftYap)" />
+    <meta property="og:title" content="11월 4일 패치 노트 (11) — 새 Rust 엔진: 블록 화면 만들기도 옮겼어요 | 크래프트얍 개발 노트" />
+    <meta property="og:description" content="새 Rust 엔진으로 두 번째 부품을 옮겼어요. 가까운 블록을 그리는 장난감 블록 껍데기를 만드는 계산이에요. 화면은 픽셀까지 똑같고 만드는 시간은 3~5배 줄었어요. 이번에도 아직은 꺼 둔 상태라 게임은 그대로예요." />
+    <meta property="og:url" content="https://craftyap.com/note/patch-2026-11-04-11/" />
+    <meta property="og:image" content="https://craftyap.com/craftyap-banner.jpg" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="675" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="11월 4일 패치 노트 (11) — 새 Rust 엔진: 블록 화면 만들기도 옮겼어요 | 크래프트얍 개발 노트" />
+    <meta name="twitter:description" content="새 Rust 엔진으로 두 번째 부품을 옮겼어요. 가까운 블록을 그리는 장난감 블록 껍데기를 만드는 계산이에요. 화면은 픽셀까지 똑같고 만드는 시간은 3~5배 줄었어요. 이번에도 아직은 꺼 둔 상태라 게임은 그대로예요." />
+    <meta name="twitter:image" content="https://craftyap.com/craftyap-banner.jpg" />
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "BlogPosting",
+      "@id": "https://craftyap.com/note/patch-2026-11-04-11/#post",
+      "url": "https://craftyap.com/note/patch-2026-11-04-11/",
+      "headline": "11월 4일 패치 노트 (11) — 새 Rust 엔진: 블록 화면 만들기도 옮겼어요",
+      "description": "새 Rust 엔진으로 두 번째 부품을 옮겼어요. 가까운 블록을 그리는 장난감 블록 껍데기를 만드는 계산이에요. 화면은 픽셀까지 똑같고 만드는 시간은 3~5배 줄었어요. 이번에도 아직은 꺼 둔 상태라 게임은 그대로예요.",
+      "datePublished": "2026-11-04",
+      "dateModified": "2026-11-04",
+      "inLanguage": "ko",
+      "keywords": "패치 노트, 엔진, 성능, 블록",
+      "image": "https://craftyap.com/craftyap-banner.jpg",
+      "isPartOf": {
+        "@id": "https://craftyap.com/note/#blog"
+      },
+      "author": {
+        "@type": "Organization",
+        "name": "크래프트얍(CraftYap)",
+        "url": "https://craftyap.com/"
+      },
+      "about": {
+        "@id": "https://craftyap.com/#game"
+      }
+    },
+    {
+      "@type": "BreadcrumbList",
+      "itemListElement": [
+        {
+          "@type": "ListItem",
+          "position": 1,
+          "name": "크래프트얍",
+          "item": "https://craftyap.com/"
+        },
+        {
+          "@type": "ListItem",
+          "position": 2,
+          "name": "개발 노트",
+          "item": "https://craftyap.com/note/"
+        },
+        {
+          "@type": "ListItem",
+          "position": 3,
+          "name": "11월 4일 패치 노트 (11) — 새 Rust 엔진: 블록 화면 만들기도 옮겼어요",
+          "item": "https://craftyap.com/note/patch-2026-11-04-11/"
+        }
+      ]
+    }
+  ]
+}
+    </script>
+    <script src="/guide/guide.js?v=b6f46abba1" defer></script>
+  </head>
+
+  <body>
+    <a class="skip-link" href="#content">본문으로 이동</a>
+    <header class="site-header"><div class="header-inner">
+      <a class="brand" href="/" aria-label="크래프트얍 게임 홈"><img src="/craftyap-logo.webp" width="64" height="64" alt="" /><span>크래프트얍<small>CRAFTYAP</small></span></a>
+      <nav class="header-nav" id="site-nav" aria-label="주요 메뉴"><a href="/note/">개발 노트</a><a href="/guide/">게임 안내</a><a href="/guide/#controls">조작법</a><a href="/guide/#faq">FAQ</a></nav>
+      <a class="button button-dark header-play" href="/">지금 플레이 <span aria-hidden="true">↗</span></a>
+      <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="site-nav" aria-label="메뉴 열기" hidden><span></span><span></span></button>
+    </div></header>
+    <main id="content" class="note-main section-shell">
+      <article class="note-article" aria-labelledby="post-title">
+        <nav class="note-crumb" aria-label="현재 위치"><a href="/note/">← 개발 노트</a></nav>
+        <header class="note-head">
+          <p class="note-date"><time datetime="2026-11-04">2026.11.04</time></p>
+          <h1 id="post-title">11월 4일 패치 노트 (11) — 새 Rust 엔진: 블록 화면 만들기도 옮겼어요</h1>
+          <p class="note-summary">새 Rust 엔진으로 두 번째 부품을 옮겼어요. 가까운 블록을 그리는 장난감 블록 껍데기를 만드는 계산이에요. 화면은 픽셀까지 똑같고 만드는 시간은 3~5배 줄었어요. 이번에도 아직은 꺼 둔 상태라 게임은 그대로예요.</p>
+          <ul class="note-tags" aria-label="태그"><li>패치 노트</li><li>엔진</li><li>성능</li><li>블록</li></ul>
+          
+        </header>
+        <div class="note-body">
+<section class="note-sec note-sec--summary" id="s0" aria-labelledby="s0-h">
+<h2 id="s0-h"><span class="note-badge" aria-hidden="true">요약</span>한눈에 보기</h2>
+<div class="note-sec-body">
+<p>걸어 다니면 가까워진 블록이 장난감 블록 모양으로 바뀌어요. 이때 붙어 있는 블록들을 <strong>하나의 매끈한 껍데기로 깎는 계산</strong>이 꽤 무거웠어요. 청크(16×16칸) 하나에 길게는 37 ms가 걸렸는데, 한 프레임에 쓸 수 있는 시간은 4 ms예요. 이 계산을 새 <strong>Rust 엔진</strong>으로 옮겼어요.</p>
+</div>
+</section>
+<section class="note-sec">
+<h2>BEFORE / AFTER</h2>
+<p>섬에서 같은 경로를 걸으며 TypeScript(이전)와 Rust(새 엔진)를 비교했어요. 두 엔진으로 찍은 화면은 <strong>픽셀까지 똑같았어요</strong>.</p>
+<p><img src="/note/assets/20261104-rust-shells-ba.webp" alt="블록 화면 만들기 시간 비교: 가까운 블록 70청크 만들기 합계가 665 ms에서 139 ms로, 가장 오래 걸린 청크 하나가 37 ms에서 11 ms로, 청크 만들기 전체가 749 ms에서 229 ms로 줄어든 막대 그래프"></p>
+</section>
+<section class="note-sec">
+<h2>이번에 달라진 점</h2>
+<ul>
+<li><strong>아직은 꺼져 있어요.</strong> 이번 배포로 게임에서 달라지는 건 없어요. 물 계산과 함께 확인한 다음 켜요.</li>
+<li><strong>똑같은 모양.</strong> 블록 껍데기의 꼭짓점·면 방향·색·무늬 좌표를 하나하나 비교해서, 소수점 끝자리까지 같아야 통과하는 자동 검사를 붙였어요. 무작위 지형 40개와 고리, 속이 빈 상자 같은 특이한 모양도 검사해요.</li>
+<li><strong>문제가 생기면 자동으로 원래대로.</strong> 새 엔진에서 오류가 나면 바로 기존 계산으로 돌아가요.</li>
+</ul>
+</section>
+<section class="note-sec">
+<h2>앞으로</h2>
+<ol>
+<li>멀리 보이는 블록 화면과 청크 훑기도 옮기기</li>
+<li>화면을 멈추지 않도록 별도 작업 스레드에서 만들기</li>
+<li>Rust 엔진을 기본으로 켜기</li>
+</ol>
+</section>
+        </div>
+      </article>
+      <nav class="note-pager" aria-label="다른 노트"><a class="note-prev" href="/note/patch-2026-11-04-10/"><small>이전 노트</small>11월 4일 패치 노트 (10) — 새 Rust 엔진 준비: 물 계산을 먼저 옮겼어요</a><a class="note-next" href="/note/patch-2026-11-04-2/"><small>다음 노트</small>11월 4일 패치 노트 (2) — 붙인 블록은 한 면으로, 조준과 윤곽선은 또렷하게</a></nav>
+    </main>
+    <footer class="site-footer section-shell"><div><a class="footer-brand" href="/">크래프트얍 <span>CraftYap</span></a><p>블록 하나에서 시작되는, 네가 만드는 세상.</p></div><nav aria-label="하단 메뉴"><a href="/">게임 홈</a><a href="/note/">개발 노트</a><a href="/guide/">게임 안내</a><a href="/feed.xml">RSS</a><a href="#content">맨 위로 ↑</a></nav><small>크래프트얍 개발 노트 · <time datetime="2026-11-04">2026.11.04 업데이트</time></small></footer>
+  </body>
+</html>

@@ -7,7 +7,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import * as wasm from "../wasm/craftyap_wasm.js";
 
-export type RustEngine = Pick<typeof wasm, "WasmWater">;
+export type RustEngine = Pick<typeof wasm, "WasmWater" | "kit_cells_geometry">;
 /** Everything the module exports (tests use the bare simulations too). */
 export type RustModule = typeof wasm;
 

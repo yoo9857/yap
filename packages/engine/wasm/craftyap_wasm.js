@@ -387,6 +387,46 @@ export class WasmWater {
     }
 }
 if (Symbol.dispose) WasmWater.prototype[Symbol.dispose] = WasmWater.prototype.free;
+
+/**
+ * Brick shells (`kit.rs`, a port of `kitShell.ts` `kitCellsGeometry(cells, false, joined)`).
+ * `cells` is flat x, y, z; `mask` answers "joined" for the box (x0, y0, z0) + (sx, sy, sz),
+ * indexed ((y * sz + z) * sx + x). Returns one Float32Array:
+ * [vertex count, mask misses, positions (3n), normals (3n), colours (3n), uvs (2n)];
+ * a vertex count of -1 is an open contour (the TypeScript throws there).
+ * @param {Int32Array | number[]} cells
+ * @param {Uint8Array | number[]} mask
+ * @param {number} x0
+ * @param {number} y0
+ * @param {number} z0
+ * @param {number} sx
+ * @param {number} sy
+ * @param {number} sz
+ * @returns {Float32Array}
+ */
+export function kit_cells_geometry(cells, mask, x0, y0, z0, sx, sy, sz) {
+    const val3 = +x0;
+    const val4 = +y0;
+    const val5 = +z0;
+    const val6 = +sx;
+    const val7 = +sy;
+    const val8 = +sz;
+    let ptr0, len0, ptr1, len1;
+    try {
+        ptr0 = passArray32ToWasm0(cells, wasm.__wbindgen_malloc);
+        len0 = WASM_VECTOR_LEN;
+        ptr1 = passArray8ToWasm0(mask, wasm.__wbindgen_malloc);
+        len1 = WASM_VECTOR_LEN;
+    } catch (e) {
+        if (ptr1) { wasm.__wbindgen_free(ptr1, len1 * 1, 1); }
+        if (ptr0) { wasm.__wbindgen_free(ptr0, len0 * 4, 4); }
+        throw e;
+    }
+    const ret = wasm.kit_cells_geometry(ptr0, len0, ptr1, len1, val3, val4, val5, val6, val7, val8);
+    var v9 = getArrayF32FromWasm0(ret[0], ret[1]).slice();
+    wasm.__wbindgen_free(ret[0], ret[1] * 4, 4);
+    return v9;
+}
 function __wbg_get_imports() {
     const import0 = {
         __proto__: null,
@@ -422,9 +462,22 @@ const WasmWaterFinalization = (typeof FinalizationRegistry === 'undefined')
     ? { register: () => {}, unregister: () => {} }
     : new FinalizationRegistry(ptr => wasm.__wbg_wasmwater_free(ptr, 1));
 
+function getArrayF32FromWasm0(ptr, len) {
+    ptr = ptr >>> 0;
+    return getFloat32ArrayMemory0().subarray(ptr / 4, ptr / 4 + len);
+}
+
 function getArrayI32FromWasm0(ptr, len) {
     ptr = ptr >>> 0;
     return getInt32ArrayMemory0().subarray(ptr / 4, ptr / 4 + len);
+}
+
+let cachedFloat32ArrayMemory0 = null;
+function getFloat32ArrayMemory0() {
+    if (cachedFloat32ArrayMemory0 === null || cachedFloat32ArrayMemory0.byteLength === 0) {
+        cachedFloat32ArrayMemory0 = new Float32Array(wasm.memory.buffer);
+    }
+    return cachedFloat32ArrayMemory0;
 }
 
 let cachedInt32ArrayMemory0 = null;
@@ -491,6 +544,7 @@ function __wbg_finalize_init(instance, module) {
     wasmInstance = instance;
     wasm = instance.exports;
     wasmModule = module;
+    cachedFloat32ArrayMemory0 = null;
     cachedInt32ArrayMemory0 = null;
     cachedUint32ArrayMemory0 = null;
     cachedUint8ArrayMemory0 = null;

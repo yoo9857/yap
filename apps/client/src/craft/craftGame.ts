@@ -232,6 +232,7 @@ export class CraftGame {
     this.camera = new CraftCamera(this.renderer.camera);
     // ?blocks=classic draws the pre-v4 surfaces, for comparison
     this.view = new VoxelView(this.renderer.scene, { generatedSurfaces: new URLSearchParams(location.search).get("blocks") !== "classic" });
+    this.view.useRustShells(opts.rust ?? null);
     this.skyEnvironment = createSkyEnvironment(this.renderer.renderer, SKY_TOP, FOG_COLOR, 0x9a8f78);
     this.view.setEnvironment(this.skyEnvironment.texture);
     this.miningEffects=new MiningEffects(this.renderer.scene,cell=>this.view.setMiningHidden(cell));
@@ -2107,6 +2108,8 @@ export class CraftGame {
       perf: () => this.perf.sample(),
       sandStats:()=>this.sand?.stats()??null,
       waterStats: () => ({ ...this.view.waterStats(), simulation: this.water?.stats() ?? null }),
+      /** Which engine runs each part (`?engine=rust`: docs/ENGINE.md). */
+      engines: () => ({ water: this.water?.engine ?? null, shells: this.view.shellEngine }),
       chunks: () => this.view.chunkStats(),
       miningVisual:()=>this.miningEffects.stats(),
       audio: () => this.sfx.debug(),

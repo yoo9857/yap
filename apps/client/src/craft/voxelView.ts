@@ -1,3 +1,5 @@
+import { kitCellsGeometryRust } from "./kitRust.js";
+import type { RustEngine } from "../engine/rustEngine.js";
 import {kitCubeGeometry,kitRampGeometry,kitConnectorGeometry,kitRoundGeometry,kitCellsGeometry,kitBoxesGeometry} from "./kitGeometry.js";
 import * as THREE from "three";
 import {mergeGeometries} from "three/examples/jsm/utils/BufferGeometryUtils.js";
@@ -1052,6 +1054,26 @@ export class VoxelView {
     chunk.far = mesh;
   }
 
+  /** `?engine=rust`: brick shells from the Rust engine (kit.rs, bit-identical to kitShell.ts). */
+  private rustKit: RustEngine | null = null;
+  useRustShells(engine: RustEngine | null): void { this.rustKit = engine; }
+  get shellEngine(): "rust" | "ts" { return this.rustKit ? "rust" : "ts"; }
+
+  /** A chunk's joined shell for one block: Rust when enabled, TypeScript otherwise and after any
+   *  Rust failure (a trap switches this view back to TypeScript for good). */
+  private shellGeometry(cells: [number, number, number][], joined: (x: number, y: number, z: number) => boolean): THREE.BufferGeometry {
+    if (this.rustKit) {
+      try {
+        const g = kitCellsGeometryRust(this.rustKit, cells, joined);
+        if (g) return g;
+      } catch (err) {
+        console.warn("Rust brick shells failed, continuing on TypeScript", err);
+        this.rustKit = null;
+      }
+    }
+    return kitCellsGeometry(cells, false, joined);
+  }
+
   private buildNearMeshes(chunk: ChunkState, positions: Map<number, number[]>,world:VoxelWorld): void {
     const q = new THREE.Quaternion();
     const scl = new THREE.Vector3(1, 1, 1);
@@ -1065,7 +1087,8 @@ export class VoxelView {
       if (!material) continue;
       if(isFullCubeShape(shape)){
         const cells:[number,number,number][]=[];for(let i=0;i<list.length;i+=3)cells.push([list[i]!,list[i+1]!,list[i+2]!]);
-        const geometry=kitCellsGeometry(cells,false,(x,y,z)=>!this.isMiningHidden(x,y,z)&&world.isSolid(x,y,z)&&isFullCubeShape(world.getShape(x,y,z)));
+        const joined=(x:number,y:number,z:number)=>!this.isMiningHidden(x,y,z)&&world.isSolid(x,y,z)&&isFullCubeShape(world.getShape(x,y,z));
+        const geometry=this.shellGeometry(cells,joined);
         if(materials!.length>1)materialFaceGroups(geometry);
         const shell=new THREE.InstancedMesh(geometry,material,1);shell.setMatrixAt(0,new THREE.Matrix4());shell.instanceMatrix.needsUpdate=true;
         castsInstancedShadow(shell);shell.receiveShadow=true;if(this.seeThrough.has(block))shell.renderOrder=2;

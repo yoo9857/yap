@@ -1,4 +1,8 @@
-// pnpm engine:bench — TypeScript vs Rust (WASM) water speed on identical worlds (packages/shared/test/rust-bench.test.ts).
+// pnpm engine:bench — TypeScript vs Rust (WASM) speed on identical inputs: water
+// (packages/shared/test/rust-bench.test.ts) and brick shells (apps/client/test/rust-kit-bench.test.ts).
 import { spawnSync } from "node:child_process";
-const r = spawnSync("pnpm", ["--filter", "@robo/shared", "exec", "vitest", "run", "test/rust-bench.test.ts"], { stdio: "inherit", shell: true, env: { ...process.env, RUST_BENCH: "1" } });
-process.exit(r.status ?? 1);
+const env = { ...process.env, RUST_BENCH: "1" };
+for (const [pkg, file] of [["@robo/shared", "test/rust-bench.test.ts"], ["@robo/client", "test/rust-kit-bench.test.ts"]]) {
+  const r = spawnSync("pnpm", ["--filter", pkg, "exec", "vitest", "run", file], { stdio: "inherit", shell: true, env });
+  if (r.status !== 0) process.exit(r.status ?? 1);
+}

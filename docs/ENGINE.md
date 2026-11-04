@@ -44,7 +44,7 @@ the engine grows beside it. Each part is swapped in only once it is proven ident
 | 1c | Water switched in behind `?engine=rust` (solo field and island) | **done (flag)** → default after a release |
 | 1c' | Classroom server water on the Rust core (`field.rs`, WASM in Node) behind `FLUID_ENGINE=rust` | **done (flag)** |
 | 1c'' | Make Rust the default on both sides after a release with no regressions | next |
-| 1d | Chunk meshing (kit shells, far merged meshes) in Rust → WASM workers | |
+| 1d | Chunk meshing in Rust. **1d-1 done (flag):** the joined brick shells of full cubes (`kit.rs` + `earcut.rs`), bit-identical, behind `?engine=rust`. Next: the chunk scan and far merged meshes, then a worker | **1d-1 done (flag)** |
 | 1e | Voxel body physics (AABB sweeps, step-up), raycast | |
 | 2 | Native client: wgpu renderer (Vulkan / Metal / DirectX / WebGPU) on the same core; the Android app moves from WebView to native | |
 | 3 | (decide later) user-made games: scripting (Lua/Luau) over the engine's data | |
@@ -103,21 +103,55 @@ the engine grows beside it. Each part is swapped in only once it is proven ident
   packages), and `SHARDS=2`. A real socket opens a class, pours water by a round block, and receives
   the flow and the water inside the round.
 
+## Brick shells (stage 1d-1)
+
+The near form of a chunk draws each block's full cubes as ONE joined shell
+(`kitCellsGeometry` in `apps/client/src/craft/kitShell.ts`: union outlines per layer, inset
+sections with rounded corners, earcut caps). It was the most expensive part of building a chunk.
+Measured in the browser on the island walking the same route: `buildNearMeshes` 665 ms over 70
+chunks, the worst chunk 37 ms, against a 4 ms per-frame build budget.
+
+- `engine/crates/core/src/kit.rs` is a line-for-line port. It includes the three.js steps the
+  shell runs through: `computeVertexNormals` on a triangle soup, the planar UVs and
+  `translate` (which normalizes the normals once more).
+- `earcut.rs` is three's earcut 3.0.1, with V8's `Array.prototype.sort` (`js_sort`) and V8's
+  `Math.hypot` (`js_hypot`). A different sort or hypot would change a triangle or the last bit
+  of a vertex.
+- `apps/client/src/craft/kitRust.ts` asks `joined` once per cell of the cells' box grown by one
+  and hands it over as a mask. Rust never calls back into JS.
+- `apps/client/test/rust-kit.test.ts` compares every float32 of the positions, normals, colours
+  and UVs bit for bit. It covers 40 random blobs in a world of other solids, plus a single cell,
+  a line, a ring and a hollow box. One extra joined cell on the Rust side makes it fail; that was
+  checked.
+- **In the game:** `?engine=rust` also builds the shells on Rust (`VoxelView.useRustShells`;
+  `__roboCraft.engines()` shows which engine runs each part). A Rust error falls back to
+  TypeScript for that view.
+  - The island renders pixel-identical: 0 differing pixels outside the animated pet.
+  - E2E with the flag: holes (681,885 faces), craft, field, furniture and pet all pass.
+
+| | TypeScript | Rust |
+|---|---|---|
+| `buildNearMeshes`, island route (browser) | 665 ms (worst chunk 37 ms) | 139 ms (worst 11 ms) |
+| whole chunk builds, same route | 749 ms | 229 ms |
+| shells, 30 terrain chunks (Node, `pnpm engine:bench`) | 85 ms/chunk | 9.4 ms/chunk |
+
 ## Layout
 
 ```
 engine/
   Cargo.toml            workspace (release: LTO, 1 codegen unit, panic=abort)
   crates/core/          pure simulation, no I/O, no platform code (fluid.rs …)
-  crates/wasm/          wasm-bindgen bindings: WasmFluid (parity), WasmWater (game window), WasmClassWater (classroom)
+  crates/wasm/          wasm-bindgen bindings: WasmFluid (parity), WasmWater (game window), WasmClassWater (classroom), kit_cells_geometry (brick shells)
   target/               build output (git-ignored)
 packages/engine/               @robo/engine: wasm/ (committed build + SOURCE_HASH), src/browser.ts, src/node.ts
 engine/crates/core/src/grid.rs    the game window mirror (client)
 engine/crates/core/src/field.rs   a classroom's sparse field mirror (server)
+engine/crates/core/src/kit.rs     brick shells (port of kitShell.ts); earcut.rs: three's earcut
 engine/rust-toolchain.toml        pinned compiler (1.99.1)
 packages/shared/test/rust-parity.test.ts   Rust = TS, randomized, step by step
 apps/client/test/rust-water.test.ts        the game's WaterSim on Rust = on TS, tick by tick
 apps/server/test/rust-class-water.test.ts  a class's water on Rust = on TS, message by message
+apps/client/test/rust-kit.test.ts          brick shells on Rust = kitShell.ts, bit for bit (rust-kit-bench: speed)
 packages/shared/test/rust-bench.test.ts    speed on identical worlds (RUST_BENCH=1)
 .github/workflows/engine.yml               cargo test + clippy + wasm build + parity + bench
 ```
