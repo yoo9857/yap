@@ -185,3 +185,18 @@ Final regressions: 385 unit tests; water E2E 16/16, classroom E2E 44/44 and
 production E2E 9/9. The production jump check missed input once and passed a clean
 rerun without product changes. Terrain/pit/stair QA remains error-free and six
 pour/replace cycles plateau at 93 geometries and 26 shader programs.
+
+## Water against shaped blocks (2026-11-04)
+
+The simulation keeps water out of every solid cell, including a triangle,
+corner, half block or stairs that fills only part of its cell. The mesher used
+to stop at that cell's boundary, leaving a box-shaped gap where the open part
+should be under water. `waterlogShapes` (voxelView) now fills those cells in
+the MESHER's snapshot only: covered by water → full; otherwise the highest
+water beside it, unless air is beside it too (a pool's edge would grow a wall
+of water on dry land). It never chains (one waterlogged cell does not feed the
+next), so the inner cells of a wide half-block floor lying exactly at the
+water surface stay unfilled. The world, the simulation, saves and the server
+are untouched. Real waterlogging (water flowing through shaped cells) would
+need a water layer beside the block id and a save-format change.
+

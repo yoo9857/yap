@@ -6,6 +6,7 @@ import { AimOutline } from "./aimOutline.js";
 import {BlockMaterialLibrary,linkSurfaceTwin,materialFaceGroups,needsCatalogTexture} from "./blockMaterials.js";
 import { castsInstancedShadow } from "../render/instancedDepth.js";
 import { BLOCKS, SOLID_ID, blockById, textureUrl, type BlockDef } from "./blocks.js";
+import { WATER, isWater, waterLevel } from "@robo/shared";
 import { animateWater, buildWaterGeometry, makeWaterMaterial, prepareWaterTransition } from "./waterMesh.js";
 import type { WaterWorkerRequest, WaterWorkerResponse } from "./waterWorkerTypes.js";
 import { loadTexture } from "../render/textures.js";
@@ -122,6 +123,41 @@ const FACE_CORNERS: readonly (readonly [number, number])[] = [
   [1, 1],
   [0, 1],
 ];
+
+/**
+ * Water against a triangle, corner, half block or stairs (players: "water is cut off at slopes and
+ * stairs"): the simulation keeps water out of every solid cell, so the water surface stopped at the
+ * shaped cell's boundary and left a box-shaped gap where its open half should be under water.
+ * For the MESHER only (its own snapshot, never the world or the simulation), a shaped cell takes
+ * the water around it: covered by water → full; otherwise the highest water beside it — unless air
+ * is beside it too (a pool's edge), where filling it would stand a wall of water on dry land. The
+ * block itself is drawn opaque over whatever of that water falls inside its solid part.
+ */
+export function waterlogShapes(cells: Uint8Array, world: Pick<VoxelWorld, "shapes">, regions: readonly { x: number; z: number; minY: number; maxY: number }[], seeThrough: ReadonlySet<number>): number {
+  const at = (x: number, y: number, z: number) => (y * WORLD_Z + z) * WORLD_X + x;
+  const inside = (x: number, y: number, z: number) => x >= 0 && x < WORLD_X && z >= 0 && z < WORLD_Z && y >= 0 && y < WORLD_Y;
+  const changed: [number, number][] = [];
+  for (const r of regions) {
+    for (let y = Math.max(0, r.minY - 1); y <= Math.min(WORLD_Y - 1, r.maxY + 1); y++)
+      for (let z = Math.max(0, r.z - 1); z < Math.min(WORLD_Z, r.z + CHUNK + 1); z++)
+        for (let x = Math.max(0, r.x - 1); x < Math.min(WORLD_X, r.x + CHUNK + 1); x++) {
+          const i = at(x, y, z), block = cells[i]!, shape = world.shapes[i]!;
+          if (block === 0 || isWater(block) || SOLID_ID[block] !== 1 || isFullCubeShape(shape) || seeThrough.has(block)) continue;
+          if (y + 1 < WORLD_Y && isWater(cells[at(x, y + 1, z)]!)) { changed.push([i, WATER]); continue; }
+          let best = -1, dry = false;
+          for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]] as const) {
+            if (!inside(x + dx, y, z + dz)) continue;
+            const n = cells[at(x + dx, y, z + dz)]!;
+            if (n === 0) { dry = true; break; }
+            if (isWater(n) && (best < 0 || waterLevel(n) < waterLevel(best))) best = n;
+          }
+          if (!dry && best >= 0) changed.push([i, best]);
+        }
+  }
+  // applied after the scan, so one waterlogged cell never feeds the next (no chains into dry land)
+  for (const [i, id] of changed) cells[i] = id;
+  return changed.length;
+}
 
 /** Far meshes append raw triangles, so baked shapes must be non-indexed. */
 function nonIndexed(geometry: THREE.BufferGeometry): THREE.BufferGeometry {
@@ -467,6 +503,7 @@ export class VoxelView {
       if (jobs.length === 0) return;
       const snapshot = this.waterSnapshot ??= new Uint8Array(world.cells.length);
       snapshot.set(world.cells);
+      waterlogShapes(snapshot, world, jobs.map(([id, range]) => ({ x: chunkX(id) * CHUNK, z: chunkZ(id) * CHUNK, minY: range[0], maxY: range[1] })), this.seeThrough);
       const outside = world.outsideColumn?.slice();
       const frozen = { get: (x: number, y: number, z: number) =>
         x >= 0 && x < WORLD_X && z >= 0 && z < WORLD_Z && y >= 0 && y < WORLD_Y
