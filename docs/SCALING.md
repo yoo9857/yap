@@ -66,8 +66,22 @@ the same 8 cores, not the server: its loops are half idle.)
   route → node with the hand-off counter as a CAS) and moves the hub and the
   connection limits there too.
 
+## Known trade-offs
+
+- A party start cannot fail in cluster mode (`PartyGames.prepare` is answered
+  by the primary, which does not know a shard's party-field cap). The cap is
+  per shard (300 each); past it, players get `no-class` on join instead of
+  `too-many-rooms` on start.
+- A tower link whose party room is gone is routed to the public tower (as a
+  single process would have seated it), decided by the primary's hub.
+
 ## Lifecycle
 
+- Nothing is placed until every shard has booted (≤5 s): placing earlier
+  pinned every reconnecting class of a deploy to one fallback shard.
+- A shard that cannot open the database exits and is restarted — it never
+  runs on the in-memory fallback, which would hide saved classes. (`SHARDS=1`
+  keeps the old fallback.) SQLite waits up to 10 s for another shard's write.
 - Upgrades for a shard that is still booting wait up to 5 s (a deploy brings
   every client back in the same second). `/healthz` is 503 until all shards
   are ready.
@@ -87,8 +101,11 @@ the same 8 cores, not the server: its loops are half idle.)
 `SHARDS` (env): `1` (default — exactly the old single process), `N`, or `auto`
 (cores − 1, max 8). It only helps with cores to run on: raise the compose
 `cpus` limit first, e.g. `cpus: "3"` + `SHARDS=2`, and `mem_limit` by ~70 MiB
-per process. Check with `curl -s localhost:8082/metrics` on the host
-(`/metrics` refuses anything that came through nginx).
+per process. Read the numbers from inside the container:
+`docker compose exec -T app curl -s localhost:8081/metrics` (`/metrics` answers
+loopback only — through nginx or docker's port map it is a 404, and
+`tools/smoke-prod.mjs` checks that). `SHARDS=auto` also caps itself by the
+container's memory limit (80 MiB primary + 150 MiB per shard).
 
 ## Measuring
 

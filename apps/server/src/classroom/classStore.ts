@@ -93,7 +93,8 @@ class SqliteClassStore implements ClassStore {
 
   constructor(dbPath: string, Database: typeof import("better-sqlite3")) {
     mkdirSync(dirname(dbPath), { recursive: true });
-    this.db = new Database(dbPath);
+    // several cluster shards share this file: wait for another writer instead of failing at once
+    this.db = new Database(dbPath, { timeout: 10_000 });
     this.db.pragma("journal_mode = WAL");
     this.db.exec(`
       CREATE TABLE IF NOT EXISTS classes (
@@ -162,14 +163,27 @@ export class MemoryClassStore implements ClassStore {
   }
 }
 
-export function createClassStore(dbPath: string): ClassStore {
+/**
+ * `strict` (cluster shards): only a missing/broken native module may fall back to memory. A
+ * database that fails to OPEN (busy past the timeout while N shards boot together, permissions)
+ * must crash the shard so it restarts — in memory it would hide every saved class and lose edits.
+ */
+export function createClassStore(dbPath: string, strict = false): ClassStore {
+  let Database: typeof import("better-sqlite3");
   try {
-    const Database = nativeRequire("better-sqlite3") as typeof import("better-sqlite3");
+    // dynamic require keeps a broken native binary from killing boot
+    Database = nativeRequire("better-sqlite3") as typeof import("better-sqlite3");
+  } catch (err) {
+    log.error({ err }, "better-sqlite3 unavailable — classes are kept in memory only");
+    return new MemoryClassStore();
+  }
+  try {
     const store = new SqliteClassStore(dbPath, Database);
     log.info({ dbPath }, "class store: sqlite");
     return store;
   } catch (err) {
-    log.error({ err }, "better-sqlite3 unavailable — classes are kept in memory only");
+    if (strict) throw err;
+    log.error({ err }, "sqlite open failed — classes are kept in memory only");
     return new MemoryClassStore();
   }
 }

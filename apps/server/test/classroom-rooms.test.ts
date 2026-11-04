@@ -312,6 +312,18 @@ describe("multiplayer robustness", () => {
     expect(owner.last("s-k-welcome")).toBeDefined();
   });
 
+  it("holds a saved class's route while it is counting wrong passwords (a cluster shard must not give it away)", () => {
+    vi.useFakeTimers();
+    const { connect, manager } = setup(), first = connect();
+    first.say({ t: "k-host", v, room: "Guarded", teacher: "Teacher", password: "1234" });
+    first.close();
+    vi.advanceTimersByTime(31 * 60_000); // empty class collected: only the store has it now
+    expect(manager.holds("guarded")).toBe(false);
+    connect().say({ t: "k-host", v, room: "Guarded", teacher: "Teacher", password: "nope" });
+    // the class is not loaded, but the miss is remembered here — so the route stays on this shard
+    expect(manager.holds("guarded")).toBe(true);
+  });
+
   it("keeps counting wrong passwords across the minute clean-up", () => {
     vi.useFakeTimers();
     const { connect } = setup(), first = connect();

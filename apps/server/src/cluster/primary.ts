@@ -9,7 +9,7 @@ import { ProcessMeter, type ProcessSample } from "../metrics.js";
 import { createRequestHandler } from "../http/handler.js";
 import { ConnectionGate, WS_OPTIONS, clientAddress } from "../net/wsServer.js";
 import { PartyManager } from "../party/partyManager.js";
-import { HUB_ROUTE, LiveDirectory, partyFieldRoute, routeOf } from "./directory.js";
+import { HUB_ROUTE, LiveDirectory, PUBLIC_TOWER, partyFieldRoute, routeOf } from "./directory.js";
 import type { ShardCounts, ToPrimary, ToShard } from "./ipc.js";
 
 /** A crashed shard comes back after this (its classes reload from the database on rejoin). */
@@ -120,6 +120,7 @@ export function runPrimary(config: Config, staticRoot: string | null, shards: nu
           // a (re)started shard learns the whole roster before its first socket
           toShard(slot, { t: "roster", rooms: parties.roster() });
           for (const wake of slot.waiting.splice(0)) wake();
+          if (!booted && slots.every((s) => s.ready)) markBooted();
           return;
         case "closed": {
           const n = slot.held.get(msg.address) ?? 0;
@@ -161,6 +162,13 @@ export function runPrimary(config: Config, staticRoot: string | null, shards: nu
       setTimeout(() => { if (!shuttingDown) fork(slot); }, RESPAWN_MS);
     });
   }
+  // boot: routes are placed once every shard is up (or READY_WAIT_MS passed — then on those that are)
+  let booted = false;
+  let markBooted = () => {};
+  const bootWait = new Promise<void>((resolve) => {
+    markBooted = () => { booted = true; resolve(); };
+    setTimeout(markBooted, READY_WAIT_MS);
+  });
   for (const slot of slots) fork(slot);
 
   // ---------------------------------------------------------------- HTTP + upgrades
@@ -174,7 +182,7 @@ export function runPrimary(config: Config, staticRoot: string | null, shards: nu
       shards,
       up: slots.filter((s) => s.ready).length,
       routes: directory.size,
-      processes: [{ role: "primary", ...meter.sample() }, ...slots.flatMap((s) => (s.sample ? [s.sample] : []))],
+      processes: [{ role: "primary", ...meter.sample() }, ...slots.flatMap((s) => (s.sample ? [{ ...s.sample, counts: s.counts }] : []))],
       totals,
     };
   };
@@ -201,19 +209,31 @@ export function runPrimary(config: Config, staticRoot: string | null, shards: nu
         refuse(req, socket, head, "busy");
         return;
       }
-      const route = routeOf(url);
+      let route = routeOf(url);
+      // a party link whose hub room is gone (expired, or a deploy) plays the public tower, as it
+      // did before shards; routing it to its own route would strand it in a room of its own
+      if (route.startsWith("tower:party:") && !parties.has(route.slice("tower:party:".length))) route = PUBLIC_TOWER;
       if (route === HUB_ROUTE) {
-        local.handleUpgrade(req, socket, head, (ws) => {
-          ws.once("close", () => gate.release(address));
-          parties.accept(ws, address);
-        });
+        // freed when the TCP socket goes, not the WebSocket: a handshake ws aborts (bad key,
+        // wrong method) never reaches the callback, and its slot would be held forever
+        socket.once("close", () => gate.release(address));
+        local.handleUpgrade(req, socket, head, (ws) => parties.accept(ws, address));
         return;
       }
+      // right after a (re)boot nothing is up yet: placing now would pin every reconnecting class
+      // to the one fallback shard for the whole lesson. Wait until all shards have said ready.
+      if (!booted) await bootWait;
       const slot = slots[await directory.place(route)]!;
       if (!slot.ready) {
         await new Promise<void>((wake) => {
-          const timer = setTimeout(wake, READY_WAIT_MS);
-          slot.waiting.push(() => { clearTimeout(timer); wake(); });
+          const waiter = () => { clearTimeout(timer); wake(); };
+          const timer = setTimeout(() => {
+            // a shard in a crash loop must not collect one waiter per attempt
+            const i = slot.waiting.indexOf(waiter);
+            if (i >= 0) slot.waiting.splice(i, 1);
+            wake();
+          }, READY_WAIT_MS);
+          slot.waiting.push(waiter);
         });
         if (socket.destroyed) { directory.cancelNow(route, slot.index); gate.release(address); return; }
       }

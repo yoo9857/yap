@@ -3,7 +3,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
-import { CLASS_PROTOCOL_VERSION } from "@robo/shared";
+import { CLASS_PROTOCOL_VERSION, PROTOCOL_VERSION } from "@robo/shared";
 
 /**
  * The real cluster: a primary and two shard processes on a throw-away database.
@@ -72,6 +72,7 @@ describe("cluster (primary + 2 shards)", () => {
     expect(metrics.up).toBe(2);
 
     // several classes, so they spread over both shards; each must still meet in one place
+    const teachers: WebSocket[] = [];
     for (const name of ["Alpha", "Bravo", "Charlie", "Delta"]) {
       const teacher = await enter(name, { t: "k-host", teacher: `T${name}`, password: "pass1234" });
       // case and spacing differ: same class key, so the same shard
@@ -82,10 +83,48 @@ describe("cluster (primary + 2 shards)", () => {
       });
       teacher.ws.send(JSON.stringify({ t: "k-edit", edits: [[1, 5, 1, 7, 0]] }));
       expect(await seen).toBe(true);
-      teacher.ws.close();
+      teachers.push(teacher.ws);
       student.ws.close();
     }
+    // placed right after boot, they still spread: none was pinned to a fallback shard
+    await new Promise((r) => setTimeout(r, 2500)); // one stats report
+    type Proc = { role: string; counts?: { classSockets: number } };
+    const spread = ((await (await fetch(`http://127.0.0.1:${PORT}/metrics`)).json()) as { processes: Proc[] }).processes
+      .filter((p) => p.role === "shard").map((p) => p.counts?.classSockets ?? 0);
+    expect(spread).toEqual([2, 2]);
+    for (const ws of teachers) ws.close();
   }, 60_000);
+
+  it("frees the connection slot of a hub handshake that never completes", async () => {
+    const { connect } = await import("node:net");
+    const totals = async () => ((await (await fetch(`http://127.0.0.1:${PORT}/metrics`)).json()) as { totals: { sockets: number } }).totals.sockets;
+    const before = await totals();
+    await new Promise<void>((resolve) => {
+      const raw = connect(PORT, "127.0.0.1", () => {
+        // an upgrade with no Sec-WebSocket-Key: ws answers 400 and never makes a WebSocket
+        raw.write("GET /ws?mode=party HTTP/1.1\r\nHost: x\r\nUpgrade: websocket\r\nConnection: Upgrade\r\n\r\n");
+      });
+      raw.on("data", () => raw.destroy());
+      raw.on("close", () => resolve());
+    });
+    await new Promise((r) => setTimeout(r, 200));
+    expect(await totals()).toBe(before);
+  }, 20_000);
+
+  it("a tower link whose party is gone plays in the public tower", async () => {
+    const hello = (url: string, name: string) => new Promise<string>((resolve) => {
+      const ws = new WebSocket(url);
+      ws.onopen = () => ws.send(JSON.stringify({ t: "c-hello", v: PROTOCOL_VERSION, name, ...(url.includes("party=") ? { party: "ZZZZZZ" } : {}) }));
+      ws.onmessage = (e) => {
+        const m = JSON.parse(String(e.data)) as { t: string; roomId?: string; code?: string };
+        if (m.t === "s-welcome" || m.t === "s-error") { resolve(m.t === "s-error" ? `error:${m.code}` : String(m.roomId)); ws.close(); }
+      };
+    });
+    const pub = await hello(`ws://127.0.0.1:${PORT}/ws`, "Pub");
+    const stale = await hello(`ws://127.0.0.1:${PORT}/ws?party=ZZZZZZ`, "Stale");
+    expect(stale).not.toMatch(/^error/);
+    expect(stale).toBe(pub); // same public room, not a lonely one on another shard
+  }, 20_000);
 
   it.skipIf(process.platform === "win32")("a deploy (SIGTERM) saves every shard's classes and takes every shard down with it", async () => {
     const teacher = await enter("Echo", { t: "k-host", teacher: "TEcho", password: "pass1234" });

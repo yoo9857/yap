@@ -435,10 +435,13 @@ export class ClassManager {
     return room && !room.closed ? room.onlineCount : 0;
   }
 
-  /** Is the class under `key` in memory here, in any state (a closed one still awaiting its save
-   *  counts)? A cluster shard only gives a class back to the directory once this is false. */
+  /** Is anything of the class under `key` in memory here — the class in any state (a closed one
+   *  still awaiting its save counts) or its password-lock count? A cluster shard only gives a
+   *  class back to the directory once this is false. */
   holds(key: string): boolean {
-    return this.classes.has(key);
+    // the wrong-password count lives here too: giving the route back while it is still counting
+    // would let the next guess land on a shard with a clean slate and never reach the lock
+    return this.classes.has(key) || this.passwordFails.has(key);
   }
 
   /** Live classes, party fields and the people in them (for /metrics). */

@@ -134,6 +134,22 @@ docker compose logs -f --tail=100 app
 curl -s http://127.0.0.1:8082/healthz    # → ok
 ```
 
+## 서버 확장 (멀티코어 샤드)
+
+프로세스 하나는 코어 하나만 쓰고 동시 접속 약 500명에서 포화돼요(측정·설계: `docs/SCALING.md`).
+기본값 `SHARDS=1`은 예전과 똑같은 단일 프로세스예요. 늘리려면 셋을 **함께** 바꿔요.
+
+```bash
+# docker-compose.yml: cpus "0.50" → 예: "3",  mem_limit 400m → 예: 700m
+# .env: SHARDS=2   (auto = 코어-1, 메모리 한도로 자동 제한)
+docker compose up -d --build
+docker compose exec -T app curl -s localhost:8081/metrics   # 샤드별 CPU·이벤트루프·접속 수
+```
+
+- `/metrics`는 컨테이너 안에서만 응답해요(nginx·호스트 포트로는 404).
+- `/healthz`는 모든 샤드가 뜰 때까지 503이에요. 배포 직후 재접속은 샤드가 뜰 때까지 최대 5초 기다렸다 연결돼요.
+- 샤드 하나가 죽으면 1초 뒤 다시 켜지고, 그 샤드의 반은 저장본에서 이어져요(마지막 저장 후 최대 15초 손실 — 단일 프로세스 장애와 같음).
+
 ## 참고 — 왜 이 구조인가
 - 앱이 정적 파일 + WebSocket(`/ws`)을 **한 포트(8081, 컨테이너 내부)**에서 서빙 → nginx는 단순 프록시만.
 - `@robo/shared`는 tsup가 서버 번들에 인라인 → 런타임 의존성은 `better-sqlite3/pino/ws/zod` 4개뿐이라 이미지가 가볍습니다.

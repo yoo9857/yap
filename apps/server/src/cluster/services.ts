@@ -15,14 +15,14 @@ export interface GameServices {
   shutdown(): void;
 }
 
-export function createGameServices(config: Config, entryDir: string): GameServices {
+export function createGameServices(config: Config, entryDir: string, strict = false): GameServices {
   // classes live in the same SQLite file as the records, so the existing bind-mount and daily
   // backup cover them too. With shards, every shard opens it (WAL: one writer at a time, readers
   // never blocked); a class is only ever written by the one shard that owns it.
   const dbPath = resolve(entryDir, config.DB_PATH);
-  const records = createRecordStore(dbPath);
+  const records = createRecordStore(dbPath, strict);
   const rooms = new RoomManager(config.MAX_PLAYERS_PER_ROOM, records, config.DAY_UTC_OFFSET_MIN);
-  const classes = new ClassManager(createClassStore(dbPath));
+  const classes = new ClassManager(createClassStore(dbPath, strict));
   return {
     records,
     rooms,

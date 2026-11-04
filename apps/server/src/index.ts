@@ -12,8 +12,20 @@ const config = loadConfig();
 const entryDir = dirname(fileURLToPath(import.meta.url));
 const staticRoot = config.SERVE_STATIC ? resolve(entryDir, config.STATIC_DIR) : null;
 
-/** SHARDS=auto: leave one core to the primary (HTTP, TLS-less sockets, the hub), at most 8 shards. */
-const shards = config.SHARDS === "auto" ? Math.max(1, Math.min(8, availableParallelism() - 1)) : Number(config.SHARDS);
+/**
+ * SHARDS=auto: leave one core to the primary (HTTP, the hub), at most 8 shards — and no more than
+ * the container's memory holds: each process costs ~70 MiB before any class is loaded, and
+ * docker's mem_limit kills the whole container, not one shard.
+ */
+function autoShards(): number {
+  const byCpu = availableParallelism() - 1;
+  const limit = process.constrainedMemory(); // 0 when unconstrained
+  const byMemory = limit > 0 ? Math.floor((limit / 1048576 - PRIMARY_MIB) / SHARD_MIB) : Infinity;
+  return Math.max(1, Math.min(8, byCpu, byMemory));
+}
+const PRIMARY_MIB = 80;
+const SHARD_MIB = 150; // its own ~70 MiB plus room for loaded classes and their streams
+const shards = config.SHARDS === "auto" ? autoShards() : Number(config.SHARDS);
 
 if (cluster.isWorker) {
   // a shard: no port, no signals of its own to route — runShard wires its lifecycle

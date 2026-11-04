@@ -129,6 +129,12 @@ try {
   }
   const missing = await fetch(base + "/does-not-exist-seo-check", { redirect: "manual" });
   check("unknown page returns a real 404", missing.status === 404 && missing.headers.get("x-robots-tag") === "noindex");
+  // operator-only: answers a request from inside the box, never one through nginx or docker's port map
+  if (!/^https?:\/\/(127\.0\.0\.1|localhost|\[::1\])(:|\/|$)/.test(base)) {
+    const metrics = await fetch(base + "/metrics", { redirect: "manual" });
+    check("server /metrics is not public", metrics.status === 404, String(metrics.status));
+    await metrics.body?.cancel();
+  }
   await missing.body?.cancel();
 } catch (e) {
   check("crawlable guide and canonical routing", false, String(e));

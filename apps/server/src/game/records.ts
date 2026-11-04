@@ -22,7 +22,8 @@ class SqliteRecordStore implements RecordStore {
 
   constructor(dbPath: string, Database: typeof import("better-sqlite3")) {
     mkdirSync(dirname(dbPath), { recursive: true });
-    this.db = new Database(dbPath);
+    // several cluster shards share this file: wait for another writer instead of failing at once
+    this.db = new Database(dbPath, { timeout: 10_000 });
     this.db.pragma("journal_mode = WAL");
     this.db.exec(`
       CREATE TABLE IF NOT EXISTS daily_records (
@@ -117,15 +118,27 @@ class MemoryRecordStore implements RecordStore {
   }
 }
 
-export function createRecordStore(dbPath: string): RecordStore {
+/**
+ * `strict` (cluster shards): only a missing/broken native module may fall back to memory. A
+ * database that fails to OPEN (busy past the timeout while N shards boot together, permissions)
+ * must crash the shard so it restarts — in memory it would hide every saved class and lose edits.
+ */
+export function createRecordStore(dbPath: string, strict = false): RecordStore {
+  let Database: typeof import("better-sqlite3");
   try {
     // dynamic require keeps a broken native binary from killing boot
-    const Database = nativeRequire("better-sqlite3") as typeof import("better-sqlite3");
+    Database = nativeRequire("better-sqlite3") as typeof import("better-sqlite3");
+  } catch (err) {
+    log.error({ err }, "better-sqlite3 unavailable — falling back to in-memory records");
+    return new MemoryRecordStore();
+  }
+  try {
     const store = new SqliteRecordStore(dbPath, Database);
     log.info({ dbPath }, "record store: sqlite");
     return store;
   } catch (err) {
-    log.error({ err }, "better-sqlite3 unavailable — falling back to in-memory records");
+    if (strict) throw err;
+    log.error({ err }, "sqlite open failed — falling back to in-memory records");
     return new MemoryRecordStore();
   }
 }

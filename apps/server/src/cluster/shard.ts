@@ -25,7 +25,8 @@ const RELEASE_MS = 5000;
 export function runShard(config: Config, entryDir: string, index: number, shards: number): void {
   const send = (msg: ToPrimary) => process.send?.(msg);
   const ledger = new RouteLedger();
-  const game = createGameServices(config, entryDir);
+  // strict: a shard that cannot open the database crashes and is restarted, never runs memory-only
+  const game = createGameServices(config, entryDir, true);
   const { rooms, classes } = game;
 
   // the party hub lives on the primary; this mirror answers the games' synchronous questions
@@ -37,7 +38,8 @@ export function runShard(config: Config, entryDir: string, index: number, shards
   classes.owns = (key) => ledger.has(classRoute(key));
   const hub = createSocketHub(rooms, classes, {
     parties: null,
-    ownsTower: (party) => ledger.has(party ? towerPartyRoute(party) : PUBLIC_TOWER),
+    // a party whose hub room is gone was routed to the public tower (primary), and plays there
+    ownsTower: (party) => ledger.has(party && roster.has(party) ? towerPartyRoute(party) : PUBLIC_TOWER),
   });
   /** Is anything of this route still alive here (a loaded class, a tower room)? */
   const live = (route: Route): boolean => {
@@ -74,7 +76,15 @@ export function runShard(config: Config, entryDir: string, index: number, shards
     try {
       switch (msg.t) {
         case "upgrade":
-          if (handle) upgrade(msg, handle as Socket);
+          if (!handle) {
+            // the client hung up while its socket waited in the IPC queue: Node then delivers the
+            // message without the handle. Count it in and out, or the primary's connection slot and
+            // the directory's hand-off counter stay off by one for good.
+            if (msg.route !== UNROUTED_CLASS) { ledger.arrive(msg.route, true); ledger.leave(msg.route); }
+            send({ t: "closed", address: msg.address });
+            return;
+          }
+          upgrade(msg, handle as Socket);
           return;
         case "roster":
           roster.clear();
