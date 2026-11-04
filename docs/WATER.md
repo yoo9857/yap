@@ -193,8 +193,12 @@ corner, half block or stairs that fills only part of its cell. The mesher used
 to stop at that cell's boundary, leaving a box-shaped gap where the open part
 should be under water. `waterlogShapes` (voxelView) now fills those cells in
 the MESHER's snapshot only: covered by water → full; otherwise the highest
-water beside it, unless air is beside it too (a pool's edge would grow a wall
-of water on dry land). It never chains (one waterlogged cell does not feed the
+water beside it — unless air is beside it on a side the shape leaves open
+below that water level (`sideClosed`, probed with `shapeIntersectsBox`): a
+half block at a pool's edge stays dry (filling it would stand a wall of water
+on dry land), while stairs or a ramp whose high back holds back the land
+fills. Before this, a shape against a wall also left a dark wedge where the
+surface folded short of the wall ("the wall breaks"). It never chains (one waterlogged cell does not feed the
 next), so the inner cells of a wide half-block floor lying exactly at the
 water surface stay unfilled. The world, the simulation, saves and the server
 are untouched. Real waterlogging (water flowing through shaped cells) would

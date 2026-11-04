@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { WATER, flowingWater, slabShape, stairsShape, kitSlopeShape } from "@robo/shared";
 import { VoxelWorld, WORLD_X, WORLD_Z } from "../src/craft/voxelWorld.js";
-import { waterlogShapes } from "../src/craft/voxelView.js";
+import { sideClosed, waterlogShapes } from "../src/craft/voxelView.js";
 
 const at = (x: number, y: number, z: number) => (y * WORLD_Z + z) * WORLD_X + x;
 const region = [{ x: 0, z: 0, minY: 0, maxY: 10 }];
@@ -49,5 +49,31 @@ describe("water around half blocks, stairs and ramps (mesher snapshot only)", ()
     waterlogShapes(rc, row, region, new Set());
     expect(rc[at(4, 3, 5)]).toBe(WATER);
     expect(rc[at(5, 3, 5)]).toBe(3);
+  });
+
+  it("stairs stepping down into a pool fill, their high back holding back the dry land", () => {
+    const w = new VoxelWorld();
+    w.setShaped(5, 3, 5, 3, stairsShape(0, 0)); // high back toward −z
+    w.set(5, 3, 6, WATER); // the pool in front (+z)
+    w.set(4, 3, 5, 3); w.set(6, 3, 5, 3); // walls either side; −z is open air (the land)
+    const cells = w.cells.slice();
+    waterlogShapes(cells, w, region, new Set());
+    expect(cells[at(5, 3, 5)]).toBe(WATER);
+    // a half block in the same spot leaks over its low side: dry
+    const half = new VoxelWorld();
+    half.setShaped(5, 3, 5, 3, slabShape(0, 0));
+    half.set(5, 3, 6, WATER); half.set(4, 3, 5, 3); half.set(6, 3, 5, 3);
+    const hc = half.cells.slice();
+    waterlogShapes(hc, half, region, new Set());
+    expect(hc[at(5, 3, 5)]).toBe(3);
+  });
+
+  it("sideClosed reads the shape's faces in every turn", () => {
+    expect(sideClosed(stairsShape(0, 0), 0, -1, 0.875)).toBe(true); // back
+    expect(sideClosed(stairsShape(0, 0), 0, 1, 0.875)).toBe(false); // front, open above the tread
+    expect(sideClosed(stairsShape(2, 0), 0, 1, 0.875)).toBe(true); // turned: the back is now +z
+    expect(sideClosed(slabShape(0, 0), 1, 0, 0.45)).toBe(true); // water lower than the half block
+    expect(sideClosed(slabShape(0, 0), 1, 0, 0.875)).toBe(false);
+    expect(sideClosed(kitSlopeShape(0, 0), 1, 0, 0.875)).toBe(false); // a ramp's triangular side
   });
 });

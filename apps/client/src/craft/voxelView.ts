@@ -6,7 +6,7 @@ import { AimOutline } from "./aimOutline.js";
 import {BlockMaterialLibrary,linkSurfaceTwin,materialFaceGroups,needsCatalogTexture} from "./blockMaterials.js";
 import { castsInstancedShadow } from "../render/instancedDepth.js";
 import { BLOCKS, SOLID_ID, blockById, textureUrl, type BlockDef } from "./blocks.js";
-import { WATER, isWater, waterLevel } from "@robo/shared";
+import { WATER, isWater, waterLevel, waterHeight, shapeIntersectsBox } from "@robo/shared";
 import { animateWater, buildWaterGeometry, makeWaterMaterial, prepareWaterTransition } from "./waterMesh.js";
 import type { WaterWorkerRequest, WaterWorkerResponse } from "./waterWorkerTypes.js";
 import { loadTexture } from "../render/textures.js";
@@ -130,7 +130,8 @@ const FACE_CORNERS: readonly (readonly [number, number])[] = [
  * shaped cell's boundary and left a box-shaped gap where its open half should be under water.
  * For the MESHER only (its own snapshot, never the world or the simulation), a shaped cell takes
  * the water around it: covered by water → full; otherwise the highest water beside it — unless air
- * is beside it too (a pool's edge), where filling it would stand a wall of water on dry land. The
+ * is beside it on a side the shape leaves open below that water (a pool's edge), where filling it
+ * would stand a wall of water on dry land. The
  * block itself is drawn opaque over whatever of that water falls inside its solid part.
  */
 export function waterlogShapes(cells: Uint8Array, world: Pick<VoxelWorld, "shapes">, regions: readonly { x: number; z: number; minY: number; maxY: number }[], seeThrough: ReadonlySet<number>): number {
@@ -144,19 +145,33 @@ export function waterlogShapes(cells: Uint8Array, world: Pick<VoxelWorld, "shape
           const i = at(x, y, z), block = cells[i]!, shape = world.shapes[i]!;
           if (block === 0 || isWater(block) || SOLID_ID[block] !== 1 || isFullCubeShape(shape) || seeThrough.has(block)) continue;
           if (y + 1 < WORLD_Y && isWater(cells[at(x, y + 1, z)]!)) { changed.push([i, WATER]); continue; }
-          let best = -1, dry = false;
-          for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]] as const) {
-            if (!inside(x + dx, y, z + dz)) continue;
-            const n = cells[at(x + dx, y, z + dz)]!;
-            if (n === 0) { dry = true; break; }
-            if (isWater(n) && (best < 0 || waterLevel(n) < waterLevel(best))) best = n;
+          let best = -1;
+          const airSides: (readonly [number, number])[] = [];
+          for (const side of [[1, 0], [-1, 0], [0, 1], [0, -1]] as const) {
+            if (!inside(x + side[0], y, z + side[1])) continue;
+            const n = cells[at(x + side[0], y, z + side[1])]!;
+            if (n === 0) airSides.push(side);
+            else if (isWater(n) && (best < 0 || waterLevel(n) < waterLevel(best))) best = n;
           }
-          if (!dry && best >= 0) changed.push([i, best]);
+          // Air beside it only keeps the cell dry if the water could get out that way: a stairs or
+          // ramp whose high back holds back the dry land still fills (steps down into a pool).
+          if (best >= 0 && airSides.every(([dx, dz]) => sideClosed(shape, dx, dz, waterHeight(best)))) changed.push([i, best]);
         }
   }
   // applied after the scan, so one waterlogged cell never feeds the next (no chains into dry land)
   for (const [i, id] of changed) cells[i] = id;
   return changed.length;
+}
+
+/** Is the shape's side toward (dx, dz) solid from the floor up to `height`? Probed with small boxes
+ *  just inside that face (shapeIntersectsBox), so it holds for every shape and turn. */
+export function sideClosed(shape: number, dx: number, dz: number, height: number): boolean {
+  const e = 0.02;
+  for (const v of [0.08, 0.3, 0.5, 0.7, 0.92]) for (let h = e; h < height - e; h += Math.max(0.05, (height - 2 * e) / 4)) {
+    const px = dx > 0 ? 1 - e : dx < 0 ? e : v, pz = dz > 0 ? 1 - e : dz < 0 ? e : v;
+    if (!shapeIntersectsBox(shape, { min: [px - 0.005, h - 0.005, pz - 0.005], max: [px + 0.005, h + 0.005, pz + 0.005] })) return false;
+  }
+  return true;
 }
 
 /** Far meshes append raw triangles, so baked shapes must be non-indexed. */

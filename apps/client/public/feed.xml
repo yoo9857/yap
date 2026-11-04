@@ -12,7 +12,7 @@
       <link>https://craftyap.com/note/patch-2026-11-04-7/</link>
       <guid isPermaLink="true">https://craftyap.com/note/patch-2026-11-04-7/</guid>
       <pubDate>Tue, 03 Nov 2026 15:00:00 +0000</pubDate>
-      <description>물속에 삼각형, 모서리형, 반블록, 계단 블록을 놓으면 그 칸만 물이 잘려 네모난 구멍이 보이던 문제를 고쳤어요. 이제 물이 모양 블록을 자연스럽게 감싸요.</description>
+      <description>물속에 삼각형, 모서리형, 반블록, 계단 블록을 놓으면 그 칸만 물이 잘려 네모난 구멍이 보이고, 벽에 붙여 놓으면 옆 벽이 깨진 것처럼 어두운 틈이 생기던 문제를 고쳤어요. 이제 물이 모양 블록을 자연스럽게 감싸요.</description>
     </item>
     <item>
       <title>11월 4일 패치 노트 (6) — 모양 바꾸기: 반블록과 계단이 생겼어요</title>
