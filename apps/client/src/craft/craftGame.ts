@@ -2026,6 +2026,8 @@ export class CraftGame {
         addItem(this.state.inventory, dropOf(def));
         return true;
       },
+      /** Faces bordering air that no shell draws (see VoxelView.auditFaces). */
+      auditFaces: (limit?: number) => this.view.auditFaces(this.state.world, limit),
       /** Show a dig in progress on a cell (0..1) without a captured mouse; null stops it. */
       mineProgress: (x: number, y: number, z: number, progress: number | null) => {
         this.debugMine = progress === null ? null : { cell: [x, y, z], progress };

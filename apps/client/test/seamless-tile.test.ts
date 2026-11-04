@@ -63,8 +63,22 @@ describe("removeInk (the tile art's own lines)", () => {
     expect([...removeInk(flat).data]).toEqual([...flat.data]);
   });
 
-  it("keeps the dark parts of picture tiles", async () => {
+  it("lifts thin lines but keeps a dark AREA that is part of the picture (coal, a face)", async () => {
+    const { removeInk } = await import("../src/craft/kitSurface.js");
+    const size = 48, data = new Uint8ClampedArray(size * size * 4);
+    for (let y = 0; y < size; y++) for (let x = 0; x < size; x++) {
+      const lump = x >= 10 && x < 22 && y >= 10 && y < 22; // a 12 px coal lump
+      const line = y === 32 || y === 33; // a 2 px ink line
+      const v = lump || line ? 12 : 190;
+      data.set([v, v, v, 255], (y * size + x) * 4);
+    }
+    const out = removeInk({ width: size, height: size, data });
+    expect(at(out, 16, 16)).toBeLessThan(40); // the lump's middle stays dark
+    expect(at(out, 40, 32)).toBeGreaterThan(140); // the line is gone
+  });
+
+  it("keeps the cracks of cracked stone bricks (the only tile whose thin lines are the picture)", async () => {
     const { KEEP_INK } = await import("../src/craft/kitSurface.js");
-    for (const key of ["coal-ore", "question-block", "pumpkin", "furnace-front", "cracked-stone-bricks"]) expect(KEEP_INK.has(key)).toBe(true);
+    expect([...KEEP_INK]).toEqual(["cracked-stone-bricks"]);
   });
 });

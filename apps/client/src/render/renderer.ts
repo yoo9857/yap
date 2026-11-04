@@ -81,14 +81,15 @@ export class GameRenderer {
     this.scene.add(this.sun);
     this.scene.add(this.sun.target);
 
-    // Hull shells are on their own layer so the ink pass can drop them in one
-    // call; the camera has to opt in for the fallback to be visible at all.
-    this.camera.layers.enable(HULL_LAYER);
-    const wantsInk = new URLSearchParams(location.search).get("ink") !== "0";
-    if (wantsInk && this.renderer.capabilities.isWebGL2) {
-      this.ink = new InkOutline(this.renderer);
-      this.camera.layers.disable(HULL_LAYER);
-    }
+    // No black outlines in the world (owner's call, 2026-11-04: characters, pets and furniture read
+    // cleaner without them, and it saves the ink pass's two extra scene renders a frame). The
+    // screen-space ink pass and the per-brick hull fallback both still exist for comparison:
+    // `?ink=1` turns the ink pass on, `?ink=hull` the hulls. Hulls live on HULL_LAYER, which the
+    // camera only sees when asked.
+    const ink = new URLSearchParams(location.search).get("ink");
+    this.hulls = ink === "hull";
+    this.camera.layers.disable(HULL_LAYER);
+    if (ink === "1" && this.renderer.capabilities.isWebGL2) this.ink = new InkOutline(this.renderer);
 
     window.addEventListener("resize", this.onResize);
   }
@@ -142,6 +143,9 @@ export class GameRenderer {
     this.sun.target.position.copy(snapped);
   }
 
+  /** `?ink=hull`: draw the per-brick hull outlines (otherwise no outlines at all). */
+  private readonly hulls: boolean;
+
   private readonly tmpTarget = new THREE.Vector3();
 
   render(): void {
@@ -150,7 +154,8 @@ export class GameRenderer {
     // so the per-brick hulls come back for the duration.
     const presenting = this.renderer.xr.isPresenting;
     if (!this.ink || presenting) {
-      this.camera.layers.enable(HULL_LAYER);
+      if (this.hulls) this.camera.layers.enable(HULL_LAYER);
+      else this.camera.layers.disable(HULL_LAYER);
       this.renderer.info.autoReset = true;
       this.renderer.render(this.scene, this.camera);
       return;

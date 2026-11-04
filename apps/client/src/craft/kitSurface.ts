@@ -95,12 +95,18 @@ export function wrapSeamless(src:Pixels,fraction=.12):Pixels {
  * (wrapping, so a repeated tile stays seamless), shaded a little so the shape still shows. Box sums
  * over a mask: O(pixels) per tile, cheap enough to run as each texture arrives.
  */
-export function removeInk(src:Pixels,radius=7):Pixels {
+export function removeInk(src:Pixels,radius=7,lineRadius=2):Pixels {
   const {width:w,height:h,data:d}=src,n=w*h,lum=(i:number)=>.3*d[i*4]!+.59*d[i*4+1]!+.11*d[i*4+2]!;
   let total=0;for(let i=0;i<n;i++)total+=lum(i);const mean=total/n;
-  // masked colour + count, box-summed separably with wrap
+  // INK = dark pixels in THIN runs. A morphological opening (erode then dilate, wrapping) keeps the
+  // dark areas wider than 2·lineRadius+1 px — coal lumps, a pumpkin's face, a firebox — and the
+  // ink lines are what it removes. Only those are lifted.
+  const dark=new Uint8Array(n);for(let i=0;i<n;i++)dark[i]=lum(i)<mean*.5?1:0;
+  const opened=morph(morph(dark,w,h,lineRadius,false),w,h,lineRadius,true);
+  const ink=new Uint8Array(n);for(let i=0;i<n;i++)ink[i]=dark[i]&&!opened[i]?1:0;
+  // masked colour + count (everything that is not ink), box-summed separably with wrap
   const acc=new Float32Array(n*4);
-  for(let i=0;i<n;i++){if(lum(i)<mean*.5)continue;acc[i*4]=d[i*4]!;acc[i*4+1]=d[i*4+1]!;acc[i*4+2]=d[i*4+2]!;acc[i*4+3]=1;}
+  for(let i=0;i<n;i++){if(ink[i])continue;acc[i*4]=d[i*4]!;acc[i*4+1]=d[i*4+1]!;acc[i*4+2]=d[i*4+2]!;acc[i*4+3]=1;}
   const blur=(a:Float32Array,horizontal:boolean):Float32Array=>{
     const out=new Float32Array(n*4),len=horizontal?w:h,lines=horizontal?h:w,run=new Float32Array(4);
     for(let line=0;line<lines;line++){
@@ -112,13 +118,35 @@ export function removeInk(src:Pixels,radius=7):Pixels {
   };
   const sum=blur(blur(acc,true),false),out={width:w,height:h,data:new Uint8ClampedArray(d)},q=out.data;
   for(let i=0;i<n;i++){
+    if(!near(ink,w,h,i))continue; // a dark area that is part of the picture keeps its own soft edge too
     const t=Math.max(0,Math.min(1,(mean*.62-lum(i))/(mean*.5))),k=sum[i*4+3]!;if(t<=0||k<=0)continue;
     for(let c=0;c<3;c++)q[i*4+c]=d[i*4+c]!*(1-t)+(sum[i*4+c]!/k)*.9*t;
   }
   return out;
 }
-/** Tiles whose dark parts ARE the picture (coal, a face, a firebox, cracks): their ink stays. */
-export const KEEP_INK=new Set(["coal-ore","question-block","pumpkin","furnace-front","cracked-stone-bricks","workbench-top","chest-front"]);
+/** Binary erode (`grow` false) or dilate (true) by a square of radius r, wrapping (separable). */
+function morph(src:Uint8Array,w:number,h:number,r:number,grow:boolean):Uint8Array {
+  const pass=(a:Uint8Array,horizontal:boolean):Uint8Array=>{
+    const out=new Uint8Array(w*h);
+    for(let y=0;y<h;y++)for(let x=0;x<w;x++){
+      let v=grow?0:1;
+      for(let k=-r;k<=r;k++){const j=horizontal?y*w+((x+k)%w+w)%w:(((y+k)%h+h)%h)*w+x;if(grow?a[j]:!a[j]){v=grow?1:0;break;}}
+      out[y*w+x]=v;
+    }
+    return out;
+  };
+  return pass(pass(src,true),false);
+}
+/** Is pixel i an ink pixel or right beside one (the anti-aliased fringe of a line)? */
+function near(ink:Uint8Array,w:number,h:number,i:number):boolean {
+  const x=i%w,y=(i-x)/w;
+  for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++)if(ink[(((y+dy)%h+h)%h)*w+((x+dx)%w+w)%w])return true;
+  return false;
+}
+/** Tiles whose thin dark lines ARE the picture (the cracks of cracked stone bricks): their ink stays.
+ *  Every other picture tile (coal, the ? block, a pumpkin) keeps its dark AREAS through removeInk's
+ *  opening and loses only the lines drawn around them. */
+export const KEEP_INK=new Set(["cracked-stone-bricks"]);
 /** Do not mutate the registry texture: terrain and construction may use different wrapping. */
 export function repeatingKitTexture(source:THREE.Texture,keepInk=false):THREE.Texture {const map=framelessTile(source,keepInk).clone();map.wrapS=map.wrapT=THREE.RepeatWrapping;map.anisotropy=4;map.needsUpdate=true;return map;}
 export function disposeKitSurfaceMaps(maps:KitSurfaceMaps):void {maps.albedo.dispose();maps.normal.dispose();maps.roughness.dispose();}

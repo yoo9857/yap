@@ -106,6 +106,14 @@ const FACES = (
   return { n, u: u.toArray(), v: v.toArray(), o: o.toArray() };
 });
 const FACE_UV = [0, 0, 1, 0, 1, 1, 0, 0, 1, 1, 0, 1];
+/**
+ * How far the seam backing sits INSIDE the region's outer surface. The bricks are inset 1 cm on
+ * their sides and up to 3.2 cm at their chamfered top/bottom edges (kitShell profile); a backing
+ * on the exact cell boundary stuck out past them along every silhouette, and its dark seam
+ * colour drew a black line around every block group. 3.5 cm keeps it inside the brick everywhere.
+ */
+const BACKING_INSET = 0.035;
+
 const FACE_CORNERS: readonly (readonly [number, number])[] = [
   [0, 0],
   [1, 0],
@@ -621,6 +629,42 @@ export class VoxelView {
     this.studsDirty = true;
   }
 
+  /**
+   * Dev audit (`__roboCraft.auditFaces()`, tools/e2e-holes.mjs): every face of a solid, opaque,
+   * full-cube cell that borders AIR must be drawn by its chunk's current, settled form. A short ray
+   * from just outside the face centre must hit one of the chunk's shells (near) or its merged mesh
+   * (far). Chunks still queued or stale are reported separately — a hole there may only be a frame
+   * old. Players reported "blocks with holes here and there while walking around".
+   */
+  auditFaces(world: VoxelWorld, limit = 40): { holes: { cell: number[]; face: number[]; far: boolean }[]; pending: number; checked: number } {
+    const ray = new THREE.Raycaster(), origin = new THREE.Vector3(), dir = new THREE.Vector3();
+    const holes: { cell: number[]; face: number[]; far: boolean }[] = [];
+    let pending = 0, checked = 0;
+    for (const [id, chunk] of this.chunks) {
+      if (chunk.hidden) continue;
+      if (this.queue.has(id) || chunk.stale) { pending++; continue; }
+      const cx = Math.floor(id / 256) - 64, cz = (id % 256) - 64;
+      const targets: THREE.Object3D[] = chunk.isFar ? (chunk.far ? [chunk.far] : []) : [...chunk.meshes.values()];
+      for (let z = cz * CHUNK; z < Math.min(WORLD_Z, cz * CHUNK + CHUNK); z++) for (let x = cx * CHUNK; x < Math.min(WORLD_X, cx * CHUNK + CHUNK); x++) for (let y = 1; y < WORLD_Y - 1; y++) {
+        const block = world.get(x, y, z);
+        if (!world.isSolid(x, y, z) || !isFullCubeShape(world.getShape(x, y, z)) || this.seeThrough.has(block) || this.isMiningHidden(x, y, z)) continue;
+        for (const face of FACES) {
+          const [nx, ny, nz] = face.n, ax = x + nx, ay = y + ny, az = z + nz;
+          if (ax < 0 || ax >= WORLD_X || az < 0 || az >= WORLD_Z || ay < 0 || ay >= WORLD_Y) continue;
+          if (world.get(ax, ay, az) !== 0) continue; // only faces that border plain air
+          checked++;
+          origin.set(x + 0.5 + nx * 0.8 + 0.13 * (ny ? 1 : 0), y + 0.5 + ny * 0.8 + 0.11 * (ny ? 0 : 1), z + 0.5 + nz * 0.8 + 0.07);
+          dir.set(-nx, -ny, -nz);
+          ray.set(origin, dir); ray.far = 0.75;
+          if (ray.intersectObjects(targets, false).length) continue;
+          holes.push({ cell: [x, y, z], face: [nx, ny, nz], far: chunk.isFar });
+          if (holes.length >= limit) return { holes, pending, checked };
+        }
+      }
+    }
+    return { holes, pending, checked };
+  }
+
   setHighlight(voxel: [number, number, number] | null, mining = false): void {
     this.highlight.show(voxel, mining);
   }
@@ -832,16 +876,26 @@ export class VoxelView {
             let list = positions.get(key);
             if (!list) positions.set(key, (list = []));
             list.push(x, y, z);
-            // the cell's exposed faces at the exact cell boundary: the backing behind the seams
+            // the cell's exposed faces, BACKING_INSET inside the cell: the backing behind the seams
             if (isFullCubeShape(shape) && !this.seeThrough.has(block)) {
+              const s = BACKING_INSET;
               for (const face of FACES) {
-                if (occludes(x + face.n[0], y + face.n[1], z + face.n[2])) continue;
+                const [nx, ny, nz] = face.n;
+                if (occludes(x + nx, y + ny, z + nz)) continue;
+                // along each edge: a convex edge (open beside) pulls in, a concave one (the
+                // neighbour beside and the cell beyond it both solid) reaches out to meet the
+                // other inset plane, a flat continuation stays — so the shrunk surface is closed
+                const edge = (d: readonly number[]): number =>
+                  !occludes(x + d[0]!, y + d[1]!, z + d[2]!) ? s : occludes(x + d[0]! + nx, y + d[1]! + ny, z + d[2]! + nz) ? -s : 0;
+                const u = face.u, v = face.v;
+                const u0 = edge([-u[0], -u[1], -u[2]]), u1 = edge(u), v0 = edge([-v[0], -v[1], -v[2]]), v1 = edge(v);
                 for (let k = 0; k < 6; k++) {
                   const [cu, cv] = FACE_CORNERS[k]!;
+                  const a = cu ? 1 - u1 : u0, b = cv ? 1 - v1 : v0;
                   backing.push3(
-                    x + face.o[0] + face.u[0] * cu + face.v[0] * cv,
-                    y + face.o[1] + face.u[1] * cu + face.v[1] * cv,
-                    z + face.o[2] + face.u[2] * cu + face.v[2] * cv,
+                    x + face.o[0] + u[0] * a + v[0] * b - nx * s,
+                    y + face.o[1] + u[1] * a + v[1] * b - ny * s,
+                    z + face.o[2] + u[2] * a + v[2] * b - nz * s,
                   );
                 }
               }

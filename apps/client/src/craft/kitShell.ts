@@ -13,7 +13,12 @@ export class KitMesh {
   }
   quad(a:V,b:V,c:V,d:V,n:V,shade=1):void {this.tri(a,b,c,n,shade);this.tri(a,c,d,n,shade);}
   plane(outline:readonly P[],holes:readonly (readonly P[])[],y:number,up:boolean,shade=1):void {
-    const outer=outline.map(p=>new THREE.Vector2(...p)),inner=holes.map(h=>h.map(p=>new THREE.Vector2(...p))),all=[...outer,...inner.flat()];
+    // earcut drops only EXACT duplicates and exactly-collinear points. The inset sections carry
+    // repeated corner points that differ by float noise at some coordinates (1e-14), which earcut
+    // then misread and lost triangles on: players found caps with half a face, or none, "here and
+    // there" — depending on WHERE the block stood. Clean with a tolerance first.
+    const outer=cleanLoop(outline).map(p=>new THREE.Vector2(...p)),inner=holes.map(h=>cleanLoop(h).map(p=>new THREE.Vector2(...p))).filter(h=>h.length>=3),all=[...outer,...inner.flat()];
+    if(outer.length<3)return;
     for(const [a,b,c] of THREE.ShapeUtils.triangulateShape(outer,inner)){const pa=all[a!]!,pb=all[b!]!,pc=all[c!]!;this.tri([pa.x,y,pa.y],[pb.x,y,pb.y],[pc.x,y,pc.y],[0,up?1:-1,0],shade);}
   }
   wall(lower:readonly P[],upper:readonly P[],low:number,high:number,shade=1,inward=false):void {
@@ -32,6 +37,18 @@ export class KitMesh {
     }
     g.setAttribute("uv",new THREE.Float32BufferAttribute(uv,2));g.computeBoundingBox();g.computeBoundingSphere();return g;
   }
+}
+/** A polygon loop without near-duplicate points or (near-)collinear ones, for triangulation. */
+export function cleanLoop(loop:readonly P[],eps=1e-6):P[] {
+  let pts=loop.filter((p,i)=>{const q=loop[(i+1)%loop.length]!;return Math.hypot(p[0]-q[0],p[1]-q[1])>eps;});
+  for(let changed=true;changed&&pts.length>3;){
+    changed=false;
+    for(let i=0;i<pts.length&&pts.length>3;i++){
+      const a=pts[(i+pts.length-1)%pts.length]!,p=pts[i]!,b=pts[(i+1)%pts.length]!;
+      if(Math.abs((p[0]-a[0])*(b[1]-a[1])-(p[1]-a[1])*(b[0]-a[0]))<=eps*eps*10){pts=pts.filter((_,j)=>j!==i);changed=true;i--;}
+    }
+  }
+  return pts;
 }
 const key=(p:P):string=>p.join(",");
 const area=(loop:readonly P[]):number=>loop.reduce((v,p,i)=>{const q=loop[(i+1)%loop.length]!;return v+p[0]*q[1]-q[0]*p[1];},0)/2;

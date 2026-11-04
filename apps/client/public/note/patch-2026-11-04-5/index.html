@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>11월 4일 패치 노트 (5) — 구멍 난 블록을 고치고, 검은 테두리를 모두 걷어냈어요 | 크래프트얍 개발 노트</title>
+    <meta name="description" content="돌아다니다 보면 여기저기 블록 윗면이 대각선으로 뚫리거나 통째로 비어 보이던 문제를 고쳤어요. 캐릭터와 펫의 검은 윤곽선, 블록 가장자리의 검은 줄, 블록 그림 속 가는 검은 선도 모두 없앴어요." />
+    <meta name="robots" content="index, follow, max-image-preview:large" />
+    <meta name="theme-color" content="#ffd21c" />
+    <meta name="generator" content="tools/build-notes.mjs" />
+    <link rel="canonical" href="https://craftyap.com/note/patch-2026-11-04-5/" />
+    <link rel="alternate" type="application/rss+xml" title="크래프트얍 개발 노트" href="/feed.xml" />
+    <link rel="alternate" type="application/atom+xml" title="크래프트얍 개발 노트 (Atom)" href="/note/feed.xml" />
+    <link rel="icon" type="image/png" sizes="48x48" href="/favicon-48.png" />
+    <link rel="stylesheet" href="/guide/guide.css?v=0f9762e0f8" />
+    <link rel="stylesheet" href="/note/note.css?v=e5352788b0" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Jua&family=Noto+Sans+KR:wght@400;700;900&display=swap" rel="stylesheet" />
+    <meta property="og:type" content="article" />
+    <meta property="og:locale" content="ko_KR" />
+    <meta property="og:site_name" content="크래프트얍(CraftYap)" />
+    <meta property="og:title" content="11월 4일 패치 노트 (5) — 구멍 난 블록을 고치고, 검은 테두리를 모두 걷어냈어요 | 크래프트얍 개발 노트" />
+    <meta property="og:description" content="돌아다니다 보면 여기저기 블록 윗면이 대각선으로 뚫리거나 통째로 비어 보이던 문제를 고쳤어요. 캐릭터와 펫의 검은 윤곽선, 블록 가장자리의 검은 줄, 블록 그림 속 가는 검은 선도 모두 없앴어요." />
+    <meta property="og:url" content="https://craftyap.com/note/patch-2026-11-04-5/" />
+    <meta property="og:image" content="https://craftyap.com/craftyap-banner.jpg" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="675" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="11월 4일 패치 노트 (5) — 구멍 난 블록을 고치고, 검은 테두리를 모두 걷어냈어요 | 크래프트얍 개발 노트" />
+    <meta name="twitter:description" content="돌아다니다 보면 여기저기 블록 윗면이 대각선으로 뚫리거나 통째로 비어 보이던 문제를 고쳤어요. 캐릭터와 펫의 검은 윤곽선, 블록 가장자리의 검은 줄, 블록 그림 속 가는 검은 선도 모두 없앴어요." />
+    <meta name="twitter:image" content="https://craftyap.com/craftyap-banner.jpg" />
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "BlogPosting",
+      "@id": "https://craftyap.com/note/patch-2026-11-04-5/#post",
+      "url": "https://craftyap.com/note/patch-2026-11-04-5/",
+      "headline": "11월 4일 패치 노트 (5) — 구멍 난 블록을 고치고, 검은 테두리를 모두 걷어냈어요",
+      "description": "돌아다니다 보면 여기저기 블록 윗면이 대각선으로 뚫리거나 통째로 비어 보이던 문제를 고쳤어요. 캐릭터와 펫의 검은 윤곽선, 블록 가장자리의 검은 줄, 블록 그림 속 가는 검은 선도 모두 없앴어요.",
+      "datePublished": "2026-11-04",
+      "dateModified": "2026-11-04",
+      "inLanguage": "ko",
+      "keywords": "패치 노트, 버그 수정, 개선, 블록, 캐릭터, 화면",
+      "image": "https://craftyap.com/craftyap-banner.jpg",
+      "isPartOf": {
+        "@id": "https://craftyap.com/note/#blog"
+      },
+      "author": {
+        "@type": "Organization",
+        "name": "크래프트얍(CraftYap)",
+        "url": "https://craftyap.com/"
+      },
+      "about": {
+        "@id": "https://craftyap.com/#game"
+      }
+    },
+    {
+      "@type": "BreadcrumbList",
+      "itemListElement": [
+        {
+          "@type": "ListItem",
+          "position": 1,
+          "name": "크래프트얍",
+          "item": "https://craftyap.com/"
+        },
+        {
+          "@type": "ListItem",
+          "position": 2,
+          "name": "개발 노트",
+          "item": "https://craftyap.com/note/"
+        },
+        {
+          "@type": "ListItem",
+          "position": 3,
+          "name": "11월 4일 패치 노트 (5) — 구멍 난 블록을 고치고, 검은 테두리를 모두 걷어냈어요",
+          "item": "https://craftyap.com/note/patch-2026-11-04-5/"
+        }
+      ]
+    }
+  ]
+}
+    </script>
+    <script src="/guide/guide.js?v=b6f46abba1" defer></script>
+  </head>
+
+  <body>
+    <a class="skip-link" href="#content">본문으로 이동</a>
+    <header class="site-header"><div class="header-inner">
+      <a class="brand" href="/" aria-label="크래프트얍 게임 홈"><img src="/craftyap-logo.webp" width="64" height="64" alt="" /><span>크래프트얍<small>CRAFTYAP</small></span></a>
+      <nav class="header-nav" id="site-nav" aria-label="주요 메뉴"><a href="/note/">개발 노트</a><a href="/guide/">게임 안내</a><a href="/guide/#controls">조작법</a><a href="/guide/#faq">FAQ</a></nav>
+      <a class="button button-dark header-play" href="/">지금 플레이 <span aria-hidden="true">↗</span></a>
+      <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="site-nav" aria-label="메뉴 열기" hidden><span></span><span></span></button>
+    </div></header>
+    <main id="content" class="note-main section-shell">
+      <article class="note-article" aria-labelledby="post-title">
+        <nav class="note-crumb" aria-label="현재 위치"><a href="/note/">← 개발 노트</a></nav>
+        <header class="note-head">
+          <p class="note-date"><time datetime="2026-11-04">2026.11.04</time></p>
+          <h1 id="post-title">11월 4일 패치 노트 (5) — 구멍 난 블록을 고치고, 검은 테두리를 모두 걷어냈어요</h1>
+          <p class="note-summary">돌아다니다 보면 여기저기 블록 윗면이 대각선으로 뚫리거나 통째로 비어 보이던 문제를 고쳤어요. 캐릭터와 펫의 검은 윤곽선, 블록 가장자리의 검은 줄, 블록 그림 속 가는 검은 선도 모두 없앴어요.</p>
+          <ul class="note-tags" aria-label="태그"><li>패치 노트</li><li>버그 수정</li><li>개선</li><li>블록</li><li>캐릭터</li><li>화면</li></ul>
+          <nav class="note-chips" aria-label="이번 노트의 변경 사항"><a class="note-chip note-chip--fix" href="#fix">수정 <b>2</b></a><a class="note-chip note-chip--up" href="#up">개선 <b>2</b></a><a class="note-chip note-chip--known" href="#known">알려진 문제 <b>1</b></a></nav>
+        </header>
+        <div class="note-body">
+<section class="note-sec note-sec--summary" id="s0" aria-labelledby="s0-h">
+<h2 id="s0-h"><span class="note-badge" aria-hidden="true">요약</span>한눈에 보기</h2>
+<div class="note-sec-body">
+<p><strong>돌아다니다 보면 여기저기 블록에 구멍이 뚫려 보이던 문제</strong>를 고쳤어요. 블록 윗면이 대각선으로 반만 있거나 통째로 비어서 안쪽이 까맣게 보였어요. 그리고 화면에 남아 있던 <strong>검은 테두리를 모두 걷어냈어요</strong>: 캐릭터와 펫의 윤곽선, 블록 덩어리 가장자리의 검은 줄, 블록 그림 속 가는 선.</p>
+</div>
+</section>
+<section class="note-sec">
+<h2>BEFORE / AFTER</h2>
+<p><strong>위: 같은 자리의 조약돌 블록</strong> — 이전에는 윗면이 대각선으로 뚫려 안쪽이 까맣게 보였어요. <strong>아래: 캐릭터와 펫</strong> — 이전에는 몸 둘레에 검은 윤곽선이 있었어요.</p>
+<p><img src="/note/assets/20261104-holes-ba.webp" alt="구멍 난 블록과 윤곽선 비교: 위 줄 왼쪽은 윗면이 대각선으로 뚫려 까만 조약돌 블록, 오른쪽은 같은 자리에서 온전한 블록. 아래 줄 왼쪽은 검은 윤곽선이 있는 캐릭터와 펫, 오른쪽은 윤곽선 없는 모습"></p>
+</section>
+<section class="note-sec note-sec--fix" id="fix" aria-labelledby="fix-h">
+<h2 id="fix-h"><span class="note-badge" aria-hidden="true">FIX</span>버그 수정 <small>2</small></h2>
+<div class="note-sec-body">
+<ul>
+<li><strong class="item-title">여기저기 구멍 난 블록</strong>붙어 있는 블록의 윗면을 그릴 때, 블록이 놓인 <strong>위치에 따라</strong> 계산에 아주 작은 오차가 끼어서 윗면 조각 일부를 빠뜨렸어요. 그래서 같은 모양으로 쌓아도 어떤 자리에서만 구멍이 났어요. 이제 그 오차를 정리한 뒤에 그려요. 블록 2,600여 개를 쌓고 150칸을 오가며 공기에 닿은 면 67만 개를 하나하나 확인해서, 빠진 면이 없는 것을 확인했어요.</li>
+<li><strong class="item-title">블록 덩어리 가장자리의 검은 줄</strong>블록 사이 틈으로 하늘이 비치지 않게 블록 뒤에 깔아 둔 어두운 막이 블록보다 몇 cm 바깥에 있어서, 가장자리를 따라 검은 줄로 보였어요. 이제 막을 블록 안쪽으로 넣었어요. 틈으로 하늘이 비치지 않는 것은 그대로예요.</li>
+</ul>
+</div>
+</section>
+<section class="note-sec note-sec--up" id="up" aria-labelledby="up-h">
+<h2 id="up-h"><span class="note-badge" aria-hidden="true">UP</span>개선 <small>2</small></h2>
+<div class="note-sec-body">
+<ul>
+<li><strong class="item-title">캐릭터·펫·가구 윤곽선 없애기</strong>몸 둘레의 검은 선을 그리지 않아요. 이 선을 그리던 화면 처리 두 단계를 매 화면 건너뛰게 돼서, 그만큼 그리는 일도 줄었어요.</li>
+<li><strong class="item-title">블록 그림 속 가는 선만 빼기</strong>모든 블록에서 <strong>가는 선만</strong> 빼고, <strong>넓은 어두운 부분</strong>(석탄 덩이, 물음표, 호박 얼굴, 화로 불구멍)은 그림 그대로 둬요. 금 간 돌벽돌의 금은 그 블록의 모습이라 남겼어요.</li>
+</ul>
+<p><img src="/note/assets/20261104-no-outlines-ba.webp" alt="검은 테두리 비교: 위 줄은 캐릭터와 펫의 윤곽선, 아래 줄은 양털 블록 가장자리를 3배로 확대한 모습. 왼쪽이 이전, 오른쪽이 새 화면"></p>
+</div>
+</section>
+<section class="note-sec note-sec--known" id="known" aria-labelledby="known-h">
+<h2 id="known-h"><span class="note-badge" aria-hidden="true">!</span>알려진 문제 <small>1</small></h2>
+<div class="note-sec-body">
+<ul>
+<li>이미 열려 있던 탭은 <strong>새로고침</strong>해야 바뀐 화면이 보여요.</li>
+</ul>
+</div>
+</section>
+        </div>
+      </article>
+      <nav class="note-pager" aria-label="다른 노트"><a class="note-prev" href="/note/patch-2026-11-04-4/"><small>이전 노트</small>11월 4일 패치 노트 (4) — 블록 안의 검은 선을 빼고, 부술 땐 테두리를 숨겨요</a><span></span></nav>
+    </main>
+    <footer class="site-footer section-shell"><div><a class="footer-brand" href="/">크래프트얍 <span>CraftYap</span></a><p>블록 하나에서 시작되는, 네가 만드는 세상.</p></div><nav aria-label="하단 메뉴"><a href="/">게임 홈</a><a href="/note/">개발 노트</a><a href="/guide/">게임 안내</a><a href="/feed.xml">RSS</a><a href="#content">맨 위로 ↑</a></nav><small>크래프트얍 개발 노트 · <time datetime="2026-11-04">2026.11.04 업데이트</time></small></footer>
+  </body>
+</html>
