@@ -43,17 +43,26 @@ export function faceCover(shape: number, dx: number, dy: number, dz: number): nu
 }
 
 const DIRS: readonly (readonly [number, number, number])[] = [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]];
-const sealTable: number[] = [];
+
+/** The faces this shape seals, measured from the geometry by `faceCover` (16×16 samples per face,
+ *  ~127k box tests for every shape: 160 ms). Used to check SHAPE_SEALS. */
+export function computeShapeSeal(shape: number): number {
+  if (!isBlockShape(shape) || isFullCubeShape(shape)) return 63;
+  let mask = 0;
+  for (const [dx, dy, dz] of DIRS) if (faceCover(shape, dx, dy, dz) > SEAL_COVER) mask |= faceBit(dx, dy, dz);
+  return mask;
+}
+
+/** `computeShapeSeal` for every shape code 0..MAX_BLOCK_SHAPE, precomputed: measuring took 160 ms
+ *  the first time (a server opening its first class paid it). test/waterlog.test.ts recomputes
+ *  every entry; a new shape code must be appended here (the test says which). */
+export const SHAPE_SEALS: readonly number[] = [
+  63, 12, 40, 10, 24, 9, 36, 34, 40, 33, 20, 6, 36, 5, 24, 18, 20, 17, 63, 40, 10, 24, 9, 36, 34, 40, 33, 20, 6, 36, 5, 24,
+  18, 20, 17, 8, 8, 8, 8, 32, 32, 32, 32, 4, 4, 4, 4, 16, 16, 16, 16, 8, 8, 8, 8, 32, 32, 32, 32, 4, 4, 4, 4, 16,
+  16, 16, 16, 40, 10, 24, 9, 36, 34, 40, 33, 20, 6, 36, 5, 24, 18, 20, 17,
+];
 
 /** The faces this shape seals against water (FACE_* bits). Full cubes seal all six. */
 export function shapeSeal(shape: number): number {
-  if (!isBlockShape(shape)) return 63;
-  let mask = sealTable[shape];
-  if (mask === undefined) {
-    mask = 0;
-    if (isFullCubeShape(shape)) mask = 63;
-    else for (const [dx, dy, dz] of DIRS) if (faceCover(shape, dx, dy, dz) > SEAL_COVER) mask |= faceBit(dx, dy, dz);
-    sealTable[shape] = mask;
-  }
-  return mask;
+  return SHAPE_SEALS[shape] ?? computeShapeSeal(shape);
 }

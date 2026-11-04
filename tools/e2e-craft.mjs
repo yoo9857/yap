@@ -18,12 +18,12 @@ const page = await browser.newPage();
 await page.setViewport({ width: 1280, height: 800 });
 page.on("pageerror", (e) => console.log("PAGEERROR:", e.message));
 
-await page.goto("http://localhost:5173/?play=1", { waitUntil: "load", timeout: 60000 });
+await page.goto(`http://localhost:5173/?play=1${process.env.EXTRA_QUERY ?? ""}`, { waitUntil: "load", timeout: 60000 });
 await page.waitForSelector(".mode-btn");
 const modes = await page.$$eval(".mode-btn", (els) => els.map((el) => el.dataset.mode));
 check("mode selector offers craft island", modes.includes("craft"), modes.join(","));
 
-await page.goto("http://localhost:5173/?mode=craft&reset=1", { waitUntil: "load", timeout: 60000 });
+await page.goto(`http://localhost:5173/?mode=craft&reset=1${process.env.EXTRA_QUERY ?? ""}`, { waitUntil: "load", timeout: 60000 });
 await page.waitForFunction(() => !!globalThis.__roboCraft, { timeout: 15000 });
 await new Promise((r) => setTimeout(r, 2500));
 const snap0 = await page.evaluate(() => globalThis.__roboCraft.snapshot());
@@ -61,7 +61,7 @@ const fall = await page.evaluate(async () => {
 check("gravity + landing works", fall.grounded === true && fall.pos[1] < 20, JSON.stringify(fall.pos.map((v) => +v.toFixed(1))));
 
 await page.evaluate(() => globalThis.__roboCraft.saveNow());
-await page.goto("http://localhost:5173/?mode=craft", { waitUntil: "networkidle2", timeout: 30000 });
+await page.goto(`http://localhost:5173/?mode=craft${process.env.EXTRA_QUERY ?? ""}`, { waitUntil: "networkidle2", timeout: 30000 });
 await page.waitForFunction(() => !!globalThis.__roboCraft, { timeout: 15000 });
 const inv2 = await page.evaluate(() => globalThis.__roboCraft.snapshot().inventory);
 check("save persists across reload", (inv2["oak-planks"] ?? 0) >= 3, JSON.stringify(inv2));

@@ -128,6 +128,18 @@ export class FurnitureLayout {
     return this.layers[layer].get(cellKey(x, y, z));
   }
 
+  /** Every cell solid furniture fills right now (closed, as `occupied` judges): flat [x, y, z]*,
+   *  absolute. For mirrors that cannot call `occupied` per cell (the Rust engine's water). */
+  solidCells(): number[] {
+    const out: number[] = [];
+    for (const [key, item] of this.layers.solid) {
+      if (item.state === 1) continue;
+      const y = key % 64, column = Math.floor(key / 64);
+      out.push(Math.floor(column / (2 * OFF)) - OFF, y, (column % (2 * OFF)) - OFF);
+    }
+    return out;
+  }
+
   /** Solid furniture fills this cell — the collision query (hot path). An
    *  OPEN door is still there, but you walk through it. */
   occupied(x: number, y: number, z: number): boolean {

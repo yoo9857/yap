@@ -68,6 +68,7 @@ import { SPECIES, isPetSpecies, type PetSpecies } from "../player/creatureRig.js
 import { withObjectParticle } from "./korean.js";
 import { approach, easeAngle, interpolate, turnToward } from "./smoothing.js";
 import { FurnitureLayout } from "./furniture/layout.js";
+import type { RustEngine } from "../engine/rustEngine.js";
 import { FurnitureController, PICKUP_TIME } from "./furniture/controller.js";
 import type { PlacedFurniture } from "./furniture/types.js";
 
@@ -223,7 +224,7 @@ export class CraftGame {
 
   constructor(
     mount: HTMLElement,
-    opts: { field?: boolean; classroom?: { client: ClassClient; session: ClassSession } } = {},
+    opts: { field?: boolean; classroom?: { client: ClassClient; session: ClassSession }; rust?: RustEngine | null } = {},
   ) {
     this.renderer = new GameRenderer(mount);
     this.renderer.scene.fog = new THREE.Fog(FOG_COLOR, 95, 245);
@@ -440,7 +441,12 @@ export class CraftGame {
     }, { signal: this.events.signal });
 
     // solo play runs the water itself; a classroom's water is the server's
-    this.water = this.sync ? null : new WaterSim(this.state.world, this.view, this.field);
+    // `?engine=rust`: the same rules in the Rust engine (docs/ENGINE.md), loaded by main.ts
+    const layout = this.state.furniture;
+    this.water = this.sync ? null : new WaterSim(this.state.world, this.view, this.field, {
+      rust: opts.rust ?? null,
+      furniture: { version: () => layout.version, solidCells: () => layout.solidCells() },
+    });
     this.water?.wakeAll();
     this.sand=this.sync?null:new SandSim(this.state.world,{scene:this.renderer.scene,shape:(block,shape,cell)=>this.view.miningShape(shape,block,cell,this.state.world),write:(x,y,z,block,shape)=>this.writeCell(x,y,z,block,shape),hidden:cells=>this.view.setFallingHidden(cells),canEnter:(x,y,z)=>!overlapsShapedVoxel(this.body,x,y,z,0)&&!overlapsShapedVoxel(this.pet.body,x,y,z,0)&&!this.furniture.blocksCell(x,y,z)});this.sand?.wakeAll();
     this.underwaterTint.className = "craft-underwater";
@@ -619,6 +625,7 @@ export class CraftGame {
     if (globals.__roboCraft === this.debugHooks) delete globals.__roboCraft;
     this.debugHooks = null;
     this.water?.clear();
+    this.water?.dispose();
     this.sand?.dispose();
     this.underwaterTint.remove();
     this.workshop.dispose();

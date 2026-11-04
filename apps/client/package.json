@@ -15,7 +15,8 @@
     "@dimforge/rapier3d-compat": "0.15.0",
     "@robo/shared": "workspace:*",
     "three": "^0.176.0",
-    "zod": "^3.25.76"
+    "zod": "^3.25.76",
+    "@robo/engine": "workspace:*"
   },
   "devDependencies": {
     "@types/three": "^0.176.0",

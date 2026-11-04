@@ -35,6 +35,9 @@ importers:
       '@dimforge/rapier3d-compat':
         specifier: 0.15.0
         version: 0.15.0
+      '@robo/engine':
+        specifier: workspace:*
+        version: link:../../packages/engine
       '@robo/shared':
         specifier: workspace:*
         version: link:../../packages/shared
@@ -63,6 +66,9 @@ importers:
 
   apps/server:
     dependencies:
+      '@robo/engine':
+        specifier: workspace:*
+        version: link:../../packages/engine
       '@robo/shared':
         specifier: workspace:*
         version: link:../../packages/shared
@@ -131,6 +137,15 @@ importers:
       vitest:
         specifier: ^3.1.4
         version: 3.2.7(@types/node@22.20.1)(tsx@4.23.1)
+
+  packages/engine:
+    devDependencies:
+      '@types/node':
+        specifier: ^22.15.0
+        version: 22.20.1
+      typescript:
+        specifier: ~5.8.3
+        version: 5.8.3
 
   packages/shared:
     dependencies:

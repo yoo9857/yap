@@ -11,7 +11,7 @@ async function open(query) {
   const page = await browser.newPage(); await page.setViewport({ width: 1100, height: 700 });
   page.on("pageerror", (e) => errors.push(e.message));
   page.on("console", (m) => { if (m.type() === "error") errors.push(m.text()); });
-  await page.goto(`${BASE}/?mode=field${query}`, { waitUntil: "load", timeout: 60000 });
+  await page.goto(`${BASE}/?mode=field${query}${process.env.EXTRA_QUERY ?? ""}`, { waitUntil: "load", timeout: 60000 });
   await page.waitForFunction(() => !!globalThis.__roboCraft, { timeout: 60000 });
   // the hook exists before the warm-up ends: a click while the loader is up never captures the mouse
   await page.waitForFunction(() => document.getElementById("boot-overlay")?.classList.contains("hidden"), { timeout: 60000 });
@@ -46,6 +46,8 @@ try {
   const page = await open("&reset=1");
   await capture(page); await page.keyboard.press("Digit0");
   check("0 selects the endless water bucket", (await state(page)).selected === "water");
+  const wantEngine = /engine=rust/.test(process.env.EXTRA_QUERY ?? "") ? "rust" : "ts";
+  check(`the water runs on the ${wantEngine === "rust" ? "Rust engine" : "TypeScript rules"}`, (await page.evaluate(() => globalThis.__roboCraft.waterStats().simulation?.engine)) === wantEngine);
   const programs = await page.evaluate(() => globalThis.__roboCraft.programs().length);
   await page.evaluate(() => { const c = globalThis.__waterTest; c.teleport(80.5, 4, 78.5); c.look(0, -0.65); });
   await wait(200);
@@ -94,15 +96,18 @@ try {
   await until(page, () => globalThis.__roboCraft.water().wet > 0.35 && globalThis.__roboCraft.water().underwater);
   check("entering deep water switches swimming physics and underwater tint", await page.$eval(".craft-underwater", (el) => el.classList.contains("on")));
   const low = (await state(page)).y;
-  await page.keyboard.down("Space"); await wait(2300);
+  // the body floats at the surface and bobs there: wait for the camera to come out (up to 4 s)
+  // instead of sampling one instant, which caught it mid-bob about half the time
+  await page.keyboard.down("Space");
+  await until(page, (y0) => { const w = globalThis.__roboCraft.water(); return w.y > y0 + 0.4 && !w.underwater; }, low, 4000).catch(() => {});
   const high = await state(page);
-  check("Space swims up and brings the camera out of the water", high.y > low + 0.5 && !high.underwater, `${low.toFixed(2)} -> ${high.y.toFixed(2)}`);
+  check("Space swims up and brings the camera out of the water", high.y > low + 0.4 && !high.underwater, `${low.toFixed(2)} -> ${high.y.toFixed(2)}`);
   await page.keyboard.down("KeyW"); await wait(3000); await page.keyboard.up("KeyW"); await page.keyboard.up("Space");
   const bank = await state(page);
   check("swimming into the bank climbs onto dry ground", bank.y >= 3.95 && bank.wet < 0.35, JSON.stringify(bank));
   const saved = (await state(page)).sources;
   await page.evaluate(() => globalThis.__roboCraft.saveNow());
-  await page.goto(`${BASE}/?mode=field`, { waitUntil: "load", timeout: 60000 });
+  await page.goto(`${BASE}/?mode=field${process.env.EXTRA_QUERY ?? ""}`, { waitUntil: "load", timeout: 60000 });
   await until(page, () => !!globalThis.__roboCraft);
   await until(page, (n) => globalThis.__roboCraft.water().sources >= n, saved);
   check("reload restores the saved water", (await state(page)).sources >= saved);
@@ -118,8 +123,10 @@ try {
   check("server-generated flow reaches the other browser", await student.evaluate(() => globalThis.__waterTest.blockAt(76, 4, 86) === 19));
   // water INSIDE shaped blocks (s-k-wet): a round in the stream fills on the other browser and stays a round
   const wool = await teacher.evaluate(() => { const c = globalThis.__waterTest; c.setPieceShape(3, 0, 0); c.give("white-wool", 2); c.placePiece(77, 4, 88, "white-wool"); return c.blockAt(77, 4, 88); });
-  const filled = await until(student, () => globalThis.__waterTest.waterAt(77, 4, 88) > 0).then(() => true, () => false);
-  check("water flows into a classmate's round block (s-k-wet), the block stays", filled && await student.evaluate((id) => globalThis.__waterTest.blockAt(77, 4, 88) === id, wool));
+  // the cell was already flowing water before the round landed: wait for the BLOCK and the water in it
+  const filled = await until(student, (id) => globalThis.__waterTest.blockAt(77, 4, 88) === id && globalThis.__waterTest.waterAt(77, 4, 88) > 0, wool).then(() => true, () => false);
+  const seen = await student.evaluate(() => [globalThis.__waterTest.blockAt(77, 4, 88), globalThis.__waterTest.waterAt(77, 4, 88)]);
+  check("water flows into a classmate's round block (s-k-wet), the block stays", wool !== 0 && filled && seen[0] === wool, `teacher placed ${wool}, student sees block/water ${seen}`);
   await teacher.evaluate(() => globalThis.__roboCraft.classSend({ t: "k-settings", chatLocked: false, buildLocked: true }));
   await wait(300); await capture(student); await student.keyboard.press("Digit0");
   await student.evaluate(() => { const c = globalThis.__waterTest; c.teleport(85.5, 4, 78.5); c.look(0, -0.65); });

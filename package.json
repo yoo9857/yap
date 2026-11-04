@@ -21,7 +21,11 @@
     "assets:machines": "node tools/generate-machine-assets.mjs",
     "assets:machines:check": "node tools/generate-machine-assets.mjs --check",
     "notes": "node tools/build-notes.mjs",
-    "notes:check": "node tools/build-notes.mjs --check"
+    "notes:check": "node tools/build-notes.mjs --check",
+    "engine:build": "cd engine && wasm-pack build crates/wasm --release --target web --out-dir ../../../packages/engine/wasm && node ../tools/engine-tidy.mjs",
+    "engine:test": "cd engine && cargo test && cd .. && pnpm --filter @robo/shared exec vitest run test/rust-parity.test.ts && pnpm --filter @robo/client exec vitest run test/rust-water.test.ts",
+    "engine:bench": "node tools/engine-bench.mjs",
+    "engine:check": "node tools/engine-tidy.mjs --check"
   },
   "devDependencies": {
     "@eslint/js": "^9.27.0",

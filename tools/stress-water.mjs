@@ -12,12 +12,14 @@ const errors = [];
 try {
   const page = await browser.newPage();
   page.on("pageerror", (e) => errors.push(e.message));
-  await page.goto(`${process.env.BASE_URL ?? "http://localhost:5173"}/?mode=field&reset=1`, { waitUntil: "load", timeout: 60000 });
+  await page.goto(`${process.env.BASE_URL ?? "http://localhost:5173"}/?mode=field&reset=1${process.env.EXTRA_QUERY ?? ""}`, { waitUntil: "load", timeout: 60000 });
   await page.waitForFunction(() => !!globalThis.__roboCraft, { timeout: 60000 });
   const dense = await page.evaluate(async () => {
     const { FieldWindow } = await import("/src/craft/fieldWorld.ts");
     const { WaterSim } = await import("/src/craft/waterSim.ts");
-    const field = new FieldWindow(), sim = new WaterSim(field.world, { markWaterDirty() {} }, field);
+    // EXTRA_QUERY=&engine=rust measures the Rust engine (docs/ENGINE.md) on the same scene
+    const rust = /engine=rust/.test(location.search) ? await (await import("/src/engine/rustEngine.ts")).loadRustEngine() : null;
+    const field = new FieldWindow(), sim = new WaterSim(field.world, { markWaterDirty() {} }, field, { rust });
     const furniture = new Set(["60,12,60"]);
     field.world.propSolid = (x, y, z) => furniture.has(`${x},${y},${z}`);
     for (let y = 4; y < 24; y++) for (let z = 16; z < 116; z++) for (let x = 16; x < 116; x++) field.world.set(x, y, z, 19);

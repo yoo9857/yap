@@ -1,0 +1,5 @@
+# Same compiler locally and in CI (engine.yml), so a build means the same thing everywhere.
+[toolchain]
+channel = "1.99.1"
+targets = ["wasm32-unknown-unknown"]
+components = ["clippy"]

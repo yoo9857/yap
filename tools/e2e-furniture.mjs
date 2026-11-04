@@ -34,7 +34,7 @@ await page.setViewport({ width: 1280, height: 800 });
 page.on("pageerror", (e) => console.log("PAGEERROR:", e.message));
 
 const boot = async (reset) => {
-  await page.goto(`http://localhost:5173/?mode=field${reset ? "&reset=1" : ""}`, {
+  await page.goto(`http://localhost:5173/?mode=field${reset ? "&reset=1" : ""}${process.env.EXTRA_QUERY ?? ""}`, {
     waitUntil: "networkidle2",
     timeout: 30000,
   });

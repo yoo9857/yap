@@ -159,6 +159,25 @@ docker compose exec -T app curl -s localhost:8081/metrics   # 샤드별 CPU·이
 - `/healthz`는 모든 샤드가 뜰 때까지 503. 배포 직후 재접속은 최대 5초 기다렸다 연결돼요.
 - 샤드 하나가 죽으면 1초 뒤 다시 켜지고, 그 샤드의 반은 저장본에서 이어져요(마지막 저장 후 최대 15초 손실 — 단일 프로세스 장애와 같음).
 
+## 교실 물 엔진 (Rust 전환, `docs/ENGINE.md`)
+
+교실 물 계산을 Rust 엔진으로 돌릴 수 있어요. **기본값은 지금과 같은 TypeScript**이고, 물의 결과는 어느 쪽이든 같아요
+(같은 메시지를 내는지 테스트로 확인해요). Rust 쪽이 5배쯤 빨라서 물이 많은 반에서 서버 부담이 줄어요.
+
+```bash
+# 켜기: .env에 한 줄 추가 후 재기동
+echo 'FLUID_ENGINE=rust' >> /srv/craftyap/app/.env
+docker compose up -d
+docker compose logs app | grep '"class water'      # "class water runs on the Rust engine" 이 보여야 함
+
+# 끄기(되돌리기): 줄을 지우거나 ts로 바꾸고 재기동 — 저장 형식이 같아서 반 데이터는 그대로예요
+sed -i 's/^FLUID_ENGINE=.*/FLUID_ENGINE=ts/' /srv/craftyap/app/.env && docker compose up -d
+```
+
+- 엔진을 못 불러오면 경고를 남기고 TypeScript로 돌아요. 수업 중 Rust가 멈추면 **그 반만** TypeScript로 넘어가고
+  `class water: Rust engine failed`가 로그에 남아요(물은 계속 흘러요).
+- 바꾸고 재기동해도 수업은 끝나지 않아요(일반 배포와 같음).
+
 ## 참고 — 왜 이 구조인가
 - 앱이 정적 파일 + WebSocket(`/ws`)을 **한 포트(8081, 컨테이너 내부)**에서 서빙 → nginx는 단순 프록시만.
 - `@robo/shared`는 tsup가 서버 번들에 인라인 → 런타임 의존성은 `better-sqlite3/pino/ws/zod` 4개뿐이라 이미지가 가볍습니다.

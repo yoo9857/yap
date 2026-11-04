@@ -1,0 +1,10 @@
+[package]
+name = "craftyap-core"
+version = "0.1.0"
+description = "CraftYap engine core: pure simulation shared by web (WASM), native apps and the server"
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+rustc-hash = "2"

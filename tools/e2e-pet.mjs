@@ -21,7 +21,7 @@ const page = await browser.newPage();
 await page.setViewport({ width: 1280, height: 800 });
 page.on("pageerror", (e) => console.log("PAGEERROR:", e.message));
 
-await page.goto("http://localhost:5173/?mode=craft&reset=1", { waitUntil: "networkidle2", timeout: 30000 });
+await page.goto(`http://localhost:5173/?mode=craft&reset=1${process.env.EXTRA_QUERY ?? ""}`, { waitUntil: "networkidle2", timeout: 30000 });
 await page.waitForFunction(() => !!globalThis.__roboCraft, { timeout: 15000 });
 await wait(3000);
 
@@ -116,7 +116,7 @@ check(`a ${last} still comes to heel`, followed.gap < 3.5, `gap ${followed.gap.t
 
 // --- the adoption persists -------------------------------------------------
 await page.evaluate(() => globalThis.__roboCraft.saveNow());
-await page.goto("http://localhost:5173/?mode=craft", { waitUntil: "networkidle2", timeout: 30000 });
+await page.goto(`http://localhost:5173/?mode=craft${process.env.EXTRA_QUERY ?? ""}`, { waitUntil: "networkidle2", timeout: 30000 });
 await page.waitForFunction(() => !!globalThis.__roboCraft, { timeout: 15000 });
 await wait(2500);
 const reloaded = await probe();

@@ -14,6 +14,30 @@ import {
 } from "@robo/shared";
 import { log } from "../log.js";
 import { ClassRoom, type ClassPeer } from "./classRoom.js";
+import { loadRustEngineSync, type RustModule } from "@robo/engine/node";
+
+/** FLUID_ENGINE=rust runs every class's water on the Rust core (docs/ENGINE.md); anything else, or
+ *  an engine that fails to load, keeps the TypeScript rules — the same water. Decided once. */
+let classWater: RustModule | null | undefined;
+export function classWaterEngine(): RustModule | null {
+  if (classWater !== undefined) return classWater;
+  classWater = null;
+  if (process.env.FLUID_ENGINE === "rust") {
+    try {
+      classWater = loadRustEngineSync();
+      log.info("class water runs on the Rust engine");
+    } catch (err) {
+      log.warn({ err }, "FLUID_ENGINE=rust but the Rust engine did not load: class water stays on TypeScript");
+    }
+  }
+  return classWater;
+}
+
+/** A failing Rust core drops that class back to TypeScript; say so in the log. */
+function withWater(room: ClassRoom): ClassRoom {
+  room.onRustFailure = (err) => log.error({ err, room: room.roomName }, "class water: Rust engine failed, this class continues on TypeScript");
+  return room;
+}
 import { checkPassword, hashPassword, sameKey, type ClassStore } from "./classStore.js";
 
 const SNAPSHOT_MS = 100; // 10 Hz is plenty for walking robots
@@ -206,6 +230,7 @@ export class ClassManager {
   private readonly passwordFails = new Map<string, { fails: number; lockedUntil: number; lockMs: number; lastFailAt: number }>();
 
   constructor(private readonly store: ClassStore) {
+    classWaterEngine(); // decide (and log) the water engine at boot, not at the first lesson
     this.timers.push(setInterval(() => this.snapshot(), SNAPSHOT_MS));
     this.timers.push(setInterval(() => this.saveDirty(), SAVE_MS));
     this.timers.push(setInterval(() => this.heartbeat(), HEARTBEAT_MS));
@@ -333,13 +358,13 @@ export class ClassManager {
         if (!sameTeacher(saved.teacherName)) return this.refuse(socket, "room-taken");
         const keyOk = !!msg.hostKey && sameKey(msg.hostKey, saved.teacherKey);
         if (!keyOk && !this.tryPassword(key, () => !!msg.password && checkPassword(msg.password, saved))) return this.refuse(socket, "bad-password");
-        room = new ClassRoom(saved.teacherName, { passHash: saved.passHash, salt: saved.salt }, saved);
+        room = withWater(new ClassRoom(saved.teacherName, { passHash: saved.passHash, salt: saved.salt }, saved, undefined, { rust: classWaterEngine() }));
         log.info({ room: room.roomName, teacher: room.teacherName, edits: saved.edits.length, from: socket.from }, "class restored");
       } else {
         if (!msg.password || msg.password.length < CLASS_PASSWORD_MIN) return this.refuse(socket, "bad-password");
         const { hash, salt } = hashPassword(msg.password);
         const tidy = (s: string) => s.trim().replace(/\s+/g, " ");
-        room = new ClassRoom(tidy(msg.teacher), { passHash: hash, salt }, undefined, tidy(msg.room));
+        room = withWater(new ClassRoom(tidy(msg.teacher), { passHash: hash, salt }, undefined, tidy(msg.room), { rust: classWaterEngine() }));
         log.info({ room: room.roomName, teacher: room.teacherName, from: socket.from }, "class opened");
       }
       this.classes.set(key, room);
@@ -362,7 +387,7 @@ export class ClassManager {
   private loaded(key: string): ClassRoom | undefined {
     const room = this.classes.get(key);
     if (!room?.closed) return room;
-    if (this.persist(room)) this.classes.delete(key);
+    if (this.persist(room)) this.unload(room);
     return undefined;
   }
 
@@ -430,7 +455,7 @@ export class ClassManager {
     let parties = 0;
     for (const r of this.classes.values()) if (r.ephemeral) parties++;
     if (parties >= MAX_PARTY_FIELDS) return null;
-    const room = new ClassRoom(PARTY_HOST_NAME, { passHash: "", salt: "" }, undefined, `${PARTY_PREFIX}${code}`);
+    const room = withWater(new ClassRoom(PARTY_HOST_NAME, { passHash: "", salt: "" }, undefined, `${PARTY_PREFIX}${code}`, { rust: classWaterEngine() }));
     room.ephemeral = true;
     room.maxStudents = PARTY_MAX_PLAYERS;
     room.emptySince = Date.now(); // collected like any empty class if nobody ever arrives
@@ -512,7 +537,13 @@ export class ClassManager {
    * unloading it would throw away everything since the last good write.
    */
   private retire(room: ClassRoom): void {
-    if (this.persist(room)) this.classes.delete(room.key);
+    if (this.persist(room)) this.unload(room);
+  }
+
+  /** Drop a saved class from memory, and free what it holds outside the JS heap (its Rust water). */
+  private unload(room: ClassRoom): void {
+    if (this.classes.get(room.key) === room) this.classes.delete(room.key);
+    room.dispose();
   }
 
   private persist(room: ClassRoom): boolean {
@@ -533,7 +564,7 @@ export class ClassManager {
     for (const room of [...this.classes.values()]) {
       if (!this.savedAt.has(room)) this.savedAt.set(room, now); // loaded/created since the last pass
       const due = room.dirty || (room.waterDirty && now - this.savedAt.get(room)! >= WATER_SAVE_MS);
-      if (due && this.persist(room) && room.closed) this.classes.delete(room.key); // a retire that failed earlier
+      if (due && this.persist(room) && room.closed) this.unload(room); // a retire that failed earlier
     }
   }
 

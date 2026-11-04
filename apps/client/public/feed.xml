@@ -64,6 +64,13 @@
       <description>블록을 붙여 쌓으면 블록마다 검은 줄이 생겨 바둑판처럼 보이던 문제, 조준 테두리가 1픽셀이라 잘 안 보이고 붙은 면에서 끊기거나 부수는 동안 연해지던 문제, 캐릭터와 펫의 검은 윤곽선이 너무 두꺼워 발과 팔이 까맣게 뭉개지던 문제를 고쳤어요.</description>
     </item>
     <item>
+      <title>11월 4일 패치 노트 (10) — 새 Rust 엔진 준비: 물 계산을 먼저 옮겼어요</title>
+      <link>https://craftyap.com/note/patch-2026-11-04-10/</link>
+      <guid isPermaLink="true">https://craftyap.com/note/patch-2026-11-04-10/</guid>
+      <pubDate>Tue, 03 Nov 2026 15:00:00 +0000</pubDate>
+      <description>웹·앱·PC·서버에서 함께 쓸 Rust 엔진을 지금 게임 옆에서 만들기 시작했어요. 첫 부품은 물 계산이에요. 결과는 지금과 똑같고 계산은 2.5~5배 빨라요. 이번 배포에서는 아직 꺼 둔 상태라 게임은 그대로예요.</description>
+    </item>
+    <item>
       <title>11월 4일 패치 노트 — 서버가 커지는 만큼 자동으로 나뉘어요</title>
       <link>https://craftyap.com/note/patch-2026-11-04-1/</link>
       <guid isPermaLink="true">https://craftyap.com/note/patch-2026-11-04-1/</guid>
@@ -139,13 +146,6 @@
       <guid isPermaLink="true">https://craftyap.com/note/patch-2026-10-30-4/</guid>
       <pubDate>Thu, 29 Oct 2026 15:00:00 +0000</pubDate>
       <description>내가 캐고 부수고 놓는 블록 소리도 그 블록이 있는 방향에서 들립니다. 가구가 소리를 조금 막아 주고, 가구 모드에서 일시정지하면 종류 바꾸기 버튼이 가려지던 문제를 고쳤습니다.</description>
-    </item>
-    <item>
-      <title>10월 30일 패치 노트 (3) — 입체 음향, 벽 너머의 소리, 동굴의 울림</title>
-      <link>https://craftyap.com/note/patch-2026-10-30-3/</link>
-      <guid isPermaLink="true">https://craftyap.com/note/patch-2026-10-30-3/</guid>
-      <pubDate>Thu, 29 Oct 2026 15:00:00 +0000</pubDate>
-      <description>친구의 소리가 앞뒤·위아래 방향과 거리에 따라 들립니다. 벽 너머의 소리는 작고 먹먹해지고, 동굴이나 집 안에서는 소리가 울리며, 물속에서는 모든 소리가 둔해집니다. 발소리도 한 번 더 작고 부드럽게 줄였습니다.</description>
     </item>
   </channel>
 </rss>

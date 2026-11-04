@@ -26,6 +26,9 @@ services:
     # (CPU_LIMIT, below the host's core count) and add `cpus: ${CPU_LIMIT}`.
     environment:
       SHARDS: ${SHARDS:-auto}
+      # Class water engine (docs/ENGINE.md): ts (the reference) or rust. Same water either way;
+      # a failing Rust engine falls back per class and logs it. Switch with FLUID_ENGINE in .env.
+      FLUID_ENGINE: ${FLUID_ENGINE:-ts}
     # ~80 MiB primary + 150 MiB per shard; auto never starts more than this holds
     mem_limit: ${MEM_LIMIT:-768m}
     healthcheck:

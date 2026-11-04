@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { FACE_NY, FACE_NZ, FACE_PY, FACE_PZ, FluidSim, WATER, WATER_FALLING, flowingWater, isWater, type FluidWorld } from "../src/fluid.js";
-import { holdsWaterlog, shapeSeal } from "../src/waterlog.js";
+import { SHAPE_SEALS, computeShapeSeal, holdsWaterlog, shapeSeal } from "../src/waterlog.js";
+import { MAX_BLOCK_SHAPE } from "../src/blockShapes.js";
 import { ROUND, cornerShape, kitSlopeShape, slabShape, stairsShape, KIT_CUBE } from "../src/blockShapes.js";
 
 const STONE = 1;
@@ -48,6 +49,11 @@ function pit(w: ReturnType<typeof makeWorld>, x0: number, x1: number, z0: number
 }
 
 describe("water inside shaped blocks (waterlog)", () => {
+  it("the precomputed seal table matches the geometry for every shape code", () => {
+    expect(SHAPE_SEALS.length, "append the new shape codes' seals to SHAPE_SEALS").toBe(MAX_BLOCK_SHAPE + 1);
+    for (let shape = 0; shape <= MAX_BLOCK_SHAPE; shape++) expect(SHAPE_SEALS[shape], `shape ${shape}`).toBe(computeShapeSeal(shape));
+  });
+
   it("seals exactly the faces a shape covers", () => {
     expect(shapeSeal(slabShape(0, 0))).toBe(FACE_NY); // a floor; its half-height sides are open
     expect(shapeSeal(slabShape(0, 2))).toBe(FACE_PY); // upside down: a roof

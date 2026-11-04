@@ -1,0 +1,48 @@
+name: Engine (Rust) checks
+
+# The Rust engine grows beside the TypeScript game (docs/ENGINE.md). It is not shipped yet, so this
+# runs on its own and never blocks a deploy: Rust unit tests, the WASM build, and the parity test
+# that the Rust water makes exactly the TypeScript water's changes.
+on:
+  pull_request:
+    paths: ["engine/**", "packages/engine/**", "apps/client/src/engine/**", "apps/server/src/classroom/classRoom.ts", "apps/server/test/rust-class-water.test.ts", "apps/client/src/craft/waterSim.ts", "apps/client/test/rust-water.test.ts", "packages/shared/src/fluid.ts", "packages/shared/src/waterlog.ts", "packages/shared/test/rust-*.ts", ".github/workflows/engine.yml"]
+  push:
+    branches: [main]
+    paths: ["engine/**", "packages/engine/**", "apps/client/src/engine/**", "apps/server/src/classroom/classRoom.ts", "apps/server/test/rust-class-water.test.ts", "apps/client/src/craft/waterSim.ts", "apps/client/test/rust-water.test.ts", "packages/shared/src/fluid.ts", "packages/shared/src/waterlog.ts", "packages/shared/test/rust-*.ts", ".github/workflows/engine.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  engine:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      # engine/rust-toolchain.toml pins the compiler (+ wasm target, clippy); install exactly that
+      - run: cd engine && rustup toolchain install && rustc --version
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: engine
+      - run: cargo install wasm-pack --locked --version 0.15.1
+      - run: cd engine && cargo test
+      - run: cd engine && cargo clippy --all-targets -- -D warnings
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.13.1
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: The committed web wasm matches the Rust sources
+        run: pnpm engine:check
+      - run: pnpm engine:build
+      - name: Parity (Rust water = TypeScript water)
+        run: pnpm --filter @robo/shared exec vitest run test/rust-parity.test.ts
+      - name: The game's water on Rust = TypeScript (WaterSim, real world, scrolls, furniture)
+        run: pnpm --filter @robo/client exec vitest run test/rust-water.test.ts
+      - name: A class's water on Rust = TypeScript (ClassRoom, message by message)
+        run: pnpm --filter @robo/server exec vitest run test/rust-class-water.test.ts
+      - run: pnpm engine:bench

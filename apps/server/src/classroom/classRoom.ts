@@ -1,6 +1,7 @@
 import { FurnitureLayout, type PlacementWorld } from "@robo/shared/furniture/layout";
 import type { PlacedFurniture } from "@robo/shared/furniture/types";
-import { holdsFurniture, holdsWaterlog, shapeSeal, type ClassWet } from "@robo/shared";
+import { holdsFurniture, holdsWaterlog, shapeSeal, type ClassWet, type FluidChange } from "@robo/shared";
+import type { RustModule } from "@robo/engine/node";
 import { randomBytes, randomUUID } from "node:crypto";
 import {
   BONK_COOLDOWN_MS,
@@ -184,7 +185,11 @@ export class ClassRoom {
     private readonly auth: { passHash: string; salt: string },
     saved?: SavedClass,
     roomName?: string,
+    /** The Rust engine to run this class's water on (docs/ENGINE.md), or null for the TypeScript
+     *  rules (the reference). ClassManager decides from FLUID_ENGINE. */
+    opts: { rust?: RustModule | null } = {},
   ) {
+    if (opts.rust) this.rust = new RustClassWater(opts.rust);
     // a class saved before named classes was keyed by its teacher's name
     this.roomName = roomName ?? saved?.roomName ?? teacherName;
     this.key = classKey(this.roomName);
@@ -196,8 +201,9 @@ export class ClassRoom {
     for (const [x, y, z, block, shape] of saved.edits) {
       this.edits.set(voxelKey(x, y, z), [block, shape]);
       // A source can have been saved before its first flow step too.
-      if (isWater(block)) this.fluid.touch(x, y, z);
+      if (isWater(block)) this.fluidTouch(x, y, z);
     }
+    this.rust?.load(saved.edits);
     this.editKeys = [...this.edits.keys()];
   }
 
@@ -207,7 +213,21 @@ export class ClassRoom {
    * sees the same water and a late joiner gets it with the rest of the field.
    */
   private readonly fluid = new FluidSim();
+  /** The same rules on the Rust core, over a mirror of `edits`/`wet`/furniture; null = TypeScript. */
+  private rust: RustClassWater | null = null;
+  /** Rust's changes are being written into our maps: they are in its mirror already. */
+  private applyingRust = false;
   private fluidAtCapacity = false;
+
+  /** Which rules run this class's water. */
+  get fluidEngine(): "ts" | "rust" {
+    return this.rust ? "rust" : "ts";
+  }
+
+  private fluidTouch(x: number, y: number, z: number): void {
+    if (this.rust) this.rust.water.touch(x, y, z);
+    else this.fluid.touch(x, y, z);
+  }
   private fluidRescan: MapIterator<[VoxelKey, [number, number]]> | null = null;
   private fluidRescanLeft = 0;
   private readonly fluidWorld: FluidWorld = {
@@ -264,12 +284,11 @@ export class ClassRoom {
         const next = this.fluidRescan.next();
         if (next.done || this.fluidRescanLeft-- <= 0) { this.fluidRescan = null; break; }
         const [cell, [block]] = next.value;
-        if (isWater(block)) { this.fluid.touch(...voxelCoordinates(cell)); activated++; }
+        if (isWater(block)) { this.fluidTouch(...voxelCoordinates(cell)); activated++; }
         if (++visited % 32 === 0 && performance.now() - start >= 1) break;
       }
     }
-    if (!this.fluid.busy) return 0;
-    const changes = this.fluid.step(this.fluidWorld, maxMs);
+    const changes = this.rust ? this.stepRust(maxMs) : this.fluid.busy ? this.fluid.step(this.fluidWorld, maxMs) : [];
     if (changes.length === 0) return 0;
     const edits: ClassEdit[] = [], wet: ClassWet[] = [];
     for (const [x, y, z, block] of changes) {
@@ -285,6 +304,55 @@ export class ClassRoom {
     for (let i = 0; i < wet.length; i += 500) this.broadcast({ t: "s-k-wet", cells: wet.slice(i, i + 500) });
     return changes.length;
   }
+
+  /** One step on the Rust core: its changes, written into our maps exactly as `fluidWorld.set`
+   *  writes (it has already committed them, refusals included). A trapped module drops this class
+   *  back onto the TypeScript rules, every water cell woken again. */
+  private stepRust(maxMs: number): FluidChange[] {
+    const rust = this.rust!;
+    let flat: Int32Array;
+    try {
+      if (!rust.water.busy()) return [];
+      rust.syncProps(this.furniture);
+      flat = rust.water.step(maxMs); // the same soft time budget as the TypeScript step
+      if (rust.water.take_at_capacity()) this.fluidAtCapacity = true;
+    } catch (err) {
+      this.onRustFailure?.(err);
+      try { rust.water.free(); } catch { /* a trapped module may not even free */ }
+      this.rust = null;
+      this.fluidRescan = this.edits.entries();
+      this.fluidRescanLeft = this.edits.size;
+      return [];
+    }
+    const changes: FluidChange[] = [];
+    this.applyingRust = true;
+    try {
+      for (let i = 0; i < flat.length; i += 4) {
+        const x = flat[i]!, y = flat[i + 1]!, z = flat[i + 2]!, id = flat[i + 3]!;
+        const cell = voxelKey(x, y, z), edit = this.edits.get(cell);
+        if (edit && holdsWaterlog(edit[0], edit[1])) {
+          if (id) this.wet.set(cell, id);
+          else this.wet.delete(cell);
+        } else this.writeEdit(cell, id === pristine(y) ? null : [id, 0]);
+        changes.push([x, y, z, id]);
+      }
+    } finally {
+      this.applyingRust = false;
+    }
+    return changes;
+  }
+
+  /** The class leaves memory: free its Rust water now (wasm memory is outside the JS heap and
+   *  the finalizer runs whenever the GC gets to it). The room must not be used afterwards. */
+  dispose(): void {
+    const rust = this.rust;
+    this.rust = null;
+    this.fluid.clear();
+    try { rust?.water.free(); } catch { /* already freed or trapped */ }
+  }
+
+  /** Called when the Rust core fails and the class falls back to TypeScript (ClassManager logs). */
+  onRustFailure: ((err: unknown) => void) | null = null;
 
   /** Snapshot for the store; clears the dirty flag. */
   toSaved(): SavedClass {
@@ -550,6 +618,7 @@ export class ClassRoom {
         this.editKeys = [];
         this.fluidAtCapacity = false; this.fluidRescan = null;
         this.fluid.clear();
+        this.rust?.water.reset();
         this.furniture.clear();
         this.dirty = true;
         this.broadcast({ t: "s-k-world-reset" });
@@ -583,7 +652,7 @@ export class ClassRoom {
       this.writeEdit(cell, held ? [held, 0] : block === pristine(y) && shape === 0 ? null : [block, shape]);
       if (held) keptWater.push([x, y, z, held, 0]);
       accepted.push(edit);
-      this.fluid.touch(x, y, z); // water around it may flow in, or drain
+      this.fluidTouch(x, y, z); // water around it may flow in, or drain
       if (block === 0) this.furniture.afterBlockRemoved(x, y, z, this.placementWorld);
     }
     if (refused.length > 0) this.rejectEdits(peer, refused);
@@ -680,7 +749,7 @@ export class ClassRoom {
     }
     this.furniture = next;
     for (const [kind, x, y, z, rot] of [...msg.placed, ...msg.removed])
-      for (const [cx, cy, cz] of next.cellsOf({ kind, x, y, z, rot })) this.fluid.touch(cx, cy, cz);
+      for (const [cx, cy, cz] of next.cellsOf({ kind, x, y, z, rot })) this.fluidTouch(cx, cy, cz);
     this.dirty = true;
     this.broadcast({ t: "s-k-furniture", furniture: next.toJSON() });
   }
@@ -803,6 +872,7 @@ export class ClassRoom {
 
   private writeEdit(key: VoxelKey, value: [number, number] | null): void {
     this.wet.delete(key); // a written cell holds no water until the flow fills it again
+    if (this.rust && !this.applyingRust) this.rust.wrote(key, value);
     if (value === null) { this.edits.delete(key); return; }
     if (!this.edits.has(key)) {
       if (this.editKeys.length >= MAX_EDITS * 2) this.editKeys = [...this.edits.keys()];
@@ -820,5 +890,47 @@ export class ClassRoom {
       if (batch.length === WORLD_BATCH) { yield batch; batch = []; }
     }
     if (batch.length) yield batch;
+  }
+}
+
+/** Faces sealed per shape for Rust, or 255 for a shape that holds no water (waterlog.ts). */
+function sealTable(): Uint8Array {
+  const table = new Uint8Array(256).fill(255);
+  for (let s = 0; s < 256; s++) if (holdsWaterlog(1, s)) table[s] = shapeSeal(s);
+  return table;
+}
+
+/** A class's water on the Rust core: the wasm object and how its mirror is fed. */
+class RustClassWater {
+  readonly water: InstanceType<RustModule["WasmClassWater"]>;
+  private propsVersion = -1;
+  /** The layout last mirrored: ClassRoom REPLACES its layout on a furniture change, and a new
+   *  object can carry the same version number as the old one. */
+  private propsLayout: FurnitureLayout | null = null;
+
+  constructor(engine: RustModule) {
+    this.water = new engine.WasmClassWater(Uint8Array.from(FIELD_COLUMN), CLASS_MAX_COORD, CLASS_MAX_Y, MAX_EDITS, sealTable(), 4096);
+  }
+
+  load(edits: readonly ClassEdit[]): void {
+    const flat = new Int32Array(edits.length * 5);
+    for (let i = 0, o = 0; i < edits.length; i++, o += 5) {
+      const e = edits[i]!;
+      flat[o] = e[0]; flat[o + 1] = e[1]; flat[o + 2] = e[2]; flat[o + 3] = e[3]; flat[o + 4] = e[4];
+    }
+    this.water.write_many(flat);
+  }
+
+  wrote(key: VoxelKey, value: [number, number] | null): void {
+    const [x, y, z] = voxelCoordinates(key);
+    if (value) this.water.write(x, y, z, value[0], value[1]);
+    else this.water.erase(x, y, z);
+  }
+
+  syncProps(furniture: FurnitureLayout): void {
+    if (furniture === this.propsLayout && furniture.version === this.propsVersion) return;
+    this.propsLayout = furniture;
+    this.propsVersion = furniture.version;
+    this.water.props(Int32Array.from(furniture.solidCells()));
   }
 }

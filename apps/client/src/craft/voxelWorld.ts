@@ -62,6 +62,9 @@ export class VoxelWorld {
    *  because the renderer culls faces against it and a chair beside a wall
    *  must not punch a hole in the wall. Grid coordinates. */
   propSolid: ((x: number, y: number, z: number) => boolean) | null = null;
+  /** Called with the cell index after every set/setShaped/setWet (the Rust engine's mirror of this
+   *  window, docs/ENGINE.md). Bulk refills (a field scroll, a loaded save) do not call it. */
+  onWrite: ((i: number) => void) | null = null;
   /** Bumped on every set()/setShaped(); lets savers skip unchanged worlds. */
   version = 0;
 
@@ -85,6 +88,7 @@ export class VoxelWorld {
       this.shapes[i] = 0; // a plain cube / air — never keep a stale shape
       this.wet[i] = 0;
       this.version++;
+      this.onWrite?.(i);
     }
   }
 
@@ -99,6 +103,7 @@ export class VoxelWorld {
       this.shapes[i] = isBlockShape(shape) ? shape : 0;
       this.wet[i] = 0;
       this.version++;
+      this.onWrite?.(i);
     }
   }
 
@@ -109,6 +114,7 @@ export class VoxelWorld {
     if (this.wet[i] === id) return;
     this.wet[i] = id;
     this.version++;
+    this.onWrite?.(i);
   }
 
   /** The water a shaped block holds (0: none, or out of the grid). */

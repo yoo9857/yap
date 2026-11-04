@@ -26,7 +26,7 @@ const frames = (n) =>
   }, n);
 
 // 1) category screen → education → field boots
-await page.goto(`${BASE}/?play=1&reset=1`, { waitUntil: "networkidle2", timeout: 30000 });
+await page.goto(`${BASE}/?play=1&reset=1${process.env.EXTRA_QUERY ?? ""}`, { waitUntil: "networkidle2", timeout: 30000 });
 await page.waitForSelector('[data-pick="field"]');
 const gamesHidden = await page.$eval('[data-step="games"]', (el) => el.hidden);
 check("category screen shows first, game list hidden", gamesHidden);
@@ -46,6 +46,11 @@ await page.waitForFunction(() => globalThis.__roboCraft.snapshot().grounded, { t
 await new Promise((r) => setTimeout(r, 500));
 const s0 = await page.evaluate(() => globalThis.__roboCraft.snapshot());
 check("field spawns grounded on the flat top", s0.grounded && s0.pos[1] === 4, JSON.stringify(s0.pos));
+{
+  const want = /engine=rust/.test(process.env.EXTRA_QUERY ?? "") ? "rust" : "ts";
+  const got = await page.evaluate(() => globalThis.__roboCraft.waterStats().simulation?.engine);
+  check(`the water runs on ${want === "rust" ? "the Rust engine" : "the TypeScript rules"} (through the menu)`, got === want, String(got));
+}
 check("starter blocks are stocked", s0.inventory["stone-bricks"] === 999);
 
 // 2) the ground goes on past the voxel window
@@ -85,7 +90,7 @@ check("brick is still there after walking 300 m out and back", kept !== 0, `x=${
 
 // 4) save round-trip
 await page.evaluate(() => globalThis.__roboCraft.saveNow());
-await page.goto(`${BASE}/?mode=field`, { waitUntil: "networkidle2", timeout: 30000 });
+await page.goto(`${BASE}/?mode=field${process.env.EXTRA_QUERY ?? ""}`, { waitUntil: "networkidle2", timeout: 30000 });
 await page.waitForFunction(() => !!globalThis.__roboCraft, { timeout: 15000 });
 await new Promise((r) => setTimeout(r, 1500));
 const reloaded = await page.evaluate((x) => globalThis.__roboCraft.blockAt(x, 4, 84), brickX);

@@ -2,7 +2,7 @@ import js from "@eslint/js";
 import tseslint from "typescript-eslint";
 
 export default tseslint.config(
-  { ignores: ["**/dist/**", "**/node_modules/**", "legacy/**", "tmp/**"] },
+  { ignores: ["**/dist/**", "**/node_modules/**", "legacy/**", "tmp/**", "engine/target/**", "engine/pkg*/**", "packages/engine/wasm/**"] },
   js.configs.recommended,
   ...tseslint.configs.recommendedTypeChecked,
   {
