@@ -27,6 +27,8 @@ jobs:
         with:
           workspaces: engine
       - run: cargo install wasm-pack --locked --version 0.15.1
+      # the native client's sound (rodio → cpal) links ALSA on Linux
+      - run: sudo apt-get update && sudo apt-get install -y libasound2-dev pkg-config
       - run: cd engine && cargo test
       - run: cd engine && cargo clippy --all-targets -- -D warnings
       - uses: pnpm/action-setup@v4
