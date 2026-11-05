@@ -1,5 +1,7 @@
 import * as THREE from "three";
 import { HULL_LAYER, InkOutline } from "./inkOutline.js";
+import { DynamicResolution, effectiveFov, pixelRatioFor, qualityProfile, type QualityProfile } from "./display.js";
+import { onSettings, settings } from "../ui/settings.js";
 
 /**
  * Owns the WebGL renderer, scene, lighting and sky. The directional light's
@@ -33,9 +35,9 @@ export class GameRenderer {
     // cap at 1.5: on 2×/retina panels a full 2.0 quadruples fragment work for
     // little visible gain on this blocky art, and that headroom is what stops
     // the intermittent GPU-bound hitches on high-DPI laptops
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
+    this.renderer.setPixelRatio(pixelRatioFor(window.devicePixelRatio, this.profile, 1));
     this.renderer.setSize(window.innerWidth, window.innerHeight);
-    this.renderer.shadowMap.enabled = true;
+    this.renderer.shadowMap.enabled = this.profile.shadows;
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     // Khronos PBR Neutral: identity below ~0.8, so the crayon colours stay
@@ -92,6 +94,50 @@ export class GameRenderer {
     if (ink === "1" && this.renderer.capabilities.isWebGL2) this.ink = new InkOutline(this.renderer);
 
     window.addEventListener("resize", this.onResize);
+    // a phone's address bar sliding in and out, and rotations, are not always a window resize
+    window.visualViewport?.addEventListener("resize", this.onResize);
+    window.addEventListener("orientationchange", this.onResize);
+    this.applyQuality();
+    this.offSettings = onSettings((s) => {
+      if (s.graphics !== this.preset) {
+        this.preset = s.graphics;
+        this.profile = qualityProfile(s.graphics);
+        this.dynres = new DynamicResolution(this.profile.minScale);
+        this.applyQuality();
+      }
+    });
+    this.onResize();
+  }
+
+  /** The graphics preset (settings) and the auto preset's resolution governor. */
+  private preset = settings.graphics;
+  private profile: QualityProfile = qualityProfile(settings.graphics);
+  private dynres = new DynamicResolution(this.profile.minScale);
+  private lastFrame = 0;
+  private offSettings: (() => void) | null = null;
+  /** The camera's field of view as asked for (vertical, at 4:3 and wider); the drawn one adapts
+   *  to narrow screens (display.ts effectiveFov). Craft's camera sets it every frame. */
+  baseFov = 70;
+  private appliedFov = 70;
+
+  /** Shadows and resolution for the current preset (a change of shadows recompiles materials once). */
+  private applyQuality(): void {
+    if (this.renderer.xr.isPresenting) return;
+    this.renderer.setPixelRatio(pixelRatioFor(window.devicePixelRatio, this.profile, this.dynres.scale));
+    const shadows = this.profile.shadows;
+    if (this.renderer.shadowMap.enabled !== shadows) {
+      this.renderer.shadowMap.enabled = shadows;
+      this.scene.traverse((o) => {
+        const m = (o as THREE.Mesh).material as THREE.Material | THREE.Material[] | undefined;
+        for (const mat of Array.isArray(m) ? m : m ? [m] : []) mat.needsUpdate = true;
+      });
+    }
+    this.sun.castShadow = shadows;
+    if (this.sun.shadow.mapSize.x !== this.profile.shadowMapSize) {
+      this.sun.shadow.mapSize.set(this.profile.shadowMapSize, this.profile.shadowMapSize);
+      this.sun.shadow.map?.dispose();
+      this.sun.shadow.map = null;
+    }
   }
 
   /**
@@ -149,6 +195,12 @@ export class GameRenderer {
   private readonly tmpTarget = new THREE.Vector3();
 
   render(): void {
+    // auto: trade resolution for frame rate, measured between frames
+    const now = performance.now();
+    if (this.preset === "auto" && this.lastFrame > 0 && this.dynres.frame(now - this.lastFrame) && !this.renderer.xr.isPresenting) {
+      this.renderer.setPixelRatio(pixelRatioFor(window.devicePixelRatio, this.profile, this.dynres.scale));
+    }
+    this.lastFrame = now;
     // Presenting to a headset means the XR system owns the framebuffer, and a
     // full-screen composite through a render target does not survive that —
     // so the per-brick hulls come back for the duration.
@@ -193,6 +245,9 @@ export class GameRenderer {
     this.ink?.dispose();
     this.ink = null;
     window.removeEventListener("resize", this.onResize);
+    window.visualViewport?.removeEventListener("resize", this.onResize);
+    window.removeEventListener("orientationchange", this.onResize);
+    this.offSettings?.();
     this.renderer.xr.removeEventListener("sessionend", this.onResize);
     this.renderer.setAnimationLoop(null);
     this.renderer.dispose();
@@ -206,9 +261,12 @@ export class GameRenderer {
     // rejects setSize with a console warning — don't even ask
     if (this.renderer.xr.isPresenting) return;
     // browser zoom or a move to another monitor changes the ratio too
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
+    this.renderer.setPixelRatio(pixelRatioFor(window.devicePixelRatio, this.profile, this.dynres.scale));
     this.renderer.setSize(window.innerWidth, window.innerHeight);
-    this.camera.aspect = window.innerWidth / window.innerHeight;
+    this.camera.aspect = window.innerWidth / Math.max(1, window.innerHeight);
+    // a phone held upright keeps a 4:3 horizontal view (display.ts) — only while the renderer owns
+    // the fov: a mode that set its own (builder's VR preview, cinematic shots) keeps it
+    if (Math.abs(this.camera.fov - this.appliedFov) < 0.01) this.camera.fov = this.appliedFov = effectiveFov(this.baseFov, this.camera.aspect);
     this.camera.updateProjectionMatrix();
   };
 }

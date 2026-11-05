@@ -38,6 +38,37 @@ impl JoinMask<'_> {
     }
 }
 
+/// V8's `Math.hypot` for any number of arguments (the same algorithm as `js_hypot`).
+pub fn js_hypot_n(values: &[f64]) -> f64 {
+    let mut max = 0.0;
+    let mut nan = false;
+    for &v in values {
+        if v.is_nan() {
+            nan = true;
+        } else if v.abs() > max {
+            max = v.abs();
+        }
+    }
+    if max == f64::INFINITY {
+        return f64::INFINITY;
+    }
+    if nan {
+        return f64::NAN;
+    }
+    if max == 0.0 {
+        return 0.0;
+    }
+    let (mut sum, mut compensation) = (0.0f64, 0.0f64);
+    for v in values.iter().map(|v| v.abs()) {
+        let n = v / max;
+        let summand = n * n - compensation;
+        let preliminary = sum + summand;
+        compensation = (preliminary - sum) - summand;
+        sum = preliminary;
+    }
+    sum.sqrt() * max
+}
+
 /// V8's `Math.hypot` for two arguments (Kahan-compensated sum of squares scaled by the max).
 pub fn js_hypot(a: f64, b: f64) -> f64 {
     let (aa, ab) = (a.abs(), b.abs());

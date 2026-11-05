@@ -29,6 +29,9 @@
     "app:android": "node tools/android-build.mjs debug",
     "app:android:release": "node tools/android-build.mjs release",
     "engine:catalog": "pnpm --filter @robo/server exec tsx ../../tools/engine-catalog.mjs",
+    "engine:protocol": "pnpm --filter @robo/server exec tsx ../../tools/engine-protocol.mjs",
+    "engine:furniture": "node apps/server/node_modules/tsx/dist/cli.mjs tools/engine-furniture.mjs",
+    "engine:pets": "node apps/server/node_modules/tsx/dist/cli.mjs tools/engine-pets.mjs",
     "engine:tiles": "node tools/engine-tiles.mjs"
   },
   "devDependencies": {

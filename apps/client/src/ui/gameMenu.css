@@ -182,6 +182,15 @@ body:has(.craft-hotbar) .gm-card { max-height: 100%; overflow-y: auto; }
 .gm-lang { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding-top: 4px; text-align: left; }
 .gm-lang > div { display: flex; gap: 8px; }
 
+.gm-sub { margin: 14px 0 2px; padding-bottom: 4px; border-bottom: 2px dashed #e6e4d8; font: 800 13px/1.2 system-ui, sans-serif; color: #7a7d74; text-align: left; letter-spacing: 0.02em; }
+.gm-sub:first-of-type { margin-top: 4px; }
+.gm-toggle { display: flex; align-items: center; gap: 10px; padding: 6px 0; font-weight: 700; cursor: pointer; text-align: left; }
+.gm-toggle input { width: 22px; height: 22px; accent-color: #ffd21c; }
+.gm-lang small { opacity: 0.6; font-weight: 700; }
+
+/* The interface size setting (--ui-scale, settings.ts) scales the in-game UI as a whole. */
+.craft-hud, .craft-piece, .machine-launch, .pet-chip, .furn-chip, .bag-screen, .furn-bar { zoom: var(--ui-scale, 1); }
+
 /* ---- always-on key strip --------------------------------------------- */
 .craft-help.gm-keybar {
   bottom: 94px;
@@ -235,7 +244,24 @@ body:has(.craft-hotbar) .gm-card { max-height: 100%; overflow-y: auto; }
 .craft-hud .craft-slot-num, .furn-bar .craft-slot-num { top: 2px; left: 5px; font: 800 10px/1 system-ui, sans-serif; opacity: 0.8; text-shadow: 0 0 2px #fff; }
 .craft-hud .craft-slot b { font: 800 13px/1 system-ui, sans-serif; }
 /* Empty slots stay recognisable: faded, not washed to white. */
-.craft-hud .craft-slot.empty img { opacity: 0.5; filter: saturate(0.6); }
+.craft-hud .craft-slot.empty img { opacity: 0.35; filter: grayscale(1); }
+.craft-hud .craft-slot.empty b { opacity: 0.55; }
+.craft-hud .craft-slot.empty { background: rgba(255, 255, 255, 0.55); }
+
+/* Onboarding over (ONBOARDING_S of play): the key strip and the shape hint step aside; H and
+   the pause card still list every control. */
+body.hud-hints-done:not(.hud-hints-always) .craft-help.gm-keybar,
+body.hud-hints-done:not(.hud-hints-always) .craft-piece-hint { display: none; }
+body.hud-hints-done:not(.hud-hints-always) .craft-slot-label { bottom: 104px; }
+
+/* In play the corner chips cannot be clicked (the mouse is captured): icon + key only, quieter. */
+body.in-play .machine-launch .chip-label,
+body.in-play [data-id="pet-chip-label"],
+body.in-play [data-id="furniture-chip-label"] { display: none; }
+body.in-play .machine-launch, body.in-play .pet-chip, body.in-play .furn-chip {
+  padding: 6px 10px 8px;
+  opacity: 0.82;
+}
 
 /* the selected block's name, briefly, above the key strip */
 .craft-slot-label {
@@ -618,4 +644,30 @@ body:has(.craft-hotbar) .craft-hint.game-menu:has(section[data-view="help"]:not(
   .tower-side .help.gm-keybar { justify-content: center; }
   .title-screen .screen-card.tower-card { padding: 54px 16px 18px; }
   .title-screen .tower-side .board { min-height: 0; max-height: 150px; }
+}
+
+/* a segmented row (view distance) before a slider needs air under its pressable buttons */
+.gm-lang + .gm-slider { margin-top: 12px; }
+
+/* ---- narrow screens (a phone held upright, a split window) -----------------
+   Ten 52px slots need ~605px: below that the slots shrink to fit the screen (the UI scale
+   setting zooms the HUD, so it is divided back out). The corner chips go icon-only and the
+   shape chip moves left so they never overlap; the key strip (keyboard keys) has no place on a
+   phone. */
+.craft-hud .craft-slot {
+  width: min(52px, calc((100vw - 40px) / (10 * var(--ui-scale, 1)) - 7px));
+  height: min(52px, calc((100vw - 40px) / (10 * var(--ui-scale, 1)) - 7px));
+}
+@media (max-width: 700px) {
+  .craft-hud .craft-hotbar { gap: 4px; padding: 5px; }
+  .craft-hud .craft-slot-num { font-size: 8px; }
+  .craft-hud .craft-slot b { font-size: 10px; }
+  .craft-help.gm-keybar { display: none; }
+  .craft-slot-label { bottom: 84px; font-size: 13px; }
+  .machine-launch .chip-label,
+  [data-id="pet-chip-label"],
+  [data-id="furniture-chip-label"],
+  .craft-piece-hint { display: none; }
+  body .machine-launch, body .pet-chip, body .furn-chip { padding: 6px 10px 8px; font-size: 13px; }
+  .craft-piece { left: 12px; transform: none; font-size: 12px; padding: 5px 10px 7px; }
 }

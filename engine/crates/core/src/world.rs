@@ -19,9 +19,12 @@ pub fn id(key: &str) -> u8 {
     BLOCKS.iter().find(|b| b.key == key).unwrap_or_else(|| panic!("no block {key}")).id
 }
 
+#[derive(Clone)]
 pub struct World {
     pub cells: Vec<u8>,
     pub shapes: Vec<u8>,
+    /// The water a shaped block holds (`VoxelWorld.wet`, waterlog.ts): flow state, never saved.
+    pub wet: Vec<u8>,
     /// Block id per height for every column outside the grid (the endless field), or None (air).
     pub outside_column: Option<Vec<u8>>,
 }
@@ -29,7 +32,7 @@ pub struct World {
 impl Default for World {
     fn default() -> Self {
         let n = (WORLD_X * WORLD_Y * WORLD_Z) as usize;
-        Self { cells: vec![0; n], shapes: vec![0; n], outside_column: None }
+        Self { cells: vec![0; n], shapes: vec![0; n], wet: vec![0; n], outside_column: None }
     }
 }
 
@@ -57,6 +60,7 @@ impl World {
             let i = Self::index(x, y, z);
             self.cells[i] = block;
             self.shapes[i] = 0;
+            self.wet[i] = 0;
         }
     }
     pub fn get_shape(&self, x: i32, y: i32, z: i32) -> u8 {
@@ -69,6 +73,54 @@ impl World {
     pub fn is_solid(&self, x: i32, y: i32, z: i32) -> bool {
         SOLID[self.get(x, y, z) as usize]
     }
+    /// `waterAt`: a water cell's own id, the water a shaped block holds, else 0.
+    pub fn water_at(&self, x: i32, y: i32, z: i32) -> u8 {
+        let id = self.get(x, y, z);
+        if crate::fluid::is_water(id) {
+            return id;
+        }
+        if Self::in_bounds(x, y, z) { self.wet[Self::index(x, y, z)] } else { 0 }
+    }
+    /// `setShaped`: a block with a shape code (writing a cell clears its water).
+    pub fn set_shaped(&mut self, x: i32, y: i32, z: i32, block: u8, shape: u8) {
+        if Self::in_bounds(x, y, z) {
+            let i = Self::index(x, y, z);
+            self.cells[i] = block;
+            // malformed input never poisons the shape buffer (isBlockShape)
+            self.shapes[i] = if shape <= crate::shapes::MAX_BLOCK_SHAPE { shape } else { 0 };
+            self.wet[i] = 0;
+        }
+    }
+}
+
+/// fieldWorld.ts FIELD_TOP: the education field's grass layer.
+pub const FIELD_TOP: i32 = 3;
+
+/// fieldWorld.ts `fieldColumn`: bedrock, dirt up to FIELD_TOP, grass on top, air above.
+pub fn field_column() -> Vec<u8> {
+    let mut col = vec![AIR; WORLD_Y as usize];
+    col[0] = id("bedrock");
+    for c in col.iter_mut().take(FIELD_TOP as usize).skip(1) {
+        *c = id("dirt");
+    }
+    col[FIELD_TOP as usize] = id("grass");
+    col
+}
+
+/// The empty field: every column the field column, and the same column outside the grid.
+pub fn generate_field() -> World {
+    let col = field_column();
+    let mut w = World::default();
+    for y in 0..WORLD_Y {
+        let b = col[y as usize];
+        if b == AIR {
+            continue;
+        }
+        let row = (y * WORLD_Z * WORLD_X) as usize;
+        w.cells[row..row + (WORLD_Z * WORLD_X) as usize].fill(b);
+    }
+    w.outside_column = Some(col);
+    w
 }
 
 /// `surfaceY`: the highest solid cell at (x, z), or 0.
@@ -609,5 +661,74 @@ mod tests {
         assert_eq!(w.get(10, 0, 10), id("bedrock"));
         assert_eq!(w.get(40, 12, 92), id("stone-bricks")); // the causeway
         assert!(w.cells.iter().filter(|c| **c == id("glowstone")).count() > 10);
+    }
+}
+
+/// `RayHit`: the cell hit, the cell before it (where a placed block goes) and the distance.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct RayHit {
+    pub voxel: [i32; 3],
+    pub before: [i32; 3],
+    pub dist: f64,
+}
+
+impl World {
+    /// `raycast`: grid-DDA ray march (voxelWorld.ts). `props` would also stop at furniture (none
+    /// in the core world yet); `fluids` also stops at water.
+    #[allow(clippy::too_many_arguments)]
+    pub fn raycast(&self, ox: f64, oy: f64, oz: f64, dx: f64, dy: f64, dz: f64, max_dist: f64, fluids: bool) -> Option<RayHit> {
+        use crate::shapes::{is_full_cube_shape, raycast_block_shape};
+        let (mut x, mut y, mut z) = (ox.floor() as i32, oy.floor() as i32, oz.floor() as i32);
+        let step_x = if dx > 0.0 { 1 } else { -1 };
+        let step_y = if dy > 0.0 { 1 } else { -1 };
+        let step_z = if dz > 0.0 { 1 } else { -1 };
+        let inv = |d: f64| if d != 0.0 { (1.0 / d).abs() } else { f64::INFINITY };
+        let (t_delta_x, t_delta_y, t_delta_z) = (inv(dx), inv(dy), inv(dz));
+        let frac = |v: f64, dir: f64| if dir > 0.0 { 1.0 - (v - v.floor()) } else { v - v.floor() };
+        let mut t_max_x = if t_delta_x == f64::INFINITY { f64::INFINITY } else { t_delta_x * frac(ox, dx) };
+        let mut t_max_y = if t_delta_y == f64::INFINITY { f64::INFINITY } else { t_delta_y * frac(oy, dy) };
+        let mut t_max_z = if t_delta_z == f64::INFINITY { f64::INFINITY } else { t_delta_z * frac(oz, dz) };
+        let (mut px, mut py, mut pz) = (x, y, z);
+        let mut t = 0.0;
+        while t <= max_dist {
+            let id = self.get(x, y, z);
+            if fluids && crate::fluid::is_water(id) {
+                return Some(RayHit { voxel: [x, y, z], before: [px, py, pz], dist: t });
+            }
+            if self.is_solid(x, y, z) {
+                let shape = self.get_shape(x, y, z);
+                if is_full_cube_shape(shape) {
+                    return Some(RayHit { voxel: [x, y, z], before: [px, py, pz], dist: t });
+                }
+                if let Some(hit) = raycast_block_shape(shape, [ox - x as f64, oy - y as f64, oz - z as f64], [dx, dy, dz], max_dist) {
+                    if hit.distance >= t - 1e-6 {
+                        let n = hit.normal;
+                        let axis = if n[1].abs() >= n[0].abs() && n[1].abs() >= n[2].abs() { 1 } else if n[0].abs() >= n[2].abs() { 0 } else { 2 };
+                        let mut before = [x, y, z];
+                        // Math.sign: 0 stays 0
+                        before[axis] += if n[axis] > 0.0 { 1 } else if n[axis] < 0.0 { -1 } else { 0 };
+                        return Some(RayHit { voxel: [x, y, z], before, dist: hit.distance });
+                    }
+                }
+            }
+            (px, py, pz) = (x, y, z);
+            if t_max_x <= t_max_y && t_max_x <= t_max_z {
+                t = t_max_x;
+                t_max_x += t_delta_x;
+                x += step_x;
+            } else if t_max_y <= t_max_z {
+                t = t_max_y;
+                t_max_y += t_delta_y;
+                y += step_y;
+            } else {
+                t = t_max_z;
+                t_max_z += t_delta_z;
+                z += step_z;
+            }
+            if !Self::in_bounds(x, y, z) && t > max_dist {
+                break;
+            }
+        }
+        None
     }
 }

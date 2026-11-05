@@ -78,6 +78,20 @@ pub fn tables() -> Tables {
     }
 }
 
+/// An sRGB tint multiplied by a linear shade (three: material colour x vertex colour), back in sRGB.
+fn shade(tint: [u8; 3], col: [f32; 3]) -> [u8; 3] {
+    let lin = |c: u8| {
+        let c = c as f32 / 255.0;
+        if c <= 0.04045 { c / 12.92 } else { ((c + 0.055) / 1.055).powf(2.4) }
+    };
+    let srgb = |l: f32| {
+        let l = l.clamp(0.0, 1.0);
+        let c = if l <= 0.0031308 { l * 12.92 } else { 1.055 * l.powf(1.0 / 2.4) - 0.055 };
+        (c * 255.0).round() as u8
+    };
+    [0, 1, 2].map(|i| srgb(lin(tint[i]) * col[i]))
+}
+
 fn band_of(ny: f32) -> usize {
     if ny > 0.52 {
         0
@@ -103,6 +117,8 @@ pub struct Meshed {
     /// Brick tops that carry studs (the far scan only: every chunk has a far form, and studs are
     /// drawn by distance to the focus, not by LOD form).
     pub studs: Vec<StudInstance>,
+    /// The water surface (with the far form, like the studs: water does not change with LOD).
+    pub water: Vec<crate::water::WaterVertex>,
 }
 
 impl Meshed {
@@ -155,6 +171,8 @@ pub fn mesh_chunk(world: &World, tables: &Tables, cx: i32, cz: i32, far: bool) -
                 verts.push(Vertex::new([buf.pos[k * 3], buf.pos[k * 3 + 1], buf.pos[k * 3 + 2]], [buf.nrm[k * 3], buf.nrm[k * 3 + 1], buf.nrm[k * 3 + 2]], tint, layer, [buf.uv[k * 2], buf.uv[k * 2 + 1]]));
             }
         }
+        // the water rides with the far form (it does not change with LOD)
+        meshed.water = crate::water::mesh_water(world, cx, cz);
         return meshed;
     }
     // joined: a solid full cube (any block) — the shell runs on into it without an inset
@@ -183,6 +201,9 @@ pub fn mesh_chunk(world: &World, tables: &Tables, cx: i32, cz: i32, far: bool) -
                 for k in 0..g.pos.len() / 3 {
                     let nrm = [g.nrm[k * 3], g.nrm[k * 3 + 1], g.nrm[k * 3 + 2]];
                     let (tint, layer) = band_look(block, band_of(nrm[1]));
+                    // the shell's own shading (kitShell's colour attribute, which the web's
+                    // vertexColors multiply in): folded into the tint in linear light
+                    let tint = shade(tint, [g.col[k * 3], g.col[k * 3 + 1], g.col[k * 3 + 2]]);
                     verts.push(Vertex::new([g.pos[k * 3], g.pos[k * 3 + 1], g.pos[k * 3 + 2]], nrm, tint, layer, [g.uv[k * 2], g.uv[k * 2 + 1]]));
                 }
             }
@@ -195,36 +216,54 @@ pub fn mesh_chunk(world: &World, tables: &Tables, cx: i32, cz: i32, far: bool) -
     meshed
 }
 
-/// A finished chunk form.
+/// A finished chunk form, with the stamp of the request it answers.
 pub struct Built {
     pub cx: i32,
     pub cz: i32,
     pub far: bool,
+    pub stamp: u64,
     pub mesh: Meshed,
+}
+
+/// One request: the world snapshot to mesh (the world changes — edits, a field scroll, another
+/// mode — so every job carries the one it was asked about) and a stamp to drop stale answers.
+struct Job {
+    world: Arc<World>,
+    cx: i32,
+    cz: i32,
+    far: bool,
+    stamp: u64,
 }
 
 /// The meshing workers: requests in, finished chunks out. Dropping it ends the threads.
 pub struct Mesher {
-    jobs: Option<Sender<(i32, i32, bool)>>,
+    jobs: Option<Sender<Job>>,
     done: Receiver<Built>,
 }
 
+impl Default for Mesher {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Mesher {
-    pub fn new(world: Arc<World>) -> Self {
-        let (jobs, rx) = channel::<(i32, i32, bool)>();
+    pub fn new() -> Self {
+        let (jobs, rx) = channel::<Job>();
         let (tx, done) = channel();
         let rx = Arc::new(Mutex::new(rx));
         let tables = Arc::new(tables());
         // leave a core for the frame loop; phones have 4–8, a pool past 4 only fights the GPU driver
         let workers = std::thread::available_parallelism().map_or(1, |n| n.get().saturating_sub(1)).clamp(1, 4);
         for k in 0..workers {
-            let (world, tables, rx, tx) = (world.clone(), tables.clone(), rx.clone(), tx.clone());
+            let (tables, rx, tx) = (tables.clone(), rx.clone(), tx.clone());
             let spawned = std::thread::Builder::new().name(format!("mesher-{k}")).spawn(move || loop {
                 // a poisoned lock means another worker panicked mid-recv: the queue itself is fine
                 let job = rx.lock().unwrap_or_else(|p| p.into_inner()).recv();
-                let Ok((cx, cz, far)) = job else { break }; // the app is gone
+                let Ok(Job { world, cx, cz, far, stamp }) = job else { break }; // the app is gone
                 let mesh = mesh_chunk(&world, &tables, cx, cz, far);
-                if tx.send(Built { cx, cz, far, mesh }).is_err() {
+                drop(world); // release the snapshot before the send: the next edit need not copy it
+                if tx.send(Built { cx, cz, far, stamp, mesh }).is_err() {
                     break;
                 }
             });
@@ -234,9 +273,9 @@ impl Mesher {
         }
         Self { jobs: Some(jobs), done }
     }
-    pub fn request(&self, cx: i32, cz: i32, far: bool) {
+    pub fn request(&self, world: &Arc<World>, cx: i32, cz: i32, far: bool, stamp: u64) {
         if let Some(j) = &self.jobs {
-            let _ = j.send((cx, cz, far));
+            let _ = j.send(Job { world: world.clone(), cx, cz, far, stamp });
         }
     }
     pub fn finished(&self) -> impl Iterator<Item = Built> + '_ {
@@ -253,6 +292,19 @@ impl Drop for Mesher {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn the_far_form_carries_the_water_and_the_near_form_does_not() {
+        let mut w = craftyap_core::world::generate_field();
+        for x in 34..38 {
+            for z in 34..38 {
+                w.set(x, 4, z, 19);
+            }
+        }
+        let t = tables();
+        assert!(!mesh_chunk(&w, &t, 2, 2, true).water.is_empty(), "far form: water surface");
+        assert!(mesh_chunk(&w, &t, 2, 2, false).water.is_empty(), "near form: none (it would draw twice)");
+    }
 
     #[test]
     fn faces_match_the_web_table() {

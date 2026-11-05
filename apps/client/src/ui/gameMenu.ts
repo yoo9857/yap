@@ -1,6 +1,6 @@
 import { t } from "./i18n.js";
 import { keyGlyphs } from "./inputGlyphs.js";
-import { SENSITIVITY_RANGE, savedLanguage, settings, updateSettings, type Lang } from "./settings.js";
+import { FOV_RANGE, SENSITIVITY_RANGE, UI_SCALE_RANGE, savedLanguage, settings, updateSettings, type Lang } from "./settings.js";
 import "./gameMenu.css";
 
 /** One row of key help: the keys (each its own <kbd>) and what they do. */
@@ -111,13 +111,25 @@ export class GameMenu {
         </section>
         <section data-view="settings" hidden>
           ${bar(`⚙️ ${t("설정", "Settings")}`)}
+          <h4 class="gm-sub">${t("조작", "Controls")}</h4>
           <label class="gm-slider"><span>${t("마우스 감도", "Mouse sensitivity")} <output data-out="sensitivity">${settings.sensitivity.toFixed(1)}</output></span>
             <input type="range" data-set="sensitivity" min="${SENSITIVITY_RANGE.min}" max="${SENSITIVITY_RANGE.max}" step="0.1" value="${settings.sensitivity}" /></label>
+          <label class="gm-toggle"><input type="checkbox" data-toggle="invertY"${settings.invertY ? " checked" : ""} /><span>${t("마우스 위아래 반대로", "Invert mouse up/down")}</span></label>
+          <label class="gm-toggle"><input type="checkbox" data-toggle="hints"${settings.hints ? " checked" : ""} /><span>${t("조작 도움말 항상 보이기", "Always show control hints")}</span></label>
+          <h4 class="gm-sub">${t("화면", "Display")}</h4>
+          <label class="gm-slider"><span>${t("시야각", "Field of view")} <output data-out="fov">${settings.fov}°</output></span>
+            <input type="range" data-set="fov" min="${FOV_RANGE.min}" max="${FOV_RANGE.max}" step="1" value="${settings.fov}" /></label>
+          <div class="gm-lang"><span>${t("그래픽", "Graphics")}</span><div>${([["auto", t("자동", "Auto")], ["low", t("낮음", "Low")], ["medium", t("보통", "Medium")], ["high", t("높음", "High")]] as const).map(([v, label]) => `<button type="button" class="gm-seg${settings.graphics === v ? " on" : ""}" data-graphics="${v}" aria-pressed="${settings.graphics === v}">${label}</button>`).join("")}</div></div>
+          <div class="gm-lang"><span>${t("시야 거리", "View distance")} <small>(O)</small></span><div>${[t("가깝게", "Short"), t("보통", "Normal"), t("멀리", "Far")].map((label, i) => `<button type="button" class="gm-seg${settings.view === i ? " on" : ""}" data-viewdist="${i}" aria-pressed="${settings.view === i}">${label}</button>`).join("")}</div></div>
+          <label class="gm-slider"><span>${t("화면 글자·버튼 크기", "Interface size")} <output data-out="uiScale">${pct(settings.uiScale)}%</output></span>
+            <input type="range" data-set="uiScale" min="${UI_SCALE_RANGE.min}" max="${UI_SCALE_RANGE.max}" step="0.05" value="${settings.uiScale}" /></label>
+          <h4 class="gm-sub">${t("소리", "Sound")}</h4>
           <label class="gm-slider"><span>${t("배경 음악", "Music")} <output data-out="music">${pct(settings.music)}%</output></span>
             <input type="range" data-set="music" min="0" max="1" step="0.05" value="${settings.music}" /></label>
           <label class="gm-slider"><span>${t("효과음", "Sound effects")} <output data-out="sfx">${pct(settings.sfx)}%</output></span>
             <input type="range" data-set="sfx" min="0" max="1" step="0.05" value="${settings.sfx}" /></label>
-          <div class="gm-lang"><span>${t("언어", "Language")}</span><div>${lang("ko", "한국어")}${lang("en", "English")}</div></div>
+          <h4 class="gm-sub">${t("언어", "Language")}</h4>
+          <div class="gm-lang"><span></span><div>${lang("ko", "한국어")}${lang("en", "English")}</div></div>
           <p class="gm-note">${t("M 키로 음악을 바로 켜고 끌 수 있어요.", "M toggles the music at any time.")}</p>
         </section>
       </div>`;
@@ -132,6 +144,26 @@ export class GameMenu {
       const target = e.target as HTMLElement;
       const go = target.closest<HTMLElement>("[data-go]")?.dataset.go as View | undefined;
       if (go) return this.setView(go);
+      const gfx = target.closest<HTMLElement>("[data-graphics]")?.dataset.graphics as "auto" | "low" | "medium" | "high" | undefined;
+      if (gfx) {
+        updateSettings({ graphics: gfx });
+        this.el.querySelectorAll<HTMLElement>("[data-graphics]").forEach((b) => {
+          const on = b.dataset.graphics === gfx;
+          b.classList.toggle("on", on);
+          b.setAttribute("aria-pressed", String(on));
+        });
+        return;
+      }
+      const dist = target.closest<HTMLElement>("[data-viewdist]")?.dataset.viewdist;
+      if (dist !== undefined) {
+        updateSettings({ view: Number(dist) });
+        this.el.querySelectorAll<HTMLElement>("[data-viewdist]").forEach((b) => {
+          const on = b.dataset.viewdist === dist;
+          b.classList.toggle("on", on);
+          b.setAttribute("aria-pressed", String(on));
+        });
+        return;
+      }
       const lang = target.closest<HTMLElement>("[data-lang]")?.dataset.lang as Lang | undefined;
       if (lang) {
         // compared with the SAVED choice: on a ?lang=en page, picking English must still save it
@@ -160,12 +192,15 @@ export class GameMenu {
       fill(input);
       input.addEventListener("input", () => {
         fill(input);
-        const key = input.dataset.set as "sensitivity" | "music" | "sfx";
+        const key = input.dataset.set as "sensitivity" | "music" | "sfx" | "fov" | "uiScale";
         const value = Number(input.value);
         updateSettings({ [key]: value });
         const out = this.el.querySelector(`[data-out="${key}"]`);
-        if (out) out.textContent = key === "sensitivity" ? value.toFixed(1) : `${Math.round(value * 100)}%`;
+        if (out) out.textContent = key === "sensitivity" ? value.toFixed(1) : key === "fov" ? `${value}°` : `${Math.round(value * 100)}%`;
       }, { signal });
+    });
+    this.el.querySelectorAll<HTMLInputElement>("input[data-toggle]").forEach((input) => {
+      input.addEventListener("change", () => updateSettings({ [input.dataset.toggle as "invertY" | "hints"]: input.checked }), { signal });
     });
     document.addEventListener("keydown", (e) => {
       const tag = (e.target as HTMLElement | null)?.tagName;

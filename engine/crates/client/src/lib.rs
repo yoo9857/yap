@@ -1,6 +1,6 @@
-//! CraftYap native client: the shared Rust core (`craftyap-core`) drawn with wgpu.
+﻿//! CraftYap native client: the shared Rust core (`craftyap-core`) drawn with wgpu.
 //! One codebase for the Android app (`android_main`, loaded as `libcraftyap_client.so` by the
-//! NativeActivity in `engine/platform/android`) and the desktop window (`src/main.rs`).
+//! GameActivity in `engine/platform/android`) and the desktop window (`src/main.rs`).
 //!
 //! Layout:
 //! - `app`: the winit application: window lifecycle (Android destroys the surface on every
@@ -12,14 +12,36 @@
 //! - `quality`: low / medium / high presets and the automatic choice
 
 mod app;
+mod art;
+mod character;
+mod bag;
+mod building;
 mod chunks;
+mod class;
+mod face;
+mod field;
+mod follow;
+mod furniture;
 mod gpu;
+mod held;
+mod hud_layout;
+mod ime;
+mod input;
+mod island_save;
 mod quality;
 mod scene;
+mod sound;
 mod studs;
 mod looks;
+mod menu;
+mod pet;
+mod player;
+mod profile;
 mod surfaces;
+mod text;
 mod tiles_gen;
+mod ui;
+mod water;
 
 pub use app::run;
 
@@ -39,6 +61,8 @@ fn android_main(app: winit::platform::android::activity::AndroidApp) {
     use winit::platform::android::EventLoopBuilderExtAndroid;
     android_logger::init_once(android_logger::Config::default().with_max_level(log::LevelFilter::Info).with_tag("CraftYap"));
     install_panic_log();
+    // the soft keyboard (GameTextInput) is reached through the app handle
+    ime::install(&app);
     let event_loop = match winit::event_loop::EventLoop::builder().with_android_app(app).build() {
         Ok(el) => el,
         Err(err) => {

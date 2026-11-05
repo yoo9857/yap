@@ -181,7 +181,8 @@ export class MachineWorkshop {
     const signal = this.events.signal;
     this.launch = document.createElement("button");
     this.launch.className = "machine-ui machine-launch mw-btn";
-    this.launch.innerHTML = `🔧 ${t("기계 작업실", "Machine lab")} <kbd class='mw-kbd'>B</kbd>`;
+    this.launch.innerHTML = `<span class="chip-emoji">🔧</span> <span class="chip-label">${t("기계 작업실", "Machine lab")}</span> <kbd class='mw-kbd'>B</kbd>`;
+    this.launch.title = t("기계 작업실 (B)", "Machine lab (B)");
     this.panel = new BuildPanel(
       {
         selectPart: (kind) => this.pickPart(kind),

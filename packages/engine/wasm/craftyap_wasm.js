@@ -546,6 +546,41 @@ export class WasmWater {
 if (Symbol.dispose) WasmWater.prototype[Symbol.dispose] = WasmWater.prototype.free;
 
 /**
+ * `stepBody` on the Rust core (`body.rs`), for the parity test (rust-body.test.ts): the island of
+ * `seed` with `edits` applied ([x, y, z, block, shape, wet] each), a body at `start`
+ * ([x, y, z, w, h, jumpSpeed], NaN = default) unstuck, then one tick per `inputs` entry
+ * ([wishX, wishZ, jump, pushX, pushZ]). Returns [x, y, z, vx, vy, vz, grounded, wet] per tick.
+ * @param {number} seed
+ * @param {Float64Array | number[]} edits
+ * @param {Float64Array | number[]} start
+ * @param {Float64Array | number[]} inputs
+ * @param {number} dt
+ * @returns {Float64Array}
+ */
+export function body_trace(seed, edits, start, inputs, dt) {
+    const val4 = +seed;
+    const val5 = +dt;
+    let ptr0, len0, ptr1, len1, ptr2, len2;
+    try {
+        ptr0 = passArrayF64ToWasm0(edits, wasm.__wbindgen_malloc);
+        len0 = WASM_VECTOR_LEN;
+        ptr1 = passArrayF64ToWasm0(start, wasm.__wbindgen_malloc);
+        len1 = WASM_VECTOR_LEN;
+        ptr2 = passArrayF64ToWasm0(inputs, wasm.__wbindgen_malloc);
+        len2 = WASM_VECTOR_LEN;
+    } catch (e) {
+        if (ptr2) { wasm.__wbindgen_free(ptr2, len2 * 8, 8); }
+        if (ptr1) { wasm.__wbindgen_free(ptr1, len1 * 8, 8); }
+        if (ptr0) { wasm.__wbindgen_free(ptr0, len0 * 8, 8); }
+        throw e;
+    }
+    const ret = wasm.body_trace(val4, ptr0, len0, ptr1, len1, ptr2, len2, val5);
+    var v6 = getArrayF64FromWasm0(ret[0], ret[1]).slice();
+    wasm.__wbindgen_free(ret[0], ret[1] * 8, 8);
+    return v6;
+}
+
+/**
  * `generateIsland(seed)` on the Rust core (`world.rs`): the cells, for the parity test.
  * @param {number} seed
  * @returns {Uint8Array}
@@ -614,6 +649,34 @@ export function material_maps(family, size) {
 }
 
 /**
+ * `VoxelWorld.raycast` on the Rust core, for the parity test (rust-body.test.ts): the island of
+ * `seed` with `edits` applied (as body_trace), then each ray [ox, oy, oz, dx, dy, dz, maxDist,
+ * fluids]. Returns [hit, vx, vy, vz, bx, by, bz, dist] per ray (hit 0 = none).
+ * @param {number} seed
+ * @param {Float64Array | number[]} edits
+ * @param {Float64Array | number[]} rays
+ * @returns {Float64Array}
+ */
+export function raycast_trace(seed, edits, rays) {
+    const val3 = +seed;
+    let ptr0, len0, ptr1, len1;
+    try {
+        ptr0 = passArrayF64ToWasm0(edits, wasm.__wbindgen_malloc);
+        len0 = WASM_VECTOR_LEN;
+        ptr1 = passArrayF64ToWasm0(rays, wasm.__wbindgen_malloc);
+        len1 = WASM_VECTOR_LEN;
+    } catch (e) {
+        if (ptr1) { wasm.__wbindgen_free(ptr1, len1 * 8, 8); }
+        if (ptr0) { wasm.__wbindgen_free(ptr0, len0 * 8, 8); }
+        throw e;
+    }
+    const ret = wasm.raycast_trace(val3, ptr0, len0, ptr1, len1);
+    var v4 = getArrayF64FromWasm0(ret[0], ret[1]).slice();
+    wasm.__wbindgen_free(ret[0], ret[1] * 8, 8);
+    return v4;
+}
+
+/**
  * `surfaceStyle(key).family` on the Rust core (`surface.rs`), for the parity test.
  * @param {string} key
  * @returns {string}
@@ -631,6 +694,53 @@ export function surface_family(key) {
     } finally {
         wasm.__wbindgen_free(deferred2_0, deferred2_1, 1);
     }
+}
+
+/**
+ * `surfaceStyle(key)` numbers on the Rust core: [roughness, metalness, normal, clearcoat].
+ * @param {string} key
+ * @returns {Float64Array}
+ */
+export function surface_style(key) {
+    const ptr0 = passStringToWasm0(key, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.surface_style(ptr0, len0);
+    var v2 = getArrayF64FromWasm0(ret[0], ret[1]).slice();
+    wasm.__wbindgen_free(ret[0], ret[1] * 8, 8);
+    return v2;
+}
+
+/**
+ * The water surface (`water_mesh.rs`, a port of waterGeometry.ts `buildWaterGeometry`) over a
+ * 160 × 56 × 160 grid (`cells`, the VoxelWorld layout, waterlogged shapes already handed over AS
+ * their water) and the column beyond it (`outside`, empty = air). Returns one Float32Array:
+ * [vertex count, index count, position (3n), normal (3n), wave, wet, foam, depth (n each),
+ * flow (3n), impact (3n), grid (4n), indices]; [0, 0] when nothing is drawn, [-1, 0] when the
+ * TypeScript would throw.
+ * @param {Uint8Array | number[]} cells
+ * @param {Uint8Array | number[]} outside
+ * @param {Int32Array | number[]} list
+ * @returns {Float32Array}
+ */
+export function water_mesh(cells, outside, list) {
+    let ptr0, len0, ptr1, len1, ptr2, len2;
+    try {
+        ptr0 = passArray8ToWasm0(cells, wasm.__wbindgen_malloc);
+        len0 = WASM_VECTOR_LEN;
+        ptr1 = passArray8ToWasm0(outside, wasm.__wbindgen_malloc);
+        len1 = WASM_VECTOR_LEN;
+        ptr2 = passArray32ToWasm0(list, wasm.__wbindgen_malloc);
+        len2 = WASM_VECTOR_LEN;
+    } catch (e) {
+        if (ptr2) { wasm.__wbindgen_free(ptr2, len2 * 4, 4); }
+        if (ptr1) { wasm.__wbindgen_free(ptr1, len1 * 1, 1); }
+        if (ptr0) { wasm.__wbindgen_free(ptr0, len0 * 1, 1); }
+        throw e;
+    }
+    const ret = wasm.water_mesh(ptr0, len0, ptr1, len1, ptr2, len2);
+    var v4 = getArrayF32FromWasm0(ret[0], ret[1]).slice();
+    wasm.__wbindgen_free(ret[0], ret[1] * 4, 4);
+    return v4;
 }
 function __wbg_get_imports() {
     const import0 = {
@@ -673,6 +783,11 @@ const WasmWaterFinalization = (typeof FinalizationRegistry === 'undefined')
 function getArrayF32FromWasm0(ptr, len) {
     ptr = ptr >>> 0;
     return getFloat32ArrayMemory0().subarray(ptr / 4, ptr / 4 + len);
+}
+
+function getArrayF64FromWasm0(ptr, len) {
+    ptr = ptr >>> 0;
+    return getFloat64ArrayMemory0().subarray(ptr / 8, ptr / 8 + len);
 }
 
 function getArrayI32FromWasm0(ptr, len) {

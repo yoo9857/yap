@@ -8,7 +8,7 @@ import { Sfx } from "../audio/sfx.js";
 import { Bgm, BGM_PLAYLIST } from "../audio/bgm.js";
 import { PerfMonitor } from "../ui/perf.js";
 import { t } from "../ui/i18n.js";
-import { settings } from "../ui/settings.js";
+import { onSettings, settings, updateSettings } from "../ui/settings.js";
 import { lookDelta } from "../input/mouseLook.js";
 import { AIR, BLOCKS, SOLID_ID, blockById, blockByKey, dropOf, isPlaceableItem, textureUrl } from "./blocks.js";
 import { loadTexture } from "../render/textures.js";
@@ -92,7 +92,6 @@ const VIEW_NAMES = ["Short", "Normal", "Far"];
 const viewName = (i: number): string => [t("가깝게", "Short"), t("보통", "Normal"), t("멀리", "Far")][i] ?? "";
 /** After placing (or while mining) the body faces the crosshair this long (s). */
 const ACTION_FACE_TIME = 0.6;
-const VIEW_KEY = "craftyap-view-distance";
 /** No walls anywhere: the room echo goes dry. */
 const OPEN_AIR = { enclosure: 0, size: 14 } as const;
 
@@ -351,6 +350,10 @@ export class CraftGame {
       () => { this.furniture.closePanel(); this.hud.hideRecipes(); }, () => this.resumePlay());
     this.view.markDirty();
     this.applyViewDistance(this.loadViewPreset());
+    // the view distance can change from the settings card (or O): apply it live
+    this.offSettings = onSettings((st) => {
+      if (st.view !== this.viewPreset) this.applyViewDistance(Math.min(VIEW_NAMES.length - 1, Math.max(0, st.view)));
+    });
     this.buildGhost();
     if (opts.classroom && this.field) {
       this.classSession = { room: opts.classroom.session.room, you: opts.classroom.session.you };
@@ -616,9 +619,12 @@ export class CraftGame {
   private warming = false;
 
   /** Release the WebGL/audio-facing resources when the mode is replaced. */
+  private offSettings: (() => void) | null = null;
+
   dispose(): void {
     if (this.disposed) return;
     this.disposed = true;
+    this.offSettings?.();
     this.loop.dispose();
     this.persist();
     this.events.abort();
@@ -690,7 +696,7 @@ export class CraftGame {
       const [dx, dy] = d;
       const look = 0.0026 * settings.sensitivity;
       this.yaw -= dx * look;
-      this.pitch = Math.min(1.35, Math.max(-1.25, this.pitch - dy * look));
+      this.pitch = Math.min(1.35, Math.max(-1.25, this.pitch - dy * look * (settings.invertY ? -1 : 1)));
     });
     on("mousedown", (e) => {
       if (!this.locked) return;
@@ -785,12 +791,7 @@ export class CraftGame {
       if (key === "y" && !e.repeat) this.petShop.toggle(); // its onOpen closes the bag and the furniture panel
       if (key === "o" && !e.repeat) {
         const next = (this.viewPreset + 1) % VIEW_NAMES.length;
-        this.applyViewDistance(next);
-        try {
-          localStorage.setItem(VIEW_KEY, String(next));
-        } catch {
-          /* remembered for this session only */
-        }
+        updateSettings({ view: next }); // the settings listener applies it
         this.hud.toast(`👁️ ${t("시야 거리", "View distance")}: ${viewName(next)} (${this.viewPresets[next]} m)`);
       }
       if (key === "r" && e.shiftKey && !e.repeat) {this.pieceRot=0;this.pieceTilt=0;this.hud.toast(t("기본 방향으로 맞췄어요", "Reset to upright"));return;}
@@ -1891,15 +1892,9 @@ export class CraftGame {
     return this.field ? VIEW_PRESETS.field : VIEW_PRESETS.island;
   }
 
+  /** The view distance preset lives in the shared settings (O and the settings card change it). */
   private loadViewPreset(): number {
-    try {
-      const raw = localStorage.getItem(VIEW_KEY);
-      const n = raw === null ? NaN : Number(raw); // Number(null) is 0, not "unset"
-      if (Number.isInteger(n) && n >= 0 && n < VIEW_NAMES.length) return n;
-    } catch {
-      /* default */
-    }
-    return 1;
+    return Math.min(VIEW_NAMES.length - 1, Math.max(0, settings.view));
   }
 
   /**

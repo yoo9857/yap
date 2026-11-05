@@ -1,5 +1,5 @@
-//! Shared drawing types and the camera. N2 shows the island from an orbit camera (drag to turn,
-//! pinch or wheel to zoom); the player and its follow camera replace it in N3.
+//! Shared drawing types and the camera: the player's follow camera (follow.rs) drives it; a fixed
+//! view pins it for web <-> native comparison shots; without either it looks at `focus`.
 
 use bytemuck::{Pod, Zeroable};
 use glam::{Mat4, Vec3};
@@ -62,6 +62,17 @@ pub const FOV_DEG: f32 = 70.0;
 pub const NEAR: f32 = 0.1;
 pub const FAR: f32 = 400.0;
 
+/// render/display.ts `effectiveFov`: the vertical fov holds from 4:3 to ultrawide (Hor+);
+/// narrower screens (a phone held upright, a folded foldable) keep the 4:3 horizontal view.
+pub fn effective_fov(vertical_deg: f32, aspect: f32) -> f32 {
+    const MIN_ASPECT: f32 = 4.0 / 3.0;
+    if aspect.is_nan() || aspect <= 0.0 || !aspect.is_finite() || aspect >= MIN_ASPECT {
+        return vertical_deg;
+    }
+    let horizontal = 2.0 * ((vertical_deg.to_radians() / 2.0).tan() * MIN_ASPECT).atan();
+    (2.0 * ((horizontal / 2.0).tan() / aspect).atan()).to_degrees().min(110.0)
+}
+
 /// A fixed view (eye, look direction, vertical fov in degrees): `tools/shot-native-compare.mjs`
 /// records one from the web game so both renderers can be compared from the same camera.
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -88,40 +99,37 @@ pub struct Camera {
     pub pitch: f32,
     pub distance: f32,
     pub fixed: Option<FixedView>,
+    /// The follow camera's eye, target and vertical fov (degrees), when the player is driving.
+    pub follow: Option<(Vec3, Vec3, f32)>,
 }
 
 impl Default for Camera {
     fn default() -> Self {
         // the castle (CASTLE_CENTER 40) seen from the south lawn, like the web's first view
-        Self { focus: Vec3::new(40.0, 14.0, 44.0), yaw: 1.2, pitch: 0.42, distance: 70.0, fixed: None }
+        Self { focus: Vec3::new(40.0, 14.0, 44.0), yaw: 1.2, pitch: 0.42, distance: 70.0, fixed: None, follow: None }
     }
 }
 
 impl Camera {
-    pub fn drag(&mut self, dx: f32, dy: f32) {
-        self.yaw -= dx * 0.006;
-        self.pitch = (self.pitch + dy * 0.005).clamp(0.08, 1.45);
-    }
-
-    /// Zoom by a factor (pinch ratio or a wheel step), kept between a close look and the whole map.
-    pub fn zoom(&mut self, factor: f32) {
-        self.distance = (self.distance * factor).clamp(8.0, 220.0);
-    }
-
     pub fn eye(&self) -> Vec3 {
         if let Some(f) = &self.fixed {
             return f.eye;
+        }
+        if let Some((eye, _, _)) = self.follow {
+            return eye;
         }
         self.focus + Vec3::new(self.yaw.cos() * self.pitch.cos(), self.pitch.sin(), self.yaw.sin() * self.pitch.cos()) * self.distance
     }
 
     pub fn view_proj(&self, aspect: f32) -> Mat4 {
         // wgpu clip space: depth 0..1, Y up (glam's "directx" projection)
-        let (fov, target) = match &self.fixed {
-            Some(f) => (f.fov, f.eye + f.dir),
-            None => (FOV_DEG, self.focus),
+        let (fov, target) = match (&self.fixed, self.follow) {
+            (Some(f), _) => (f.fov, f.eye + f.dir),
+            (None, Some((_, target, fov))) => (fov, target),
+            (None, None) => (FOV_DEG, self.focus),
         };
-        glam::camera::rh::proj::directx::perspective(fov.to_radians(), aspect.max(0.01), NEAR, FAR) * glam::camera::rh::view::look_at_mat4(self.eye(), target, Vec3::Y)
+        let aspect = aspect.max(0.01);
+        glam::camera::rh::proj::directx::perspective(effective_fov(fov, aspect).to_radians(), aspect, NEAR, FAR) * glam::camera::rh::view::look_at_mat4(self.eye(), target, Vec3::Y)
     }
 }
 
@@ -138,6 +146,15 @@ mod tests {
     }
 
     #[test]
+    fn narrow_screens_keep_the_4_3_horizontal_view() {
+        assert_eq!(effective_fov(70.0, 16.0 / 9.0), 70.0);
+        assert_eq!(effective_fov(70.0, 0.0), 70.0);
+        let h = |v: f32, a: f32| (2.0 * ((v.to_radians() / 2.0).tan() * a).atan()).to_degrees();
+        let v = effective_fov(70.0, 9.0 / 19.5);
+        assert!((h(v, 9.0 / 19.5) - h(70.0, 4.0 / 3.0)).abs() < 0.05 || v == 110.0, "{v}");
+    }
+
+    #[test]
     fn fixed_views_parse_or_are_refused() {
         let v = FixedView::parse("39.9,22.9,64.3,0,-0.2474,0.9689,70").unwrap();
         assert_eq!(v.fov, 70.0);
@@ -147,18 +164,19 @@ mod tests {
         }
     }
 
+}
+
+/// Every shader parses and validates (naga, the compiler wgpu runs at start): a WGSL mistake is
+/// a failed test, never an app that dies opening its first window.
+#[cfg(test)]
+mod shader_tests {
     #[test]
-    fn zoom_and_pitch_stay_in_range() {
-        let mut c = Camera::default();
-        for _ in 0..100 {
-            c.zoom(2.0);
-            c.drag(0.0, 1000.0);
+    fn the_shaders_compile() {
+        for (name, src) in [("shader.wgsl", include_str!("shader.wgsl")), ("ui.wgsl", include_str!("ui.wgsl"))] {
+            let module = naga::front::wgsl::parse_str(src).unwrap_or_else(|e| panic!("{name}: {}", e.emit_to_string(src)));
+            naga::valid::Validator::new(naga::valid::ValidationFlags::all(), naga::valid::Capabilities::empty())
+                .validate(&module)
+                .unwrap_or_else(|e| panic!("{name}: {e:?}"));
         }
-        assert_eq!(c.distance, 220.0);
-        assert!(c.pitch <= 1.45);
-        for _ in 0..100 {
-            c.zoom(0.1);
-        }
-        assert_eq!(c.distance, 8.0);
     }
 }

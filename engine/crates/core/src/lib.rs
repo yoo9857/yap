@@ -8,5 +8,8 @@ pub mod fluid;
 pub mod grid;
 pub mod kit;
 pub mod scan;
+pub mod shapes;
+pub mod body;
 pub mod surface;
+pub mod water_mesh;
 pub mod world;

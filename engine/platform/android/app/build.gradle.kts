@@ -48,3 +48,10 @@ android {
         jniLibs.keepDebugSymbols += "**/*.so"
     }
 }
+
+dependencies {
+    // Must match the glue android-activity 0.6 compiles in (its README: 4.4.0, back-compatible to 4.0).
+    // Do NOT enable GameActivity's prefab C++ glue: android-activity brings its own.
+    implementation("androidx.games:games-activity:4.4.0")
+    implementation("androidx.appcompat:appcompat:1.7.1")
+}

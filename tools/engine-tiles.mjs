@@ -48,12 +48,17 @@ function rust(manifest) {
     "    pub name: &'static str,",
     "    pub webp: &'static [u8],",
     "    pub flip_y: bool,",
+    "    /// The tile's own normal and roughness/metalness maps (WebP, linear), when it has them (the AI",
+    "    /// albedos). Picture tiles keep their block family's procedural maps, as the web's materials do.",
+    "    pub normal: Option<&'static [u8]>,",
+    "    pub roughness: Option<&'static [u8]>,",
     "}",
     "",
     "pub const TILES: &[Tile] = &[",
     ...names.map((n) => {
       const t = manifest.tiles[n];
-      return `    Tile { name: ${JSON.stringify(n)}, webp: include_bytes!(${JSON.stringify(path.relative(from, path.join(root, t.file)).split(path.sep).join("/"))}), flip_y: ${t.flipY} },`;
+      const inc = (f) => (f ? `Some(include_bytes!(${JSON.stringify(path.relative(from, path.join(root, f)).split(path.sep).join("/"))}))` : "None");
+      return `    Tile { name: ${JSON.stringify(n)}, webp: include_bytes!(${JSON.stringify(path.relative(from, path.join(root, t.file)).split(path.sep).join("/"))}), flip_y: ${t.flipY}, normal: ${inc(t.normal?.file)}, roughness: ${inc(t.roughness?.file)} },`;
     }),
     "];",
     "",
@@ -98,6 +103,7 @@ function stale(manifest) {
   for (const [name, t] of Object.entries(manifest.tiles ?? {})) {
     if (!existsSync(path.join(root, t.source)) || sha(t.source) !== t.sourceSha256) problems.push(`${t.source} changed`);
     if (!existsSync(path.join(root, t.file)) || sha(t.file) !== t.sha256) problems.push(`${name}: ${t.file} is not the recorded file`);
+    for (const extra of [t.normal, t.roughness]) if (extra && (!existsSync(path.join(root, extra.file)) || sha(extra.file) !== extra.sha256)) problems.push(`${name}: ${extra.file} changed`);
   }
   if (!existsSync(RUST) || readFileSync(RUST, "utf8").replace(/\r\n/g, "\n") !== rust(manifest)) problems.push(`${rel(RUST)} is not generated from the manifest`);
   return problems;
@@ -166,7 +172,8 @@ try {
             if (!tiles[name]) {
               const tex = await loadTexture(generated.albedo, { repeat: true });
               if (!tex) throw new Error("no generated albedo for " + family);
-              tiles[name] = { source: "apps/client" + decodeURIComponent(new URL(generated.albedo, location.href).pathname), flipY: false, width: tex.image.width, height: tex.image.height };
+              const file = (u) => "apps/client" + decodeURIComponent(new URL(u, location.href).pathname);
+              tiles[name] = { source: file(generated.albedo), normal: file(generated.normal), roughness: file(generated.roughness), flipY: false, width: tex.image.width, height: tex.image.height };
             }
             // the grass top material carries GRASS_TINT (voxelView.ts), a multiplier above 1
             bands.push({ layer: name, tint: family === "grass" ? grassTint : "white" });
@@ -190,7 +197,8 @@ try {
       writeFileSync(path.join(root, file), Buffer.from(t.webp.split(",")[1], "base64"));
     }
     if (!existsSync(path.join(root, t.source))) throw new Error(`cannot find the source of ${name}: ${t.source}`);
-    tiles[name] = { source: t.source, sourceSha256: sha(t.source), file, sha256: sha(file), flipY: t.flipY, width: t.width, height: t.height };
+    const extra = (f) => (f ? { file: f.replace(/\?.*$/, ""), sha256: sha(f.replace(/\?.*$/, "")) } : undefined);
+    tiles[name] = { source: t.source, sourceSha256: sha(t.source), file, sha256: sha(file), flipY: t.flipY, width: t.width, height: t.height, normal: extra(t.normal), roughness: extra(t.roughness) };
   }
   const manifest = {
     version: 1,

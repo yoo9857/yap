@@ -673,6 +673,9 @@ export class ClassSync {
         visible: r.rig.root.visible,
         abs: [r.target.x, r.target.y, r.target.z],
         drawn: [r.pos.x, r.pos.y, r.pos.z],
+        // the upper-body layer it plays (homeRig.ts: "Upper/Interact" while digging); the model
+        // inside CharacterRig's stable root carries it
+        upper: r.rig.root.children.find((c) => c.userData.upperMotion !== undefined)?.userData.upperMotion as string | undefined,
       })),
     };
   }

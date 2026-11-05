@@ -42,7 +42,7 @@ export class FollowCamera {
       const dy = clamp(e.clientY - this.lastY, -180, 180);
       const look = 0.005 * settings.sensitivity;
       this.yaw -= dx * look;
-      this.pitch = clamp(this.pitch + dy * look, MIN_PITCH, MAX_PITCH);
+      this.pitch = clamp(this.pitch + dy * look * (settings.invertY ? -1 : 1), MIN_PITCH, MAX_PITCH);
       this.lastX = e.clientX;
       this.lastY = e.clientY;
     });

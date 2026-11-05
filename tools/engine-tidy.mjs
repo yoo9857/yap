@@ -16,8 +16,8 @@ const hashFile = join(out, "SOURCE_HASH");
 function sources(dir) {
   return readdirSync(dir).flatMap((name) => {
     const p = join(dir, name);
-    // only what the wasm is built from: the native client and the Android project are not in it
-    if (name === "target" || name.startsWith("pkg") || name === "client" || name === "platform") return [];
+    // only what the wasm is built from: the native client, its network crate and the Android project are not in it
+    if (name === "target" || name.startsWith("pkg") || name === "client" || name === "net" || name === "platform") return [];
     return statSync(p).isDirectory() ? sources(p) : /\.(rs|toml|lock)$/.test(name) ? [p] : [];
   });
 }

@@ -53,6 +53,27 @@ const crafted = await page.evaluate(() => {
 check("crafting planks from logs works", crafted.ok && crafted.inv["oak-planks"] >= 4, JSON.stringify(crafted.inv));
 check("placing a block into the world works", crafted.placed === true);
 
+// Workbench (bag → 조합): lay blocks on the 3×3 grid, the shape decides the result
+await page.evaluate(() => globalThis.__roboCraft.give("stone", 4));
+await page.keyboard.press("KeyI");
+await page.waitForSelector(".bench-grid [data-cell]", { visible: true, timeout: 5000 });
+await page.click('[data-mat="stone"]');
+for (const cell of [0, 1, 2, 3]) await page.click(`[data-cell="${cell}"]`); // a bent row: right blocks, wrong shape
+const bentNote = await page.$eval(".bench-note", (el) => el.className);
+await page.click('[data-cell="2"]'); // lift
+await page.click('[data-cell="4"]'); // lay: now a 2×2 square = stone bricks
+const benchOut = await page.$eval(".bench-out img", (el) => el.getAttribute("src") ?? "").catch(() => "");
+await page.click(".bench-acts .bag-make:not(.bag-make-many)");
+await new Promise((r) => setTimeout(r, 200));
+const benchInv = await page.evaluate(() => globalThis.__roboCraft.snapshot().inventory);
+check("workbench: wrong shape hints, 2×2 stones craft stone bricks",
+  bentNote.includes("hint") && benchOut.includes("stone-bricks") && (benchInv["stone-bricks"] ?? 0) >= 4 && (benchInv.stone ?? 0) === 0,
+  JSON.stringify({ bentNote, benchOut, bricks: benchInv["stone-bricks"], stone: benchInv.stone }));
+await page.click('[data-recipe-card="gravel"] .bag-recipe-name'); // the recipe book lays its shape
+const laid = await page.$$eval(".bench-cell.full", (els) => els.map((el) => el.dataset.cell).join(","));
+check("workbench: a recipe card lays its shape on the grid", laid === "0,2,6,8", laid);
+await page.click('[data-id="bag-close"]');
+
 const fall = await page.evaluate(async () => {
   globalThis.__roboCraft.teleport(24.5, 24, 24.5);
   await new Promise((r) => setTimeout(r, 1500));

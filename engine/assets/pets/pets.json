@@ -1,0 +1,6873 @@
+{
+ "vertices": 33092,
+ "indices": 199848,
+ "species": [
+  "dog",
+  "cat",
+  "elephant",
+  "giraffe",
+  "panda"
+ ],
+ "geometries": [
+  {
+   "vertexStart": 0,
+   "vertexCount": 488,
+   "indexStart": 0,
+   "indexCount": 2916
+  },
+  {
+   "vertexStart": 488,
+   "vertexCount": 488,
+   "indexStart": 2916,
+   "indexCount": 2916
+  },
+  {
+   "vertexStart": 976,
+   "vertexCount": 262,
+   "indexStart": 5832,
+   "indexCount": 1560
+  },
+  {
+   "vertexStart": 1238,
+   "vertexCount": 488,
+   "indexStart": 7392,
+   "indexCount": 2916
+  },
+  {
+   "vertexStart": 1726,
+   "vertexCount": 488,
+   "indexStart": 10308,
+   "indexCount": 2916
+  },
+  {
+   "vertexStart": 2214,
+   "vertexCount": 488,
+   "indexStart": 13224,
+   "indexCount": 2916
+  },
+  {
+   "vertexStart": 2702,
+   "vertexCount": 488,
+   "indexStart": 16140,
+   "indexCount": 2916
+  },
+  {
+   "vertexStart": 3190,
+   "vertexCount": 488,
+   "indexStart": 19056,
+   "indexCount": 2916
+  },
+  {
+   "vertexStart": 3678,
+   "vertexCount": 488,
+   "indexStart": 21972,
+   "indexCount": 2916
+  },
+  {
+   "vertexStart": 4166,
+   "vertexCount": 488,
+   "indexStart": 24888,
+   "indexCount": 2916
+  },
+  {
+   "vertexStart": 4654,
+   "vertexCount": 488,
+   "indexStart": 27804,
+   "indexCount": 2916
+  },
+  {
+   "vertexStart": 5142,
+   "vertexCount": 488,
+   "indexStart": 30720,
+   "indexCount": 2916
+  },
+  {
+   "vertexStart": 5630,
+   "vertexCount": 488,
+   "indexStart": 33636,
+   "indexCount": 2916
+  },
+  {
+   "vertexStart": 6118,
+   "vertexCount": 488,
+   "indexStart": 36552,
+   "indexCount": 2916
+  },
+  {
+   "vertexStart": 6606,
+   "vertexCount": 488,
+   "indexStart": 39468,
+   "indexCount": 2916
+  },
+  {
+   "vertexStart": 7094,
+   "vertexCount": 488,
+   "indexStart": 42384,
+   "indexCount": 2916
+  },
+  {
+   "vertexStart": 7582,
+   "vertexCount": 418,
+   "indexStart": 45300,
+   "indexCount": 2916
+  },
+  {
+   "vertexStart": 8000,
+   "vertexCount": 418,
+   "indexStart": 48216,
+   "indexCount": 2916
+  },
+  {
+   "vertexStart": 8418,
+   "vertexCount": 418,
+   "indexStart": 51132,
+   "indexCount": 2916
+  },
+  {
+   "vertexStart": 8836,
+   "vertexCount": 488,
+   "indexStart": 54048,
+   "indexCount": 2916
+  },
+  {
+   "vertexStart": 9324,
+   "vertexCount": 488,
+   "indexStart": 56964,
+   "indexCount": 2916
+  },
+  {
+   "vertexStart": 9812,
+   "vertexCount": 488,
+   "indexStart": 59880,
+   "indexCount": 2916
+  },
+  {
+   "vertexStart": 10300,
+   "vertexCount": 488,
+   "indexStart": 62796,
+   "indexCount": 2916
+  },
+  {
+   "vertexStart": 10788,
+   "vertexCount": 488,
+   "indexStart": 65712,
+   "indexCount": 2916
+  },
+  {
+   "vertexStart": 11276,
+   "vertexCount": 488,
+   "indexStart": 68628,
+   "indexCount": 2916
+  },
+  {
+   "vertexStart": 11764,
+   "vertexCount": 488,
+   "indexStart": 71544,
+   "indexCount": 2916
+  },
+  {
+   "vertexStart": 12252,
+   "vertexCount": 488,
+   "indexStart": 74460,
+   "indexCount": 2916
+  },
+  {
+   "vertexStart": 12740,
+   "vertexCount": 488,
+   "indexStart": 77376,
+   "indexCount": 2916
+  },
+  {
+   "vertexStart": 13228,
+   "vertexCount": 488,
+   "indexStart": 80292,
+   "indexCount": 2916
+  },
+  {
+   "vertexStart": 13716,
+   "vertexCount": 488,
+   "indexStart": 83208,
+   "indexCount": 2916
+  },
+  {
+   "vertexStart": 14204,
+   "vertexCount": 452,
+   "indexStart": 86124,
+   "indexCount": 2916
+  },
+  {
+   "vertexStart": 14656,
+   "vertexCount": 452,
+   "indexStart": 89040,
+   "indexCount": 2916
+  },
+  {
+   "vertexStart": 15108,
+   "vertexCount": 452,
+   "indexStart": 91956,
+   "indexCount": 2916
+  },
+  {
+   "vertexStart": 15560,
+   "vertexCount": 452,
+   "indexStart": 94872,
+   "indexCount": 2916
+  },
+  {
+   "vertexStart": 16012,
+   "vertexCount": 488,
+   "indexStart": 97788,
+   "indexCount": 2916
+  },
+  {
+   "vertexStart": 16500,
+   "vertexCount": 488,
+   "indexStart": 100704,
+   "indexCount": 2916
+  },
+  {
+   "vertexStart": 16988,
+   "vertexCount": 488,
+   "indexStart": 103620,
+   "indexCount": 2916
+  },
+  {
+   "vertexStart": 17476,
+   "vertexCount": 488,
+   "indexStart": 106536,
+   "indexCount": 2916
+  },
+  {
+   "vertexStart": 17964,
+   "vertexCount": 488,
+   "indexStart": 109452,
+   "indexCount": 2916
+  },
+  {
+   "vertexStart": 18452,
+   "vertexCount": 488,
+   "indexStart": 112368,
+   "indexCount": 2916
+  },
+  {
+   "vertexStart": 18940,
+   "vertexCount": 488,
+   "indexStart": 115284,
+   "indexCount": 2916
+  },
+  {
+   "vertexStart": 19428,
+   "vertexCount": 488,
+   "indexStart": 118200,
+   "indexCount": 2916
+  },
+  {
+   "vertexStart": 19916,
+   "vertexCount": 488,
+   "indexStart": 121116,
+   "indexCount": 2916
+  },
+  {
+   "vertexStart": 20404,
+   "vertexCount": 488,
+   "indexStart": 124032,
+   "indexCount": 2916
+  },
+  {
+   "vertexStart": 20892,
+   "vertexCount": 488,
+   "indexStart": 126948,
+   "indexCount": 2916
+  },
+  {
+   "vertexStart": 21380,
+   "vertexCount": 488,
+   "indexStart": 129864,
+   "indexCount": 2916
+  },
+  {
+   "vertexStart": 21868,
+   "vertexCount": 488,
+   "indexStart": 132780,
+   "indexCount": 2916
+  },
+  {
+   "vertexStart": 22356,
+   "vertexCount": 488,
+   "indexStart": 135696,
+   "indexCount": 2916
+  },
+  {
+   "vertexStart": 22844,
+   "vertexCount": 488,
+   "indexStart": 138612,
+   "indexCount": 2916
+  },
+  {
+   "vertexStart": 23332,
+   "vertexCount": 488,
+   "indexStart": 141528,
+   "indexCount": 2916
+  },
+  {
+   "vertexStart": 23820,
+   "vertexCount": 488,
+   "indexStart": 144444,
+   "indexCount": 2916
+  },
+  {
+   "vertexStart": 24308,
+   "vertexCount": 488,
+   "indexStart": 147360,
+   "indexCount": 2916
+  },
+  {
+   "vertexStart": 24796,
+   "vertexCount": 488,
+   "indexStart": 150276,
+   "indexCount": 2916
+  },
+  {
+   "vertexStart": 25284,
+   "vertexCount": 488,
+   "indexStart": 153192,
+   "indexCount": 2916
+  },
+  {
+   "vertexStart": 25772,
+   "vertexCount": 488,
+   "indexStart": 156108,
+   "indexCount": 2916
+  },
+  {
+   "vertexStart": 26260,
+   "vertexCount": 488,
+   "indexStart": 159024,
+   "indexCount": 2916
+  },
+  {
+   "vertexStart": 26748,
+   "vertexCount": 488,
+   "indexStart": 161940,
+   "indexCount": 2916
+  },
+  {
+   "vertexStart": 27236,
+   "vertexCount": 488,
+   "indexStart": 164856,
+   "indexCount": 2916
+  },
+  {
+   "vertexStart": 27724,
+   "vertexCount": 488,
+   "indexStart": 167772,
+   "indexCount": 2916
+  },
+  {
+   "vertexStart": 28212,
+   "vertexCount": 488,
+   "indexStart": 170688,
+   "indexCount": 2916
+  },
+  {
+   "vertexStart": 28700,
+   "vertexCount": 488,
+   "indexStart": 173604,
+   "indexCount": 2916
+  },
+  {
+   "vertexStart": 29188,
+   "vertexCount": 488,
+   "indexStart": 176520,
+   "indexCount": 2916
+  },
+  {
+   "vertexStart": 29676,
+   "vertexCount": 488,
+   "indexStart": 179436,
+   "indexCount": 2916
+  },
+  {
+   "vertexStart": 30164,
+   "vertexCount": 488,
+   "indexStart": 182352,
+   "indexCount": 2916
+  },
+  {
+   "vertexStart": 30652,
+   "vertexCount": 488,
+   "indexStart": 185268,
+   "indexCount": 2916
+  },
+  {
+   "vertexStart": 31140,
+   "vertexCount": 488,
+   "indexStart": 188184,
+   "indexCount": 2916
+  },
+  {
+   "vertexStart": 31628,
+   "vertexCount": 488,
+   "indexStart": 191100,
+   "indexCount": 2916
+  },
+  {
+   "vertexStart": 32116,
+   "vertexCount": 488,
+   "indexStart": 194016,
+   "indexCount": 2916
+  },
+  {
+   "vertexStart": 32604,
+   "vertexCount": 488,
+   "indexStart": 196932,
+   "indexCount": 2916
+  }
+ ],
+ "pets": {
+  "dog": {
+   "bodyWidth": 0.5,
+   "bodyHeight": 1,
+   "jumpSpeed": 7.6,
+   "pace": 1,
+   "name": "시바견",
+   "trait": "제일 빨리 달려와요",
+   "skeleton": {
+    "chestY": 0.53,
+    "chestZ": 0.18,
+    "shoulderY": 0.46,
+    "sitHipY": 0.28,
+    "sitLean": -0.45,
+    "bob": 0.035,
+    "stride": 0.5,
+    "cadence": 3.4
+   },
+   "tailAmp": 0.34,
+   "tailPitch": -0.7,
+   "nodes": [
+    {
+     "parent": -1,
+     "position": [
+      0,
+      0,
+      0
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      1,
+      1,
+      1
+     ]
+    },
+    {
+     "parent": 0,
+     "position": [
+      0,
+      0,
+      0
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      1,
+      1,
+      1
+     ],
+     "role": "toy"
+    },
+    {
+     "parent": 1,
+     "position": [
+      0,
+      0.53,
+      0.18
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      1,
+      1,
+      1
+     ],
+     "role": "spine"
+    },
+    {
+     "parent": 2,
+     "position": [
+      0,
+      0.21,
+      0.12
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      1,
+      1,
+      1
+     ],
+     "role": "head"
+    },
+    {
+     "parent": 3,
+     "position": [
+      0,
+      0.09,
+      0.03
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      1,
+      1,
+      1
+     ],
+     "geometry": 0,
+     "color": "#e2a356"
+    },
+    {
+     "parent": 3,
+     "position": [
+      0,
+      0.03,
+      0.19
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      1,
+      1,
+      1
+     ],
+     "geometry": 1,
+     "color": "#f7e7cd"
+    },
+    {
+     "parent": 3,
+     "position": [
+      0,
+      0.072,
+      0.265
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      0.105,
+      0.072,
+      0.07
+     ],
+     "geometry": 2,
+     "color": "#2a2026"
+    },
+    {
+     "parent": 3,
+     "position": [
+      0,
+      -0.025,
+      0.235
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      0.07,
+      0.0154,
+      0.035
+     ],
+     "geometry": 2,
+     "color": "#2a2026"
+    },
+    {
+     "parent": 3,
+     "position": [
+      -0.088,
+      0.125,
+      0.1531
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      1,
+      1,
+      1
+     ],
+     "role": "eye0"
+    },
+    {
+     "parent": 8,
+     "position": [
+      0,
+      0,
+      0
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      0.0884,
+      0.102,
+      0.0425
+     ],
+     "geometry": 2,
+     "color": "#241d22"
+    },
+    {
+     "parent": 8,
+     "position": [
+      0,
+      0,
+      0.0085
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      0.0748,
+      0.0867,
+      0.0425
+     ],
+     "geometry": 2,
+     "color": "#fdfbf6"
+    },
+    {
+     "parent": 8,
+     "position": [
+      0,
+      -0.0017,
+      0.0187
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      0.0357,
+      0.0425,
+      0.0255
+     ],
+     "geometry": 2,
+     "color": "#241d22"
+    },
+    {
+     "parent": 8,
+     "position": [
+      -0.0119,
+      0.017,
+      0.0255
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      0.01445,
+      0.01445,
+      0.01275
+     ],
+     "geometry": 2,
+     "color": "#fdfbf6"
+    },
+    {
+     "parent": 3,
+     "position": [
+      0.088,
+      0.125,
+      0.1531
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      1,
+      1,
+      1
+     ],
+     "role": "eye1"
+    },
+    {
+     "parent": 13,
+     "position": [
+      0,
+      0,
+      0
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      0.0884,
+      0.102,
+      0.0425
+     ],
+     "geometry": 2,
+     "color": "#241d22"
+    },
+    {
+     "parent": 13,
+     "position": [
+      0,
+      0,
+      0.0085
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      0.0748,
+      0.0867,
+      0.0425
+     ],
+     "geometry": 2,
+     "color": "#fdfbf6"
+    },
+    {
+     "parent": 13,
+     "position": [
+      0,
+      -0.0017,
+      0.0187
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      0.0357,
+      0.0425,
+      0.0255
+     ],
+     "geometry": 2,
+     "color": "#241d22"
+    },
+    {
+     "parent": 13,
+     "position": [
+      0.0119,
+      0.017,
+      0.0255
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      0.01445,
+      0.01445,
+      0.01275
+     ],
+     "geometry": 2,
+     "color": "#fdfbf6"
+    },
+    {
+     "parent": 3,
+     "position": [
+      -0.125,
+      0.21,
+      -0.02
+     ],
+     "rotation": [
+      0,
+      0,
+      -0.3
+     ],
+     "scale": [
+      1,
+      1,
+      1
+     ],
+     "role": "ear0"
+    },
+    {
+     "parent": 18,
+     "position": [
+      0,
+      -0.0703,
+      0
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      1,
+      1,
+      1
+     ],
+     "geometry": 3,
+     "color": "#e2a356"
+    },
+    {
+     "parent": 18,
+     "position": [
+      0,
+      -0.0855,
+      0.0352
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      1,
+      1,
+      1
+     ],
+     "geometry": 4,
+     "color": "#f7e7cd"
+    },
+    {
+     "parent": 3,
+     "position": [
+      0.125,
+      0.21,
+      -0.02
+     ],
+     "rotation": [
+      0,
+      0,
+      0.3
+     ],
+     "scale": [
+      1,
+      1,
+      1
+     ],
+     "role": "ear1"
+    },
+    {
+     "parent": 21,
+     "position": [
+      0,
+      -0.0703,
+      0
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      1,
+      1,
+      1
+     ],
+     "geometry": 3,
+     "color": "#e2a356"
+    },
+    {
+     "parent": 21,
+     "position": [
+      0,
+      -0.0855,
+      0.0352
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      1,
+      1,
+      1
+     ],
+     "geometry": 4,
+     "color": "#f7e7cd"
+    },
+    {
+     "parent": 2,
+     "position": [
+      0,
+      0.16,
+      -0.48
+     ],
+     "rotation": [
+      -0.7,
+      0,
+      0
+     ],
+     "scale": [
+      1,
+      1,
+      1
+     ],
+     "role": "tail"
+    },
+    {
+     "parent": 24,
+     "position": [
+      0,
+      0.13,
+      0
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      1,
+      1,
+      1
+     ],
+     "geometry": 5,
+     "color": "#e2a356"
+    },
+    {
+     "parent": 24,
+     "position": [
+      0,
+      0.29,
+      0
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      1,
+      1,
+      1
+     ],
+     "geometry": 6,
+     "color": "#f7e7cd"
+    },
+    {
+     "parent": 2,
+     "position": [
+      0,
+      0.025,
+      -0.03
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      0.405,
+      0.4,
+      0.38
+     ],
+     "geometry": 2,
+     "color": "#e2a356"
+    },
+    {
+     "parent": 2,
+     "position": [
+      0,
+      0.02,
+      -0.105
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      0.395,
+      0.39,
+      0.38
+     ],
+     "geometry": 2,
+     "color": "#e2a356"
+    },
+    {
+     "parent": 2,
+     "position": [
+      0,
+      0.005,
+      -0.18
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      0.37,
+      0.365,
+      0.38
+     ],
+     "geometry": 2,
+     "color": "#e2a356"
+    },
+    {
+     "parent": 2,
+     "position": [
+      0,
+      -0.005,
+      -0.255
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      0.35,
+      0.345,
+      0.38
+     ],
+     "geometry": 2,
+     "color": "#e2a356"
+    },
+    {
+     "parent": 2,
+     "position": [
+      0,
+      0.005,
+      -0.33
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      0.365,
+      0.355,
+      0.38
+     ],
+     "geometry": 2,
+     "color": "#e2a356"
+    },
+    {
+     "parent": 2,
+     "position": [
+      0,
+      -0.13,
+      -0.16
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      0.26,
+      0.13,
+      0.46
+     ],
+     "geometry": 2,
+     "color": "#f7e7cd"
+    },
+    {
+     "parent": 2,
+     "position": [
+      0,
+      0.15,
+      0.1
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      1,
+      1,
+      1
+     ],
+     "geometry": 7,
+     "color": "#e2a356"
+    },
+    {
+     "parent": 2,
+     "position": [
+      0,
+      0.125,
+      0.105
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      1,
+      1,
+      1
+     ],
+     "geometry": 8,
+     "color": "#d9484f"
+    },
+    {
+     "parent": 2,
+     "position": [
+      0,
+      0.055,
+      0.19
+     ],
+     "rotation": [
+      0,
+      0,
+      0.785398
+     ],
+     "scale": [
+      1,
+      1,
+      1
+     ],
+     "geometry": 9,
+     "color": "#f9d71c"
+    },
+    {
+     "parent": 1,
+     "position": [
+      -0.15,
+      0.46,
+      0.2
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      0.2077,
+      0.2325,
+      0.2178
+     ],
+     "geometry": 2,
+     "color": "#e2a356"
+    },
+    {
+     "parent": 1,
+     "position": [
+      -0.15,
+      0.46,
+      0.2
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      1,
+      1,
+      1
+     ],
+     "role": "leg0"
+    },
+    {
+     "parent": 37,
+     "position": [
+      0,
+      -0.2,
+      0
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      1,
+      1,
+      1
+     ],
+     "geometry": 10,
+     "color": "#e2a356"
+    },
+    {
+     "parent": 37,
+     "position": [
+      0,
+      -0.4,
+      0.012
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      1,
+      1,
+      1
+     ],
+     "geometry": 11,
+     "color": "#f7e7cd"
+    },
+    {
+     "parent": 1,
+     "position": [
+      0.15,
+      0.46,
+      0.2
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      0.2077,
+      0.2325,
+      0.2178
+     ],
+     "geometry": 2,
+     "color": "#e2a356"
+    },
+    {
+     "parent": 1,
+     "position": [
+      0.15,
+      0.46,
+      0.2
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      1,
+      1,
+      1
+     ],
+     "role": "leg1"
+    },
+    {
+     "parent": 41,
+     "position": [
+      0,
+      -0.2,
+      0
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      1,
+      1,
+      1
+     ],
+     "geometry": 10,
+     "color": "#e2a356"
+    },
+    {
+     "parent": 41,
+     "position": [
+      0,
+      -0.4,
+      0.012
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      1,
+      1,
+      1
+     ],
+     "geometry": 11,
+     "color": "#f7e7cd"
+    },
+    {
+     "parent": 1,
+     "position": [
+      -0.15,
+      0.46,
+      -0.2
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      0.2077,
+      0.2325,
+      0.2178
+     ],
+     "geometry": 2,
+     "color": "#e2a356"
+    },
+    {
+     "parent": 1,
+     "position": [
+      -0.15,
+      0.46,
+      -0.2
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      1,
+      1,
+      1
+     ],
+     "role": "leg2"
+    },
+    {
+     "parent": 45,
+     "position": [
+      0,
+      -0.2,
+      0
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      1,
+      1,
+      1
+     ],
+     "geometry": 10,
+     "color": "#e2a356"
+    },
+    {
+     "parent": 45,
+     "position": [
+      0,
+      -0.4,
+      0.012
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      1,
+      1,
+      1
+     ],
+     "geometry": 11,
+     "color": "#f7e7cd"
+    },
+    {
+     "parent": 1,
+     "position": [
+      0.15,
+      0.46,
+      -0.2
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      0.2077,
+      0.2325,
+      0.2178
+     ],
+     "geometry": 2,
+     "color": "#e2a356"
+    },
+    {
+     "parent": 1,
+     "position": [
+      0.15,
+      0.46,
+      -0.2
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      1,
+      1,
+      1
+     ],
+     "role": "leg3"
+    },
+    {
+     "parent": 49,
+     "position": [
+      0,
+      -0.2,
+      0
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      1,
+      1,
+      1
+     ],
+     "geometry": 10,
+     "color": "#e2a356"
+    },
+    {
+     "parent": 49,
+     "position": [
+      0,
+      -0.4,
+      0.012
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      1,
+      1,
+      1
+     ],
+     "geometry": 11,
+     "color": "#f7e7cd"
+    }
+   ]
+  },
+  "cat": {
+   "bodyWidth": 0.42,
+   "bodyHeight": 0.85,
+   "jumpSpeed": 8.6,
+   "pace": 1.08,
+   "name": "하얀 고양이",
+   "trait": "가볍고 높이 뜁니다",
+   "skeleton": {
+    "chestY": 0.4,
+    "chestZ": 0.15,
+    "shoulderY": 0.34,
+    "sitHipY": 0.19,
+    "sitLean": -0.5,
+    "bob": 0.03,
+    "stride": 0.56,
+    "cadence": 4
+   },
+   "tailAmp": 0.4,
+   "tailPitch": -0.95,
+   "nodes": [
+    {
+     "parent": -1,
+     "position": [
+      0,
+      0,
+      0
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      1,
+      1,
+      1
+     ]
+    },
+    {
+     "parent": 0,
+     "position": [
+      0,
+      0,
+      0
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      1,
+      1,
+      1
+     ],
+     "role": "toy"
+    },
+    {
+     "parent": 1,
+     "position": [
+      0,
+      0.4,
+      0.15
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      1,
+      1,
+      1
+     ],
+     "role": "spine"
+    },
+    {
+     "parent": 2,
+     "position": [
+      0,
+      0.15,
+      0.12
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      1,
+      1,
+      1
+     ],
+     "role": "head"
+    },
+    {
+     "parent": 3,
+     "position": [
+      0,
+      0.075,
+      0.01
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      1,
+      1,
+      1
+     ],
+     "geometry": 12,
+     "color": "#f6f3ec"
+    },
+    {
+     "parent": 3,
+     "position": [
+      0,
+      0.015,
+      0.115
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      0.135,
+      0.085,
+      0.075
+     ],
+     "geometry": 2,
+     "color": "#f6f3ec"
+    },
+    {
+     "parent": 3,
+     "position": [
+      0,
+      0.048,
+      0.145
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      0.044,
+      0.033,
+      0.032
+     ],
+     "geometry": 2,
+     "color": "#f0a3ae"
+    },
+    {
+     "parent": 3,
+     "position": [
+      0,
+      -0.005,
+      0.14
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      0.04,
+      0.0088,
+      0.02
+     ],
+     "geometry": 2,
+     "color": "#3a2a30"
+    },
+    {
+     "parent": 3,
+     "position": [
+      -0.068,
+      0.108,
+      0.11772
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      1,
+      1,
+      1
+     ],
+     "role": "eye0"
+    },
+    {
+     "parent": 8,
+     "position": [
+      0,
+      0,
+      0
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      0.05408,
+      0.0624,
+      0.026
+     ],
+     "geometry": 2,
+     "color": "#241d22"
+    },
+    {
+     "parent": 8,
+     "position": [
+      0,
+      0,
+      0.0052
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      0.04576,
+      0.05304,
+      0.026
+     ],
+     "geometry": 2,
+     "color": "#fdfbf6"
+    },
+    {
+     "parent": 8,
+     "position": [
+      0,
+      -0.00104,
+      0.01144
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      0.017472,
+      0.0325,
+      0.0156
+     ],
+     "geometry": 2,
+     "color": "#241d22"
+    },
+    {
+     "parent": 8,
+     "position": [
+      -0.00728,
+      0.0104,
+      0.0156
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      0.00884,
+      0.00884,
+      0.0078
+     ],
+     "geometry": 2,
+     "color": "#fdfbf6"
+    },
+    {
+     "parent": 3,
+     "position": [
+      0.068,
+      0.108,
+      0.11772
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      1,
+      1,
+      1
+     ],
+     "role": "eye1"
+    },
+    {
+     "parent": 13,
+     "position": [
+      0,
+      0,
+      0
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      0.05408,
+      0.0624,
+      0.026
+     ],
+     "geometry": 2,
+     "color": "#241d22"
+    },
+    {
+     "parent": 13,
+     "position": [
+      0,
+      0,
+      0.0052
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      0.04576,
+      0.05304,
+      0.026
+     ],
+     "geometry": 2,
+     "color": "#fdfbf6"
+    },
+    {
+     "parent": 13,
+     "position": [
+      0,
+      -0.00104,
+      0.01144
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      0.017472,
+      0.0325,
+      0.0156
+     ],
+     "geometry": 2,
+     "color": "#241d22"
+    },
+    {
+     "parent": 13,
+     "position": [
+      0.00728,
+      0.0104,
+      0.0156
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      0.00884,
+      0.00884,
+      0.0078
+     ],
+     "geometry": 2,
+     "color": "#fdfbf6"
+    },
+    {
+     "parent": 3,
+     "position": [
+      -0.105,
+      0.03,
+      0.1
+     ],
+     "rotation": [
+      0,
+      0,
+      -0.16
+     ],
+     "scale": [
+      1,
+      1,
+      1
+     ],
+     "geometry": 13,
+     "color": "#5b5661"
+    },
+    {
+     "parent": 3,
+     "position": [
+      -0.105,
+      0.002,
+      0.1
+     ],
+     "rotation": [
+      0,
+      0,
+      0.13
+     ],
+     "scale": [
+      1,
+      1,
+      1
+     ],
+     "geometry": 13,
+     "color": "#5b5661"
+    },
+    {
+     "parent": 3,
+     "position": [
+      0.105,
+      0.03,
+      0.1
+     ],
+     "rotation": [
+      0,
+      0,
+      0.16
+     ],
+     "scale": [
+      1,
+      1,
+      1
+     ],
+     "geometry": 13,
+     "color": "#5b5661"
+    },
+    {
+     "parent": 3,
+     "position": [
+      0.105,
+      0.002,
+      0.1
+     ],
+     "rotation": [
+      0,
+      0,
+      -0.13
+     ],
+     "scale": [
+      1,
+      1,
+      1
+     ],
+     "geometry": 13,
+     "color": "#5b5661"
+    },
+    {
+     "parent": 3,
+     "position": [
+      -0.091,
+      0.098,
+      -0.012
+     ],
+     "rotation": [
+      0,
+      0,
+      -0.3
+     ],
+     "scale": [
+      1,
+      1,
+      1
+     ],
+     "role": "ear0"
+    },
+    {
+     "parent": 22,
+     "position": [
+      0,
+      0.045,
+      0
+     ],
+     "rotation": [
+      0,
+      0,
+      0.785398
+     ],
+     "scale": [
+      1,
+      1,
+      1
+     ],
+     "geometry": 14,
+     "color": "#f6f3ec"
+    },
+    {
+     "parent": 22,
+     "position": [
+      0,
+      0.072,
+      0.028
+     ],
+     "rotation": [
+      0,
+      0,
+      0.785398
+     ],
+     "scale": [
+      1,
+      1,
+      1
+     ],
+     "geometry": 15,
+     "color": "#f0a3ae"
+    },
+    {
+     "parent": 3,
+     "position": [
+      0.091,
+      0.098,
+      -0.012
+     ],
+     "rotation": [
+      0,
+      0,
+      0.3
+     ],
+     "scale": [
+      1,
+      1,
+      1
+     ],
+     "role": "ear1"
+    },
+    {
+     "parent": 25,
+     "position": [
+      0,
+      0.045,
+      0
+     ],
+     "rotation": [
+      0,
+      0,
+      0.785398
+     ],
+     "scale": [
+      1,
+      1,
+      1
+     ],
+     "geometry": 14,
+     "color": "#f6f3ec"
+    },
+    {
+     "parent": 25,
+     "position": [
+      0,
+      0.072,
+      0.028
+     ],
+     "rotation": [
+      0,
+      0,
+      0.785398
+     ],
+     "scale": [
+      1,
+      1,
+      1
+     ],
+     "geometry": 15,
+     "color": "#f0a3ae"
+    },
+    {
+     "parent": 2,
+     "position": [
+      0,
+      0.1,
+      -0.45
+     ],
+     "rotation": [
+      -0.95,
+      0,
+      0
+     ],
+     "scale": [
+      1,
+      1,
+      1
+     ],
+     "role": "tail"
+    },
+    {
+     "parent": 28,
+     "position": [
+      0,
+      0,
+      0
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      1,
+      1,
+      1
+     ]
+    },
+    {
+     "parent": 29,
+     "position": [
+      0,
+      0.05,
+      0
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      1,
+      1,
+      1
+     ],
+     "geometry": 16,
+     "color": "#f6f3ec"
+    },
+    {
+     "parent": 29,
+     "position": [
+      0,
+      0.085,
+      0
+     ],
+     "rotation": [
+      0.26,
+      0,
+      0
+     ],
+     "scale": [
+      1,
+      1,
+      1
+     ]
+    },
+    {
+     "parent": 31,
+     "position": [
+      0,
+      0.05,
+      0
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      1,
+      1,
+      1
+     ],
+     "geometry": 16,
+     "color": "#f6f3ec"
+    },
+    {
+     "parent": 31,
+     "position": [
+      0,
+      0.085,
+      0
+     ],
+     "rotation": [
+      0.3,
+      0,
+      0
+     ],
+     "scale": [
+      1,
+      1,
+      1
+     ]
+    },
+    {
+     "parent": 33,
+     "position": [
+      0,
+      0.05,
+      0
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      1,
+      1,
+      1
+     ],
+     "geometry": 17,
+     "color": "#f6f3ec"
+    },
+    {
+     "parent": 33,
+     "position": [
+      0,
+      0.085,
+      0
+     ],
+     "rotation": [
+      0.32,
+      0,
+      0
+     ],
+     "scale": [
+      1,
+      1,
+      1
+     ]
+    },
+    {
+     "parent": 35,
+     "position": [
+      0,
+      0.05,
+      0
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      1,
+      1,
+      1
+     ],
+     "geometry": 17,
+     "color": "#f6f3ec"
+    },
+    {
+     "parent": 35,
+     "position": [
+      0,
+      0.085,
+      0
+     ],
+     "rotation": [
+      0.34,
+      0,
+      0
+     ],
+     "scale": [
+      1,
+      1,
+      1
+     ]
+    },
+    {
+     "parent": 37,
+     "position": [
+      0,
+      0.05,
+      0
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      1,
+      1,
+      1
+     ],
+     "geometry": 17,
+     "color": "#f6f3ec"
+    },
+    {
+     "parent": 37,
+     "position": [
+      0,
+      0.115,
+      0
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      1,
+      1,
+      1
+     ],
+     "geometry": 18,
+     "color": "#e3ddd0"
+    },
+    {
+     "parent": 2,
+     "position": [
+      0,
+      0.015,
+      0
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      0.275,
+      0.265,
+      0.3
+     ],
+     "geometry": 2,
+     "color": "#f6f3ec"
+    },
+    {
+     "parent": 2,
+     "position": [
+      0,
+      0.01,
+      -0.075
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      0.27,
+      0.255,
+      0.3
+     ],
+     "geometry": 2,
+     "color": "#f6f3ec"
+    },
+    {
+     "parent": 2,
+     "position": [
+      0,
+      0,
+      -0.15
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      0.25,
+      0.235,
+      0.3
+     ],
+     "geometry": 2,
+     "color": "#f6f3ec"
+    },
+    {
+     "parent": 2,
+     "position": [
+      0,
+      0.005,
+      -0.225
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      0.25,
+      0.24,
+      0.3
+     ],
+     "geometry": 2,
+     "color": "#f6f3ec"
+    },
+    {
+     "parent": 2,
+     "position": [
+      0,
+      0.025,
+      -0.3
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      0.272,
+      0.262,
+      0.3
+     ],
+     "geometry": 2,
+     "color": "#f6f3ec"
+    },
+    {
+     "parent": 2,
+     "position": [
+      0,
+      -0.08,
+      -0.13
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      0.18,
+      0.09,
+      0.44
+     ],
+     "geometry": 2,
+     "color": "#e3ddd0"
+    },
+    {
+     "parent": 2,
+     "position": [
+      0,
+      0.1,
+      0.11
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      1,
+      1,
+      1
+     ],
+     "geometry": 19,
+     "color": "#f6f3ec"
+    },
+    {
+     "parent": 1,
+     "position": [
+      -0.105,
+      0.34,
+      0.19
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      0.1407,
+      0.1575,
+      0.1452
+     ],
+     "geometry": 2,
+     "color": "#f6f3ec"
+    },
+    {
+     "parent": 1,
+     "position": [
+      -0.105,
+      0.34,
+      0.19
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      1,
+      1,
+      1
+     ],
+     "role": "leg0"
+    },
+    {
+     "parent": 48,
+     "position": [
+      0,
+      -0.147826,
+      0
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      1,
+      1,
+      1
+     ],
+     "geometry": 20,
+     "color": "#f6f3ec"
+    },
+    {
+     "parent": 48,
+     "position": [
+      0,
+      -0.295652,
+      0.012
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      1,
+      1,
+      1
+     ],
+     "geometry": 21,
+     "color": "#f6f3ec"
+    },
+    {
+     "parent": 1,
+     "position": [
+      0.105,
+      0.34,
+      0.19
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      0.1407,
+      0.1575,
+      0.1452
+     ],
+     "geometry": 2,
+     "color": "#f6f3ec"
+    },
+    {
+     "parent": 1,
+     "position": [
+      0.105,
+      0.34,
+      0.19
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      1,
+      1,
+      1
+     ],
+     "role": "leg1"
+    },
+    {
+     "parent": 52,
+     "position": [
+      0,
+      -0.147826,
+      0
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      1,
+      1,
+      1
+     ],
+     "geometry": 20,
+     "color": "#f6f3ec"
+    },
+    {
+     "parent": 52,
+     "position": [
+      0,
+      -0.295652,
+      0.012
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      1,
+      1,
+      1
+     ],
+     "geometry": 21,
+     "color": "#f6f3ec"
+    },
+    {
+     "parent": 1,
+     "position": [
+      -0.105,
+      0.34,
+      -0.19
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      0.1407,
+      0.1575,
+      0.1452
+     ],
+     "geometry": 2,
+     "color": "#f6f3ec"
+    },
+    {
+     "parent": 1,
+     "position": [
+      -0.105,
+      0.34,
+      -0.19
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      1,
+      1,
+      1
+     ],
+     "role": "leg2"
+    },
+    {
+     "parent": 56,
+     "position": [
+      0,
+      -0.147826,
+      0
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      1,
+      1,
+      1
+     ],
+     "geometry": 20,
+     "color": "#f6f3ec"
+    },
+    {
+     "parent": 56,
+     "position": [
+      0,
+      -0.295652,
+      0.012
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      1,
+      1,
+      1
+     ],
+     "geometry": 21,
+     "color": "#f6f3ec"
+    },
+    {
+     "parent": 1,
+     "position": [
+      0.105,
+      0.34,
+      -0.19
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      0.1407,
+      0.1575,
+      0.1452
+     ],
+     "geometry": 2,
+     "color": "#f6f3ec"
+    },
+    {
+     "parent": 1,
+     "position": [
+      0.105,
+      0.34,
+      -0.19
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      1,
+      1,
+      1
+     ],
+     "role": "leg3"
+    },
+    {
+     "parent": 60,
+     "position": [
+      0,
+      -0.147826,
+      0
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      1,
+      1,
+      1
+     ],
+     "geometry": 20,
+     "color": "#f6f3ec"
+    },
+    {
+     "parent": 60,
+     "position": [
+      0,
+      -0.295652,
+      0.012
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      1,
+      1,
+      1
+     ],
+     "geometry": 21,
+     "color": "#f6f3ec"
+    }
+   ]
+  },
+  "elephant": {
+   "bodyWidth": 0.95,
+   "bodyHeight": 1.75,
+   "jumpSpeed": 7.2,
+   "pace": 0.78,
+   "name": "아기 코끼리",
+   "trait": "코를 흔들며 느긋하게",
+   "skeleton": {
+    "chestY": 0.95,
+    "chestZ": 0.2,
+    "shoulderY": 0.86,
+    "sitHipY": 0.5,
+    "sitLean": -0.32,
+    "bob": 0.03,
+    "stride": 0.34,
+    "cadence": 2.4
+   },
+   "tailAmp": 0.3,
+   "tailPitch": 0.1,
+   "nodes": [
+    {
+     "parent": -1,
+     "position": [
+      0,
+      0,
+      0
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      1,
+      1,
+      1
+     ]
+    },
+    {
+     "parent": 0,
+     "position": [
+      0,
+      0,
+      0
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      1,
+      1,
+      1
+     ],
+     "role": "toy"
+    },
+    {
+     "parent": 1,
+     "position": [
+      0,
+      0.95,
+      0.2
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      1,
+      1,
+      1
+     ],
+     "role": "spine"
+    },
+    {
+     "parent": 2,
+     "position": [
+      0,
+      0.35,
+      0.25
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      1,
+      1,
+      1
+     ],
+     "role": "head"
+    },
+    {
+     "parent": 3,
+     "position": [
+      0,
+      0.12,
+      0.02
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      1,
+      1,
+      1
+     ],
+     "geometry": 22,
+     "color": "#9aa3b2"
+    },
+    {
+     "parent": 3,
+     "position": [
+      0,
+      0.3,
+      0.14
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      1,
+      1,
+      1
+     ],
+     "geometry": 23,
+     "color": "#9aa3b2"
+    },
+    {
+     "parent": 3,
+     "position": [
+      -0.17,
+      0.14,
+      0.2353
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      1,
+      1,
+      1
+     ],
+     "role": "eye0"
+    },
+    {
+     "parent": 6,
+     "position": [
+      0,
+      0,
+      0
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      0.1092,
+      0.126,
+      0.0525
+     ],
+     "geometry": 2,
+     "color": "#241d22"
+    },
+    {
+     "parent": 6,
+     "position": [
+      0,
+      0,
+      0.0105
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      0.0924,
+      0.1071,
+      0.0525
+     ],
+     "geometry": 2,
+     "color": "#fdfbf6"
+    },
+    {
+     "parent": 6,
+     "position": [
+      0,
+      -0.0021,
+      0.0231
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      0.0441,
+      0.0525,
+      0.0315
+     ],
+     "geometry": 2,
+     "color": "#241d22"
+    },
+    {
+     "parent": 6,
+     "position": [
+      -0.0147,
+      0.021,
+      0.0315
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      0.01785,
+      0.01785,
+      0.01575
+     ],
+     "geometry": 2,
+     "color": "#fdfbf6"
+    },
+    {
+     "parent": 3,
+     "position": [
+      0.17,
+      0.14,
+      0.2353
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      1,
+      1,
+      1
+     ],
+     "role": "eye1"
+    },
+    {
+     "parent": 11,
+     "position": [
+      0,
+      0,
+      0
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      0.1092,
+      0.126,
+      0.0525
+     ],
+     "geometry": 2,
+     "color": "#241d22"
+    },
+    {
+     "parent": 11,
+     "position": [
+      0,
+      0,
+      0.0105
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      0.0924,
+      0.1071,
+      0.0525
+     ],
+     "geometry": 2,
+     "color": "#fdfbf6"
+    },
+    {
+     "parent": 11,
+     "position": [
+      0,
+      -0.0021,
+      0.0231
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      0.0441,
+      0.0525,
+      0.0315
+     ],
+     "geometry": 2,
+     "color": "#241d22"
+    },
+    {
+     "parent": 11,
+     "position": [
+      0.0147,
+      0.021,
+      0.0315
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      0.01785,
+      0.01785,
+      0.01575
+     ],
+     "geometry": 2,
+     "color": "#fdfbf6"
+    },
+    {
+     "parent": 3,
+     "position": [
+      -0.235,
+      -0.2,
+      0.16
+     ],
+     "rotation": [
+      -0.28,
+      0,
+      -0.3
+     ],
+     "scale": [
+      1,
+      1,
+      1
+     ],
+     "geometry": 24,
+     "color": "#f6f1e2"
+    },
+    {
+     "parent": 16,
+     "position": [
+      0,
+      -0.14,
+      0.05
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      1,
+      1,
+      1
+     ],
+     "geometry": 25,
+     "color": "#f6f1e2"
+    },
+    {
+     "parent": 3,
+     "position": [
+      0.235,
+      -0.2,
+      0.16
+     ],
+     "rotation": [
+      -0.28,
+      0,
+      0.3
+     ],
+     "scale": [
+      1,
+      1,
+      1
+     ],
+     "geometry": 24,
+     "color": "#f6f1e2"
+    },
+    {
+     "parent": 18,
+     "position": [
+      0,
+      -0.14,
+      0.05
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      1,
+      1,
+      1
+     ],
+     "geometry": 25,
+     "color": "#f6f1e2"
+    },
+    {
+     "parent": 3,
+     "position": [
+      0,
+      -0.06,
+      0.2
+     ],
+     "rotation": [
+      -0.1,
+      0,
+      0
+     ],
+     "scale": [
+      1,
+      1,
+      1
+     ],
+     "role": "chain0"
+    },
+    {
+     "parent": 20,
+     "position": [
+      0,
+      -0.08,
+      0
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      1,
+      1,
+      1
+     ],
+     "geometry": 26,
+     "color": "#9aa3b2"
+    },
+    {
+     "parent": 20,
+     "position": [
+      0,
+      -0.16,
+      0
+     ],
+     "rotation": [
+      -0.15,
+      0,
+      0
+     ],
+     "scale": [
+      1,
+      1,
+      1
+     ],
+     "role": "chain1"
+    },
+    {
+     "parent": 22,
+     "position": [
+      0,
+      -0.08,
+      0
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      1,
+      1,
+      1
+     ],
+     "geometry": 27,
+     "color": "#9aa3b2"
+    },
+    {
+     "parent": 22,
+     "position": [
+      0,
+      -0.16,
+      0
+     ],
+     "rotation": [
+      -0.35,
+      0,
+      0
+     ],
+     "scale": [
+      1,
+      1,
+      1
+     ],
+     "role": "chain2"
+    },
+    {
+     "parent": 24,
+     "position": [
+      0,
+      -0.08,
+      0
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      1,
+      1,
+      1
+     ],
+     "geometry": 28,
+     "color": "#9aa3b2"
+    },
+    {
+     "parent": 24,
+     "position": [
+      0,
+      -0.16,
+      0
+     ],
+     "rotation": [
+      -0.55,
+      0,
+      0
+     ],
+     "scale": [
+      1,
+      1,
+      1
+     ],
+     "role": "chain3"
+    },
+    {
+     "parent": 26,
+     "position": [
+      0,
+      -0.08,
+      0
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      1,
+      1,
+      1
+     ],
+     "geometry": 29,
+     "color": "#7f8897"
+    },
+    {
+     "parent": 26,
+     "position": [
+      0,
+      -0.17,
+      0
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      0.1,
+      0.05,
+      0.1
+     ],
+     "geometry": 2,
+     "color": "#4a4a55"
+    },
+    {
+     "parent": 3,
+     "position": [
+      -0.21,
+      0.16,
+      -0.04
+     ],
+     "rotation": [
+      0.1,
+      -0.28,
+      0.4
+     ],
+     "scale": [
+      1,
+      1,
+      1
+     ],
+     "role": "ear0"
+    },
+    {
+     "parent": 29,
+     "position": [
+      -0.15,
+      0.1,
+      0
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      1,
+      1,
+      1
+     ],
+     "geometry": 30,
+     "color": "#9aa3b2"
+    },
+    {
+     "parent": 29,
+     "position": [
+      -0.14,
+      -0.1,
+      0
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      1,
+      1,
+      1
+     ],
+     "geometry": 31,
+     "color": "#9aa3b2"
+    },
+    {
+     "parent": 29,
+     "position": [
+      -0.12,
+      -0.26,
+      0
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      1,
+      1,
+      1
+     ],
+     "geometry": 32,
+     "color": "#9aa3b2"
+    },
+    {
+     "parent": 29,
+     "position": [
+      -0.15,
+      0.02,
+      0.042
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      0.22,
+      0.3,
+      0.03
+     ],
+     "geometry": 2,
+     "color": "#7f8897"
+    },
+    {
+     "parent": 29,
+     "position": [
+      -0.02,
+      0.02,
+      0
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      1,
+      1,
+      1
+     ],
+     "geometry": 33,
+     "color": "#9aa3b2"
+    },
+    {
+     "parent": 3,
+     "position": [
+      0.21,
+      0.16,
+      -0.04
+     ],
+     "rotation": [
+      0.1,
+      0.28,
+      -0.4
+     ],
+     "scale": [
+      1,
+      1,
+      1
+     ],
+     "role": "ear1"
+    },
+    {
+     "parent": 35,
+     "position": [
+      0.15,
+      0.1,
+      0
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      1,
+      1,
+      1
+     ],
+     "geometry": 30,
+     "color": "#9aa3b2"
+    },
+    {
+     "parent": 35,
+     "position": [
+      0.14,
+      -0.1,
+      0
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      1,
+      1,
+      1
+     ],
+     "geometry": 31,
+     "color": "#9aa3b2"
+    },
+    {
+     "parent": 35,
+     "position": [
+      0.12,
+      -0.26,
+      0
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      1,
+      1,
+      1
+     ],
+     "geometry": 32,
+     "color": "#9aa3b2"
+    },
+    {
+     "parent": 35,
+     "position": [
+      0.15,
+      0.02,
+      0.042
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      0.22,
+      0.3,
+      0.03
+     ],
+     "geometry": 2,
+     "color": "#7f8897"
+    },
+    {
+     "parent": 35,
+     "position": [
+      0.02,
+      0.02,
+      0
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      1,
+      1,
+      1
+     ],
+     "geometry": 33,
+     "color": "#9aa3b2"
+    },
+    {
+     "parent": 2,
+     "position": [
+      0,
+      0.13,
+      -0.68
+     ],
+     "rotation": [
+      0.1,
+      0,
+      0
+     ],
+     "scale": [
+      1,
+      1,
+      1
+     ],
+     "role": "tail"
+    },
+    {
+     "parent": 41,
+     "position": [
+      0,
+      -0.15,
+      0
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      1,
+      1,
+      1
+     ],
+     "geometry": 34,
+     "color": "#9aa3b2"
+    },
+    {
+     "parent": 41,
+     "position": [
+      0,
+      -0.32,
+      0
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      1,
+      1,
+      1
+     ],
+     "geometry": 35,
+     "color": "#7f8897"
+    },
+    {
+     "parent": 2,
+     "position": [
+      0,
+      0.01,
+      0.06
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      0.72,
+      0.64,
+      0.64
+     ],
+     "geometry": 2,
+     "color": "#9aa3b2"
+    },
+    {
+     "parent": 2,
+     "position": [
+      0,
+      0.03,
+      -0.07
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      0.76,
+      0.68,
+      0.64
+     ],
+     "geometry": 2,
+     "color": "#9aa3b2"
+    },
+    {
+     "parent": 2,
+     "position": [
+      0,
+      0.025,
+      -0.2
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      0.775,
+      0.69,
+      0.64
+     ],
+     "geometry": 2,
+     "color": "#9aa3b2"
+    },
+    {
+     "parent": 2,
+     "position": [
+      0,
+      0.005,
+      -0.33
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      0.74,
+      0.66,
+      0.64
+     ],
+     "geometry": 2,
+     "color": "#9aa3b2"
+    },
+    {
+     "parent": 2,
+     "position": [
+      0,
+      -0.015,
+      -0.46
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      0.68,
+      0.61,
+      0.62
+     ],
+     "geometry": 2,
+     "color": "#9aa3b2"
+    },
+    {
+     "parent": 2,
+     "position": [
+      0,
+      -0.27,
+      -0.18
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      0.52,
+      0.2,
+      0.78
+     ],
+     "geometry": 2,
+     "color": "#7f8897"
+    },
+    {
+     "parent": 2,
+     "position": [
+      0,
+      0.31,
+      0.18
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      1,
+      1,
+      1
+     ],
+     "geometry": 36,
+     "color": "#9aa3b2"
+    },
+    {
+     "parent": 1,
+     "position": [
+      -0.28,
+      0.86,
+      0.33
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      0.3752,
+      0.42,
+      0.396
+     ],
+     "geometry": 2,
+     "color": "#9aa3b2"
+    },
+    {
+     "parent": 1,
+     "position": [
+      -0.28,
+      0.86,
+      0.33
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      1,
+      1,
+      1
+     ],
+     "role": "leg0"
+    },
+    {
+     "parent": 52,
+     "position": [
+      0,
+      -0.373913,
+      0
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      1,
+      1,
+      1
+     ],
+     "geometry": 37,
+     "color": "#9aa3b2"
+    },
+    {
+     "parent": 52,
+     "position": [
+      0,
+      -0.747826,
+      0.012
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      1,
+      1,
+      1
+     ],
+     "geometry": 38,
+     "color": "#7f8897"
+    },
+    {
+     "parent": 1,
+     "position": [
+      0.28,
+      0.86,
+      0.33
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      0.3752,
+      0.42,
+      0.396
+     ],
+     "geometry": 2,
+     "color": "#9aa3b2"
+    },
+    {
+     "parent": 1,
+     "position": [
+      0.28,
+      0.86,
+      0.33
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      1,
+      1,
+      1
+     ],
+     "role": "leg1"
+    },
+    {
+     "parent": 56,
+     "position": [
+      0,
+      -0.373913,
+      0
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      1,
+      1,
+      1
+     ],
+     "geometry": 37,
+     "color": "#9aa3b2"
+    },
+    {
+     "parent": 56,
+     "position": [
+      0,
+      -0.747826,
+      0.012
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      1,
+      1,
+      1
+     ],
+     "geometry": 38,
+     "color": "#7f8897"
+    },
+    {
+     "parent": 1,
+     "position": [
+      -0.28,
+      0.86,
+      -0.33
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      0.3752,
+      0.42,
+      0.396
+     ],
+     "geometry": 2,
+     "color": "#9aa3b2"
+    },
+    {
+     "parent": 1,
+     "position": [
+      -0.28,
+      0.86,
+      -0.33
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      1,
+      1,
+      1
+     ],
+     "role": "leg2"
+    },
+    {
+     "parent": 60,
+     "position": [
+      0,
+      -0.373913,
+      0
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      1,
+      1,
+      1
+     ],
+     "geometry": 37,
+     "color": "#9aa3b2"
+    },
+    {
+     "parent": 60,
+     "position": [
+      0,
+      -0.747826,
+      0.012
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      1,
+      1,
+      1
+     ],
+     "geometry": 38,
+     "color": "#7f8897"
+    },
+    {
+     "parent": 1,
+     "position": [
+      0.28,
+      0.86,
+      -0.33
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      0.3752,
+      0.42,
+      0.396
+     ],
+     "geometry": 2,
+     "color": "#9aa3b2"
+    },
+    {
+     "parent": 1,
+     "position": [
+      0.28,
+      0.86,
+      -0.33
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      1,
+      1,
+      1
+     ],
+     "role": "leg3"
+    },
+    {
+     "parent": 64,
+     "position": [
+      0,
+      -0.373913,
+      0
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      1,
+      1,
+      1
+     ],
+     "geometry": 37,
+     "color": "#9aa3b2"
+    },
+    {
+     "parent": 64,
+     "position": [
+      0,
+      -0.747826,
+      0.012
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      1,
+      1,
+      1
+     ],
+     "geometry": 38,
+     "color": "#7f8897"
+    }
+   ]
+  },
+  "giraffe": {
+   "bodyWidth": 0.7,
+   "bodyHeight": 2.45,
+   "jumpSpeed": 7.4,
+   "pace": 0.95,
+   "name": "아기 기린",
+   "trait": "목이 담장 너머까지",
+   "skeleton": {
+    "chestY": 0.95,
+    "chestZ": 0.18,
+    "shoulderY": 0.88,
+    "sitHipY": 0.5,
+    "sitLean": -0.3,
+    "bob": 0.04,
+    "stride": 0.46,
+    "cadence": 2.8
+   },
+   "tailAmp": 0.34,
+   "tailPitch": 0.1,
+   "nodes": [
+    {
+     "parent": -1,
+     "position": [
+      0,
+      0,
+      0
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      1,
+      1,
+      1
+     ]
+    },
+    {
+     "parent": 0,
+     "position": [
+      0,
+      0,
+      0
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      1,
+      1,
+      1
+     ],
+     "role": "toy"
+    },
+    {
+     "parent": 1,
+     "position": [
+      0,
+      0.95,
+      0.18
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      1,
+      1,
+      1
+     ],
+     "role": "spine"
+    },
+    {
+     "parent": 2,
+     "position": [
+      0,
+      0.17,
+      -0.56
+     ],
+     "rotation": [
+      0.1,
+      0,
+      0
+     ],
+     "scale": [
+      1,
+      1,
+      1
+     ],
+     "role": "tail"
+    },
+    {
+     "parent": 3,
+     "position": [
+      0,
+      -0.15,
+      0
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      1,
+      1,
+      1
+     ],
+     "geometry": 39,
+     "color": "#f0c470"
+    },
+    {
+     "parent": 3,
+     "position": [
+      0,
+      -0.33,
+      0
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      1,
+      1,
+      1
+     ],
+     "geometry": 40,
+     "color": "#a9713a"
+    },
+    {
+     "parent": 2,
+     "position": [
+      0,
+      0.075,
+      0.02
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      0.455,
+      0.5,
+      0.42
+     ],
+     "geometry": 2,
+     "color": "#f0c470"
+    },
+    {
+     "parent": 2,
+     "position": [
+      0,
+      0.06,
+      -0.08
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      0.46,
+      0.48,
+      0.42
+     ],
+     "geometry": 2,
+     "color": "#f0c470"
+    },
+    {
+     "parent": 2,
+     "position": [
+      0,
+      0.035,
+      -0.18
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      0.445,
+      0.455,
+      0.42
+     ],
+     "geometry": 2,
+     "color": "#f0c470"
+    },
+    {
+     "parent": 2,
+     "position": [
+      0,
+      0.005,
+      -0.28
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      0.425,
+      0.43,
+      0.42
+     ],
+     "geometry": 2,
+     "color": "#f0c470"
+    },
+    {
+     "parent": 2,
+     "position": [
+      0,
+      -0.02,
+      -0.38
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      0.4,
+      0.405,
+      0.4
+     ],
+     "geometry": 2,
+     "color": "#f0c470"
+    },
+    {
+     "parent": 2,
+     "position": [
+      0,
+      -0.19,
+      -0.16
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      0.32,
+      0.15,
+      0.56
+     ],
+     "geometry": 2,
+     "color": "#faeccd"
+    },
+    {
+     "parent": 2,
+     "position": [
+      -0.214,
+      0.14,
+      0.02
+     ],
+     "rotation": [
+      0.07,
+      0,
+      0
+     ],
+     "scale": [
+      0.6,
+      1,
+      1
+     ],
+     "geometry": 41,
+     "color": "#a9713a"
+    },
+    {
+     "parent": 2,
+     "position": [
+      0.214,
+      0.14,
+      0.02
+     ],
+     "rotation": [
+      0.07,
+      0,
+      0
+     ],
+     "scale": [
+      0.6,
+      1,
+      1
+     ],
+     "geometry": 41,
+     "color": "#a9713a"
+    },
+    {
+     "parent": 2,
+     "position": [
+      -0.214,
+      0.12,
+      -0.26
+     ],
+     "rotation": [
+      -0.07,
+      0,
+      0
+     ],
+     "scale": [
+      0.6,
+      1,
+      1
+     ],
+     "geometry": 42,
+     "color": "#a9713a"
+    },
+    {
+     "parent": 2,
+     "position": [
+      0.214,
+      0.12,
+      -0.26
+     ],
+     "rotation": [
+      -0.07,
+      0,
+      0
+     ],
+     "scale": [
+      0.6,
+      1,
+      1
+     ],
+     "geometry": 42,
+     "color": "#a9713a"
+    },
+    {
+     "parent": 2,
+     "position": [
+      -0.214,
+      0.1,
+      -0.48
+     ],
+     "rotation": [
+      0.07,
+      0,
+      0
+     ],
+     "scale": [
+      0.6,
+      1,
+      1
+     ],
+     "geometry": 43,
+     "color": "#a9713a"
+    },
+    {
+     "parent": 2,
+     "position": [
+      0.214,
+      0.1,
+      -0.48
+     ],
+     "rotation": [
+      0.07,
+      0,
+      0
+     ],
+     "scale": [
+      0.6,
+      1,
+      1
+     ],
+     "geometry": 43,
+     "color": "#a9713a"
+    },
+    {
+     "parent": 2,
+     "position": [
+      -0.214,
+      -0.07,
+      0.1
+     ],
+     "rotation": [
+      -0.07,
+      0,
+      0
+     ],
+     "scale": [
+      0.6,
+      1,
+      1
+     ],
+     "geometry": 44,
+     "color": "#a9713a"
+    },
+    {
+     "parent": 2,
+     "position": [
+      0.214,
+      -0.07,
+      0.1
+     ],
+     "rotation": [
+      -0.07,
+      0,
+      0
+     ],
+     "scale": [
+      0.6,
+      1,
+      1
+     ],
+     "geometry": 44,
+     "color": "#a9713a"
+    },
+    {
+     "parent": 2,
+     "position": [
+      -0.214,
+      -0.09,
+      -0.16
+     ],
+     "rotation": [
+      0.07,
+      0,
+      0
+     ],
+     "scale": [
+      0.6,
+      1,
+      1
+     ],
+     "geometry": 45,
+     "color": "#a9713a"
+    },
+    {
+     "parent": 2,
+     "position": [
+      0.214,
+      -0.09,
+      -0.16
+     ],
+     "rotation": [
+      0.07,
+      0,
+      0
+     ],
+     "scale": [
+      0.6,
+      1,
+      1
+     ],
+     "geometry": 45,
+     "color": "#a9713a"
+    },
+    {
+     "parent": 2,
+     "position": [
+      -0.214,
+      -0.11,
+      -0.42
+     ],
+     "rotation": [
+      -0.07,
+      0,
+      0
+     ],
+     "scale": [
+      0.6,
+      1,
+      1
+     ],
+     "geometry": 46,
+     "color": "#a9713a"
+    },
+    {
+     "parent": 2,
+     "position": [
+      0.214,
+      -0.11,
+      -0.42
+     ],
+     "rotation": [
+      -0.07,
+      0,
+      0
+     ],
+     "scale": [
+      0.6,
+      1,
+      1
+     ],
+     "geometry": 46,
+     "color": "#a9713a"
+    },
+    {
+     "parent": 2,
+     "position": [
+      -0.214,
+      0.23,
+      -0.12
+     ],
+     "rotation": [
+      0.07,
+      0,
+      0
+     ],
+     "scale": [
+      0.6,
+      1,
+      1
+     ],
+     "geometry": 47,
+     "color": "#a9713a"
+    },
+    {
+     "parent": 2,
+     "position": [
+      0.214,
+      0.23,
+      -0.12
+     ],
+     "rotation": [
+      0.07,
+      0,
+      0
+     ],
+     "scale": [
+      0.6,
+      1,
+      1
+     ],
+     "geometry": 47,
+     "color": "#a9713a"
+    },
+    {
+     "parent": 2,
+     "position": [
+      0,
+      0.23,
+      0.08
+     ],
+     "rotation": [
+      -0.34,
+      0,
+      0
+     ],
+     "scale": [
+      1,
+      1,
+      1
+     ]
+    },
+    {
+     "parent": 26,
+     "position": [
+      0,
+      0.18,
+      0
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      1,
+      1,
+      1
+     ],
+     "geometry": 48,
+     "color": "#f0c470"
+    },
+    {
+     "parent": 26,
+     "position": [
+      0,
+      0.5,
+      0
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      1,
+      1,
+      1
+     ],
+     "geometry": 49,
+     "color": "#f0c470"
+    },
+    {
+     "parent": 26,
+     "position": [
+      0,
+      0.8,
+      0
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      1,
+      1,
+      1
+     ],
+     "geometry": 50,
+     "color": "#f0c470"
+    },
+    {
+     "parent": 26,
+     "position": [
+      -0.126,
+      0.06,
+      0.02
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      0.65,
+      1,
+      1
+     ],
+     "geometry": 51,
+     "color": "#a9713a"
+    },
+    {
+     "parent": 26,
+     "position": [
+      0.126,
+      0.06,
+      0.02
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      0.65,
+      1,
+      1
+     ],
+     "geometry": 51,
+     "color": "#a9713a"
+    },
+    {
+     "parent": 26,
+     "position": [
+      -0.126,
+      0.26,
+      0.02
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      0.65,
+      1,
+      1
+     ],
+     "geometry": 52,
+     "color": "#a9713a"
+    },
+    {
+     "parent": 26,
+     "position": [
+      0.126,
+      0.26,
+      0.02
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      0.65,
+      1,
+      1
+     ],
+     "geometry": 52,
+     "color": "#a9713a"
+    },
+    {
+     "parent": 26,
+     "position": [
+      -0.126,
+      0.46,
+      0.02
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      0.65,
+      1,
+      1
+     ],
+     "geometry": 51,
+     "color": "#a9713a"
+    },
+    {
+     "parent": 26,
+     "position": [
+      0.126,
+      0.46,
+      0.02
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      0.65,
+      1,
+      1
+     ],
+     "geometry": 51,
+     "color": "#a9713a"
+    },
+    {
+     "parent": 26,
+     "position": [
+      -0.126,
+      0.66,
+      0.02
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      0.65,
+      1,
+      1
+     ],
+     "geometry": 53,
+     "color": "#a9713a"
+    },
+    {
+     "parent": 26,
+     "position": [
+      0.126,
+      0.66,
+      0.02
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      0.65,
+      1,
+      1
+     ],
+     "geometry": 53,
+     "color": "#a9713a"
+    },
+    {
+     "parent": 26,
+     "position": [
+      -0.126,
+      0.86,
+      0.02
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      0.65,
+      1,
+      1
+     ],
+     "geometry": 54,
+     "color": "#a9713a"
+    },
+    {
+     "parent": 26,
+     "position": [
+      0.126,
+      0.86,
+      0.02
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      0.65,
+      1,
+      1
+     ],
+     "geometry": 54,
+     "color": "#a9713a"
+    },
+    {
+     "parent": 26,
+     "position": [
+      0,
+      0,
+      -0.165
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      1,
+      1,
+      1
+     ],
+     "geometry": 55,
+     "color": "#a9713a"
+    },
+    {
+     "parent": 26,
+     "position": [
+      0,
+      0.096,
+      -0.165
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      1,
+      1,
+      1
+     ],
+     "geometry": 55,
+     "color": "#a9713a"
+    },
+    {
+     "parent": 26,
+     "position": [
+      0,
+      0.192,
+      -0.165
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      1,
+      1,
+      1
+     ],
+     "geometry": 55,
+     "color": "#a9713a"
+    },
+    {
+     "parent": 26,
+     "position": [
+      0,
+      0.288,
+      -0.165
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      1,
+      1,
+      1
+     ],
+     "geometry": 55,
+     "color": "#a9713a"
+    },
+    {
+     "parent": 26,
+     "position": [
+      0,
+      0.384,
+      -0.165
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      1,
+      1,
+      1
+     ],
+     "geometry": 55,
+     "color": "#a9713a"
+    },
+    {
+     "parent": 26,
+     "position": [
+      0,
+      0.48,
+      -0.165
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      1,
+      1,
+      1
+     ],
+     "geometry": 55,
+     "color": "#a9713a"
+    },
+    {
+     "parent": 26,
+     "position": [
+      0,
+      0.576,
+      -0.165
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      1,
+      1,
+      1
+     ],
+     "geometry": 55,
+     "color": "#a9713a"
+    },
+    {
+     "parent": 26,
+     "position": [
+      0,
+      0.672,
+      -0.165
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      1,
+      1,
+      1
+     ],
+     "geometry": 55,
+     "color": "#a9713a"
+    },
+    {
+     "parent": 26,
+     "position": [
+      0,
+      0.768,
+      -0.165
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      1,
+      1,
+      1
+     ],
+     "geometry": 55,
+     "color": "#a9713a"
+    },
+    {
+     "parent": 26,
+     "position": [
+      0,
+      0.864,
+      -0.165
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      1,
+      1,
+      1
+     ],
+     "geometry": 55,
+     "color": "#a9713a"
+    },
+    {
+     "parent": 26,
+     "position": [
+      0,
+      0.96,
+      -0.165
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      1,
+      1,
+      1
+     ],
+     "geometry": 55,
+     "color": "#a9713a"
+    },
+    {
+     "parent": 26,
+     "position": [
+      0,
+      1.04,
+      0.02
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      1,
+      1,
+      1
+     ],
+     "role": "head"
+    },
+    {
+     "parent": 51,
+     "position": [
+      0,
+      0.06,
+      0.03
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      1,
+      1,
+      1
+     ],
+     "geometry": 56,
+     "color": "#f0c470"
+    },
+    {
+     "parent": 51,
+     "position": [
+      0,
+      -0.005,
+      0.19
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      1,
+      1,
+      1
+     ],
+     "geometry": 57,
+     "color": "#faeccd"
+    },
+    {
+     "parent": 51,
+     "position": [
+      -0.04,
+      0.03,
+      0.265
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      0.042,
+      0.032,
+      0.04
+     ],
+     "geometry": 2,
+     "color": "#4a382c"
+    },
+    {
+     "parent": 51,
+     "position": [
+      0.04,
+      0.03,
+      0.265
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      0.042,
+      0.032,
+      0.04
+     ],
+     "geometry": 2,
+     "color": "#4a382c"
+    },
+    {
+     "parent": 51,
+     "position": [
+      0,
+      -0.045,
+      0.245
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      0.085,
+      0.0187,
+      0.0425
+     ],
+     "geometry": 2,
+     "color": "#4a382c"
+    },
+    {
+     "parent": 51,
+     "position": [
+      -0.09,
+      0.1,
+      0.14492
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      1,
+      1,
+      1
+     ],
+     "role": "eye0"
+    },
+    {
+     "parent": 57,
+     "position": [
+      0,
+      0,
+      0
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      0.07488,
+      0.0864,
+      0.036
+     ],
+     "geometry": 2,
+     "color": "#241d22"
+    },
+    {
+     "parent": 57,
+     "position": [
+      0,
+      0,
+      0.0072
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      0.06336,
+      0.07344,
+      0.036
+     ],
+     "geometry": 2,
+     "color": "#fdfbf6"
+    },
+    {
+     "parent": 57,
+     "position": [
+      0,
+      -0.00144,
+      0.01584
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      0.03024,
+      0.036,
+      0.0216
+     ],
+     "geometry": 2,
+     "color": "#241d22"
+    },
+    {
+     "parent": 57,
+     "position": [
+      -0.01008,
+      0.0144,
+      0.0216
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      0.01224,
+      0.01224,
+      0.0108
+     ],
+     "geometry": 2,
+     "color": "#fdfbf6"
+    },
+    {
+     "parent": 51,
+     "position": [
+      0.09,
+      0.1,
+      0.14492
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      1,
+      1,
+      1
+     ],
+     "role": "eye1"
+    },
+    {
+     "parent": 62,
+     "position": [
+      0,
+      0,
+      0
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      0.07488,
+      0.0864,
+      0.036
+     ],
+     "geometry": 2,
+     "color": "#241d22"
+    },
+    {
+     "parent": 62,
+     "position": [
+      0,
+      0,
+      0.0072
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      0.06336,
+      0.07344,
+      0.036
+     ],
+     "geometry": 2,
+     "color": "#fdfbf6"
+    },
+    {
+     "parent": 62,
+     "position": [
+      0,
+      -0.00144,
+      0.01584
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      0.03024,
+      0.036,
+      0.0216
+     ],
+     "geometry": 2,
+     "color": "#241d22"
+    },
+    {
+     "parent": 62,
+     "position": [
+      0.01008,
+      0.0144,
+      0.0216
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      0.01224,
+      0.01224,
+      0.0108
+     ],
+     "geometry": 2,
+     "color": "#fdfbf6"
+    },
+    {
+     "parent": 51,
+     "position": [
+      -0.058,
+      0.21,
+      0
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      1,
+      1,
+      1
+     ],
+     "geometry": 58,
+     "color": "#f0c470"
+    },
+    {
+     "parent": 67,
+     "position": [
+      0,
+      0.075,
+      0
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      1,
+      1,
+      1
+     ],
+     "geometry": 59,
+     "color": "#a9713a"
+    },
+    {
+     "parent": 51,
+     "position": [
+      0.058,
+      0.21,
+      0
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      1,
+      1,
+      1
+     ],
+     "geometry": 58,
+     "color": "#f0c470"
+    },
+    {
+     "parent": 69,
+     "position": [
+      0,
+      0.075,
+      0
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      1,
+      1,
+      1
+     ],
+     "geometry": 59,
+     "color": "#a9713a"
+    },
+    {
+     "parent": 51,
+     "position": [
+      -0.1,
+      0.14,
+      -0.01
+     ],
+     "rotation": [
+      0,
+      0,
+      -0.5
+     ],
+     "scale": [
+      1,
+      1,
+      1
+     ],
+     "role": "ear0"
+    },
+    {
+     "parent": 71,
+     "position": [
+      -0.05,
+      0.01,
+      0
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      1,
+      1,
+      1
+     ],
+     "geometry": 60,
+     "color": "#f0c470"
+    },
+    {
+     "parent": 51,
+     "position": [
+      0.1,
+      0.14,
+      -0.01
+     ],
+     "rotation": [
+      0,
+      0,
+      0.5
+     ],
+     "scale": [
+      1,
+      1,
+      1
+     ],
+     "role": "ear1"
+    },
+    {
+     "parent": 73,
+     "position": [
+      0.05,
+      0.01,
+      0
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      1,
+      1,
+      1
+     ],
+     "geometry": 60,
+     "color": "#f0c470"
+    },
+    {
+     "parent": 1,
+     "position": [
+      -0.2,
+      0.88,
+      0.28
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      0.2345,
+      0.2625,
+      0.2442
+     ],
+     "geometry": 2,
+     "color": "#f0c470"
+    },
+    {
+     "parent": 1,
+     "position": [
+      -0.2,
+      0.88,
+      0.28
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      1,
+      1,
+      1
+     ],
+     "role": "leg0"
+    },
+    {
+     "parent": 76,
+     "position": [
+      0,
+      -0.382609,
+      0
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      1,
+      1,
+      1
+     ],
+     "geometry": 61,
+     "color": "#f0c470"
+    },
+    {
+     "parent": 76,
+     "position": [
+      0,
+      -0.765217,
+      0.012
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      1,
+      1,
+      1
+     ],
+     "geometry": 62,
+     "color": "#faeccd"
+    },
+    {
+     "parent": 1,
+     "position": [
+      0.2,
+      0.88,
+      0.28
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      0.2345,
+      0.2625,
+      0.2442
+     ],
+     "geometry": 2,
+     "color": "#f0c470"
+    },
+    {
+     "parent": 1,
+     "position": [
+      0.2,
+      0.88,
+      0.28
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      1,
+      1,
+      1
+     ],
+     "role": "leg1"
+    },
+    {
+     "parent": 80,
+     "position": [
+      0,
+      -0.382609,
+      0
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      1,
+      1,
+      1
+     ],
+     "geometry": 61,
+     "color": "#f0c470"
+    },
+    {
+     "parent": 80,
+     "position": [
+      0,
+      -0.765217,
+      0.012
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      1,
+      1,
+      1
+     ],
+     "geometry": 62,
+     "color": "#faeccd"
+    },
+    {
+     "parent": 1,
+     "position": [
+      -0.2,
+      0.88,
+      -0.28
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      0.2345,
+      0.2625,
+      0.2442
+     ],
+     "geometry": 2,
+     "color": "#f0c470"
+    },
+    {
+     "parent": 1,
+     "position": [
+      -0.2,
+      0.88,
+      -0.28
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      1,
+      1,
+      1
+     ],
+     "role": "leg2"
+    },
+    {
+     "parent": 84,
+     "position": [
+      0,
+      -0.382609,
+      0
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      1,
+      1,
+      1
+     ],
+     "geometry": 61,
+     "color": "#f0c470"
+    },
+    {
+     "parent": 84,
+     "position": [
+      0,
+      -0.765217,
+      0.012
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      1,
+      1,
+      1
+     ],
+     "geometry": 62,
+     "color": "#faeccd"
+    },
+    {
+     "parent": 1,
+     "position": [
+      0.2,
+      0.88,
+      -0.28
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      0.2345,
+      0.2625,
+      0.2442
+     ],
+     "geometry": 2,
+     "color": "#f0c470"
+    },
+    {
+     "parent": 1,
+     "position": [
+      0.2,
+      0.88,
+      -0.28
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      1,
+      1,
+      1
+     ],
+     "role": "leg3"
+    },
+    {
+     "parent": 88,
+     "position": [
+      0,
+      -0.382609,
+      0
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      1,
+      1,
+      1
+     ],
+     "geometry": 61,
+     "color": "#f0c470"
+    },
+    {
+     "parent": 88,
+     "position": [
+      0,
+      -0.765217,
+      0.012
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      1,
+      1,
+      1
+     ],
+     "geometry": 62,
+     "color": "#faeccd"
+    }
+   ]
+  },
+  "panda": {
+   "bodyWidth": 0.72,
+   "bodyHeight": 1.15,
+   "jumpSpeed": 7.2,
+   "pace": 0.82,
+   "name": "판다",
+   "trait": "둥글고 느릿느릿",
+   "skeleton": {
+    "chestY": 0.5,
+    "chestZ": 0.16,
+    "shoulderY": 0.38,
+    "sitHipY": 0.2,
+    "sitLean": -0.5,
+    "bob": 0.03,
+    "stride": 0.38,
+    "cadence": 2.8
+   },
+   "tailAmp": 0.18,
+   "tailPitch": 0.2,
+   "nodes": [
+    {
+     "parent": -1,
+     "position": [
+      0,
+      0,
+      0
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      1,
+      1,
+      1
+     ]
+    },
+    {
+     "parent": 0,
+     "position": [
+      0,
+      0,
+      0
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      1,
+      1,
+      1
+     ],
+     "role": "toy"
+    },
+    {
+     "parent": 1,
+     "position": [
+      0,
+      0.5,
+      0.16
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      1,
+      1,
+      1
+     ],
+     "role": "spine"
+    },
+    {
+     "parent": 2,
+     "position": [
+      0,
+      0.34,
+      0.04
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      1,
+      1,
+      1
+     ],
+     "role": "head"
+    },
+    {
+     "parent": 3,
+     "position": [
+      0,
+      0.11,
+      0.02
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      1,
+      1,
+      1
+     ],
+     "geometry": 63,
+     "color": "#f7f4ee"
+    },
+    {
+     "parent": 3,
+     "position": [
+      0,
+      0.035,
+      0.195
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      0.2,
+      0.15,
+      0.14
+     ],
+     "geometry": 2,
+     "color": "#f7f4ee"
+    },
+    {
+     "parent": 3,
+     "position": [
+      0,
+      0.08,
+      0.245
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      0.095,
+      0.062,
+      0.06
+     ],
+     "geometry": 2,
+     "color": "#221f24"
+    },
+    {
+     "parent": 3,
+     "position": [
+      0,
+      0.025,
+      0.235
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      0.07,
+      0.0154,
+      0.035
+     ],
+     "geometry": 2,
+     "color": "#221f24"
+    },
+    {
+     "parent": 3,
+     "position": [
+      -0.1,
+      0.14,
+      0.16
+     ],
+     "rotation": [
+      0,
+      0,
+      0.38
+     ],
+     "scale": [
+      0.175,
+      0.135,
+      0.1
+     ],
+     "geometry": 2,
+     "color": "#2c2a2e"
+    },
+    {
+     "parent": 3,
+     "position": [
+      0.1,
+      0.14,
+      0.16
+     ],
+     "rotation": [
+      0,
+      0,
+      -0.38
+     ],
+     "scale": [
+      0.175,
+      0.135,
+      0.1
+     ],
+     "geometry": 2,
+     "color": "#2c2a2e"
+    },
+    {
+     "parent": 3,
+     "position": [
+      -0.1,
+      0.142,
+      0.19928
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      1,
+      1,
+      1
+     ],
+     "role": "eye0"
+    },
+    {
+     "parent": 10,
+     "position": [
+      0,
+      0,
+      0
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      0.04992,
+      0.0576,
+      0.024
+     ],
+     "geometry": 2,
+     "color": "#241d22"
+    },
+    {
+     "parent": 10,
+     "position": [
+      0,
+      0,
+      0.0048
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      0.04224,
+      0.04896,
+      0.024
+     ],
+     "geometry": 2,
+     "color": "#fdfbf6"
+    },
+    {
+     "parent": 10,
+     "position": [
+      0,
+      -0.00096,
+      0.01056
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      0.02016,
+      0.024,
+      0.0144
+     ],
+     "geometry": 2,
+     "color": "#241d22"
+    },
+    {
+     "parent": 10,
+     "position": [
+      -0.00672,
+      0.0096,
+      0.0144
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      0.00816,
+      0.00816,
+      0.0072
+     ],
+     "geometry": 2,
+     "color": "#fdfbf6"
+    },
+    {
+     "parent": 3,
+     "position": [
+      0.1,
+      0.142,
+      0.19928
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      1,
+      1,
+      1
+     ],
+     "role": "eye1"
+    },
+    {
+     "parent": 15,
+     "position": [
+      0,
+      0,
+      0
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      0.04992,
+      0.0576,
+      0.024
+     ],
+     "geometry": 2,
+     "color": "#241d22"
+    },
+    {
+     "parent": 15,
+     "position": [
+      0,
+      0,
+      0.0048
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      0.04224,
+      0.04896,
+      0.024
+     ],
+     "geometry": 2,
+     "color": "#fdfbf6"
+    },
+    {
+     "parent": 15,
+     "position": [
+      0,
+      -0.00096,
+      0.01056
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      0.02016,
+      0.024,
+      0.0144
+     ],
+     "geometry": 2,
+     "color": "#241d22"
+    },
+    {
+     "parent": 15,
+     "position": [
+      0.00672,
+      0.0096,
+      0.0144
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      0.00816,
+      0.00816,
+      0.0072
+     ],
+     "geometry": 2,
+     "color": "#fdfbf6"
+    },
+    {
+     "parent": 3,
+     "position": [
+      -0.16,
+      0.26,
+      -0.02
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      1,
+      1,
+      1
+     ],
+     "role": "ear0"
+    },
+    {
+     "parent": 20,
+     "position": [
+      0,
+      0.04,
+      0
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      1,
+      1,
+      1
+     ],
+     "geometry": 64,
+     "color": "#2c2a2e"
+    },
+    {
+     "parent": 3,
+     "position": [
+      0.16,
+      0.26,
+      -0.02
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      1,
+      1,
+      1
+     ],
+     "role": "ear1"
+    },
+    {
+     "parent": 22,
+     "position": [
+      0,
+      0.04,
+      0
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      1,
+      1,
+      1
+     ],
+     "geometry": 64,
+     "color": "#2c2a2e"
+    },
+    {
+     "parent": 2,
+     "position": [
+      0,
+      0.12,
+      -0.46
+     ],
+     "rotation": [
+      0.2,
+      0,
+      0
+     ],
+     "scale": [
+      1,
+      1,
+      1
+     ],
+     "role": "tail"
+    },
+    {
+     "parent": 24,
+     "position": [
+      0,
+      0,
+      0
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      1,
+      1,
+      1
+     ],
+     "geometry": 65,
+     "color": "#f7f4ee"
+    },
+    {
+     "parent": 2,
+     "position": [
+      0,
+      0.025,
+      -0.01
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      0.555,
+      0.52,
+      0.46
+     ],
+     "geometry": 2,
+     "color": "#2c2a2e"
+    },
+    {
+     "parent": 2,
+     "position": [
+      0,
+      0.035,
+      -0.085
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      0.575,
+      0.545,
+      0.46
+     ],
+     "geometry": 2,
+     "color": "#2c2a2e"
+    },
+    {
+     "parent": 2,
+     "position": [
+      0,
+      0.035,
+      -0.16
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      0.57,
+      0.54,
+      0.46
+     ],
+     "geometry": 2,
+     "color": "#f7f4ee"
+    },
+    {
+     "parent": 2,
+     "position": [
+      0,
+      0.025,
+      -0.235
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      0.545,
+      0.515,
+      0.46
+     ],
+     "geometry": 2,
+     "color": "#f7f4ee"
+    },
+    {
+     "parent": 2,
+     "position": [
+      0,
+      0.005,
+      -0.31
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      0.5,
+      0.475,
+      0.44
+     ],
+     "geometry": 2,
+     "color": "#f7f4ee"
+    },
+    {
+     "parent": 2,
+     "position": [
+      0,
+      0.28,
+      0.04
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      1,
+      1,
+      1
+     ],
+     "geometry": 66,
+     "color": "#f7f4ee"
+    },
+    {
+     "parent": 1,
+     "position": [
+      -0.2,
+      0.38,
+      0.22
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      0.268,
+      0.3,
+      0.2838
+     ],
+     "geometry": 2,
+     "color": "#2c2a2e"
+    },
+    {
+     "parent": 1,
+     "position": [
+      -0.2,
+      0.38,
+      0.22
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      1,
+      1,
+      1
+     ],
+     "role": "leg0"
+    },
+    {
+     "parent": 33,
+     "position": [
+      0,
+      -0.165217,
+      0
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      1,
+      1,
+      1
+     ],
+     "geometry": 67,
+     "color": "#2c2a2e"
+    },
+    {
+     "parent": 33,
+     "position": [
+      0,
+      -0.330435,
+      0.012
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      1,
+      1,
+      1
+     ],
+     "geometry": 68,
+     "color": "#2c2a2e"
+    },
+    {
+     "parent": 1,
+     "position": [
+      0.2,
+      0.38,
+      0.22
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      0.268,
+      0.3,
+      0.2838
+     ],
+     "geometry": 2,
+     "color": "#2c2a2e"
+    },
+    {
+     "parent": 1,
+     "position": [
+      0.2,
+      0.38,
+      0.22
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      1,
+      1,
+      1
+     ],
+     "role": "leg1"
+    },
+    {
+     "parent": 37,
+     "position": [
+      0,
+      -0.165217,
+      0
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      1,
+      1,
+      1
+     ],
+     "geometry": 67,
+     "color": "#2c2a2e"
+    },
+    {
+     "parent": 37,
+     "position": [
+      0,
+      -0.330435,
+      0.012
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      1,
+      1,
+      1
+     ],
+     "geometry": 68,
+     "color": "#2c2a2e"
+    },
+    {
+     "parent": 1,
+     "position": [
+      -0.2,
+      0.38,
+      -0.22
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      0.268,
+      0.3,
+      0.2838
+     ],
+     "geometry": 2,
+     "color": "#2c2a2e"
+    },
+    {
+     "parent": 1,
+     "position": [
+      -0.2,
+      0.38,
+      -0.22
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      1,
+      1,
+      1
+     ],
+     "role": "leg2"
+    },
+    {
+     "parent": 41,
+     "position": [
+      0,
+      -0.165217,
+      0
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      1,
+      1,
+      1
+     ],
+     "geometry": 67,
+     "color": "#2c2a2e"
+    },
+    {
+     "parent": 41,
+     "position": [
+      0,
+      -0.330435,
+      0.012
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      1,
+      1,
+      1
+     ],
+     "geometry": 68,
+     "color": "#2c2a2e"
+    },
+    {
+     "parent": 1,
+     "position": [
+      0.2,
+      0.38,
+      -0.22
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      0.268,
+      0.3,
+      0.2838
+     ],
+     "geometry": 2,
+     "color": "#2c2a2e"
+    },
+    {
+     "parent": 1,
+     "position": [
+      0.2,
+      0.38,
+      -0.22
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      1,
+      1,
+      1
+     ],
+     "role": "leg3"
+    },
+    {
+     "parent": 45,
+     "position": [
+      0,
+      -0.165217,
+      0
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      1,
+      1,
+      1
+     ],
+     "geometry": 67,
+     "color": "#2c2a2e"
+    },
+    {
+     "parent": 45,
+     "position": [
+      0,
+      -0.330435,
+      0.012
+     ],
+     "rotation": [
+      0,
+      0,
+      0
+     ],
+     "scale": [
+      1,
+      1,
+      1
+     ],
+     "geometry": 68,
+     "color": "#2c2a2e"
+    }
+   ]
+  }
+ }
+}

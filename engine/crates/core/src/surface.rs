@@ -271,3 +271,32 @@ mod tests {
         assert!(m.colour.chunks(4).all(|p| p[3] == 255));
     }
 }
+
+/// `surfaceStyle(key)`'s numbers for a family: the material's roughness and metalness (each
+/// multiplied by the roughness/metalness map), normal-map strength and clearcoat.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Style {
+    pub roughness: f64,
+    pub metalness: f64,
+    pub normal: f64,
+    pub clearcoat: f64,
+}
+
+/// blockMaterials.ts `surfaceStyle` values (GrassSide uses its block's family, grass).
+pub fn style(family: Family) -> Style {
+    let (roughness, metalness, normal, clearcoat) = match family {
+        Family::Coat => (0.67, 0.0, 0.45, 0.15),
+        Family::Snow => (0.97, 0.0, 0.62, 0.0),
+        Family::Grass | Family::GrassSide => (0.91, 0.0, 0.42, 0.0),
+        Family::Dirt => (0.96, 0.0, 0.42, 0.0),
+        Family::Gem => (0.21, 0.12, 0.32, 0.8),
+        Family::Ore => (0.79, 0.06, 0.8, 0.15),
+        Family::Wood => (0.83, 0.0, 0.78, 0.03),
+        Family::Wool => (1.0, 0.0, 0.95, 0.0),
+        Family::Sand => (0.99, 0.0, 0.28, 0.0),
+        Family::Metal => (0.31, 0.78, 0.24, 0.4),
+        Family::Glass => (0.13, 0.03, 0.16, 0.8),
+        Family::Stone => (0.9, 0.0, 0.7, 0.02),
+    };
+    Style { roughness, metalness, normal, clearcoat }
+}

@@ -1,0 +1,2 @@
+# Shell scripts run on Linux CI: keep LF whatever the checkout platform
+engine/platform/android/gradlew text eol=lf

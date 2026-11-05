@@ -16,19 +16,31 @@ pub struct Settings {
     pub msaa: u32,
     /// How far chunks are drawn, in metres.
     pub view_distance: f32,
+    /// The sun's shadow map size in texels (0 = no shadows): display.ts low off, medium 1024, high 2048.
+    pub shadow_map: u32,
 }
 
 impl Preset {
     pub fn settings(self) -> Settings {
         match self {
-            Preset::Low => Settings { render_scale: 0.6, msaa: 1, view_distance: 48.0 },
-            Preset::Medium => Settings { render_scale: 0.8, msaa: 1, view_distance: 80.0 },
-            Preset::High => Settings { render_scale: 1.0, msaa: 4, view_distance: 128.0 },
+            Preset::Low => Settings { render_scale: 0.6, msaa: 1, view_distance: 48.0, shadow_map: 0 },
+            Preset::Medium => Settings { render_scale: 0.8, msaa: 1, view_distance: 80.0, shadow_map: 1024 },
+            Preset::High => Settings { render_scale: 1.0, msaa: 4, view_distance: 128.0, shadow_map: 2048 },
         }
     }
 
     /// The starting point for `Auto`: software or low-limit GPUs start low, integrated / mobile
     /// GPUs medium, discrete ones high.
+    /// The settings record's graphics value ("low" | "medium" | "high"; "auto" and anything else: None).
+    pub fn named(name: &str) -> Option<Preset> {
+        match name {
+            "low" => Some(Preset::Low),
+            "medium" => Some(Preset::Medium),
+            "high" => Some(Preset::High),
+            _ => None,
+        }
+    }
+
     pub fn initial(info: &wgpu::AdapterInfo, limits: &wgpu::Limits) -> Preset {
         match info.device_type {
             wgpu::DeviceType::Cpu => Preset::Low,

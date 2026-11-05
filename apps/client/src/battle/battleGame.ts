@@ -209,7 +209,7 @@ export class BattleGame {
       const [dx, dy] = d;
       const look = 0.0026 * settings.sensitivity;
       this.yaw -= dx * look;
-      this.pitch = Math.min(1.35, Math.max(-1.25, this.pitch - dy * look));
+      this.pitch = Math.min(1.35, Math.max(-1.25, this.pitch - dy * look * (settings.invertY ? -1 : 1)));
     });
     document.addEventListener("mousedown", (e) => {
       if (this.locked && e.button === 0) this.firing = true;

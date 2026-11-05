@@ -4,8 +4,59 @@
   <link href="https://craftyap.com/note/" />
   <link rel="self" href="https://craftyap.com/note/feed.xml" />
   <id>https://craftyap.com/note/</id>
-  <updated>2026-11-04T00:00:00+09:00</updated>
+  <updated>2026-11-05T00:00:00+09:00</updated>
   <author><name>크래프트얍(CraftYap)</name></author>
+  <entry xml:base="https://craftyap.com/">
+    <title>모바일 버전 개발일지 (1) — 앱이 진짜 게임처럼 보이기 시작했어요</title>
+    <link href="https://craftyap.com/note/mobile-devlog-1/" />
+    <id>https://craftyap.com/note/mobile-devlog-1/</id>
+    <published>2026-11-05T00:00:00+09:00</published>
+    <updated>2026-11-05T00:00:00+09:00</updated>
+    <summary>안드로이드 앱(새 Rust 엔진)의 첫 개발일지예요. 로비에 게임 클라이언트 같은 왼쪽 메뉴가 생기고, 게임 화면 버튼을 엄지 위치에 맞게 다시 놓았어요. 곡괭이·가방·블록 모양·펫·표정·카메라 줌까지 웹에 있던 것들이 앱으로 옮겨왔어요.</summary>
+    <content type="html">&lt;blockquote&gt;
+&lt;p&gt;앱은 아직 스토어에 올라가지 않았어요. 아래 사진은 개발용 안드로이드 에뮬레이터에서 찍었어요.&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;h2&gt;한눈에 보기&lt;/h2&gt;
+&lt;p&gt;모바일 앱은 웹과 같은 세상을 &lt;strong&gt;새 Rust 엔진&lt;/strong&gt;으로 그려요. 오늘은 &amp;quot;베타 같다&amp;quot;는 느낌을 없애는 데 집중했어요. 버튼을 하나의 디자인으로 통일하고, 모바일 액션 게임처럼 &lt;strong&gt;엄지가 닿는 자리&lt;/strong&gt;에 다시 배치했어요. 웹에만 있던 기능도 많이 옮겨 왔어요.&lt;/p&gt;
+&lt;h2&gt;BEFORE / AFTER&lt;/h2&gt;
+&lt;p&gt;게임 화면이에요. 버튼이 여기저기 흩어져 있고 칸마다 &amp;quot;0&amp;quot;이 붙어 있던 화면이, 왼쪽 위 이름표 · 오른쪽 위 메뉴 줄 · 왼쪽 아래 조이스틱 · 오른쪽 아래 행동 버튼으로 정리됐어요.&lt;/p&gt;
+&lt;p&gt;&lt;img src=&quot;/note/assets/20261105-mobile-play-ba.webp&quot; alt=&quot;게임 화면 BEFORE/AFTER: 위는 버튼이 흩어진 예전 화면, 아래는 엄지 위치에 맞춰 정리된 새 화면&quot;&gt;&lt;/p&gt;
+&lt;p&gt;로비도 같은 느낌으로 바꿨어요. 왼쪽에 게임 클라이언트처럼 메뉴 줄이 생겼고, 검은 테두리가 있던 버튼과 카드를 테두리 없는 부드러운 모양으로 바꿨어요.&lt;/p&gt;
+&lt;p&gt;&lt;img src=&quot;/note/assets/20261105-mobile-lobby-ba.webp&quot; alt=&quot;교육 모드 로비 BEFORE/AFTER: 위는 노란 테두리 프레임, 아래는 왼쪽 메뉴 줄과 테두리 없는 카드&quot;&gt;&lt;/p&gt;
+&lt;h2&gt;새로 추가&lt;/h2&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;왼쪽 메뉴 줄&lt;/strong&gt; — 홈 · 교육 · 함께 놀기 · 펫 · 친구 · 설정. 지금 있는 화면에 노란 표시가 붙고, 열린 방 수는 빨간 숫자로 보여요. 친구는 아직 준비 중이에요.&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;설정 화면&lt;/strong&gt; — 그래픽(자동/낮음/보통/높음), 시야 감도, 효과음 크기, 상하 반전, 이름 바꾸기. 바꾸면 바로 적용되고 저장돼요.&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;펫&lt;/strong&gt; — 시바견 · 하얀 고양이 · 아기 코끼리 · 아기 기린 · 판다가 웹과 똑같이 따라다녀요. 로비의 펫 화면이나 게임 속 펫 버튼에서 고를 수 있어요.&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;가방&lt;/strong&gt; — 가진 블록을 종류별로 보고, 핫바 칸을 눌러 원하는 블록을 넣어요.&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;&lt;img src=&quot;/note/assets/20261105-mobile-bag.webp&quot; alt=&quot;가방 화면: 종류별 탭과 가진 아이템&quot;&gt;&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;곡괭이&lt;/strong&gt; — 가방에서 꺼내면 손에 들고 웹과 같은 동작으로 휘둘러요. 돌은 손보다 빨리 캐져요.&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;블록 모양 6가지&lt;/strong&gt; — 네모 · 삼각 · 모서리 · 원기둥 · 반블록 · 계단. 놓기 전에 초록색(놓을 수 있음)·빨간색(못 놓음) 미리보기가 보여요.&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;표정과 동작(C 버튼)&lt;/strong&gt; — 미소 · 활짝 · 윙크 표정, 손 흔들기 · 신나게, 앉기 · 눕기, 캐릭터 HOME/TT 바꾸기. 가만히 있으면 눈도 깜빡여요.&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;&lt;img src=&quot;/note/assets/20261105-mobile-emote.webp&quot; alt=&quot;표정·동작 창&quot;&gt;&lt;/p&gt;
+&lt;p&gt;&lt;img src=&quot;/note/assets/20261105-mobile-face.webp&quot; alt=&quot;TT가 활짝 웃는 표정&quot;&gt;&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;카메라 줌&lt;/strong&gt; — 두 손가락으로 벌리고 오므려서(PC는 휠) 멀리서 보거나, 끝까지 당기면 1인칭으로 바뀌어요. 1인칭은 마인크래프트처럼 내 눈에서 봐요.&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;혼자 하기 저장&lt;/strong&gt; — 블록 섬에서 캔 것·지은 것·가방이 앱을 닫아도 남아요.&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2&gt;개선&lt;/h2&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;버튼 겹침 해결&lt;/strong&gt; — 버튼 그림이 실제로 누르는 범위보다 크게 그려져서 옆 버튼과 붙어 보였어요. 이제 모든 둥근 버튼을 누르는 크기 그대로 그리고, 버튼끼리 항상 간격이 남도록 자동으로 검사해요.&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;핫바&lt;/strong&gt; — 가진 게 있을 때만 숫자가 보여요. 휴대폰에서는 의미 없는 키 번호를 숨겼어요.&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;알림&lt;/strong&gt; — 큰 노란 판 대신 위쪽 가운데 작은 남색 알림으로 바꿨어요.&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;수업에서 함께 보이기&lt;/strong&gt; — 앱으로 들어온 친구가 땅을 파거나 블록을 놓으면, 웹에서도 그 동작이 보여요.&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2&gt;알려진 문제&lt;/h2&gt;
+&lt;ul&gt;
+&lt;li&gt;친구 기능은 아직 준비 중이에요.&lt;/li&gt;
+&lt;li&gt;수업에서 다른 친구의 표정은 아직 바뀌지 않아요.&lt;/li&gt;
+&lt;li&gt;가구 놓기와 섬의 물 흐름은 아직 앱에 없어요.&lt;/li&gt;
+&lt;/ul&gt;
+</content>
+  </entry>
   <entry xml:base="https://craftyap.com/">
     <title>11월 4일 패치 노트 (9) — 친구 옆에서 블록을 캐도 친구가 밀리지 않아요</title>
     <link href="https://craftyap.com/note/patch-2026-11-04-9/" />
@@ -569,43 +620,6 @@
 &lt;h2&gt;알려진 문제&lt;/h2&gt;
 &lt;ul&gt;
 &lt;li&gt;허브의 친구 · 미션 · 출석 · 상점 등은 아직 준비 중이에요. 다음에는 &lt;strong&gt;방을 만들고 친구와 함께 들어가는 멀티 게임&lt;/strong&gt;을 준비하고 있어요.&lt;/li&gt;
-&lt;/ul&gt;
-</content>
-  </entry>
-  <entry xml:base="https://craftyap.com/">
-    <title>11월 3일 패치 노트 — 반 만들기·메뉴·조작법이 한 화면에, 뒤로 버튼은 크게</title>
-    <link href="https://craftyap.com/note/patch-2026-11-03/" />
-    <id>https://craftyap.com/note/patch-2026-11-03/</id>
-    <published>2026-11-03T00:00:00+09:00</published>
-    <updated>2026-11-03T00:00:00+09:00</updated>
-    <summary>교육 모드의 반 만들기·반 참여하기 화면, 게임 안의 시작/일시정지 메뉴, 조작법, Daily Tower 시작 화면을 스크롤 없이 한 화면에 보이도록 다시 짰습니다. 잘 안 보이던 뒤로 버튼은 왼쪽 위의 큰 버튼이 됐어요.</summary>
-    <content type="html">&lt;h2&gt;한눈에 보기&lt;/h2&gt;
-&lt;p&gt;화면이 낮은 노트북에서는 &lt;strong&gt;휠로 내려야 보이던&lt;/strong&gt; 화면이 많았어요. 반 만들기, 시작/일시정지 메뉴, 조작법, Daily Tower 시작 화면을 &lt;strong&gt;가로 두 칸&lt;/strong&gt;으로 다시 짜서 한 화면에 다 들어오게 했어요. 아래쪽에 작은 점선 글씨로 있던 &lt;strong&gt;뒤로 버튼&lt;/strong&gt;은 모든 화면에서 &lt;strong&gt;왼쪽 위의 큰 버튼&lt;/strong&gt;이 됐어요.&lt;/p&gt;
-&lt;h2&gt;BEFORE / AFTER&lt;/h2&gt;
-&lt;p&gt;&lt;strong&gt;반 만들기&lt;/strong&gt; — 입력 칸이 세로로 길게 이어지고, 맨 아래의 작은 &amp;quot;← 뒤로&amp;quot;는 잘 보이지 않았어요. 이제 왼쪽에는 무엇을 하면 되는지 1·2·3 순서로, 오른쪽에는 입력 칸이 있어요. 뒤로 버튼은 왼쪽 위에 있어요.&lt;/p&gt;
-&lt;p&gt;&lt;img src=&quot;/note/assets/20261103-lobby-ba.webp&quot; alt=&quot;반 만들기 화면 비교: 왼쪽은 입력 칸이 세로로 길고 뒤로 버튼이 아래쪽 작은 글씨인 이전 화면, 오른쪽은 순서 안내와 입력 칸이 나란히 있고 왼쪽 위에 큰 뒤로 버튼이 있는 새 화면&quot;&gt;&lt;/p&gt;
-&lt;p&gt;&lt;strong&gt;시작 / 일시정지 메뉴&lt;/strong&gt; — 키 안내 하나가 혼자 둘째 줄로 내려가면서 카드가 위아래로 길었어요. 이제 키 안내는 왼쪽, 플레이·조작법·설정·처음으로는 오른쪽에 있어서 카드가 낮아졌어요.&lt;/p&gt;
-&lt;p&gt;&lt;img src=&quot;/note/assets/20261103-menu-ba.webp&quot; alt=&quot;시작 메뉴 비교: 왼쪽은 세로로 긴 카드, 오른쪽은 키 안내와 버튼이 나란히 있는 낮은 카드&quot;&gt;&lt;/p&gt;
-&lt;p&gt;&lt;strong&gt;조작법&lt;/strong&gt; — 두 줄 목록이 화면 아래로 넘쳐서 휠로 내려야 했고, &amp;quot;돌아가기&amp;quot; 버튼도 맨 아래에 있었어요. 이제 네 줄로 펼쳐져 모든 조작이 한 화면에 보이고, 돌아가기 버튼은 왼쪽 위에 있어요. Esc로도 돌아갈 수 있어요.&lt;/p&gt;
-&lt;p&gt;&lt;img src=&quot;/note/assets/20261103-controls-ba.webp&quot; alt=&quot;조작법 화면 비교: 왼쪽은 아래가 잘린 두 줄 목록, 오른쪽은 모든 조작이 보이는 네 줄 목록과 왼쪽 위의 돌아가기 버튼&quot;&gt;&lt;/p&gt;
-&lt;p&gt;&lt;strong&gt;Daily Tower 시작 화면&lt;/strong&gt; — 플레이 칸과 오늘의 순위를 나란히 두고, &amp;quot;← 다른 게임&amp;quot; 버튼을 왼쪽 위에 달았어요.&lt;/p&gt;
-&lt;p&gt;&lt;img src=&quot;/note/assets/20261103-tower-ba.webp&quot; alt=&quot;Daily Tower 시작 화면 비교: 왼쪽은 세로로 긴 카드와 아래쪽 작은 링크, 오른쪽은 플레이와 순위가 나란히 있는 가로 카드&quot;&gt;&lt;/p&gt;
-&lt;h2&gt;개선&lt;/h2&gt;
-&lt;h3&gt;교육 모드&lt;/h3&gt;
-&lt;ul&gt;
-&lt;li&gt;&lt;strong&gt;반 만들기 · 반 참여하기 · 반 확인&lt;/strong&gt; — 순서 안내와 입력 칸을 나란히 두었어요. 휴대폰에서는 입력 칸이 먼저 나오고, 그 아래에 순서 안내가 짧게 붙어요.&lt;/li&gt;
-&lt;li&gt;&lt;strong&gt;반 비밀번호 도움말&lt;/strong&gt; — &amp;quot;다른 컴퓨터에서 다시 열 때 필요해요&amp;quot;가 입력 칸 안에 흐린 글씨로 있어서 입력을 시작하면 사라졌어요. 이제 칸 아래에 늘 보여요.&lt;/li&gt;
-&lt;li&gt;&lt;strong&gt;뒤로 버튼&lt;/strong&gt; — 처음 고르는 화면(선생님 / 학생 / 혼자)부터 반 확인까지 모든 단계의 왼쪽 위에 같은 버튼이 있어요. 홈의 게임 목록도 같아요.&lt;/li&gt;
-&lt;/ul&gt;
-&lt;h3&gt;게임 안 메뉴&lt;/h3&gt;
-&lt;ul&gt;
-&lt;li&gt;&lt;strong&gt;시작 / 일시정지 카드&lt;/strong&gt; — 키 안내 왼쪽, 버튼 오른쪽의 낮은 카드가 됐어요.&lt;/li&gt;
-&lt;li&gt;&lt;strong&gt;조작법 · 설정&lt;/strong&gt; — 맨 위에 돌아가기 버튼과 제목이 있어요. 조작법은 네 줄 목록이라 스크롤하지 않아도 돼요.&lt;/li&gt;
-&lt;/ul&gt;
-&lt;h3&gt;다른 게임&lt;/h3&gt;
-&lt;ul&gt;
-&lt;li&gt;&lt;strong&gt;Daily Tower 시작 화면&lt;/strong&gt; — 플레이와 오늘의 순위를 나란히 두고, 다른 게임으로 가는 버튼을 크게 달았어요.&lt;/li&gt;
-&lt;li&gt;&lt;strong&gt;Blast Royale 결과 화면&lt;/strong&gt; — &amp;quot;처음 화면으로&amp;quot;를 작은 링크에서 버튼으로 바꿨어요.&lt;/li&gt;
 &lt;/ul&gt;
 </content>
   </entry>

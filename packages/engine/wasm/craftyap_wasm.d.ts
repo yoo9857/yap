@@ -132,6 +132,14 @@ export class WasmWater {
 }
 
 /**
+ * `stepBody` on the Rust core (`body.rs`), for the parity test (rust-body.test.ts): the island of
+ * `seed` with `edits` applied ([x, y, z, block, shape, wet] each), a body at `start`
+ * ([x, y, z, w, h, jumpSpeed], NaN = default) unstuck, then one tick per `inputs` entry
+ * ([wishX, wishZ, jump, pushX, pushZ]). Returns [x, y, z, vx, vy, vz, grounded, wet] per tick.
+ */
+export function body_trace(seed: number, edits: Float64Array | number[], start: Float64Array | number[], inputs: Float64Array | number[], dt: number): Float64Array;
+
+/**
  * `generateIsland(seed)` on the Rust core (`world.rs`): the cells, for the parity test.
  */
 export function generate_island(seed: number): Uint8Array;
@@ -151,9 +159,31 @@ export function kit_cells_geometry(cells: Int32Array | number[], mask: Uint8Arra
 export function material_maps(family: string, size: number): Uint8Array;
 
 /**
+ * `VoxelWorld.raycast` on the Rust core, for the parity test (rust-body.test.ts): the island of
+ * `seed` with `edits` applied (as body_trace), then each ray [ox, oy, oz, dx, dy, dz, maxDist,
+ * fluids]. Returns [hit, vx, vy, vz, bx, by, bz, dist] per ray (hit 0 = none).
+ */
+export function raycast_trace(seed: number, edits: Float64Array | number[], rays: Float64Array | number[]): Float64Array;
+
+/**
  * `surfaceStyle(key).family` on the Rust core (`surface.rs`), for the parity test.
  */
 export function surface_family(key: string): string;
+
+/**
+ * `surfaceStyle(key)` numbers on the Rust core: [roughness, metalness, normal, clearcoat].
+ */
+export function surface_style(key: string): Float64Array;
+
+/**
+ * The water surface (`water_mesh.rs`, a port of waterGeometry.ts `buildWaterGeometry`) over a
+ * 160 × 56 × 160 grid (`cells`, the VoxelWorld layout, waterlogged shapes already handed over AS
+ * their water) and the column beyond it (`outside`, empty = air). Returns one Float32Array:
+ * [vertex count, index count, position (3n), normal (3n), wave, wet, foam, depth (n each),
+ * flow (3n), impact (3n), grid (4n), indices]; [0, 0] when nothing is drawn, [-1, 0] when the
+ * TypeScript would throw.
+ */
+export function water_mesh(cells: Uint8Array | number[], outside: Uint8Array | number[], list: Int32Array | number[]): Float32Array;
 
 export type InitInput = RequestInfo | URL | Response | BufferSource | WebAssembly.Module;
 
@@ -163,10 +193,13 @@ export interface InitOutput {
     readonly __wbg_wasmfluid_free: (a: number, b: number) => void;
     readonly __wbg_wasmscanner_free: (a: number, b: number) => void;
     readonly __wbg_wasmwater_free: (a: number, b: number) => void;
+    readonly body_trace: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number) => [number, number];
     readonly generate_island: (a: number) => [number, number];
     readonly kit_cells_geometry: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number, j: number) => [number, number];
     readonly material_maps: (a: number, b: number, c: number) => [number, number];
+    readonly raycast_trace: (a: number, b: number, c: number, d: number, e: number) => [number, number];
     readonly surface_family: (a: number, b: number) => [number, number];
+    readonly surface_style: (a: number, b: number) => [number, number];
     readonly wasmclasswater_busy: (a: number) => number;
     readonly wasmclasswater_clear: (a: number) => void;
     readonly wasmclasswater_edit_count: (a: number) => number;
@@ -203,9 +236,10 @@ export interface InitOutput {
     readonly wasmwater_step: (a: number, b: number) => [number, number];
     readonly wasmwater_touch: (a: number, b: number, c: number, d: number) => void;
     readonly wasmwater_write: (a: number, b: number, c: number, d: number, e: number) => void;
+    readonly water_mesh: (a: number, b: number, c: number, d: number, e: number, f: number) => [number, number];
     readonly __wbindgen_externrefs: WebAssembly.Table;
-    readonly __wbindgen_free: (a: number, b: number, c: number) => void;
     readonly __wbindgen_malloc: (a: number, b: number) => number;
+    readonly __wbindgen_free: (a: number, b: number, c: number) => void;
     readonly __wbindgen_realloc: (a: number, b: number, c: number, d: number) => number;
     readonly __wbindgen_start: () => void;
 }

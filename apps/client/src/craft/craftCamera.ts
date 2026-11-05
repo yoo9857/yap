@@ -1,5 +1,7 @@
 import * as THREE from "three";
 import type { VoxelWorld } from "./voxelWorld.js";
+import { settings } from "../ui/settings.js";
+import { effectiveFov } from "../render/display.js";
 
 /**
  * Craft-mode camera rig — the whole "feel" lives here:
@@ -14,8 +16,8 @@ import type { VoxelWorld } from "./voxelWorld.js";
  * Every transition is frame-rate independent (exponential easing).
  */
 
-const BASE_FOV = 70;
-const MOVE_FOV = 75.5;
+/** The field of view comes from the settings (default 70); running widens it by this much. */
+const RUN_FOV_EXTRA = 5.5;
 // pulled back toward the jump-map (tower) camera distance so the character and
 // bricks read at the SAME scale across modes — craft/battle looked zoomed-in
 // (oversized) at the old 4.4 m over-the-shoulder distance. Mining reach is
@@ -40,7 +42,7 @@ export class CraftCamera {
 
   private dist = MAX_DIST;
   private shoulder = 0;
-  private fov = BASE_FOV;
+  private fov = settings.fov;
   private shakeAmp = 0;
   private shakeTime = 0;
 
@@ -164,10 +166,12 @@ export class CraftCamera {
     this.dist = Math.min(this.dist, hardLimit);
 
     // dynamic FOV — a touch wider on the move
-    const wantFov = running && !this.firstPerson ? MOVE_FOV : BASE_FOV;
+    const wantFov = running && !this.firstPerson ? settings.fov + RUN_FOV_EXTRA : settings.fov;
     this.fov += (wantFov - this.fov) * ease(0.02);
-    if (Math.abs(this.camera.fov - this.fov) > 0.01) {
-      this.camera.fov = this.fov;
+    // narrower than 4:3 (a phone held upright) keeps a 4:3 horizontal view (display.ts)
+    const drawnFov = effectiveFov(this.fov, this.camera.aspect);
+    if (Math.abs(this.camera.fov - drawnFov) > 0.01) {
+      this.camera.fov = drawnFov;
       this.camera.updateProjectionMatrix();
     }
 

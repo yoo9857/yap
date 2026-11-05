@@ -15,7 +15,15 @@
    "sha256": "c1e9447db2add35c3b560399f824fa2f2e3651aa325693e6e0f2a12388991dc7",
    "flipY": false,
    "width": 512,
-   "height": 512
+   "height": 512,
+   "normal": {
+    "file": "apps/client/src/assets/block-materials-v3/grass/normal.webp",
+    "sha256": "ccce64edd3054e06ee567d7a6bdf10de86139cf5fff758fcbe89e7801292ed5e"
+   },
+   "roughness": {
+    "file": "apps/client/src/assets/block-materials-v3/grass/roughness.webp",
+    "sha256": "10027e73454cf716a6c6b34bdc91c10b607ad99024c29dcd7057db49ba7ebee4"
+   }
   },
   "tile-stone": {
    "source": "apps/client/public/textures/blocks/stone.webp",
@@ -150,7 +158,15 @@
    "sha256": "ae1023e7b662bb8dfdd09083ff770e64fe031455a4ba625d18cebca488c85baf",
    "flipY": false,
    "width": 512,
-   "height": 512
+   "height": 512,
+   "normal": {
+    "file": "apps/client/src/assets/block-materials-v3/gem/normal.webp",
+    "sha256": "3ae9ff4a0e729ebb9a321756a12b023beee4890252e6c1de76cd6ce2b875e16b"
+   },
+   "roughness": {
+    "file": "apps/client/src/assets/block-materials-v3/gem/roughness.webp",
+    "sha256": "49a2de00b27b565e8071bc3e3b8c1e14657701016c94f9590b58fd23e1d7bfd8"
+   }
   },
   "tile-white-wool": {
    "source": "apps/client/public/textures/blocks/white-wool.webp",
@@ -357,7 +373,15 @@
    "sha256": "e113ec4600e8068a1f3a44227bb59a6be0fa1a9cc9938f720fab80df3474e139",
    "flipY": false,
    "width": 512,
-   "height": 512
+   "height": 512,
+   "normal": {
+    "file": "apps/client/src/assets/block-materials-v3/snow/normal.webp",
+    "sha256": "96d3f887ff24fbff8e07b68723694ac7f3ae7025f0aec634b14768afe275188b"
+   },
+   "roughness": {
+    "file": "apps/client/src/assets/block-materials-v3/snow/roughness.webp",
+    "sha256": "042eecda24cc06d143c0c57deee13bd72c0a9edd2b3c75df56969543de66640c"
+   }
   },
   "tile-obsidian": {
    "source": "apps/client/public/textures/blocks/obsidian.webp",

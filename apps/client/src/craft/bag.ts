@@ -13,6 +13,7 @@ import {
   type Counts,
   type CraftRecipe,
 } from "./inventory.js";
+import { emptyGrid, gridCounts, matchGrid, nearMisses, stampRecipe, GRID_CELLS, type CraftGrid } from "./craftGrid.js";
 import { isEnglish, t } from "../ui/i18n.js";
 import "./bag.css";
 
@@ -32,14 +33,24 @@ const craftableTimes = (counts: Counts, recipe: CraftRecipe): number =>
     ...Object.entries(recipe.output).map(([key, n]) => Math.floor(roomLeft(counts, key) / n)),
   );
 const formatCount = (n: number): string => (n > 9999 ? "9999+" : n.toLocaleString());
+/** A recipe card's small picture of its grid shape. */
+const miniShape = (recipe: CraftRecipe): string => {
+  const cells = stampRecipe(recipe).map((key) => {
+    const def = key ? itemByKey(key) : undefined;
+    return def ? `<i><img src="${itemIcon(def)}" alt="" /></i>` : "<i></i>";
+  }).join("");
+  return `<div class="bag-recipe-shape" aria-hidden="true">${cells}</div>`;
+};
 /** A craft button batches at most this many (craftBatch's cap). */
 const BATCH = 16;
 
 /**
  * The bag. Blocks tab: a grid of everything you own, a detail column for the
  * block under the mouse (or the last one clicked), and the hotbar as its
- * footer. Crafting tab: one card per recipe showing have/need per ingredient,
- * what is missing and how many crafts fit. Counts stay one pile per block kind.
+ * footer. Crafting tab: the workbench (a 3×3 grid you lay blocks on, the
+ * result it makes, the blocks you can lay) beside the recipe book, one card
+ * per recipe with its shape, have/need per ingredient and how many crafts
+ * fit; clicking a card lays its shape on the grid. Counts stay one pile per block kind.
  *
  * Loading a slot: click a hotbar slot to pick it, then a block; drag a block
  * onto any slot; or hover a block and press 1–9.
@@ -78,6 +89,14 @@ export class BagPanel {
   private hoverRecipe = "";
   private focusRecipe = "";
   private flashSlot = -1;
+  /** The workbench: a 3×3 stencil (craftGrid.ts), the block a click lays, and the chosen result when one shape makes several. */
+  private bench: CraftGrid = emptyGrid();
+  private brush = "";
+  private pick = "";
+  private benchNote = "";
+  private paintMode: { pointerId: number; lay: string; last: number } | null = null;
+  private readonly onPaintMove = (event: PointerEvent): void => this.movePaint(event);
+  private readonly onPaintEnd = (event: PointerEvent): void => this.endPaint(event);
   private worldBar: HTMLElement | null = null;
   private suppressClick = false;
   private drag: { pointerId: number; x: number; y: number; key: string; fromSlot: number | null; active: boolean } | null = null;
@@ -222,9 +241,12 @@ export class BagPanel {
       if (key) { this.focusKey = key; this.paintDetail(); }
     });
     this.recipes.addEventListener("click", (event) => {
-      const card = (event.target as HTMLElement).closest<HTMLElement>("[data-recipe-card]");
-      if (card?.dataset.recipeCard) { this.focusRecipe = card.dataset.recipeCard; this.paintDetail(); }
-      this.craftFrom(event);
+      if ((event.target as HTMLElement).closest("[data-recipe]")) {
+        this.craftFrom(event);
+        return;
+      }
+      const id = (event.target as HTMLElement).closest<HTMLElement>("[data-recipe-card]")?.dataset.recipeCard;
+      if (id) this.layRecipe(id);
     });
     this.recipes.addEventListener("pointerover", (event) => {
       const id = (event.target as HTMLElement).closest<HTMLElement>("[data-recipe-card]")?.dataset.recipeCard ?? "";
@@ -244,7 +266,7 @@ export class BagPanel {
       }
       const jump = (event.target as HTMLElement).closest<HTMLElement>("[data-jump]")?.dataset.jump;
       if (jump) {
-        this.focusRecipe = jump;
+        this.layRecipe(jump, false);
         this.group = "all";
         this.query = "";
         this.search.value = "";
@@ -252,7 +274,12 @@ export class BagPanel {
         this.recipes.querySelector<HTMLElement>(`[data-recipe-card="${jump}"]`)?.scrollIntoView({ block: "nearest" });
         return;
       }
+      if (this.benchClick(event)) return;
       this.craftFrom(event);
+    });
+    this.detail.addEventListener("pointerdown", (event) => this.beginPaint(event));
+    this.detail.addEventListener("contextmenu", (event) => {
+      if ((event.target as HTMLElement).closest("[data-cell]")) event.preventDefault();
     });
     this.hotbar.addEventListener("click", (event) => {
       if (this.consumeDragClick()) return;
@@ -266,6 +293,7 @@ export class BagPanel {
       this.paint();
     });
     this.grid.addEventListener("pointerdown", (event) => this.beginDrag(event));
+    this.detail.addEventListener("pointerdown", (event) => this.beginDrag(event));
     this.hotbar.addEventListener("pointerdown", (event) => this.beginDrag(event));
     worldBar.addEventListener("pointerdown", (event) => this.beginDrag(event));
     this.worldBar = worldBar;
@@ -316,6 +344,7 @@ export class BagPanel {
     if (this.open) window.removeEventListener("keydown", this.onKey);
     this.open = false;
     this.hoverKey = this.hoverRecipe = "";
+    this.endPaint();
     this.root.classList.add("hidden");
     this.worldBar?.classList.remove("bag-covered");
     document.body.classList.remove("bag-open");
@@ -363,6 +392,7 @@ export class BagPanel {
 
   dispose(): void {
     this.endDrag();
+    this.endPaint();
     window.removeEventListener("keydown", this.onKey);
     this.worldBar?.classList.remove("bag-covered");
     document.body.classList.remove("bag-open");
@@ -412,6 +442,8 @@ export class BagPanel {
       if (!key) return null;
       return { key, fromSlot };
     }
+    const mat = target.closest<HTMLElement>(".bench-mat[data-mat]");
+    if (mat?.dataset.mat && this.tab === "craft") return { key: mat.dataset.mat, fromSlot: null };
     const tile = target.closest<HTMLElement>(".bag-tile[data-key]");
     if (!tile || !this.grid.contains(tile) || this.grid.classList.contains("hidden")) return null;
     const key = tile.dataset.key ?? "";
@@ -433,7 +465,8 @@ export class BagPanel {
       this.ghost.style.left = `${event.clientX}px`;
       this.ghost.style.top = `${event.clientY}px`;
     }
-    this.setDropHover(this.slotAt(event.clientX, event.clientY));
+    const cell = this.cellAt(event.clientX, event.clientY);
+    this.setDropHover(cell == null ? this.slotAt(event.clientX, event.clientY) : null, cell);
   }
 
   private endDrag(event?: PointerEvent): void {
@@ -449,6 +482,12 @@ export class BagPanel {
     document.body.classList.remove("bag-dragging");
     if (!drag.active || !event) return;
     this.suppressClick = true;
+    const cell = this.cellAt(event.clientX, event.clientY);
+    if (cell != null) {
+      this.brush = drag.key;
+      this.setCell(cell, drag.key);
+      return;
+    }
     const target = this.slotAt(event.clientX, event.clientY);
     if (target == null || target === drag.fromSlot) return;
     this.flashSlot = target;
@@ -477,8 +516,9 @@ export class BagPanel {
     return slot;
   }
 
-  private setDropHover(slot: number | null): void {
+  private setDropHover(slot: number | null, cell: number | null = null): void {
     for (const el of document.querySelectorAll(".drop")) el.classList.remove("drop");
+    if (cell != null) this.detail.querySelector(`[data-cell="${cell}"]`)?.classList.add("drop");
     if (slot == null) return;
     for (const el of document.querySelectorAll<HTMLElement>(`[data-slot="${slot}"]`)) {
       if (el.closest(".bag-hotbar, .craft-hotbar")) el.classList.add("drop");
@@ -497,6 +537,113 @@ export class BagPanel {
     const img = this.ghost.querySelector("img");
     if (img) img.src = itemIcon(def);
     this.ghost.hidden = false;
+  }
+
+  /** Lay a recipe's shape on the workbench (recipe-book click, or "how it is made" from the blocks tab). */
+  private layRecipe(id: string, paint = true): void {
+    const recipe = CRAFT_RECIPES.find((entry) => entry.id === id);
+    if (!recipe) return;
+    this.focusRecipe = id;
+    this.bench = stampRecipe(recipe);
+    this.pick = id;
+    this.brush = Object.keys(recipe.input)[0] ?? this.brush;
+    this.benchNote = "";
+    if (paint) this.repaint();
+  }
+
+  private setCell(cell: number, key: string): void {
+    if (cell < 0 || cell >= GRID_CELLS || this.bench[cell] === key) return;
+    this.bench[cell] = key;
+    this.benchNote = "";
+    this.repaint();
+  }
+
+  /** Clicks inside the workbench column. True when it handled one. */
+  private benchClick(event: MouseEvent): boolean {
+    if (this.tab !== "craft") return false;
+    if (this.consumeDragClick()) return true;
+    const target = event.target as HTMLElement;
+    const mat = target.closest<HTMLElement>("[data-mat]")?.dataset.mat;
+    if (mat) {
+      this.brush = mat;
+      this.benchNote = "";
+      this.repaint();
+      return true;
+    }
+    const pick = target.closest<HTMLElement>("[data-pick]")?.dataset.pick;
+    if (pick) {
+      this.pick = pick;
+      this.repaint();
+      return true;
+    }
+    if (target.closest("[data-bench-clear]")) {
+      this.bench = emptyGrid();
+      this.pick = "";
+      this.benchNote = "";
+      this.repaint();
+      return true;
+    }
+    // a keyboard press on a cell (a pointer press already painted in beginPaint)
+    const cell = target.closest<HTMLElement>("[data-cell]");
+    if (cell && event.detail === 0) {
+      const i = Number(cell.dataset.cell);
+      this.layOrLift(i);
+      return true;
+    }
+    return !!cell;
+  }
+
+  /** One press on a cell: lay the picked block, or lift what is there (the same block again, or no block picked). */
+  private layOrLift(cell: number): string {
+    const here = this.bench[cell] ?? "";
+    const lay = this.brush && here !== this.brush ? this.brush : "";
+    if (!lay && !here) {
+      this.benchNote = t("먼저 아래에서 놓을 재료를 골라요", "Pick a block below first");
+      this.repaint();
+      return "";
+    }
+    this.setCell(cell, lay);
+    return lay;
+  }
+
+  /** Press on a cell and sweep across others: every cell passed gets what the first one got (lay or lift). */
+  private beginPaint(event: PointerEvent): void {
+    if (this.tab !== "craft" || this.paintMode) return;
+    const el = (event.target as HTMLElement).closest<HTMLElement>("[data-cell]");
+    if (!el || (event.button !== 0 && event.button !== 2)) return;
+    event.preventDefault();
+    const cell = Number(el.dataset.cell);
+    const lay = event.button === 2 ? (this.setCell(cell, ""), "") : this.layOrLift(cell);
+    this.paintMode = { pointerId: event.pointerId, lay, last: cell };
+    window.addEventListener("pointermove", this.onPaintMove);
+    window.addEventListener("pointerup", this.onPaintEnd);
+    window.addEventListener("pointercancel", this.onPaintEnd);
+  }
+
+  private movePaint(event: PointerEvent): void {
+    const mode = this.paintMode;
+    if (!mode || event.pointerId !== mode.pointerId) return;
+    // a touch press keeps its first target, so find the cell under the finger rather than relying on pointerover
+    const cell = this.cellAt(event.clientX, event.clientY);
+    if (cell == null || cell === mode.last) return;
+    mode.last = cell;
+    this.setCell(cell, mode.lay);
+  }
+
+  private endPaint(event?: PointerEvent): void {
+    if (!this.paintMode || (event && event.pointerId !== this.paintMode.pointerId)) return;
+    this.paintMode = null;
+    window.removeEventListener("pointermove", this.onPaintMove);
+    window.removeEventListener("pointerup", this.onPaintEnd);
+    window.removeEventListener("pointercancel", this.onPaintEnd);
+  }
+
+  private cellAt(x: number, y: number): number | null {
+    if (this.tab !== "craft" || !this.open) return null;
+    const el = document.elementFromPoint(x, y)?.closest<HTMLElement>("[data-cell]");
+    if (!el || !this.detail.contains(el)) return null;
+    const cell = Number(el.dataset.cell);
+    return Number.isInteger(cell) && cell >= 0 && cell < GRID_CELLS ? cell : null;
   }
 
   private requestClose(): void {
@@ -524,7 +671,7 @@ export class BagPanel {
   private paint(): void {
     let countSig = "";
     for (const key of Object.keys(this.counts).sort()) countSig += `${key}:${this.counts[key]},`;
-    const next = `${this.tab}|${this.group}|${this.query}|${this.onlyCraftable}|${this.armed}|${this.slots.join(",")}|${countSig}`;
+    const next = `${this.tab}|${this.group}|${this.query}|${this.onlyCraftable}|${this.armed}|${this.slots.join(",")}|${countSig}|${this.bench.join(",")}|${this.brush}|${this.pick}|${this.focusRecipe}|${this.benchNote}`;
     if (next === this.sig) return;
     this.sig = next;
 
@@ -543,8 +690,8 @@ export class BagPanel {
     this.recipes.classList.toggle("hidden", !craft);
     this.search.placeholder = craft ? t("만들 아이템이나 재료로 찾기", "Find by result or ingredient") : t("아이템 이름으로 찾기", "Find an item by name");
     this.tip.innerHTML = craft
-      ? t("<kbd>Shift</kbd>+클릭은 한꺼번에 · 만든 블록은 고른 칸으로 와요",
-        "<kbd>Shift</kbd>+click crafts a batch · new blocks land in the picked slot")
+      ? t("레시피를 누르면 작업대에 모양이 놓여요 · <kbd>Shift</kbd>+클릭은 한꺼번에",
+        "Click a recipe to lay its shape · <kbd>Shift</kbd>+click crafts a batch")
       : t("클릭: 고른 칸에 넣기 · 끌기: 아무 칸에 · 올리고 <kbd>1</kbd>–<kbd>9</kbd>: 그 칸에",
         "Click: load picked slot · drag: any slot · hover + <kbd>1</kbd>–<kbd>9</kbd>: that slot");
 
@@ -701,50 +848,28 @@ export class BagPanel {
       const state = times > 0
         ? `<small class="bag-state ok">${t(`만들 수 있어요 · 최대 ${times}번`, `Ready · up to ${times}×`)}</small>`
         : `<small class="bag-state short">${t(`${this.missing(recipe)}가 더 필요해요`, `Need ${this.missing(recipe)} more`)}</small>`;
-      return `<article class="bag-recipe ${times > 0 ? "ready" : "blocked"}${recipe.id === this.focusRecipe ? " focus" : ""}" data-recipe-card="${recipe.id}">
+      return `<article class="bag-recipe ${times > 0 ? "ready" : "blocked"}${recipe.id === this.focusRecipe ? " focus" : ""}" data-recipe-card="${recipe.id}" title="${t("눌러서 작업대에 이 모양 놓기", "Click to lay this shape on the workbench")}">
         <div class="bag-recipe-out"><img src="${itemIcon(def)}" alt="" /><b>×${amount}</b></div>
         <strong class="bag-recipe-name">${blockLabel(def)}</strong>
         <div class="bag-recipe-act">${this.makeButtons(recipe, times)}</div>
         <div class="bag-recipe-in">${this.needChips(recipe)}</div>
         ${state}
+        ${miniShape(recipe)}
       </article>`;
     }).join("");
     this.recipes.scrollTop = kept;
-  }
-
-  /** With nothing hovered yet, describe the first recipe on screen (a ready one when there is one). */
-  private firstRecipe(): string {
-    const cards = [...this.recipes.querySelectorAll<HTMLElement>("[data-recipe-card]")];
-    return (cards.find((card) => card.classList.contains("ready")) ?? cards[0])?.dataset.recipeCard ?? "";
   }
 
   /** The column on the right: what the hovered (or last clicked) thing is and what you can do with it. */
   private paintDetail(): void {
     const craft = this.tab === "craft";
     const key = craft ? "" : this.hoverKey || this.focusKey || this.slots[this.armed] || this.pool()[0]?.key || "";
-    const recipeId = craft ? this.hoverRecipe || this.focusRecipe || this.firstRecipe() : "";
+    const recipeId = craft ? this.hoverRecipe : "";
     const sig = `${this.sig}|${key}|${recipeId}`;
     if (sig === this.detailSig) return;
     this.detailSig = sig;
     if (craft) {
-      const recipe = CRAFT_RECIPES.find((entry) => entry.id === recipeId);
-      const def = recipe ? itemByKey(outputKey(recipe)) : undefined;
-      if (!recipe || !def) {
-        this.detail.innerHTML = `<div class="bag-detail-empty">${t("조합에 마우스를 올리면<br>재료와 만들 수 있는 수를 자세히 보여 줘요.", "Hover a recipe to see<br>its ingredients in detail.")}</div>`;
-        return;
-      }
-      const times = craftableTimes(this.counts, recipe);
-      const amount = recipe.output[def.key] ?? 1;
-      this.detail.innerHTML = `
-        <div class="bag-detail-art"><img src="${itemIcon(def)}" alt="" /></div>
-        <h2>${blockLabel(def)}</h2>
-        <p class="bag-detail-group">${groupLabel(blockGroup(def.key) ?? "special")} · ${t(`한 번에 ${amount}개`, `${amount} per craft`)}</p>
-        <h3>${t("재료", "Ingredients")}</h3>
-        <div class="bag-detail-needs">${this.needChips(recipe)}</div>
-        <p class="bag-detail-note ${times > 0 ? "ok" : "short"}">${times > 0
-          ? t(`지금 재료로 <b>${times}번</b>, 모두 <b>${times * amount}개</b>를 만들 수 있어요.`, `You can craft this <b>${times}×</b> — <b>${times * amount}</b> blocks.`)
-          : t(`${this.missing(recipe)}가 더 필요해요.`, `You need ${this.missing(recipe)} more.`)}</p>
-        <div class="bag-detail-acts">${this.makeButtons(recipe, times)}</div>`;
+      this.paintBench(recipeId);
       return;
     }
     const def = key ? itemByKey(key) : undefined;
@@ -778,6 +903,72 @@ export class BagPanel {
         : t(`${this.armed + 1}번 칸에 넣기`, `Load into slot ${this.armed + 1}`)}</button>
       ${makes.length ? `<h3>${t("만드는 법", "Made from")}</h3><div class="bag-links">${makes.map((recipe) => `<button type="button" class="bag-link" data-jump="${recipe.id}">${Object.entries(recipe.input).map(([k, need]) => { const d = itemByKey(k); return d ? `<img src="${itemIcon(d)}" alt="" />${blockLabel(d)} ×${need}` : ""; }).join(" + ")}</button>`).join("")}</div>` : ""}
       ${uses.length ? `<h3>${t("재료로 쓰여요", "Used to make")}</h3><div class="bag-links">${uses.map((recipe) => recipeLink(recipe, outputKey(recipe))).join("")}</div>` : ""}`;
+  }
+
+  /**
+   * The workbench column: grid → result, the choice when one shape makes
+   * several things, why nothing is made, the craft buttons, and the blocks
+   * you can lay. With the grid empty, a hovered recipe shows as a faint shape.
+   */
+  private paintBench(hoverId: string): void {
+    const mats = this.pool().filter((def) => def.kind !== "tool" && !def.fluid);
+    if (this.brush && !mats.some((def) => def.key === this.brush)) this.brush = "";
+    const matches = matchGrid(this.bench);
+    const recipe = matches.find((entry) => entry.id === this.pick) ?? matches[0];
+    const need = gridCounts(this.bench);
+    const empty = Object.keys(need).length === 0;
+    const hover = empty && hoverId ? CRAFT_RECIPES.find((entry) => entry.id === hoverId) : undefined;
+    const ghost = hover ? stampRecipe(hover) : null;
+    const cells = this.bench.map((key, i) => {
+      const shown = key || ghost?.[i] || "";
+      const def = shown ? itemByKey(shown) : undefined;
+      const short = key && !this.creative && countOf(this.counts, key) < (need[key] ?? 0);
+      const cls = ["bench-cell", key ? "full" : "", short ? "short" : "", !key && shown ? "ghost" : ""].filter(Boolean).join(" ");
+      const label = def && key ? blockLabel(def) : t("빈 칸", "Empty");
+      return `<button type="button" class="${cls}" data-cell="${i}" aria-label="${t(`${i + 1}번 칸: ${label}`, `Cell ${i + 1}: ${label}`)}">${def ? `<img src="${itemIcon(def)}" alt="" draggable="false" />` : ""}</button>`;
+    }).join("");
+    const outDef = recipe ? itemByKey(outputKey(recipe)) : undefined;
+    const times = recipe ? craftableTimes(this.counts, recipe) : 0;
+    const amount = recipe && outDef ? recipe.output[outDef.key] ?? 1 : 0;
+    const out = outDef
+      ? `<div class="bench-out ${times > 0 ? "ready" : "blocked"}" title="${blockLabel(outDef)}"><img src="${itemIcon(outDef)}" alt="" /><b>×${amount}</b></div>`
+      : `<div class="bench-out none" aria-hidden="true"></div>`;
+    const picks = matches.length > 1
+      ? `<div class="bench-picks" role="radiogroup" aria-label="${t("만들 것 고르기", "Choose the result")}">${matches.map((entry) => {
+        const def = itemByKey(outputKey(entry));
+        return def ? `<button type="button" role="radio" aria-checked="${entry === recipe}" class="bench-pick${entry === recipe ? " on" : ""}" data-pick="${entry.id}" title="${blockLabel(def)}"><img src="${itemIcon(def)}" alt="${blockLabel(def)}" /></button>` : "";
+      }).join("")}</div>`
+      : "";
+    let note: string;
+    if (this.benchNote) note = `<p class="bench-note hint">${this.benchNote}</p>`;
+    else if (recipe && outDef) {
+      note = times > 0
+        ? `<p class="bench-note ok"><b>${blockLabel(outDef)}</b> · ${t(`최대 ${times}번, ${times * amount}개`, `up to ${times}×, ${times * amount} blocks`)}${matches.length > 1 ? t(" · 위에서 바꿀 수 있어요", " · change it above") : ""}</p>`
+        : `<p class="bench-note short"><b>${blockLabel(outDef)}</b> · ${t(`${this.missing(recipe)}가 더 필요해요`, `need ${this.missing(recipe)} more`)}</p>`;
+    } else if (empty) {
+      note = `<p class="bench-note">${hover ? t("누르면 이 모양이 놓여요", "Click to lay this shape") : t("재료를 칸에 놓아 모양을 만들어요. 레시피를 누르면 그 모양대로 놓여요.", "Lay blocks on the grid in a shape. Click a recipe to lay its shape.")}</p>`;
+    } else {
+      const near = nearMisses(this.bench);
+      const names = near.map((entry) => { const def = itemByKey(outputKey(entry)); return def ? blockLabel(def) : ""; }).filter(Boolean);
+      note = names.length
+        ? `<p class="bench-note hint">${t(`재료는 맞아요! 모양을 바꿔 보세요 → ${names.join(", ")}`, `Right blocks! Try another shape → ${names.join(", ")}`)}</p>`
+        : `<p class="bench-note short">${t("이 모양으로 만들 수 있는 게 없어요", "Nothing is made in this shape")}</p>`;
+    }
+    const brushDef = this.brush ? itemByKey(this.brush) : undefined;
+    const kept = this.detail.querySelector(".bench-mats")?.scrollTop ?? 0;
+    this.detail.innerHTML = `
+      <div class="bench-head"><h2>${t("작업대", "Workbench")}</h2><button type="button" class="bench-clear" data-bench-clear ${empty ? "disabled" : ""}>${t("비우기", "Clear")}</button></div>
+      <div class="bench-row">
+        <div class="bench-grid">${cells}</div>
+        <span class="bench-arrow" aria-hidden="true"></span>
+        <div class="bench-side">${out}${recipe ? `<div class="bench-acts">${this.makeButtons(recipe, times)}</div>` : ""}</div>
+      </div>
+      ${picks}
+      ${note}
+      <h3 class="bench-mats-head">${t("놓을 재료", "Block to lay")}<small>${brushDef ? blockLabel(brushDef) : t("고르지 않음", "none")}</small></h3>
+      <div class="bench-mats">${mats.length ? mats.map((def) => `<button type="button" class="bench-mat${def.key === this.brush ? " on" : ""}" data-mat="${def.key}" title="${blockLabel(def)}" aria-pressed="${def.key === this.brush}"><img src="${itemIcon(def)}" alt="${blockLabel(def)}" draggable="false" />${this.creative ? "" : `<b>${formatCount(countOf(this.counts, def.key))}</b>`}</button>`).join("") : `<p class="bench-empty">${t("가방이 비어 있어요. 블록을 캐 오세요.", "Your bag is empty. Mine some blocks.")}</p>`}</div>`;
+    const list = this.detail.querySelector(".bench-mats");
+    if (list) list.scrollTop = kept;
   }
 
   private paintHotbar(): void {

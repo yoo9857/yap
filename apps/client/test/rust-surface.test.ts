@@ -14,6 +14,12 @@ describe("block surfaces: Rust = TypeScript (blockMaterials.ts)", () => {
   it("every catalog block has the same surface family", () => {
     for (const b of [...BLOCKS.map((d) => d.key), "coat"]) expect(engine.surface_family(b), b).toBe(surfaceStyle(b).family);
   });
+  it("every catalog block has the same material numbers (roughness, metalness, normal, clearcoat)", () => {
+    for (const b of [...BLOCKS.map((d) => d.key), "coat"]) {
+      const s = surfaceStyle(b);
+      expect(Array.from(engine.surface_style(b)), b).toEqual([s.roughness, s.metalness, s.normal, s.clearcoat]);
+    }
+  });
   for (const family of FAMILIES) {
     it(`${family}: colour, normal and roughness maps byte for byte`, () => {
       const ts = createMaterialMaps(family, 128);

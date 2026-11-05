@@ -86,6 +86,28 @@ function helpGroups(furniture: boolean): HelpGroup[] {
   ];
 }
 
+/** Play time (s) after which the always-on control hints step aside. */
+export const ONBOARDING_S = 180;
+const PLAYED_KEY = "craftyap-played-v1";
+
+/** Seconds played so far; 0 when unknown or storage is blocked. */
+export function readPlayed(): number {
+  try {
+    const n = Number(localStorage.getItem(PLAYED_KEY));
+    return Number.isFinite(n) && n > 0 ? Math.min(n, ONBOARDING_S) : 0;
+  } catch {
+    return 0;
+  }
+}
+
+function writePlayed(seconds: number): void {
+  try {
+    localStorage.setItem(PLAYED_KEY, String(Math.round(Math.min(seconds, ONBOARDING_S))));
+  } catch {
+    /* storage blocked: the hints simply stay */
+  }
+}
+
 /**
  * Craft-mode DOM UI: crosshair, 10-slot hotbar, the bag (E blocks / I crafting)
  * and the start/pause menu. Rules live in inventory.ts.
@@ -107,6 +129,12 @@ export class CraftHud {
   private lastLabel = "";
   private labelTimer: ReturnType<typeof setTimeout> | undefined;
   private locked = false;
+  /** Seconds of play so far (all sessions): the key strip and shape hint teach the controls
+   *  for the first ONBOARDING_S of play, then step aside (H, the pause card and settings keep
+   *  them). Saved every few seconds; storage can be blocked, so every access is guarded. */
+  private played = readPlayed();
+  private playedSaved = this.played;
+  private lastTick = 0;
 
   constructor(
     parent: HTMLElement,
@@ -204,7 +232,29 @@ export class CraftHud {
 
   setPointerLocked(locked: boolean): void {
     this.locked = locked;
+    // in play the corner chips cannot be clicked (the mouse is captured): icon + key only
+    document.body.classList.toggle("in-play", locked);
+    this.lastTick = 0;
   }
+
+  /** Count play time toward the end of onboarding (called from update, every frame). */
+  private tickOnboarding(): void {
+    const now = performance.now();
+    if (this.locked && this.lastTick > 0 && this.played < ONBOARDING_S) {
+      this.played += Math.min(1, (now - this.lastTick) / 1000);
+      if (this.played - this.playedSaved >= 5 || this.played >= ONBOARDING_S) {
+        this.playedSaved = this.played;
+        writePlayed(this.played);
+      }
+    }
+    this.lastTick = this.locked ? now : 0;
+    const done = this.played >= ONBOARDING_S;
+    if (done !== this.hintsDone) {
+      this.hintsDone = done;
+      document.body.classList.toggle("hud-hints-done", done);
+    }
+  }
+  private hintsDone: boolean | null = null;
 
   /** The start/pause card shows whenever the player is out of play and no
    *  other panel (bag, furniture, pets, the machine lab, chat) has the screen. */
@@ -219,10 +269,18 @@ export class CraftHud {
     const tip = tilt ? ` · ⤢${tilt * 90}°` : "";
     const label = typeof piece === "string"
       ? `${icon} ${piece}${spin}${tip}`
-      : `${icon} ${isEnglish() ? piece.name : piece.ko}${spin}${tip}  ·  ${t("F 모양 바꾸기", "F change shape")}`;
-    if (label === this.lastPiece) return;
-    this.lastPiece = label;
-    this.pieceChip.textContent = label;
+      : `${icon} ${isEnglish() ? piece.name : piece.ko}${spin}${tip}`;
+    const hint = typeof piece === "string" ? "" : t("F 모양 바꾸기", "F change shape");
+    if (label + hint === this.lastPiece) return;
+    this.lastPiece = label + hint;
+    // the "F change shape" hint is onboarding: it steps aside with the key strip
+    this.pieceChip.replaceChildren(document.createTextNode(label));
+    if (hint) {
+      const span = document.createElement("span");
+      span.className = "craft-piece-hint";
+      span.textContent = `  ·  ${hint}`;
+      this.pieceChip.appendChild(span);
+    }
   }
 
   /** The block hotbar (and its key help, which the furniture bar's switcher
@@ -252,6 +310,7 @@ export class CraftHud {
   }
 
   update(counts: Counts, selected: number, hotbar: readonly string[]): void {
+    this.tickOnboarding();
     this.bag.update(counts, hotbar);
     // every frame: compare in place (the old joined key string was garbage on each frame)
     let same = selected === this.lastBarSelected && hotbar.length === this.lastSlots.length;
@@ -323,6 +382,8 @@ export class CraftHud {
   private toastTimer: ReturnType<typeof setTimeout> | undefined;
 
   dispose(): void {
+    if (this.played !== this.playedSaved) writePlayed(this.played);
+    document.body.classList.remove("in-play", "hud-hints-done");
     clearTimeout(this.toastTimer); clearTimeout(this.labelTimer);
     this.toastEl?.remove(); this.toastEl = null;
     this.root.remove(); this.bag.dispose(); this.pieceChip.remove(); this.menu.dispose();

@@ -6,10 +6,10 @@ name: Engine (Rust) checks
 # same float32s as kitShell.ts.
 on:
   pull_request:
-    paths: ["engine/**", "packages/engine/**", "apps/client/src/engine/**", "apps/server/src/classroom/classRoom.ts", "apps/server/test/rust-class-water.test.ts", "apps/client/src/craft/waterSim.ts", "apps/client/test/rust-water.test.ts", "packages/shared/src/fluid.ts", "packages/shared/src/waterlog.ts", "packages/shared/test/rust-*.ts", "apps/client/src/craft/kitShell.ts", "apps/client/src/craft/kitRust.ts", "apps/client/src/craft/voxelView.ts", "apps/client/test/rust-kit*.ts", "apps/client/test/rust-scan.test.ts", "tools/android-build.mjs", "apps/client/src/craft/voxelWorld.ts", "apps/client/src/craft/blockMaterials.ts", "apps/client/src/craft/blocks.ts", "apps/client/test/rust-world.test.ts", "apps/client/test/rust-surface.test.ts", "tools/engine-catalog.mjs", "tools/engine-tiles.mjs", "apps/client/src/craft/kitSurface.ts", "apps/client/src/craft/generatedBlockTextures.ts", "apps/client/public/textures/blocks/**", "apps/client/src/assets/block-materials-v3/**", "apps/client/public/models/blocks/**", ".github/workflows/engine.yml"]
+    paths: ["engine/**", "packages/engine/**", "apps/client/src/engine/**", "apps/server/src/classroom/classRoom.ts", "apps/server/test/rust-class-water.test.ts", "apps/client/src/craft/waterSim.ts", "apps/client/test/rust-water.test.ts", "packages/shared/src/fluid.ts", "packages/shared/src/waterlog.ts", "packages/shared/test/rust-*.ts", "apps/client/src/craft/kitShell.ts", "apps/client/src/craft/kitRust.ts", "apps/client/src/craft/voxelView.ts", "apps/client/test/rust-kit*.ts", "apps/client/test/rust-scan.test.ts", "apps/client/src/craft/waterGeometry.ts", "apps/client/test/rust-water-mesh.test.ts", "tools/android-build.mjs", "apps/client/src/craft/voxelWorld.ts", "apps/client/src/craft/blockMaterials.ts", "apps/client/src/craft/blocks.ts", "apps/client/test/rust-world.test.ts", "apps/client/test/rust-surface.test.ts", "tools/engine-catalog.mjs", "apps/client/src/craft/inventory.ts", "apps/client/src/craft/toolDefinitions.ts", "tools/engine-protocol.mjs", "tools/engine-furniture.mjs", "apps/client/src/craft/furniture/model.ts", "tools/engine-pets.mjs", "apps/client/src/player/creatureRig.ts", "apps/client/src/player/blockParts.ts", "packages/shared/src/furniture/**", "packages/shared/src/protocol/**", "tools/engine-tiles.mjs", "apps/client/src/craft/kitSurface.ts", "apps/client/src/craft/generatedBlockTextures.ts", "apps/client/public/textures/blocks/**", "apps/client/src/assets/block-materials-v3/**", "apps/client/public/models/blocks/**", ".github/workflows/engine.yml"]
   push:
     branches: [main]
-    paths: ["engine/**", "packages/engine/**", "apps/client/src/engine/**", "apps/server/src/classroom/classRoom.ts", "apps/server/test/rust-class-water.test.ts", "apps/client/src/craft/waterSim.ts", "apps/client/test/rust-water.test.ts", "packages/shared/src/fluid.ts", "packages/shared/src/waterlog.ts", "packages/shared/test/rust-*.ts", "apps/client/src/craft/kitShell.ts", "apps/client/src/craft/kitRust.ts", "apps/client/src/craft/voxelView.ts", "apps/client/test/rust-kit*.ts", "apps/client/test/rust-scan.test.ts", "tools/android-build.mjs", "apps/client/src/craft/voxelWorld.ts", "apps/client/src/craft/blockMaterials.ts", "apps/client/src/craft/blocks.ts", "apps/client/test/rust-world.test.ts", "apps/client/test/rust-surface.test.ts", "tools/engine-catalog.mjs", "tools/engine-tiles.mjs", "apps/client/src/craft/kitSurface.ts", "apps/client/src/craft/generatedBlockTextures.ts", "apps/client/public/textures/blocks/**", "apps/client/src/assets/block-materials-v3/**", "apps/client/public/models/blocks/**", ".github/workflows/engine.yml"]
+    paths: ["engine/**", "packages/engine/**", "apps/client/src/engine/**", "apps/server/src/classroom/classRoom.ts", "apps/server/test/rust-class-water.test.ts", "apps/client/src/craft/waterSim.ts", "apps/client/test/rust-water.test.ts", "packages/shared/src/fluid.ts", "packages/shared/src/waterlog.ts", "packages/shared/test/rust-*.ts", "apps/client/src/craft/kitShell.ts", "apps/client/src/craft/kitRust.ts", "apps/client/src/craft/voxelView.ts", "apps/client/test/rust-kit*.ts", "apps/client/test/rust-scan.test.ts", "apps/client/src/craft/waterGeometry.ts", "apps/client/test/rust-water-mesh.test.ts", "tools/android-build.mjs", "apps/client/src/craft/voxelWorld.ts", "apps/client/src/craft/blockMaterials.ts", "apps/client/src/craft/blocks.ts", "apps/client/test/rust-world.test.ts", "apps/client/test/rust-surface.test.ts", "tools/engine-catalog.mjs", "apps/client/src/craft/inventory.ts", "apps/client/src/craft/toolDefinitions.ts", "tools/engine-protocol.mjs", "tools/engine-furniture.mjs", "apps/client/src/craft/furniture/model.ts", "tools/engine-pets.mjs", "apps/client/src/player/creatureRig.ts", "apps/client/src/player/blockParts.ts", "packages/shared/src/furniture/**", "packages/shared/src/protocol/**", "tools/engine-tiles.mjs", "apps/client/src/craft/kitSurface.ts", "apps/client/src/craft/generatedBlockTextures.ts", "apps/client/public/textures/blocks/**", "apps/client/src/assets/block-materials-v3/**", "apps/client/public/models/blocks/**", ".github/workflows/engine.yml"]
   workflow_dispatch:
 
 permissions:
@@ -41,6 +41,12 @@ jobs:
         run: pnpm engine:check
       - name: The engine's block catalog matches blocks.ts
         run: pnpm engine:catalog --check
+      - name: Wire protocol fixtures are current (the native client mirrors the zod schemas)
+        run: pnpm engine:protocol --check
+      - name: The native furniture is the web's geometry (tools/engine-furniture.mjs)
+        run: pnpm engine:furniture --check
+      - name: The native pets are the web's creatureRig (tools/engine-pets.mjs)
+        run: pnpm engine:pets --check
       - name: The native block surfaces match the web's (tools/engine-tiles.mjs)
         run: pnpm engine:tiles --check
       - run: pnpm engine:build
@@ -54,6 +60,8 @@ jobs:
         run: pnpm --filter @robo/client exec vitest run test/rust-kit.test.ts
       - name: The chunk scan on Rust = TypeScript (whole views, near and far, every mesh)
         run: pnpm --filter @robo/client exec vitest run test/rust-scan.test.ts
+      - name: Parity (Rust water surface = waterGeometry.ts)
+        run: pnpm --filter @robo/client exec vitest run test/rust-water-mesh.test.ts
       - name: World generation on Rust = generateIsland (every cell, several seeds)
         run: pnpm --filter @robo/client exec vitest run test/rust-world.test.ts
       - name: Block surfaces on Rust = blockMaterials.ts (families, every map byte)

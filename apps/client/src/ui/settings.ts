@@ -17,11 +17,27 @@ export interface Settings {
   music: number;
   /** 0–1, scales every sound effect. */
   sfx: number;
+  /** Vertical field of view (degrees) of the voxel modes' camera; running adds 5.5. */
+  fov: number;
+  /** Mouse/drag up looks down. */
+  invertY: boolean;
+  /** HUD, hotbar, bag and corner chips scale (1 = as designed). */
+  uiScale: number;
+  /** View distance preset: 0 short, 1 normal, 2 far (craft's O key cycles it). */
+  view: number;
+  /** Keep the control hints (key strip, shape hint) after onboarding. */
+  hints: boolean;
+  /** Graphics preset (render/display.ts qualityProfile); auto adapts the resolution to the frame rate. */
+  graphics: "auto" | "low" | "medium" | "high";
 }
 
 export const SENSITIVITY_RANGE = { min: 0.3, max: 2.5 } as const;
+export const FOV_RANGE = { min: 60, max: 100 } as const;
+export const UI_SCALE_RANGE = { min: 0.8, max: 1.3 } as const;
 const KEY = "craftyap.settings";
-const DEFAULTS: Settings = { lang: "ko", sensitivity: 1, music: 1, sfx: 1 };
+/** Before the view distance lived here, craft kept it under its own key: read once as a default. */
+const LEGACY_VIEW_KEY = "craftyap-view-distance";
+const DEFAULTS: Settings = { lang: "ko", sensitivity: 1, music: 1, sfx: 1, fov: 70, invertY: false, uiScale: 1, view: 1, hints: false, graphics: "auto" };
 
 const clamp = (v: unknown, lo: number, hi: number, fallback: number): number =>
   typeof v === "number" && Number.isFinite(v) ? Math.min(hi, Math.max(lo, v)) : fallback;
@@ -40,6 +56,12 @@ export function parseSettings(raw: string | null): Settings {
     sensitivity: clamp(data.sensitivity, SENSITIVITY_RANGE.min, SENSITIVITY_RANGE.max, DEFAULTS.sensitivity),
     music: clamp(data.music, 0, 1, DEFAULTS.music),
     sfx: clamp(data.sfx, 0, 1, DEFAULTS.sfx),
+    fov: Math.round(clamp(data.fov, FOV_RANGE.min, FOV_RANGE.max, DEFAULTS.fov)),
+    invertY: data.invertY === true,
+    uiScale: Math.round(clamp(data.uiScale, UI_SCALE_RANGE.min, UI_SCALE_RANGE.max, DEFAULTS.uiScale) * 20) / 20,
+    view: Math.round(clamp(data.view, 0, 2, DEFAULTS.view)),
+    hints: data.hints === true,
+    graphics: data.graphics === "low" || data.graphics === "medium" || data.graphics === "high" ? data.graphics : "auto",
   };
 }
 
@@ -56,6 +78,14 @@ function load(): Settings {
     /* storage blocked: defaults for this visit */
   }
   const s = parseSettings(raw);
+  // the view distance used to be craft's own key: carry it over once
+  try {
+    const stored: unknown = raw ? JSON.parse(raw) : {};
+    const legacy = localStorage.getItem(LEGACY_VIEW_KEY);
+    if (legacy !== null && !(stored && typeof stored === "object" && "view" in stored)) s.view = parseSettings(JSON.stringify({ view: Number(legacy) })).view;
+  } catch {
+    /* defaults */
+  }
   storedLang = s.lang;
   const forced = typeof location !== "undefined" ? new URLSearchParams(location.search).get("lang") : null;
   if (forced === "en" || forced === "ko") s.lang = forced;
@@ -64,6 +94,17 @@ function load(): Settings {
 
 /** Live settings. Read freely; change only through `updateSettings`. */
 export const settings: Settings = load();
+
+/** The settings that live on the page itself (CSS): UI scale and the hint override. */
+function applyToDocument(s: Settings): void {
+  if (typeof document === "undefined") return;
+  document.documentElement.style.setProperty("--ui-scale", String(s.uiScale));
+  document.body?.classList.toggle("hud-hints-always", s.hints);
+}
+if (typeof document !== "undefined") {
+  if (document.body) applyToDocument(settings);
+  else document.addEventListener("DOMContentLoaded", () => applyToDocument(settings), { once: true });
+}
 
 const listeners = new Set<(s: Settings) => void>();
 
@@ -77,6 +118,7 @@ export function updateSettings(patch: Partial<Settings>): void {
   } catch {
     /* kept for this visit only */
   }
+  applyToDocument(settings);
   for (const fn of listeners) fn(settings);
 }
 

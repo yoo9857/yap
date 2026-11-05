@@ -430,7 +430,7 @@
 /* ---- recipes ---- */
 .bag-recipes {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
   gap: 10px;
   align-content: start;
   padding: 12px;
@@ -909,10 +909,318 @@ body.bag-open .furn-chip {
   display: none;
 }
 
+/* ---- crafting tab: the workbench column ---- */
+.bag-crafting .bag-body {
+  grid-template-columns: minmax(0, 1fr) 330px;
+}
+/* fixed parts on top; only the block palette scrolls, so the grid never leaves view */
+.bag-crafting .bag-detail {
+  gap: 8px;
+  overflow: hidden;
+}
+.bench-side {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  width: 78px;
+}
+.bench-acts {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  width: 100%;
+}
+.bench-acts .bag-make {
+  width: 100%;
+  padding: 7px 4px 9px;
+  font-size: 15px;
+}
+.bench-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.bench-head h2 {
+  margin: 0;
+  font: 22px/1 "Jua", system-ui, sans-serif;
+  font-weight: normal;
+}
+.bench-clear {
+  padding: 5px 10px 7px;
+  border: 2px solid var(--bag-ink);
+  border-radius: 9px;
+  background: #fff;
+  box-shadow: inset 0 -3px 0 rgba(0, 0, 0, 0.1);
+  color: var(--bag-ink);
+  font: 14px/1 "Jua", system-ui, sans-serif;
+  cursor: pointer;
+}
+.bench-clear:hover:not(:disabled) {
+  background: #fff7d1;
+}
+.bench-clear:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+.bench-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+.bench-grid {
+  --cell: 52px;
+  display: grid;
+  grid-template-columns: repeat(3, var(--cell));
+  grid-auto-rows: var(--cell);
+  gap: 5px;
+  padding: 6px;
+  border: 3px solid var(--bag-ink);
+  border-radius: 12px;
+  background: #b9a37c;
+  box-shadow: inset 0 -4px 0 rgba(0, 0, 0, 0.18);
+  touch-action: none;
+  user-select: none;
+}
+.bench-cell {
+  position: relative;
+  padding: 0;
+  border: 2px solid #6e5a39;
+  border-radius: 8px;
+  background: #e9dcc0;
+  box-shadow: inset 0 3px 0 rgba(0, 0, 0, 0.12);
+  cursor: pointer;
+}
+.bench-cell:hover {
+  background: #fff3cf;
+}
+.bench-cell img {
+  position: absolute;
+  inset: 3px;
+  width: calc(100% - 6px);
+  height: calc(100% - 6px);
+  border-radius: 6px;
+  object-fit: cover;
+  pointer-events: none;
+}
+.bench-cell.ghost img {
+  opacity: 0.35;
+  filter: saturate(0.4);
+}
+.bench-cell.short {
+  border-color: var(--bag-red);
+  background: var(--bag-red-bg);
+}
+.bench-cell.short img {
+  opacity: 0.6;
+}
+.bench-cell.drop {
+  outline: 3px solid var(--bag-yellow);
+  outline-offset: 1px;
+}
+.bench-arrow {
+  flex: 0 0 auto;
+  width: 0;
+  height: 0;
+  border-block: 11px solid transparent;
+  border-left: 15px solid var(--bag-ink);
+}
+.bench-out {
+  position: relative;
+  flex: 0 0 auto;
+  width: 64px;
+  height: 64px;
+  border: 3px solid var(--bag-ink);
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: inset 0 -4px 0 rgba(0, 0, 0, 0.1);
+}
+.bench-out.none {
+  border-style: dashed;
+  border-color: #b3ab96;
+  background: transparent;
+  box-shadow: none;
+}
+.bench-out.ready {
+  background: var(--bag-green-bg);
+  box-shadow: 0 0 0 3px #8fd694;
+}
+.bench-out img {
+  position: absolute;
+  inset: 5px;
+  width: calc(100% - 10px);
+  height: calc(100% - 10px);
+  border-radius: 8px;
+  object-fit: cover;
+}
+.bench-out.blocked img {
+  filter: saturate(0.4);
+  opacity: 0.6;
+}
+.bench-out b {
+  position: absolute;
+  right: -9px;
+  bottom: -8px;
+  padding: 3px 5px;
+  border: 2px solid #fff;
+  border-radius: 8px;
+  background: var(--bag-ink);
+  color: #fff;
+  font: 800 12px/1 system-ui, sans-serif;
+}
+.bench-picks {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 4px;
+}
+.bench-pick {
+  width: 32px;
+  height: 32px;
+  padding: 2px;
+  border: 2px solid var(--bag-line);
+  border-radius: 9px;
+  background: #fff;
+  cursor: pointer;
+}
+.bench-pick img {
+  width: 100%;
+  height: 100%;
+  border-radius: 6px;
+  object-fit: cover;
+}
+.bench-pick.on {
+  border-color: var(--bag-ink);
+  box-shadow: 0 0 0 3px var(--bag-yellow);
+}
+.bench-note {
+  margin: 0;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: #f1ecdf;
+  color: #4a4f45;
+  font: 13px/1.45 system-ui, sans-serif;
+}
+.bench-note.ok {
+  background: var(--bag-green-bg);
+  color: #1f6f30;
+}
+.bench-note.short {
+  background: var(--bag-red-bg);
+  color: var(--bag-red);
+}
+.bench-note.hint {
+  background: #fff4c4;
+  color: #6b5200;
+}
+.bench-mats-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+.bench-mats-head small {
+  overflow: hidden;
+  color: var(--bag-muted);
+  font: 600 12px/1.2 system-ui, sans-serif;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.bench-mats {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(44px, 1fr));
+  gap: 6px;
+  align-content: start;
+  flex: 1 1 0;
+  min-height: 48px;
+  overflow-y: auto;
+  padding: 3px;
+  scrollbar-width: thin;
+}
+.bench-mat {
+  position: relative;
+  aspect-ratio: 1;
+  padding: 2px;
+  border: 2px solid var(--bag-line);
+  border-radius: 9px;
+  background: #fff;
+  cursor: grab;
+  touch-action: none;
+}
+.bench-mat:hover {
+  border-color: var(--bag-ink);
+}
+.bench-mat.on {
+  border-color: var(--bag-ink);
+  box-shadow: 0 0 0 3px var(--bag-yellow);
+}
+.bench-mat img {
+  width: 100%;
+  height: 100%;
+  border-radius: 6px;
+  object-fit: cover;
+  pointer-events: none;
+}
+.bench-mat b {
+  position: absolute;
+  right: -3px;
+  bottom: -3px;
+  padding: 1px 3px;
+  border-radius: 5px;
+  background: var(--bag-ink);
+  color: #fff;
+  font: 800 10px/1.1 system-ui, sans-serif;
+}
+.bench-empty {
+  grid-column: 1 / -1;
+  margin: 0;
+  color: var(--bag-muted);
+  font: 13px/1.4 system-ui, sans-serif;
+}
+
+/* the recipe book: each card also shows its shape, and lays it on the grid when clicked */
+.bag-crafting .bag-recipe {
+  grid-template-areas: "out name act" "out in shape" "out state shape";
+  cursor: pointer;
+}
+.bag-crafting .bag-recipe:hover {
+  border-color: #000;
+  box-shadow: 0 0 0 3px #ffe58a, inset 0 -4px 0 rgba(0, 0, 0, 0.08);
+}
+.bag-recipe-shape {
+  grid-area: shape;
+  justify-self: end;
+  display: grid;
+  grid-template-columns: repeat(3, 15px);
+  grid-auto-rows: 15px;
+  gap: 2px;
+  padding: 3px;
+  border-radius: 6px;
+  background: #d9c9a6;
+}
+.bag-recipe-shape i {
+  border-radius: 3px;
+  background: #f3ead6;
+}
+.bag-recipe-shape img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: 3px;
+  object-fit: cover;
+}
+
 /* ---- smaller screens ---- */
 @media (max-width: 1020px) {
   .bag-body {
     grid-template-columns: minmax(0, 1fr) 232px;
+  }
+  .bag-crafting .bag-body {
+    grid-template-columns: minmax(0, 1fr) 300px;
+  }
+  .bench-grid {
+    --cell: 46px;
   }
   .bag-foot {
     flex-wrap: wrap;
@@ -937,6 +1245,65 @@ body.bag-open .furn-chip {
   .bag-detail {
     display: none;
   }
+  /* the workbench stays on a narrow screen, stacked above the recipe book */
+  .bag-crafting .bag-body {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  /* a phone: one line each for the header, the search and the categories */
+  .bag-title [data-id="bag-title"],
+  .bag-tab kbd {
+    display: none;
+  }
+  .bag-head {
+    gap: 8px;
+  }
+  .bag-tab {
+    white-space: nowrap;
+  }
+  .bag-tools {
+    gap: 8px;
+  }
+  .bag-only {
+    white-space: nowrap;
+    font-size: 13px;
+  }
+  .bag-cats {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .bag-cat {
+    flex: 0 0 auto;
+  }
+  /* the workbench, then a recipe book of its own height: the column scrolls as one */
+  .bag-crafting .bag-body {
+    grid-template-rows: auto 340px;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+  .bag-crafting .bag-detail {
+    display: flex;
+    order: -1;
+    padding: 10px;
+    min-height: auto;
+    overflow: visible;
+  }
+  .bag-tip {
+    display: none;
+  }
+  .bench-mats {
+    display: flex;
+    flex: 0 0 auto;
+    min-height: 0;
+    overflow-x: auto;
+    overflow-y: hidden;
+  }
+  .bench-mat {
+    flex: 0 0 40px;
+  }
+  .bench-grid {
+    --cell: 44px;
+  }
   .bag-recipes {
     grid-template-columns: minmax(0, 1fr);
   }
@@ -959,5 +1326,21 @@ body.bag-open .furn-chip {
   }
   .bag-tip {
     display: none;
+  }
+  .bench-grid {
+    --cell: 42px;
+    gap: 4px;
+    padding: 5px;
+  }
+  .bench-out {
+    width: 52px;
+    height: 52px;
+  }
+  .bench-head h2 {
+    font-size: 19px;
+  }
+  .bench-note {
+    padding: 6px 8px;
+    font-size: 12.5px;
   }
 }

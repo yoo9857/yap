@@ -43,10 +43,14 @@ function run(cmd, args, cwd) {
   // no shell: a .bat runs through cmd.exe explicitly (Node refuses .bat without a shell)
   const bat = win && cmd.endsWith(".bat");
   const r = spawnSync(bat ? "cmd.exe" : cmd, bat ? ["/d", "/c", cmd, ...args] : args, { cwd, env, stdio: "inherit" });
+  // a spawn that never ran (missing file, no execute bit) has no status: say why
+  if (r.error) fail(`${cmd} could not start: ${r.error.message}`);
   if (r.status !== 0) fail(`${cmd} failed (${r.status ?? r.signal})`);
 }
 
-run("cargo", ["ndk", "-t", "arm64-v8a", "-t", "armeabi-v7a", "-t", "x86_64", "-o", join(android, "app/src/main/jniLibs"), "build", "--release", "-p", "craftyap-client", "--lib"], join(root, "engine"));
+// link against the app's minSdk (build.gradle.kts): AAudio (sound) exists from API 26
+const minSdk = /minSdk\s*=\s*(\d+)/.exec(readFileSync(join(android, "app/build.gradle.kts"), "utf8"))?.[1] ?? "26";
+run("cargo", ["ndk", "--platform", minSdk, "-t", "arm64-v8a", "-t", "armeabi-v7a", "-t", "x86_64", "-o", join(android, "app/src/main/jniLibs"), "build", "--release", "-p", "craftyap-client", "--lib"], join(root, "engine"));
 // absolute: Windows may not search the current directory for programs (NoDefaultCurrentDirectoryInExePath)
 run(join(android, win ? "gradlew.bat" : "gradlew"), [kind === "release" ? "bundleRelease" : "assembleDebug", "--no-daemon"], android);
 const out = kind === "release" ? "app/build/outputs/bundle/release/app-release.aab" : "app/build/outputs/apk/debug/app-debug.apk";

@@ -1,0 +1,607 @@
+{
+ "versions": {
+  "party": 1,
+  "class": 10
+ },
+ "partyClient": [
+  {
+   "t": "p-hello",
+   "v": 1,
+   "name": "민수",
+   "seat": {
+    "code": "ABCDEF",
+    "key": "kkkkkkkkkkkkkkkk"
+   }
+  },
+  {
+   "t": "p-hello",
+   "v": 1,
+   "name": "민수"
+  },
+  {
+   "t": "p-list"
+  },
+  {
+   "t": "p-create",
+   "title": "같이 짓자",
+   "game": "build",
+   "max": 12,
+   "public": true
+  },
+  {
+   "t": "p-join",
+   "code": "QWERTY"
+  },
+  {
+   "t": "p-quick",
+   "game": "tower"
+  },
+  {
+   "t": "p-quick"
+  },
+  {
+   "t": "p-leave"
+  },
+  {
+   "t": "p-ready",
+   "ready": true
+  },
+  {
+   "t": "p-chat",
+   "text": "안녕!"
+  },
+  {
+   "t": "p-set",
+   "game": "build",
+   "title": "새 방",
+   "max": 8,
+   "public": false
+  },
+  {
+   "t": "p-set"
+  },
+  {
+   "t": "p-start"
+  },
+  {
+   "t": "p-stop"
+  },
+  {
+   "t": "p-kick",
+   "id": "p3"
+  }
+ ],
+ "partyServer": [
+  {
+   "t": "s-p-welcome",
+   "you": "p1"
+  },
+  {
+   "t": "s-p-rooms",
+   "rooms": [
+    {
+     "code": "ABCDEF",
+     "title": "방",
+     "game": "build",
+     "host": "민수",
+     "players": 3,
+     "max": 8,
+     "state": "playing"
+    }
+   ]
+  },
+  {
+   "t": "s-p-rooms",
+   "rooms": []
+  },
+  {
+   "t": "s-p-room",
+   "room": {
+    "code": "ABCDEF",
+    "title": "방",
+    "game": "tower",
+    "max": 8,
+    "public": true,
+    "state": "waiting",
+    "host": "p1",
+    "members": [
+     {
+      "id": "p1",
+      "name": "민수",
+      "ready": true,
+      "online": true
+     }
+    ]
+   },
+   "key": "seatkey-123",
+   "you": "p2"
+  },
+  {
+   "t": "s-p-left",
+   "reason": "kicked"
+  },
+  {
+   "t": "s-p-start",
+   "game": "build",
+   "code": "ABCDEF"
+  },
+  {
+   "t": "s-p-chat",
+   "from": "p1",
+   "name": "민수",
+   "text": "가자",
+   "system": true
+  },
+  {
+   "t": "s-p-chat",
+   "from": "p1",
+   "name": "민수",
+   "text": "가자"
+  },
+  {
+   "t": "s-p-error",
+   "code": "game-limit"
+  }
+ ],
+ "classClient": [
+  {
+   "t": "k-host",
+   "v": 10,
+   "room": "햇살반",
+   "teacher": "김선생",
+   "password": "1234",
+   "hostKey": "hk"
+  },
+  {
+   "t": "k-host",
+   "v": 10,
+   "room": "햇살반",
+   "teacher": "김선생"
+  },
+  {
+   "t": "k-join",
+   "v": 10,
+   "room": "햇살반",
+   "student": "Mina",
+   "seatKey": "sk"
+  },
+  {
+   "t": "k-join",
+   "v": 10,
+   "room": "햇살반",
+   "student": "Mina"
+  },
+  {
+   "t": "k-peek",
+   "v": 10,
+   "room": "햇살반"
+  },
+  {
+   "t": "k-move",
+   "pos": [
+    10.5,
+    4,
+    -3.25
+   ],
+   "yaw": 1.5,
+   "anim": "run",
+   "ct": 12345.5,
+   "heldItem": "pickaxe-basic",
+   "toolOption": "light-grip",
+   "toolPhase": 0.25,
+   "action": "hit",
+   "actionSeq": 7,
+   "actionLoop": true,
+   "swimming": false,
+   "character": "tt",
+   "emote": "wave",
+   "emoteSeq": 3
+  },
+  {
+   "t": "k-move",
+   "pos": [
+    0,
+    0,
+    0
+   ],
+   "yaw": 0,
+   "anim": "idle"
+  },
+  {
+   "t": "k-move",
+   "pos": [
+    0,
+    0,
+    0
+   ],
+   "yaw": 0,
+   "anim": "crawl",
+   "heldItem": null
+  },
+  {
+   "t": "k-edit",
+   "edits": [
+    [
+     -120,
+     4,
+     33,
+     7,
+     0
+    ],
+    [
+     5,
+     55,
+     -1000000,
+     0,
+     82
+    ]
+   ]
+  },
+  {
+   "t": "k-furniture",
+   "placed": [
+    [
+     "chair",
+     -12,
+     3,
+     40,
+     1,
+     2
+    ],
+    [
+     "door",
+     5,
+     2,
+     -7,
+     3,
+     0,
+     1
+    ]
+   ],
+   "removed": []
+  },
+  {
+   "t": "k-chat",
+   "text": "선생님!"
+  },
+  {
+   "t": "k-bonk",
+   "target": "p2",
+   "yaw": 0.5,
+   "pitch": -0.2,
+   "seq": 9
+  },
+  {
+   "t": "k-bonk",
+   "yaw": 0.5,
+   "pitch": -0.2,
+   "seq": 9
+  },
+  {
+   "t": "k-kick",
+   "playerId": "p2"
+  },
+  {
+   "t": "k-gather"
+  },
+  {
+   "t": "k-settings",
+   "chatLocked": true,
+   "buildLocked": false,
+   "tapsLocked": true
+  },
+  {
+   "t": "k-settings",
+   "chatLocked": false,
+   "buildLocked": true
+  },
+  {
+   "t": "k-end"
+  },
+  {
+   "t": "k-reset-world"
+  }
+ ],
+ "classServer": [
+  {
+   "t": "s-k-welcome",
+   "you": "p2",
+   "role": "student",
+   "room": "햇살반",
+   "teacher": "김선생",
+   "key": "sk",
+   "members": [
+    {
+     "id": "p1",
+     "name": "김선생",
+     "role": "teacher",
+     "online": true
+    },
+    {
+     "id": "p2",
+     "name": "Mina",
+     "role": "student",
+     "online": false
+    }
+   ],
+   "settings": {
+    "chatLocked": false,
+    "buildLocked": false,
+    "tapsLocked": true
+   },
+   "editCount": 1200,
+   "furniture": [
+    [
+     "chair",
+     -12,
+     3,
+     40,
+     1,
+     2
+    ],
+    [
+     "door",
+     5,
+     2,
+     -7,
+     3,
+     0,
+     1
+    ]
+   ],
+   "keepalive": 2.5
+  },
+  {
+   "t": "s-k-welcome",
+   "you": "p1",
+   "role": "teacher",
+   "room": "햇살반",
+   "teacher": "김선생",
+   "key": "hk",
+   "members": [],
+   "settings": {
+    "chatLocked": false,
+    "buildLocked": false
+   },
+   "editCount": 0,
+   "furniture": []
+  },
+  {
+   "t": "s-k-furniture",
+   "furniture": [
+    [
+     "chair",
+     -12,
+     3,
+     40,
+     1,
+     2
+    ],
+    [
+     "door",
+     5,
+     2,
+     -7,
+     3,
+     0,
+     1
+    ]
+   ],
+   "rejected": true
+  },
+  {
+   "t": "s-k-furniture",
+   "furniture": []
+  },
+  {
+   "t": "s-k-room",
+   "room": "햇살반",
+   "exists": true,
+   "open": true,
+   "teacher": "김선생"
+  },
+  {
+   "t": "s-k-room",
+   "room": "없는반",
+   "exists": false,
+   "open": false
+  },
+  {
+   "t": "s-k-world",
+   "edits": [
+    [
+     -120,
+     4,
+     33,
+     7,
+     0
+    ],
+    [
+     5,
+     55,
+     -1000000,
+     0,
+     82
+    ]
+   ]
+  },
+  {
+   "t": "s-k-world-reset"
+  },
+  {
+   "t": "s-k-members",
+   "members": [
+    {
+     "id": "p1",
+     "name": "김선생",
+     "role": "teacher",
+     "online": true
+    },
+    {
+     "id": "p2",
+     "name": "Mina",
+     "role": "student",
+     "online": false
+    }
+   ]
+  },
+  {
+   "t": "s-k-snap",
+   "ts": 99812.25,
+   "players": [
+    {
+     "id": "p2",
+     "pos": [
+      1.25,
+      3,
+      -8
+     ],
+     "yaw": -2,
+     "anim": "jump",
+     "at": 99800.5,
+     "heldItem": "pickaxe-basic",
+     "toolOption": "light-grip",
+     "toolPhase": 0.25,
+     "action": "hit",
+     "actionSeq": 7,
+     "actionLoop": true,
+     "swimming": false,
+     "character": "tt",
+     "emote": "wave",
+     "emoteSeq": 3
+    },
+    {
+     "id": "p3",
+     "pos": [
+      0,
+      0,
+      0
+     ],
+     "yaw": 0,
+     "anim": "idle",
+     "heldItem": null
+    }
+   ]
+  },
+  {
+   "t": "s-k-snap",
+   "players": []
+  },
+  {
+   "t": "s-k-edit",
+   "by": "p2",
+   "edits": [
+    [
+     -120,
+     4,
+     33,
+     7,
+     0
+    ],
+    [
+     5,
+     55,
+     -1000000,
+     0,
+     82
+    ]
+   ]
+  },
+  {
+   "t": "s-k-wet",
+   "cells": [
+    [
+     3,
+     2,
+     -4,
+     19
+    ],
+    [
+     3,
+     2,
+     -5,
+     0
+    ]
+   ]
+  },
+  {
+   "t": "s-k-chat",
+   "from": "p1",
+   "name": "김선생",
+   "role": "teacher",
+   "text": "모여요",
+   "system": true
+  },
+  {
+   "t": "s-k-chat",
+   "from": "p2",
+   "name": "Mina",
+   "role": "student",
+   "text": "네"
+  },
+  {
+   "t": "s-k-gather",
+   "pos": [
+    12,
+    5,
+    -30.5
+   ]
+  },
+  {
+   "t": "s-k-bonk",
+   "by": "p2",
+   "target": "p3",
+   "seq": 4,
+   "vx": 1.5,
+   "vz": -0.5,
+   "vy": 2,
+   "at": [
+    1,
+    2.2,
+    3
+   ]
+  },
+  {
+   "t": "s-k-settings",
+   "settings": {
+    "chatLocked": true,
+    "buildLocked": true,
+    "tapsLocked": false
+   }
+  },
+  {
+   "t": "s-k-reject",
+   "edits": [
+    [
+     -120,
+     4,
+     33,
+     7,
+     0
+    ],
+    [
+     5,
+     55,
+     -1000000,
+     0,
+     82
+    ]
+   ],
+   "authoritative": true
+  },
+  {
+   "t": "s-k-reject",
+   "edits": []
+  },
+  {
+   "t": "s-k-kicked"
+  },
+  {
+   "t": "s-k-closed"
+  },
+  {
+   "t": "s-k-error",
+   "code": "name-taken"
+  }
+ ]
+}
