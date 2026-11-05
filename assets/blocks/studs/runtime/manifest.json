@@ -1,0 +1,42 @@
+{
+  "version": 1,
+  "provenance": "Original Blender block form (CraftYap_soft_block_form, 2026-10-29): the final block's four closed studs",
+  "source": "assets/blocks/studs/source/BlockStuds.blend",
+  "liftedFrom": "BlockForm.blend / Soft continuous shell and low closed connectors.004",
+  "liftedFromSha256": "823a15dc055de7738bfb8ab4c855da845f6d9dcba3a38b793813035c635ea37b",
+  "units": "metres",
+  "up": "+Y",
+  "origin": "centre of the brick's top face",
+  "meshes": {
+    "Stud_HQ": {
+      "triangles": 568,
+      "use": "within lodDistance of the focus"
+    },
+    "Stud_LOD1": {
+      "triangles": 152,
+      "segments": 8,
+      "profile": [
+        [
+          0.0,
+          0.099999974170892
+        ],
+        [
+          0.03,
+          0.099999974170892
+        ],
+        [
+          0.04,
+          0.08599998997423611
+        ]
+      ],
+      "use": "lodDistance .. studRange"
+    }
+  },
+  "lodDistance": 12,
+  "studRange": 32,
+  "file": {
+    "name": "block-studs.glb",
+    "bytes": 22520,
+    "sha256": "db359a0c38c8607f616672a3fec5fe1430a854359cb16b05fa638834659e2f47"
+  }
+}

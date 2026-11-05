@@ -75,6 +75,30 @@ export class WasmFluid {
 }
 
 /**
+ * The block renderer's chunk scan (`scan.rs`, a port of `VoxelView.scanChunk`). Built once per
+ * view from its tables; `scan` runs per chunk on a slab (the chunk + a one-cell ring, every height).
+ */
+export class WasmScanner {
+    free(): void;
+    [Symbol.dispose](): void;
+    /**
+     * A far-form template, in the order `family` indexes them.
+     */
+    add_template(pos: Float32Array | number[], nrm: Float32Array | number[], uv?: Float32Array | number[] | null): void;
+    /**
+     * Per block id (256 each): solid, see-through, def bits (1 exists, 2 noStud, 4 grass), material
+     * count (0, 1 or 3) and 3 material slots; per shape code (256 each): full cube, far family;
+     * `faces` 6 × (n, u, v, o); `corners` 6 × (u, v); `face_uv` 12; `quats` 256 × (x, y, z, w).
+     */
+    constructor(solid: Uint8Array | number[], see_through: Uint8Array | number[], def: Uint8Array | number[], mat_count: Uint8Array | number[], mats: Int32Array | number[], full_cube: Uint8Array | number[], family: Uint8Array | number[], dirt: number, kit_cube: number, round: number, faces: Float64Array | number[], corners: Float64Array | number[], face_uv: Float64Array | number[], backing_inset: number, quats: Float64Array | number[], world_y: number);
+    /**
+     * One chunk. Packed float32: [ok, top, nWater, water…, nStuds, (key, len, xyz…)…,
+     * nNear, (key, len, xyz…)…, nBacking, backing…, nFar, (index, nVerts, pos…, nrm…, uv…)…].
+     */
+    scan(cells: Uint8Array | number[], shapes: Uint8Array | number[], hidden: Uint8Array | number[], sx0: number, sz0: number, sw: number, sd: number, x0: number, z0: number, x1: number, z1: number, far: boolean): Float32Array;
+}
+
+/**
  * The game's water on the mirrored voxel window (`Grid`): TypeScript keeps the window in step
  * (load on start/scroll, write per edited cell, the ring outside, furniture) and applies the
  * changes `step` returns. Coordinates in calls and changes are ABSOLUTE, like WaterSim's.
@@ -108,6 +132,11 @@ export class WasmWater {
 }
 
 /**
+ * `generateIsland(seed)` on the Rust core (`world.rs`): the cells, for the parity test.
+ */
+export function generate_island(seed: number): Uint8Array;
+
+/**
  * Brick shells (`kit.rs`, a port of `kitShell.ts` `kitCellsGeometry(cells, false, joined)`).
  * `cells` is flat x, y, z; `mask` answers "joined" for the box (x0, y0, z0) + (sx, sy, sz),
  * indexed ((y * sz + z) * sx + x). Returns one Float32Array:
@@ -116,14 +145,28 @@ export class WasmWater {
  */
 export function kit_cells_geometry(cells: Int32Array | number[], mask: Uint8Array | number[], x0: number, y0: number, z0: number, sx: number, sy: number, sz: number): Float32Array;
 
+/**
+ * `createMaterialMaps(family, size)` on the Rust core: colour, normals and roughness bytes, concatenated.
+ */
+export function material_maps(family: string, size: number): Uint8Array;
+
+/**
+ * `surfaceStyle(key).family` on the Rust core (`surface.rs`), for the parity test.
+ */
+export function surface_family(key: string): string;
+
 export type InitInput = RequestInfo | URL | Response | BufferSource | WebAssembly.Module;
 
 export interface InitOutput {
     readonly memory: WebAssembly.Memory;
     readonly __wbg_wasmclasswater_free: (a: number, b: number) => void;
     readonly __wbg_wasmfluid_free: (a: number, b: number) => void;
+    readonly __wbg_wasmscanner_free: (a: number, b: number) => void;
     readonly __wbg_wasmwater_free: (a: number, b: number) => void;
+    readonly generate_island: (a: number) => [number, number];
     readonly kit_cells_geometry: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number, j: number) => [number, number];
+    readonly material_maps: (a: number, b: number, c: number) => [number, number];
+    readonly surface_family: (a: number, b: number) => [number, number];
     readonly wasmclasswater_busy: (a: number) => number;
     readonly wasmclasswater_clear: (a: number) => void;
     readonly wasmclasswater_edit_count: (a: number) => number;
@@ -147,6 +190,9 @@ export interface InitOutput {
     readonly wasmfluid_step: (a: number) => [number, number];
     readonly wasmfluid_touch: (a: number, b: number, c: number, d: number) => void;
     readonly wasmfluid_water: (a: number, b: number, c: number, d: number) => number;
+    readonly wasmscanner_add_template: (a: number, b: number, c: number, d: number, e: number, f: number, g: number) => void;
+    readonly wasmscanner_new: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number, j: number, k: number, l: number, m: number, n: number, o: number, p: number, q: number, r: number, s: number, t: number, u: number, v: number, w: number, x: number, y: number, z: number, a1: number) => number;
+    readonly wasmscanner_scan: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number, j: number, k: number, l: number, m: number, n: number, o: number, p: number) => [number, number];
     readonly wasmwater_busy: (a: number) => number;
     readonly wasmwater_clear: (a: number) => void;
     readonly wasmwater_edge: (a: number, b: number, c: number) => void;
@@ -158,8 +204,9 @@ export interface InitOutput {
     readonly wasmwater_touch: (a: number, b: number, c: number, d: number) => void;
     readonly wasmwater_write: (a: number, b: number, c: number, d: number, e: number) => void;
     readonly __wbindgen_externrefs: WebAssembly.Table;
-    readonly __wbindgen_malloc: (a: number, b: number) => number;
     readonly __wbindgen_free: (a: number, b: number, c: number) => void;
+    readonly __wbindgen_malloc: (a: number, b: number) => number;
+    readonly __wbindgen_realloc: (a: number, b: number, c: number, d: number) => number;
     readonly __wbindgen_start: () => void;
 }
 

@@ -256,6 +256,163 @@ export class WasmFluid {
 if (Symbol.dispose) WasmFluid.prototype[Symbol.dispose] = WasmFluid.prototype.free;
 
 /**
+ * The block renderer's chunk scan (`scan.rs`, a port of `VoxelView.scanChunk`). Built once per
+ * view from its tables; `scan` runs per chunk on a slab (the chunk + a one-cell ring, every height).
+ */
+export class WasmScanner {
+    __destroy_into_raw() {
+        const ptr = this.__wbg_ptr;
+        this.__wbg_ptr = 0;
+        WasmScannerFinalization.unregister(this);
+        return ptr;
+    }
+    free() {
+        const ptr = this.__destroy_into_raw();
+        wasm.__wbg_wasmscanner_free(ptr, 0);
+    }
+    /**
+     * A far-form template, in the order `family` indexes them.
+     * @param {Float32Array | number[]} pos
+     * @param {Float32Array | number[]} nrm
+     * @param {Float32Array | number[] | null} [uv]
+     */
+    add_template(pos, nrm, uv) {
+        let ptr0, len0, ptr1, len1, ptr2, len2;
+        try {
+            ptr0 = passArrayF32ToWasm0(pos, wasm.__wbindgen_malloc);
+            len0 = WASM_VECTOR_LEN;
+            ptr1 = passArrayF32ToWasm0(nrm, wasm.__wbindgen_malloc);
+            len1 = WASM_VECTOR_LEN;
+            ptr2 = isLikeNone(uv) ? 0 : passArrayF32ToWasm0(uv, wasm.__wbindgen_malloc);
+            len2 = WASM_VECTOR_LEN;
+        } catch (e) {
+            if (ptr2) { wasm.__wbindgen_free(ptr2, len2 * 4, 4); }
+            if (ptr1) { wasm.__wbindgen_free(ptr1, len1 * 4, 4); }
+            if (ptr0) { wasm.__wbindgen_free(ptr0, len0 * 4, 4); }
+            throw e;
+        }
+        wasm.wasmscanner_add_template(this.__wbg_ptr, ptr0, len0, ptr1, len1, ptr2, len2);
+    }
+    /**
+     * Per block id (256 each): solid, see-through, def bits (1 exists, 2 noStud, 4 grass), material
+     * count (0, 1 or 3) and 3 material slots; per shape code (256 each): full cube, far family;
+     * `faces` 6 × (n, u, v, o); `corners` 6 × (u, v); `face_uv` 12; `quats` 256 × (x, y, z, w).
+     * @param {Uint8Array | number[]} solid
+     * @param {Uint8Array | number[]} see_through
+     * @param {Uint8Array | number[]} def
+     * @param {Uint8Array | number[]} mat_count
+     * @param {Int32Array | number[]} mats
+     * @param {Uint8Array | number[]} full_cube
+     * @param {Uint8Array | number[]} family
+     * @param {number} dirt
+     * @param {number} kit_cube
+     * @param {number} round
+     * @param {Float64Array | number[]} faces
+     * @param {Float64Array | number[]} corners
+     * @param {Float64Array | number[]} face_uv
+     * @param {number} backing_inset
+     * @param {Float64Array | number[]} quats
+     * @param {number} world_y
+     */
+    constructor(solid, see_through, def, mat_count, mats, full_cube, family, dirt, kit_cube, round, faces, corners, face_uv, backing_inset, quats, world_y) {
+        const val12 = +dirt;
+        const val13 = +kit_cube;
+        const val14 = +round;
+        const val15 = +backing_inset;
+        const val16 = +world_y;
+        let ptr0, len0, ptr1, len1, ptr2, len2, ptr3, len3, ptr4, len4, ptr5, len5, ptr6, len6, ptr7, len7, ptr8, len8, ptr9, len9, ptr10, len10;
+        try {
+            ptr0 = passArray8ToWasm0(solid, wasm.__wbindgen_malloc);
+            len0 = WASM_VECTOR_LEN;
+            ptr1 = passArray8ToWasm0(see_through, wasm.__wbindgen_malloc);
+            len1 = WASM_VECTOR_LEN;
+            ptr2 = passArray8ToWasm0(def, wasm.__wbindgen_malloc);
+            len2 = WASM_VECTOR_LEN;
+            ptr3 = passArray8ToWasm0(mat_count, wasm.__wbindgen_malloc);
+            len3 = WASM_VECTOR_LEN;
+            ptr4 = passArray32ToWasm0(mats, wasm.__wbindgen_malloc);
+            len4 = WASM_VECTOR_LEN;
+            ptr5 = passArray8ToWasm0(full_cube, wasm.__wbindgen_malloc);
+            len5 = WASM_VECTOR_LEN;
+            ptr6 = passArray8ToWasm0(family, wasm.__wbindgen_malloc);
+            len6 = WASM_VECTOR_LEN;
+            ptr7 = passArrayF64ToWasm0(faces, wasm.__wbindgen_malloc);
+            len7 = WASM_VECTOR_LEN;
+            ptr8 = passArrayF64ToWasm0(corners, wasm.__wbindgen_malloc);
+            len8 = WASM_VECTOR_LEN;
+            ptr9 = passArrayF64ToWasm0(face_uv, wasm.__wbindgen_malloc);
+            len9 = WASM_VECTOR_LEN;
+            ptr10 = passArrayF64ToWasm0(quats, wasm.__wbindgen_malloc);
+            len10 = WASM_VECTOR_LEN;
+        } catch (e) {
+            if (ptr10) { wasm.__wbindgen_free(ptr10, len10 * 8, 8); }
+            if (ptr9) { wasm.__wbindgen_free(ptr9, len9 * 8, 8); }
+            if (ptr8) { wasm.__wbindgen_free(ptr8, len8 * 8, 8); }
+            if (ptr7) { wasm.__wbindgen_free(ptr7, len7 * 8, 8); }
+            if (ptr6) { wasm.__wbindgen_free(ptr6, len6 * 1, 1); }
+            if (ptr5) { wasm.__wbindgen_free(ptr5, len5 * 1, 1); }
+            if (ptr4) { wasm.__wbindgen_free(ptr4, len4 * 4, 4); }
+            if (ptr3) { wasm.__wbindgen_free(ptr3, len3 * 1, 1); }
+            if (ptr2) { wasm.__wbindgen_free(ptr2, len2 * 1, 1); }
+            if (ptr1) { wasm.__wbindgen_free(ptr1, len1 * 1, 1); }
+            if (ptr0) { wasm.__wbindgen_free(ptr0, len0 * 1, 1); }
+            throw e;
+        }
+        const ret = wasm.wasmscanner_new(ptr0, len0, ptr1, len1, ptr2, len2, ptr3, len3, ptr4, len4, ptr5, len5, ptr6, len6, val12, val13, val14, ptr7, len7, ptr8, len8, ptr9, len9, val15, ptr10, len10, val16);
+        this.__wbg_ptr = ret;
+        WasmScannerFinalization.register(this, this.__wbg_ptr, this);
+        return this;
+    }
+    /**
+     * One chunk. Packed float32: [ok, top, nWater, water…, nStuds, (key, len, xyz…)…,
+     * nNear, (key, len, xyz…)…, nBacking, backing…, nFar, (index, nVerts, pos…, nrm…, uv…)…].
+     * @param {Uint8Array | number[]} cells
+     * @param {Uint8Array | number[]} shapes
+     * @param {Uint8Array | number[]} hidden
+     * @param {number} sx0
+     * @param {number} sz0
+     * @param {number} sw
+     * @param {number} sd
+     * @param {number} x0
+     * @param {number} z0
+     * @param {number} x1
+     * @param {number} z1
+     * @param {boolean} far
+     * @returns {Float32Array}
+     */
+    scan(cells, shapes, hidden, sx0, sz0, sw, sd, x0, z0, x1, z1, far) {
+        const val4 = +sx0;
+        const val5 = +sz0;
+        const val6 = +sw;
+        const val7 = +sd;
+        const val8 = +x0;
+        const val9 = +z0;
+        const val10 = +x1;
+        const val11 = +z1;
+        const val12 = +far;
+        let ptr0, len0, ptr1, len1, ptr2, len2;
+        try {
+            ptr0 = passArray8ToWasm0(cells, wasm.__wbindgen_malloc);
+            len0 = WASM_VECTOR_LEN;
+            ptr1 = passArray8ToWasm0(shapes, wasm.__wbindgen_malloc);
+            len1 = WASM_VECTOR_LEN;
+            ptr2 = passArray8ToWasm0(hidden, wasm.__wbindgen_malloc);
+            len2 = WASM_VECTOR_LEN;
+        } catch (e) {
+            if (ptr2) { wasm.__wbindgen_free(ptr2, len2 * 1, 1); }
+            if (ptr1) { wasm.__wbindgen_free(ptr1, len1 * 1, 1); }
+            if (ptr0) { wasm.__wbindgen_free(ptr0, len0 * 1, 1); }
+            throw e;
+        }
+        const ret = wasm.wasmscanner_scan(this.__wbg_ptr, ptr0, len0, ptr1, len1, ptr2, len2, val4, val5, val6, val7, val8, val9, val10, val11, val12);
+        var v13 = getArrayF32FromWasm0(ret[0], ret[1]).slice();
+        wasm.__wbindgen_free(ret[0], ret[1] * 4, 4);
+        return v13;
+    }
+}
+if (Symbol.dispose) WasmScanner.prototype[Symbol.dispose] = WasmScanner.prototype.free;
+
+/**
  * The game's water on the mirrored voxel window (`Grid`): TypeScript keeps the window in step
  * (load on start/scroll, write per edited cell, the ring outside, furniture) and applies the
  * changes `step` returns. Coordinates in calls and changes are ABSOLUTE, like WaterSim's.
@@ -389,6 +546,18 @@ export class WasmWater {
 if (Symbol.dispose) WasmWater.prototype[Symbol.dispose] = WasmWater.prototype.free;
 
 /**
+ * `generateIsland(seed)` on the Rust core (`world.rs`): the cells, for the parity test.
+ * @param {number} seed
+ * @returns {Uint8Array}
+ */
+export function generate_island(seed) {
+    const ret = wasm.generate_island(seed);
+    var v1 = getArrayU8FromWasm0(ret[0], ret[1]).slice();
+    wasm.__wbindgen_free(ret[0], ret[1] * 1, 1);
+    return v1;
+}
+
+/**
  * Brick shells (`kit.rs`, a port of `kitShell.ts` `kitCellsGeometry(cells, false, joined)`).
  * `cells` is flat x, y, z; `mask` answers "joined" for the box (x0, y0, z0) + (sx, sy, sz),
  * indexed ((y * sz + z) * sx + x). Returns one Float32Array:
@@ -427,6 +596,42 @@ export function kit_cells_geometry(cells, mask, x0, y0, z0, sx, sy, sz) {
     wasm.__wbindgen_free(ret[0], ret[1] * 4, 4);
     return v9;
 }
+
+/**
+ * `createMaterialMaps(family, size)` on the Rust core: colour, normals and roughness bytes, concatenated.
+ * @param {string} family
+ * @param {number} size
+ * @returns {Uint8Array}
+ */
+export function material_maps(family, size) {
+    const val2 = +size;
+    const ptr0 = passStringToWasm0(family, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.material_maps(ptr0, len0, val2);
+    var v3 = getArrayU8FromWasm0(ret[0], ret[1]).slice();
+    wasm.__wbindgen_free(ret[0], ret[1] * 1, 1);
+    return v3;
+}
+
+/**
+ * `surfaceStyle(key).family` on the Rust core (`surface.rs`), for the parity test.
+ * @param {string} key
+ * @returns {string}
+ */
+export function surface_family(key) {
+    let deferred2_0;
+    let deferred2_1;
+    try {
+        const ptr0 = passStringToWasm0(key, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ret = wasm.surface_family(ptr0, len0);
+        deferred2_0 = ret[0];
+        deferred2_1 = ret[1];
+        return getStringFromWasm0(ret[0], ret[1]);
+    } finally {
+        wasm.__wbindgen_free(deferred2_0, deferred2_1, 1);
+    }
+}
 function __wbg_get_imports() {
     const import0 = {
         __proto__: null,
@@ -458,6 +663,9 @@ const WasmClassWaterFinalization = (typeof FinalizationRegistry === 'undefined')
 const WasmFluidFinalization = (typeof FinalizationRegistry === 'undefined')
     ? { register: () => {}, unregister: () => {} }
     : new FinalizationRegistry(ptr => wasm.__wbg_wasmfluid_free(ptr, 1));
+const WasmScannerFinalization = (typeof FinalizationRegistry === 'undefined')
+    ? { register: () => {}, unregister: () => {} }
+    : new FinalizationRegistry(ptr => wasm.__wbg_wasmscanner_free(ptr, 1));
 const WasmWaterFinalization = (typeof FinalizationRegistry === 'undefined')
     ? { register: () => {}, unregister: () => {} }
     : new FinalizationRegistry(ptr => wasm.__wbg_wasmwater_free(ptr, 1));
@@ -472,12 +680,25 @@ function getArrayI32FromWasm0(ptr, len) {
     return getInt32ArrayMemory0().subarray(ptr / 4, ptr / 4 + len);
 }
 
+function getArrayU8FromWasm0(ptr, len) {
+    ptr = ptr >>> 0;
+    return getUint8ArrayMemory0().subarray(ptr / 1, ptr / 1 + len);
+}
+
 let cachedFloat32ArrayMemory0 = null;
 function getFloat32ArrayMemory0() {
     if (cachedFloat32ArrayMemory0 === null || cachedFloat32ArrayMemory0.byteLength === 0) {
         cachedFloat32ArrayMemory0 = new Float32Array(wasm.memory.buffer);
     }
     return cachedFloat32ArrayMemory0;
+}
+
+let cachedFloat64ArrayMemory0 = null;
+function getFloat64ArrayMemory0() {
+    if (cachedFloat64ArrayMemory0 === null || cachedFloat64ArrayMemory0.byteLength === 0) {
+        cachedFloat64ArrayMemory0 = new Float64Array(wasm.memory.buffer);
+    }
+    return cachedFloat64ArrayMemory0;
 }
 
 let cachedInt32ArrayMemory0 = null;
@@ -509,6 +730,10 @@ function getUint8ArrayMemory0() {
     return cachedUint8ArrayMemory0;
 }
 
+function isLikeNone(x) {
+    return x === undefined || x === null;
+}
+
 function passArray32ToWasm0(arg, malloc) {
     const ptr = malloc(arg.length * 4, 4) >>> 0;
     getUint32ArrayMemory0().set(arg, ptr / 4);
@@ -520,6 +745,57 @@ function passArray8ToWasm0(arg, malloc) {
     const ptr = malloc(arg.length * 1, 1) >>> 0;
     getUint8ArrayMemory0().set(arg, ptr / 1);
     WASM_VECTOR_LEN = arg.length;
+    return ptr;
+}
+
+function passArrayF32ToWasm0(arg, malloc) {
+    const ptr = malloc(arg.length * 4, 4) >>> 0;
+    getFloat32ArrayMemory0().set(arg, ptr / 4);
+    WASM_VECTOR_LEN = arg.length;
+    return ptr;
+}
+
+function passArrayF64ToWasm0(arg, malloc) {
+    const ptr = malloc(arg.length * 8, 8) >>> 0;
+    getFloat64ArrayMemory0().set(arg, ptr / 8);
+    WASM_VECTOR_LEN = arg.length;
+    return ptr;
+}
+
+function passStringToWasm0(arg, malloc, realloc) {
+    if (realloc === undefined) {
+        const buf = cachedTextEncoder.encode(arg);
+        const ptr = malloc(buf.length, 1) >>> 0;
+        getUint8ArrayMemory0().subarray(ptr, ptr + buf.length).set(buf);
+        WASM_VECTOR_LEN = buf.length;
+        return ptr;
+    }
+
+    let len = arg.length;
+    let ptr = malloc(len, 1) >>> 0;
+
+    const mem = getUint8ArrayMemory0();
+
+    let offset = 0;
+
+    for (; offset < len; offset++) {
+        const code = arg.charCodeAt(offset);
+        if (code > 0x7F) break;
+        mem[ptr + offset] = code;
+    }
+    if (offset !== len) {
+        if (offset !== 0) {
+            arg = arg.slice(offset);
+        }
+        ptr = realloc(ptr, len, len = offset + arg.length * 3, 1) >>> 0;
+        const view = getUint8ArrayMemory0().subarray(ptr + offset, ptr + len);
+        const ret = cachedTextEncoder.encodeInto(arg, view);
+
+        offset += ret.written;
+        ptr = realloc(ptr, len, offset, 1) >>> 0;
+    }
+
+    WASM_VECTOR_LEN = offset;
     return ptr;
 }
 
@@ -537,6 +813,19 @@ function decodeText(bytes) {
     return cachedTextDecoder.decode(bytes);
 }
 
+const cachedTextEncoder = new TextEncoder();
+
+if (!('encodeInto' in cachedTextEncoder)) {
+    cachedTextEncoder.encodeInto = function (arg, view) {
+        const buf = cachedTextEncoder.encode(arg);
+        view.set(buf);
+        return {
+            read: arg.length,
+            written: buf.length
+        };
+    };
+}
+
 let WASM_VECTOR_LEN = 0;
 
 let wasmModule, wasmInstance, wasm;
@@ -545,6 +834,7 @@ function __wbg_finalize_init(instance, module) {
     wasm = instance.exports;
     wasmModule = module;
     cachedFloat32ArrayMemory0 = null;
+    cachedFloat64ArrayMemory0 = null;
     cachedInt32ArrayMemory0 = null;
     cachedUint32ArrayMemory0 = null;
     cachedUint8ArrayMemory0 = null;

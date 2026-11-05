@@ -2,7 +2,7 @@
 # faster, then replaces it. See docs/ENGINE.md.
 [workspace]
 resolver = "2"
-members = ["crates/core", "crates/wasm"]
+members = ["crates/core", "crates/wasm", "crates/client"]
 
 [workspace.package]
 edition = "2021"

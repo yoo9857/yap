@@ -67,6 +67,43 @@
       ]
     },
     {
+      "id": "block-studs",
+      "category": "blocks",
+      "workflow": "Blender source -> one GLB (Stud_HQ + Stud_LOD1) read by the web game and the native client",
+      "files": [
+        {
+          "path": "assets/blocks/studs/source/BlockStuds.blend",
+          "role": "source"
+        },
+        {
+          "path": "assets/blocks/studs/source/build_block_studs.py",
+          "role": "generator"
+        },
+        {
+          "path": "assets/blocks/studs/runtime/block-studs.glb",
+          "role": "canonical-runtime"
+        },
+        {
+          "path": "assets/blocks/studs/runtime/manifest.json",
+          "role": "manifest"
+        },
+        {
+          "path": "assets/blocks/studs/README_KO.md",
+          "role": "documentation"
+        },
+        {
+          "path": "apps/client/public/models/blocks/block-studs.glb",
+          "role": "runtime"
+        }
+      ],
+      "mirrors": [
+        {
+          "source": "assets/blocks/studs/runtime/block-studs.glb",
+          "runtime": "apps/client/public/models/blocks/block-studs.glb"
+        }
+      ]
+    },
+    {
       "id": "block-textures-v3",
       "category": "materials",
       "workflow": "image inputs for generated-material review mode",

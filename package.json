@@ -25,7 +25,11 @@
     "engine:build": "cd engine && wasm-pack build crates/wasm --release --target web --out-dir ../../../packages/engine/wasm && node ../tools/engine-tidy.mjs",
     "engine:test": "cd engine && cargo test && cd .. && pnpm --filter @robo/shared exec vitest run test/rust-parity.test.ts && pnpm --filter @robo/client exec vitest run test/rust-water.test.ts",
     "engine:bench": "node tools/engine-bench.mjs",
-    "engine:check": "node tools/engine-tidy.mjs --check"
+    "engine:check": "node tools/engine-tidy.mjs --check",
+    "app:android": "node tools/android-build.mjs debug",
+    "app:android:release": "node tools/android-build.mjs release",
+    "engine:catalog": "pnpm --filter @robo/server exec tsx ../../tools/engine-catalog.mjs",
+    "engine:tiles": "node tools/engine-tiles.mjs"
   },
   "devDependencies": {
     "@eslint/js": "^9.27.0",

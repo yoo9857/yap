@@ -1,10 +1,11 @@
 import { kitCellsGeometryRust } from "./kitRust.js";
 import type { RustEngine } from "../engine/rustEngine.js";
-import {kitCubeGeometry,kitRampGeometry,kitConnectorGeometry,kitRoundGeometry,kitCellsGeometry,kitBoxesGeometry} from "./kitGeometry.js";
+import {kitCubeGeometry,kitRampGeometry,kitRoundGeometry,kitCellsGeometry,kitBoxesGeometry} from "./kitGeometry.js";
 import * as THREE from "three";
 import {mergeGeometries} from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import {KEEP_INK,framelessTile,repeatingKitTexture} from "./kitSurface.js";
 import { AimOutline } from "./aimOutline.js";
+import { STUD_HQ_DISTANCE, fallbackStuds, loadBlockStuds, type BlockStudGeometries } from "./blockStuds.js";
 import {BlockMaterialLibrary,linkSurfaceTwin,materialFaceGroups,needsCatalogTexture} from "./blockMaterials.js";
 import { castsInstancedShadow } from "../render/instancedDepth.js";
 import { BLOCKS, SOLID_ID, blockById, textureUrl, type BlockDef } from "./blocks.js";
@@ -17,23 +18,16 @@ import {
   brickOrientation,
   cubeBrickGeometry,
   slopeBrickGeometry,
-  studGeometry,
 } from "./brickGeometry.js";
-
-/** 2×2 stud layout on a 1 m brick top (0.5 m sub-cells) — dense small studs to
- *  match the jump-map bricks instead of one oversized stud. */
-const STUD_OFFSETS: readonly [number, number][] = [
-  [-0.25, -0.25],
-  [0.25, -0.25],
-  [-0.25, 0.25],
-  [0.25, 0.25],
-];
 
 /** Columns per chunk. Chunks are the unit of culling, rebuilding and LOD. */
 const CHUNK = 16;
-/** Studs are 9 cm caps. Past this they are sub-pixel, but they were 41% of the
+/** Studs (4 cm tall caps, 20 cm across) are sub-pixel past this, and they were 41% of the
  *  island's triangles, so they are only emitted near the viewer. */
 const STUD_RANGE = 32;
+/** How far the focus may move before the Stud_HQ / Stud_LOD1 split is redone; tops are given
+ *  the original within STUD_HQ_DISTANCE + this, so never less than STUD_HQ_DISTANCE. */
+const STUD_HQ_STEP = 2;
 /** Chunks nearer than this (nearest point, metres, altitude included) draw
  *  real LEGO bricks: 108-triangle rounded cubes. Past it a chunk becomes ONE
  *  face-culled mesh, Minecraft style — 2 triangles per visible face — since
@@ -77,6 +71,20 @@ interface ChunkState {
   backing: THREE.Mesh | null;
   waterMinY: number;
   waterMaxY: number;
+  /** A far → near flip being built a few meshes per frame (see stepStaging); the far form stays
+   *  drawn until every near mesh is ready, then the two swap in one frame. */
+  staging: Staging | null;
+}
+
+/** The near form of an unchanged chunk, built in budgeted steps instead of one long frame. */
+interface Staging {
+  id: number;
+  world: VoxelWorld;
+  keys: number[];
+  next: number;
+  positions: Map<number, number[]>;
+  backing: Floats;
+  built: Map<number, THREE.InstancedMesh>;
 }
 
 interface WaterBatch {
@@ -225,7 +233,6 @@ export class VoxelView {
   private readonly blockSurfaces:BlockMaterialLibrary;
   private readonly clonedBlockTextures=new Set<THREE.Texture>();
   private readonly faceMaterialIndices=new Map<number,number[]>();
-  private readonly kitCapGeo=kitConnectorGeometry();
   private readonly kitCubeGeo=kitCubeGeometry();
   private readonly kitSlopeGeo=kitRampGeometry();
   private readonly cornerGeo=kitRampGeometry(true);
@@ -241,8 +248,12 @@ export class VoxelView {
   /** Cheap non-indexed shapes baked into far meshes for round/slope bricks. */
   private readonly farRound = new THREE.CylinderGeometry(0.5, 0.5, 1, 8).toNonIndexed();
   private readonly farSlope = nonIndexed(kitRampGeometry(false,0));
-  private readonly studGeometry = whiteVertexColors(studGeometry());
+  /** The Blender studs (blockStuds.ts): this view's own copies, the code twin until the GLB lands. */
+  private studs: BlockStudGeometries = fallbackStuds();
+  /** key = ((block << 1 | style) << 1) | form (0 Stud_HQ, 1 Stud_LOD1). */
   private readonly studMeshes = new Map<number, THREE.InstancedMesh>();
+  /** Where the stud forms were last split; the HQ ring is re-split every STUD_HQ_STEP. */
+  private readonly studFocus = new THREE.Vector3(Infinity, Infinity, Infinity);
   private chunks = new Map<number, ChunkState>();
   private readonly queue = new Set<number>();
   private readonly materials = new Map<number, THREE.Material>();
@@ -280,6 +291,27 @@ export class VoxelView {
       if (def.seeThrough) this.seeThrough.add(def.id);
     }
     scene.add(this.highlight.object);
+    // the Blender studs replace the code twin as soon as they land (craftGame awaits them at boot)
+    void loadBlockStuds().then((s) => this.useStuds(s));
+  }
+
+  /** Take (copies of) the stud geometries: every stud mesh is rebuilt on them next frame. */
+  private useStuds(s: BlockStudGeometries): void {
+    if (this.disposed || !s.fromBlender) return;
+    for (const mesh of this.studMeshes.values()) {
+      this.scene.remove(mesh);
+      mesh.dispose();
+    }
+    this.studMeshes.clear();
+    this.studs.hq.dispose();
+    this.studs.lod.dispose();
+    this.studs = { hq: s.hq.clone(), lod: s.lod.clone(), fromBlender: true };
+    this.studsDirty = true;
+  }
+
+  /** Whether the studs drawn are the Blender ones (debug: __roboCraft). */
+  studsFromBlender(): boolean {
+    return this.studs.fromBlender;
   }
 
   private geometryFor(shape: number): THREE.BufferGeometry {
@@ -334,8 +366,8 @@ export class VoxelView {
     let geometry=this.geometryFor(shape).clone();const rotation=isOrientedShape(shape)?brickOrientation(shapeYaw(shape),shapeTilt(shape)):new THREE.Quaternion();
     const materials=this.miningMaterials(block);
     if(cell&&world&&!blockById(block)?.noStud&&(isFullCubeShape(shape)||shape===ROUND)&&!world.isSolid(cell[0],cell[1]+1,cell[2])){
-      const style=shape===KIT_CUBE||shape===ROUND,parts=[geometry.index?geometry.toNonIndexed():geometry.clone()];
-      for(const [x,z] of style?[[0,0]]:STUD_OFFSETS){const cap=(style?this.kitCapGeo:this.studGeometry).clone().translate(x,.5,z);parts.push(cap.index?cap.toNonIndexed():cap);if(cap.index)cap.dispose();}
+      const parts=[geometry.index?geometry.toNonIndexed():geometry.clone()];
+      const cap=this.studs.hq.clone().translate(0,.5,0);parts.push(cap.index?cap.toNonIndexed():cap);if(cap.index)cap.dispose();
       const merged=mergeGeometries(parts);for(const p of parts)p.dispose();if(merged){geometry.dispose();geometry=merged;}
     }
     if(materials.length>1)materialFaceGroups(geometry,rotation);
@@ -574,7 +606,7 @@ export class VoxelView {
     for (const chunk of this.chunks.values()) {
       near += chunk.meshes.size; far += Number(chunk.far !== null); water += Number(chunk.water !== null);
     }
-    return { chunks: this.chunks.size, queued: this.queue.size, nearMeshes: near, farMeshes: far, waterMeshes: water,
+    return { chunks: this.chunks.size, queued: this.queue.size, staged: this.staged.size, nearMeshes: near, farMeshes: far, waterMeshes: water,
       disposed: this.disposed };
   }
 
@@ -584,7 +616,7 @@ export class VoxelView {
     if (cx < 0 || cz < 0 || cx >= CHUNKS_X || cz >= CHUNKS_Z) return;
     this.cancelWaterBatch();
     const chunk = this.chunks.get(id);
-    if (chunk) chunk.stale = true;
+    if (chunk) { chunk.stale = true; this.dropStaging(chunk); }
     this.queue.add(id);
   }
 
@@ -595,6 +627,7 @@ export class VoxelView {
    * is queued for building.
    */
   shift(dx: number, dz: number): void {
+    this.dropAllStaging(); // staged positions are grid cells from before the scroll
     this.setMiningHidden(null);this.setFallingHidden([]);this.miningPriority.clear();
     this.cancelWaterBatch();
     const waterQueued = [...this.waterQueue];
@@ -719,8 +752,11 @@ export class VoxelView {
       this.queueLodChanges();
       this.applyVisibility();
     }
+    // the original studs follow closely (a small ring, cheap to re-split)
+    if (eye && this.studFocus.distanceToSquared(eye) > STUD_HQ_STEP * STUD_HQ_STEP) this.studsDirty = true;
     if (this.dirty) {
       this.cancelWaterBatch();
+      this.dropAllStaging();
       this.dirty = false;
       for (const chunk of this.chunks.values()) chunk.stale = true;
       for (let cz = 0; cz < CHUNKS_Z; cz++) {
@@ -730,12 +766,12 @@ export class VoxelView {
     // A replacement and its original must swap in the same frame, even during a queued terrain rebuild.
     for(const id of this.miningPriority){this.queue.delete(id);if(this.buildChunk(world,chunkX(id),chunkZ(id)))this.studsDirty=true;}
     this.miningPriority.clear();
+    // The first fill and focus-less callers build everything at once, so a
+    // world never appears half-drawn on load.
+    const budget = this.primed && eye ? BUILD_BUDGET_MS : Infinity;
+    const start = performance.now();
     if (this.queue.size > 0) {
       const order = [...this.queue].sort((a, b) => this.distSqTo(a) - this.distSqTo(b));
-      // The first fill and focus-less callers build everything at once, so a
-      // world never appears half-drawn on load.
-      const budget = this.primed && eye ? BUILD_BUDGET_MS : Infinity;
-      const start = performance.now();
       const studRange = (STUD_RANGE + CHUNK) ** 2;
       for (const id of order) {
         this.queue.delete(id);
@@ -745,6 +781,7 @@ export class VoxelView {
       }
       this.primed = true;
     }
+    if (this.staged.size > 0) this.stepStaging(start, budget);
     if (this.waterQueue.size > 0 || this.waterBatch) this.rebuildQueuedWater(world);
     if (this.studsDirty) this.rebuildStuds(eye);
   }
@@ -785,10 +822,11 @@ export class VoxelView {
     const id = chunkId(cx, cz);
     let chunk = this.chunks.get(id);
     if (!chunk) {
-      chunk = { meshes: new Map(), far: null, isFar: false, stale: true, top: 0, hidden: false, studs: new Map(), water: null, waterMinY: WORLD_Y, waterMaxY: -1, backing: null };
+      chunk = { meshes: new Map(), far: null, isFar: false, stale: true, top: 0, hidden: false, studs: new Map(), water: null, waterMinY: WORLD_Y, waterMaxY: -1, backing: null, staging: null };
       this.chunks.set(id, chunk);
     }
     const far = this.wantsFar(id, chunk);
+    if (chunk.staging && (chunk.stale || far)) this.dropStaging(chunk);
     const built = chunk.isFar ? chunk.far !== null : chunk.meshes.size > 0;
     if (!chunk.stale && far === chunk.isFar && built) return false;
     // A pure LOD flip of an unchanged chunk whose other form is still cached
@@ -800,6 +838,12 @@ export class VoxelView {
         this.showForm(chunk);
         return false;
       }
+    }
+    // Walking turns far chunks near: an unchanged chunk that still shows its far form is built near
+    // in budgeted steps (one chunk's meshes in one frame took up to 37 ms), then swapped.
+    if (!chunk.stale && !far && chunk.isFar && chunk.far && this.primed && this.hasFocus) {
+      if (!chunk.staging) this.startStaging(world, chunk, cx, cz);
+      return false;
     }
     const rebuildWater = chunk.stale;
     if (chunk.stale) {
@@ -844,7 +888,7 @@ export class VoxelView {
 
   /** Walk the chunk's cells once, emitting studs + either near instances or
    *  far face geometry. */
-  private scanChunk(world: VoxelWorld, chunk: ChunkState, cx: number, cz: number, far: boolean, rebuildWater: boolean): void {
+  private scanChunk(world: VoxelWorld, chunk: ChunkState, cx: number, cz: number, far: boolean, rebuildWater: boolean, staged = false): { positions: Map<number, number[]>; backing: Floats } | null {
     const { cells, shapes } = world;
     const W = WORLD_X;
     const layer = WORLD_X * WORLD_Z;
@@ -876,7 +920,10 @@ export class VoxelView {
       return SOLID_ID[block] === 1 && isFullCubeShape(shape) && !this.seeThrough.has(block);
     };
 
-    for (let y = 0; y < WORLD_Y; y++) {
+    // `?engine=rust`: the same walk in the Rust engine (scan.rs); TypeScript if it is off or fails
+    const rustTop = this.scanRust(world, chunk, x0, z0, x1, z1, far, positions, farBuffers, backing, water);
+    if (rustTop !== null) top = rustTop;
+    else for (let y = 0; y < WORLD_Y; y++) {
       for (let z = z0; z < z1; z++) {
         let i = (y * WORLD_Z + z) * W + x0;
         for (let x = x0; x < x1; x++, i++) {
@@ -964,10 +1011,12 @@ export class VoxelView {
     if (!this.primed && typeof Worker === "undefined") this.buildWater(world, chunk, water);
     else if (!this.primed || rebuildWater) this.waterQueue.set(chunkId(cx, cz), [0, WORLD_Y - 1]);
     if (far) this.buildFarMesh(chunk, farBuffers);
+    else if (staged) return { positions, backing };
     else {
       this.buildNearMeshes(chunk, positions,world);
       this.buildBacking(chunk, backing);
     }
+    return null;
   }
 
   /**
@@ -1058,6 +1107,7 @@ export class VoxelView {
   private rustKit: RustEngine | null = null;
   useRustShells(engine: RustEngine | null): void { this.rustKit = engine; }
   get shellEngine(): "rust" | "ts" { return this.rustKit ? "rust" : "ts"; }
+  get scanEngine(): "rust" | "ts" { return this.rustKit && !this.rustScanOff ? "rust" : "ts"; }
 
   /** A chunk's joined shell for one block: Rust when enabled, TypeScript otherwise and after any
    *  Rust failure (a trap switches this view back to TypeScript for good). */
@@ -1075,16 +1125,29 @@ export class VoxelView {
   }
 
   private buildNearMeshes(chunk: ChunkState, positions: Map<number, number[]>,world:VoxelWorld): void {
-    const q = new THREE.Quaternion();
-    const scl = new THREE.Vector3(1, 1, 1);
-    const pos = new THREE.Vector3();
-    const matrix = new THREE.Matrix4();
     for (const [key, list] of positions) {
+      const mesh = this.buildNearMesh(key, list, world);
+      if (!mesh) continue;
+      this.scene.add(mesh);
+      chunk.meshes.set(key, mesh);
+    }
+  }
+
+  private readonly nearQ = new THREE.Quaternion();
+  private readonly nearScale = new THREE.Vector3(1, 1, 1);
+  private readonly nearPos = new THREE.Vector3();
+  private readonly nearMatrix = new THREE.Matrix4();
+
+  /** One near mesh of a chunk: a block's joined shell (full cubes) or its instanced shaped bricks.
+   *  Not added to the scene — the caller decides when it shows. */
+  private buildNearMesh(key: number, list: number[], world: VoxelWorld): THREE.InstancedMesh | null {
+    const q = this.nearQ, scl = this.nearScale, pos = this.nearPos, matrix = this.nearMatrix;
+    {
       const count = list.length / 3;
       const block = key >> 8;
       const shape = key & 0xff;
       const materials=this.kitMaterials.get(block);const material=materials?.length===1?materials[0]:materials;
-      if (!material) continue;
+      if (!material) return null;
       if(isFullCubeShape(shape)){
         const cells:[number,number,number][]=[];for(let i=0;i<list.length;i+=3)cells.push([list[i]!,list[i+1]!,list[i+2]!]);
         const joined=(x:number,y:number,z:number)=>!this.isMiningHidden(x,y,z)&&world.isSolid(x,y,z)&&isFullCubeShape(world.getShape(x,y,z));
@@ -1092,7 +1155,7 @@ export class VoxelView {
         if(materials!.length>1)materialFaceGroups(geometry);
         const shell=new THREE.InstancedMesh(geometry,material,1);shell.setMatrixAt(0,new THREE.Matrix4());shell.instanceMatrix.needsUpdate=true;
         castsInstancedShadow(shell);shell.receiveShadow=true;if(this.seeThrough.has(block))shell.renderOrder=2;
-        shell.computeBoundingSphere();this.ownedShells.add(geometry);this.scene.add(shell);chunk.meshes.set(key,shell);continue;
+        shell.computeBoundingSphere();this.ownedShells.add(geometry);return shell;
       }
       let geometry=this.geometryFor(shape);
       if(materials!.length>1){geometry=materialFaceGroups(geometry.clone(),isOrientedShape(shape)?brickOrientation(shapeYaw(shape),shapeTilt(shape)):undefined);this.ownedShells.add(geometry);}
@@ -1111,9 +1174,160 @@ export class VoxelView {
       // instance bounds are NOT tracked automatically — without this the stale
       // sphere gets frustum-culled once the camera drops into a dig hole
       mesh.computeBoundingSphere();
+      return mesh;
+    }
+  }
+
+  // ------------------------------------------------------------ the chunk scan on Rust
+
+  private rustScanner: InstanceType<RustEngine["WasmScanner"]> | null = null;
+  private rustScanOff = false;
+  private readonly slabCells = new Uint8Array((CHUNK + 2) * (CHUNK + 2) * WORLD_Y);
+  private readonly slabShapes = new Uint8Array(this.slabCells.length);
+  private readonly slabHidden = new Uint8Array(this.slabCells.length);
+
+  /** The view's tables for scan.rs: block flags, materials per face band, face geometry, the far
+   *  templates and every shape's orientation — fixed for the view's life. */
+  private makeScanner(engine: RustEngine): InstanceType<RustEngine["WasmScanner"]> {
+    const solid = new Uint8Array(256), see = new Uint8Array(256), def = new Uint8Array(256), count = new Uint8Array(256), mats = new Int32Array(256 * 3);
+    const full = new Uint8Array(256), family = new Uint8Array(256), quats = new Float64Array(256 * 4);
+    for (let id = 0; id < 256; id++) {
+      solid[id] = SOLID_ID[id] === 1 ? 1 : 0;
+      see[id] = this.seeThrough.has(id) ? 1 : 0;
+      const d = blockById(id);
+      if (d) def[id] = 1 | (d.noStud ? 2 : 0) | (d.key === "grass" || d.key === "flower-grass" ? 4 : 0);
+      const m = this.faceMaterialIndices.get(id);
+      if (m) { count[id] = m.length; for (let k = 0; k < m.length; k++) mats[id * 3 + k] = m[k]!; }
+      full[id] = isFullCubeShape(id) ? 1 : 0;
+      const fam = blockShapeFamily(id);
+      family[id] = id === ROUND ? 0 : fam === "corner" ? 1 : fam === "slab" ? 2 : fam === "stairs" ? 3 : 4;
+      const q = isOrientedShape(id) ? brickOrientation(shapeYaw(id), shapeTilt(id), new THREE.Quaternion()) : new THREE.Quaternion();
+      quats.set([q.x, q.y, q.z, q.w], id * 4);
+    }
+    const faces = new Float64Array(FACES.flatMap((fc) => [...fc.n, ...fc.u, ...fc.v, ...fc.o]));
+    const sc = new engine.WasmScanner(solid, see, def, count, mats, full, family, 2, KIT_CUBE, ROUND, faces, new Float64Array(FACE_CORNERS.flat()), new Float64Array(FACE_UV), BACKING_INSET, quats, WORLD_Y);
+    for (const g of [this.farRound, this.farCorner, this.farSlab, this.farStairs, this.farSlope]) {
+      const uv = g.attributes.uv;
+      sc.add_template(g.attributes.position!.array as Float32Array, g.attributes.normal!.array as Float32Array, uv ? new Float32Array(uv.array as Float32Array) : undefined);
+    }
+    return sc;
+  }
+
+  /** scanChunk's walk on Rust: fills the same containers and returns the top, or null (off, or
+   *  failed — then the TypeScript walk runs). The slab is the chunk plus a one-cell ring at every
+   *  height: raw blocks as `world.get` sees them (the field's ground beyond the window included),
+   *  shapes (0 beyond the window) and the hidden flags. */
+  private scanRust(world: VoxelWorld, chunk: ChunkState, x0: number, z0: number, x1: number, z1: number, far: boolean,
+    positions: Map<number, number[]>, farBuffers: Map<number, FarBuffers>, backing: Floats, water: number[]): number | null {
+    if (!this.rustKit || this.rustScanOff) return null;
+    try {
+      const sc = (this.rustScanner ??= this.makeScanner(this.rustKit));
+      const sx0 = x0 - 1, sz0 = z0 - 1, sw = x1 - x0 + 2, sd = z1 - z0 + 2, n = sw * sd * WORLD_Y;
+      const cells = this.slabCells.subarray(0, n), shapes = this.slabShapes.subarray(0, n), hidden = this.slabHidden.subarray(0, n);
+      const wc = world.cells, ws = world.shapes;
+      // rows inside the window are copied whole; the ring beyond it reads world.get (the field's ground)
+      const ax = Math.max(sx0, 0), bx = Math.min(sx0 + sw, WORLD_X);
+      for (let y = 0, i = 0; y < WORLD_Y; y++) for (let lz = 0; lz < sd; lz++, i += sw) {
+        const z = sz0 + lz;
+        if (z >= 0 && z < WORLD_Z && ax < bx) {
+          const wi = (y * WORLD_Z + z) * WORLD_X;
+          cells.set(wc.subarray(wi + ax, wi + bx), i + ax - sx0);
+          shapes.set(ws.subarray(wi + ax, wi + bx), i + ax - sx0);
+          for (let x = sx0; x < ax; x++) { cells[i + x - sx0] = world.get(x, y, z); shapes[i + x - sx0] = 0; }
+          for (let x = bx; x < sx0 + sw; x++) { cells[i + x - sx0] = world.get(x, y, z); shapes[i + x - sx0] = 0; }
+        } else for (let lx = 0; lx < sw; lx++) { cells[i + lx] = world.get(sx0 + lx, y, z); shapes[i + lx] = 0; }
+      }
+      // hidden: the cell being mined and the falling ones (isMiningHidden), wherever they sit in the slab
+      hidden.fill(0);
+      const hide = (x: number, y: number, z: number) => {
+        const lx = x - sx0, lz = z - sz0;
+        if (lx >= 0 && lx < sw && lz >= 0 && lz < sd && y >= 0 && y < WORLD_Y && this.isMiningHidden(x, y, z)) hidden[(y * sd + lz) * sw + lx] = 1;
+      };
+      if (this.miningHidden) hide(this.miningHidden[0], this.miningHidden[1], this.miningHidden[2]);
+      for (const index of this.fallingHidden) hide(index % WORLD_X, Math.floor(index / (WORLD_X * WORLD_Z)), Math.floor(index / WORLD_X) % WORLD_Z);
+      const out = sc.scan(cells, shapes, hidden, sx0, sz0, sw, sd, x0, z0, x1, z1, far);
+      if (out[0] !== 1) return null;
+      let at = 1;
+      const next = () => out[at++]!;
+      const ints = (len: number) => { const a = Array.from(out.subarray(at, at + len)); at += len; return a; };
+      const floats = (len: number) => { const fl = new Floats(); fl.data = out.slice(at, at + len); fl.length = len; at += len; return fl; };
+      const top = next();
+      for (let k = next(); k > 0; k--) water.push(next());
+      for (let k = next(); k > 0; k--) { const key = next(); chunk.studs.set(key, ints(next())); }
+      for (let k = next(); k > 0; k--) { const key = next(); positions.set(key, ints(next())); }
+      const b = floats(next());
+      backing.data = b.data; backing.length = b.length;
+      for (let k = next(); k > 0; k--) {
+        const index = next(), verts = next();
+        farBuffers.set(index, { pos: floats(verts * 3), nrm: floats(verts * 3), uv: floats(verts * 2) });
+      }
+      return top;
+    } catch (err) {
+      console.warn("Rust chunk scan failed, continuing on TypeScript", err);
+      this.rustScanOff = true;
+      return null;
+    }
+  }
+
+  // ------------------------------------------------------------ staged near builds
+
+  /** Chunks whose near form is being built in steps (far → near flips while walking). */
+  private readonly staged = new Set<ChunkState>();
+
+  /** Scan once now; the meshes follow in budgeted steps (stepStaging). */
+  private startStaging(world: VoxelWorld, chunk: ChunkState, cx: number, cz: number): void {
+    const scan = this.scanChunk(world, chunk, cx, cz, false, false, true)!;
+    chunk.staging = { id: chunkId(cx, cz), world, keys: [...scan.positions.keys()], next: 0, positions: scan.positions, backing: scan.backing, built: new Map() };
+    this.staged.add(chunk);
+  }
+
+  /** Build staged meshes while the frame's budget lasts; a chunk whose meshes are all ready swaps
+   *  to its near form at once. Builds from the queue come first; the queue only refills when the
+   *  focus moves, so staging always gets its turn. */
+  private stepStaging(start: number, budget: number): void {
+    for (const chunk of this.staged) {
+      const st = chunk.staging!;
+      // walked away again before it was ready: it stays far (the queue never sees it, it is not stale)
+      if (this.wantsFar(st.id, chunk)) { this.dropStaging(chunk); continue; }
+      while (st.next < st.keys.length) {
+        if (performance.now() - start > budget) return;
+        const key = st.keys[st.next++]!;
+        const mesh = this.buildNearMesh(key, st.positions.get(key)!, st.world);
+        if (mesh) st.built.set(key, mesh);
+      }
+      this.finishStaging(chunk);
+    }
+  }
+
+  private finishStaging(chunk: ChunkState): void {
+    const st = chunk.staging!;
+    chunk.staging = null;
+    this.staged.delete(chunk);
+    this.disposeNear(chunk);
+    for (const [key, mesh] of st.built) {
       this.scene.add(mesh);
       chunk.meshes.set(key, mesh);
     }
+    this.buildBacking(chunk, st.backing);
+    chunk.isFar = false;
+    this.showForm(chunk);
+    this.studsDirty = true;
+  }
+
+  /** Throw a staged build away (the chunk changed, moved, went far again or is dropped). */
+  private dropStaging(chunk: ChunkState): void {
+    const st = chunk.staging;
+    if (!st) return;
+    chunk.staging = null;
+    this.staged.delete(chunk);
+    for (const mesh of st.built.values()) {
+      mesh.dispose();
+      if (this.ownedShells.has(mesh.geometry)) { mesh.geometry.dispose(); this.ownedShells.delete(mesh.geometry); }
+    }
+  }
+
+  private dropAllStaging(): void {
+    for (const chunk of [...this.staged]) this.dropStaging(chunk);
   }
 
   private disposeNear(chunk: ChunkState): void {
@@ -1203,6 +1417,7 @@ export class VoxelView {
   }
 
   private dropChunk(chunk: ChunkState): void {
+    this.dropStaging(chunk);
     this.disposeNear(chunk);
     this.disposeFar(chunk);
     this.disposeWater(chunk);
@@ -1212,14 +1427,16 @@ export class VoxelView {
   // ------------------------------------------------------------ studs
 
   /**
-   * 2×2 studs per top face (0.5 m sub-cells) so a 1 m voxel reads as small,
-   * densely-studded LEGO like the jump-map's 0.7 m bricks — not one big cube.
-   * Only cells within STUD_RANGE of the focus are emitted, and chunks wholly
-   * out of range are skipped without walking their cells.
+   * The Blender studs (blockStuds.ts): one 2×2 stud mesh per open top. Tops within
+   * STUD_HQ_DISTANCE (+ the re-evaluation step, so never less) of the focus get the original
+   * Stud_HQ, the rest out to STUD_RANGE the light Stud_LOD1. Chunks wholly out of range are
+   * skipped without walking their cells.
    */
   private rebuildStuds(eye?: THREE.Vector3): void {
     this.studsDirty = false;
+    if (eye) this.studFocus.copy(eye);
     const range = STUD_RANGE * STUD_RANGE;
+    const hqRange = (STUD_HQ_DISTANCE + STUD_HQ_STEP) ** 2;
     const near = new Map<number, number[][]>();
     for (const [id, chunk] of this.chunks) {
       if (eye && this.distSqTo(id) > range) continue;
@@ -1230,17 +1447,16 @@ export class VoxelView {
       }
     }
     const matrix = new THREE.Matrix4();
-    for (const def of BLOCKS) for(const style of [0,1]) {
-      const key=(def.id<<1)|style;const offsets:readonly (readonly [number,number])[]=style===1?[[0,0]]:STUD_OFFSETS;
-      const bucket = near.get(key) ?? [];
+    // a top's form: 0 = Stud_HQ, 1 = Stud_LOD1, -1 = out of range (no focus: every top, original)
+    const formOf = (list: number[], i: number): number => (!eye ? 0 : this.withinRange(list, i, eye, hqRange) ? 0 : this.withinRange(list, i, eye, range) ? 1 : -1);
+    for (const def of BLOCKS) for (const style of [0, 1]) for (const form of [0, 1]) {
+      const key = (((def.id << 1) | style) << 1) | form;
+      const bucket = near.get((def.id << 1) | style) ?? [];
       // Count what is actually in range before touching the GPU buffer.
-      let inRange = 0;
+      let count = 0;
       for (const list of bucket) {
-        for (let i = 0; i < list.length; i += 3) {
-          if (!eye || this.withinRange(list, i, eye, range)) inRange++;
-        }
+        for (let i = 0; i < list.length; i += 3) if (formOf(list, i) === form) count++;
       }
-      const count = inRange * offsets.length;
       let mesh = this.studMeshes.get(key);
       // Do not create a GPU buffer for an unused block type.
       if (count === 0) {
@@ -1255,8 +1471,8 @@ export class VoxelView {
         const material = this.kitMaterials.get(def.id)?.[0];
         if (!material) continue;
         const capacity = Math.max(256, Math.ceil(count * 1.25));
-        mesh = new THREE.InstancedMesh(style===1?this.kitCapGeo:this.studGeometry, material, capacity);
-        // 10 cm caps: their shadows are invisible but doubled the shadow pass
+        mesh = new THREE.InstancedMesh(form === 0 ? this.studs.hq : this.studs.lod, material, capacity);
+        // 4 cm caps on terrain: their shadows are invisible but doubled the shadow pass
         mesh.castShadow = false;
         if(style===1)castsInstancedShadow(mesh);
         mesh.receiveShadow = true;
@@ -1266,14 +1482,9 @@ export class VoxelView {
       let k = 0;
       for (const list of bucket) {
         for (let i = 0; i < list.length; i += 3) {
-          if (eye && !this.withinRange(list, i, eye, range)) continue;
-          const x = list[i]! + 0.5;
-          const y = list[i + 1]! + 1;
-          const z = list[i + 2]! + 0.5;
-          for (const [ox, oz] of offsets) {
-            matrix.makeTranslation(x + ox, y, z + oz);
-            mesh.setMatrixAt(k++, matrix);
-          }
+          if (formOf(list, i) !== form) continue;
+          matrix.makeTranslation(list[i]! + 0.5, list[i + 1]! + 1, list[i + 2]! + 0.5);
+          mesh.setMatrixAt(k++, matrix);
         }
       }
       mesh.count = k;
@@ -1297,6 +1508,7 @@ export class VoxelView {
   dispose(): void {
     if (this.disposed) return;
     this.disposed = true;
+    this.dropAllStaging();
     this.cancelWaterBatch();
     this.waterQueue.clear();
     this.waterWorker?.terminate(); this.waterWorker = null;
@@ -1309,7 +1521,7 @@ export class VoxelView {
       mesh.dispose();
     }
     this.studMeshes.clear();
-    this.studGeometry.dispose();this.kitCapGeo.dispose();
+    this.studs.hq.dispose();this.studs.lod.dispose();
     for (const material of this.materials.values()) material.dispose();
     this.kitMaterials.clear();this.blockSurfaces.dispose();for(const map of this.clonedBlockTextures)map.dispose();this.clonedBlockTextures.clear();
     for (const material of this.materialList) material.dispose(); // the merged twins

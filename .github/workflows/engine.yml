@@ -6,10 +6,10 @@ name: Engine (Rust) checks
 # same float32s as kitShell.ts.
 on:
   pull_request:
-    paths: ["engine/**", "packages/engine/**", "apps/client/src/engine/**", "apps/server/src/classroom/classRoom.ts", "apps/server/test/rust-class-water.test.ts", "apps/client/src/craft/waterSim.ts", "apps/client/test/rust-water.test.ts", "packages/shared/src/fluid.ts", "packages/shared/src/waterlog.ts", "packages/shared/test/rust-*.ts", "apps/client/src/craft/kitShell.ts", "apps/client/src/craft/kitRust.ts", "apps/client/test/rust-kit*.ts", ".github/workflows/engine.yml"]
+    paths: ["engine/**", "packages/engine/**", "apps/client/src/engine/**", "apps/server/src/classroom/classRoom.ts", "apps/server/test/rust-class-water.test.ts", "apps/client/src/craft/waterSim.ts", "apps/client/test/rust-water.test.ts", "packages/shared/src/fluid.ts", "packages/shared/src/waterlog.ts", "packages/shared/test/rust-*.ts", "apps/client/src/craft/kitShell.ts", "apps/client/src/craft/kitRust.ts", "apps/client/src/craft/voxelView.ts", "apps/client/test/rust-kit*.ts", "apps/client/test/rust-scan.test.ts", "tools/android-build.mjs", "apps/client/src/craft/voxelWorld.ts", "apps/client/src/craft/blockMaterials.ts", "apps/client/src/craft/blocks.ts", "apps/client/test/rust-world.test.ts", "apps/client/test/rust-surface.test.ts", "tools/engine-catalog.mjs", "tools/engine-tiles.mjs", "apps/client/src/craft/kitSurface.ts", "apps/client/src/craft/generatedBlockTextures.ts", "apps/client/public/textures/blocks/**", "apps/client/src/assets/block-materials-v3/**", "apps/client/public/models/blocks/**", ".github/workflows/engine.yml"]
   push:
     branches: [main]
-    paths: ["engine/**", "packages/engine/**", "apps/client/src/engine/**", "apps/server/src/classroom/classRoom.ts", "apps/server/test/rust-class-water.test.ts", "apps/client/src/craft/waterSim.ts", "apps/client/test/rust-water.test.ts", "packages/shared/src/fluid.ts", "packages/shared/src/waterlog.ts", "packages/shared/test/rust-*.ts", "apps/client/src/craft/kitShell.ts", "apps/client/src/craft/kitRust.ts", "apps/client/test/rust-kit*.ts", ".github/workflows/engine.yml"]
+    paths: ["engine/**", "packages/engine/**", "apps/client/src/engine/**", "apps/server/src/classroom/classRoom.ts", "apps/server/test/rust-class-water.test.ts", "apps/client/src/craft/waterSim.ts", "apps/client/test/rust-water.test.ts", "packages/shared/src/fluid.ts", "packages/shared/src/waterlog.ts", "packages/shared/test/rust-*.ts", "apps/client/src/craft/kitShell.ts", "apps/client/src/craft/kitRust.ts", "apps/client/src/craft/voxelView.ts", "apps/client/test/rust-kit*.ts", "apps/client/test/rust-scan.test.ts", "tools/android-build.mjs", "apps/client/src/craft/voxelWorld.ts", "apps/client/src/craft/blockMaterials.ts", "apps/client/src/craft/blocks.ts", "apps/client/test/rust-world.test.ts", "apps/client/test/rust-surface.test.ts", "tools/engine-catalog.mjs", "tools/engine-tiles.mjs", "apps/client/src/craft/kitSurface.ts", "apps/client/src/craft/generatedBlockTextures.ts", "apps/client/public/textures/blocks/**", "apps/client/src/assets/block-materials-v3/**", "apps/client/public/models/blocks/**", ".github/workflows/engine.yml"]
   workflow_dispatch:
 
 permissions:
@@ -39,6 +39,10 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - name: The committed web wasm matches the Rust sources
         run: pnpm engine:check
+      - name: The engine's block catalog matches blocks.ts
+        run: pnpm engine:catalog --check
+      - name: The native block surfaces match the web's (tools/engine-tiles.mjs)
+        run: pnpm engine:tiles --check
       - run: pnpm engine:build
       - name: Parity (Rust water = TypeScript water)
         run: pnpm --filter @robo/shared exec vitest run test/rust-parity.test.ts
@@ -48,4 +52,38 @@ jobs:
         run: pnpm --filter @robo/server exec vitest run test/rust-class-water.test.ts
       - name: Brick shells on Rust = TypeScript (kitCellsGeometry, bit for bit)
         run: pnpm --filter @robo/client exec vitest run test/rust-kit.test.ts
+      - name: The chunk scan on Rust = TypeScript (whole views, near and far, every mesh)
+        run: pnpm --filter @robo/client exec vitest run test/rust-scan.test.ts
+      - name: World generation on Rust = generateIsland (every cell, several seeds)
+        run: pnpm --filter @robo/client exec vitest run test/rust-world.test.ts
+      - name: Block surfaces on Rust = blockMaterials.ts (families, every map byte)
+        run: pnpm --filter @robo/client exec vitest run test/rust-surface.test.ts
       - run: pnpm engine:bench
+
+  # The Android app (docs/ANDROID.md): the Rust client for every ABI + Gradle → a debug APK, kept
+  # as an artifact so a phone can install exactly what CI built.
+  android:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - run: cd engine && rustup toolchain install && rustc --version
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: engine
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+      - name: NDK (the version app/build.gradle.kts names)
+        run: |
+          NDK=$(sed -n 's/.*ndkVersion = "\(.*\)".*/\1/p' engine/platform/android/app/build.gradle.kts)
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null || true
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "ndk;$NDK" "platforms;android-36" "build-tools;36.1.0" > /dev/null
+      - run: cargo install cargo-ndk --locked --version 4.1.2
+      - run: node tools/android-build.mjs debug
+      - uses: actions/upload-artifact@v4
+        with:
+          name: craftyap-debug-apk
+          path: engine/platform/android/app/build/outputs/apk/debug/app-debug.apk
+          retention-days: 14

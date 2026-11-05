@@ -22,7 +22,7 @@ apps/client/public/models/items/tools/pickaxe-basic/
 ## 기존 에셋
 
 - HOME·TT: 게임 파일은 `apps/client/public/models/characters/{HOME,TT}/`에 유지합니다. 기존 편집 원본을 `assets/characters/home-tt/source/Characters.blend`로 보관했습니다. 이 원본은 보관용 참조이며, 재내보내기 전 현재 게임 GLB와 리그·얼굴·귀 동작을 대조해야 합니다.
-- 블록: 실제 원본은 `src/craft/kitGeometry.ts`, `blockMaterials.ts` 등 코드입니다. 검수용 Blender 파일로 게임 형상을 덮어쓰지 않습니다.
+- 블록: 몸체(이웃과 이어지는 셸)는 코드(`src/craft/kitShell.ts` ↔ `engine/crates/core/src/kit.rs`)가 원본입니다. 이웃에 따라 모양이 바뀌어 정지 모델로 만들 수 없기 때문입니다. **윗면 돌기는 Blender가 원본**입니다(`assets/blocks/studs`, GLB 한 벌을 웹과 네이티브가 함께 사용). 검수용 Blender 파일로 게임 형상을 몰래 덮어쓰지 않습니다.
 - 생성 재질: `src/assets/block-materials-v3/`와 `generatedBlockTextures.ts`가 현재 연결 위치입니다.
 - 기계: `tools/generate-machine-assets.mjs`와 `public/models/machines/manifest.json`으로 관리합니다.
 - UI·음원: 현재 `public/home/`, `public/audio/` 경로를 목록에 등록했습니다. 모든 기존 파일을 새 이름으로 재배치한 상태는 아닙니다.

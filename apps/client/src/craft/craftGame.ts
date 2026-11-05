@@ -53,6 +53,7 @@ import {
 } from "./brickGeometry.js";
 import { VoxelView } from "./voxelView.js";
 import {preloadHeldItemsWithin} from "../player/heldItem.js";
+import { loadBlockStuds } from "./blockStuds.js";
 import {PICKAXE,pickaxeWork,pickaxeInReach,pickaxeCycle,pickaxeImpacts,pickaxeOptionName} from "./toolDefinitions.js";
 import {selectedTool,toolByKey,withStarterTools,itemByKey} from "./itemCatalog.js";
 import {ItemAttack,type ItemAttackStep} from "./itemAttack.js";
@@ -563,7 +564,8 @@ export class CraftGame {
    */
   async prepare(setMessage: (text: string) => void = () => {}): Promise<void> {
     setMessage(t("텍스처 불러오는 중…", "Loading textures…"));
-    await Promise.all([texturesReady(),preloadHeldItemsWithin(8000)]);
+    // the Blender studs too: the first frame shows them, not the code twin
+    await Promise.all([texturesReady(),preloadHeldItemsWithin(8000),loadBlockStuds()]);
     if(!this.disposed)this.rig.setHeldItem(this.heldTool(),this.toolOption);
     if (this.disposed || this.started) return; // timed out (main.ts): start() warmed up its own way
     setMessage(t("그래픽 준비하는 중…", "Preparing graphics…"));
@@ -2109,7 +2111,7 @@ export class CraftGame {
       sandStats:()=>this.sand?.stats()??null,
       waterStats: () => ({ ...this.view.waterStats(), simulation: this.water?.stats() ?? null }),
       /** Which engine runs each part (`?engine=rust`: docs/ENGINE.md). */
-      engines: () => ({ water: this.water?.engine ?? null, shells: this.view.shellEngine }),
+      engines: () => ({ water: this.water?.engine ?? null, shells: this.view.shellEngine, scan: this.view.scanEngine }),
       chunks: () => this.view.chunkStats(),
       miningVisual:()=>this.miningEffects.stats(),
       audio: () => this.sfx.debug(),

@@ -1,6 +1,6 @@
 // Brick shell speed, TypeScript vs Rust, on terrain-like chunks (RUST_BENCH=1, `pnpm engine:bench`).
 import { loadRustEngineSync } from "@robo/engine/node";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { kitCellsGeometry } from "../src/craft/kitShell.js";
 import { kitCellsGeometryRust } from "../src/craft/kitRust.js";
 
@@ -27,6 +27,33 @@ describe.skipIf(!process.env.RUST_BENCH)("brick shells: speed", () => {
     const ts = time(() => { for (const s of scenes) kitCellsGeometry(s.cells, false, s.joined); });
     const rs = time(() => { for (const s of scenes) kitCellsGeometryRust(engine, s.cells, s.joined); });
     console.log(`brick shells per chunk: TypeScript ${(ts / scenes.length).toFixed(2)} ms, Rust ${(rs / scenes.length).toFixed(2)} ms (${(ts / rs).toFixed(1)}x)`);
+    expect(rs).toBeLessThan(ts);
+  }, 120_000);
+});
+
+describe.skipIf(!process.env.RUST_BENCH)("chunk scan: speed", () => {
+  it("the island, every chunk, near and far", async () => {
+    vi.mock("../src/render/textures.js", () => ({ loadTexture: () => Promise.resolve(null) }));
+    const THREE = await import("three");
+    const { generateIsland } = await import("../src/craft/voxelWorld.js");
+    const { VoxelView } = await import("../src/craft/voxelView.js");
+    const engine = loadRustEngineSync();
+    const world = generateIsland(12345);
+    type Scan = (w: unknown, chunk: unknown, cx: number, cz: number, far: boolean, water: boolean, staged: boolean) => unknown;
+    const run = (rust: boolean) => {
+      const view = new VoxelView(new THREE.Scene(), { catalogTextures: false });
+      view.useRustShells(rust ? engine : null);
+      const scan = (view as unknown as { scanChunk: Scan }).scanChunk.bind(view);
+      const chunk = () => ({ meshes: new Map(), far: null, isFar: false, stale: false, top: 0, hidden: false, studs: new Map(), water: null, waterMinY: 0, waterMaxY: -1, backing: null, staging: null });
+      const t = performance.now();
+      for (let pass = 0; pass < 3; pass++) for (let cx = 0; cx < 10; cx++) for (let cz = 0; cz < 10; cz++) scan(world, chunk(), cx, cz, pass === 2, false, pass !== 2);
+      const ms = performance.now() - t;
+      view.dispose();
+      return ms / 300;
+    };
+    run(false); run(true); // warm up
+    const ts = run(false), rs = run(true);
+    console.log(`chunk scan per chunk: TypeScript ${ts.toFixed(2)} ms, Rust ${rs.toFixed(2)} ms (${(ts / rs).toFixed(1)}x)`);
     expect(rs).toBeLessThan(ts);
   }, 120_000);
 });

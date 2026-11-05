@@ -44,9 +44,9 @@ the engine grows beside it. Each part is swapped in only once it is proven ident
 | 1c | Water switched in behind `?engine=rust` (solo field and island) | **done (flag)** → default after a release |
 | 1c' | Classroom server water on the Rust core (`field.rs`, WASM in Node) behind `FLUID_ENGINE=rust` | **done (flag)** |
 | 1c'' | Make Rust the default on both sides after a release with no regressions | next |
-| 1d | Chunk meshing in Rust. **1d-1 done (flag):** the joined brick shells of full cubes (`kit.rs` + `earcut.rs`), bit-identical, behind `?engine=rust`. Next: the chunk scan and far merged meshes, then a worker | **1d-1 done (flag)** |
+| 1d | Chunk meshing in Rust. **1d-1 (flag):** the joined brick shells (`kit.rs` + `earcut.rs`), bit-identical. **1d-2 (everyone, TS):** far → near flips built in budgeted steps. **1d-3 (flag):** the chunk scan (`scan.rs`): near lists, seam backing, far merged faces and baked shapes, studs, water cells. Next: a worker | **1d-1…3 done** |
 | 1e | Voxel body physics (AABB sweeps, step-up), raycast | |
-| 2 | Native client: wgpu renderer (Vulkan / Metal / DirectX / WebGPU) on the same core; the Android app moves from WebView to native | |
+| 2 | Native client: wgpu renderer (Vulkan / Metal / DirectX / WebGPU) on the same core. **The Android app ships on it (no WebView), decided 2026-11-05.** Milestones N0–N6 in `docs/ANDROID.md` | **N0–N1 done**: Android + desktop shell, lifecycle, recovery, quality presets |
 | 3 | (decide later) user-made games: scripting (Lua/Luau) over the engine's data | |
 
 ## How the game uses it (stage 1c)
@@ -135,6 +135,52 @@ chunks, the worst chunk 37 ms, against a 4 ms per-frame build budget.
 | whole chunk builds, same route | 749 ms | 229 ms |
 | shells, 30 terrain chunks (Node, `pnpm engine:bench`) | 85 ms/chunk | 9.4 ms/chunk |
 
+## Staged near builds (stage 1d-2, every player)
+
+Walking turns far chunks near. The near form of a chunk was built in one go, so a single chunk
+could take a whole frame: up to 37 ms, against a 4 ms per-frame build budget.
+
+An unchanged chunk that still shows its far form is now scanned once, then built one mesh (one
+block × shape) at a time while the frame budget lasts (`startStaging` / `stepStaging`). The far
+form stays drawn until every near mesh is ready, then the two swap in one frame.
+
+- A staged build is thrown away (`dropStaging`) when:
+  - the chunk is edited (`invalidate`; edits stay synchronous),
+  - the field scrolls (staged cells are grid coordinates),
+  - the whole view is rebuilt or disposed,
+  - the player walks away again before it is ready.
+- Builds from the queue come first. The queue refills only when the focus moves, so staging always
+  gets its turn.
+- `chunkStats()` reports `staged`. E2E holes, craft, field, furniture and pet pass on both engines.
+
+## The chunk scan (stage 1d-3)
+
+`engine/crates/core/src/scan.rs` ports `VoxelView.scanChunk` line for line.
+
+- **Input:** a SLAB, the chunk plus a one-cell ring at every height. It holds:
+  - the raw blocks as `world.get` sees them, including the field's ground beyond the window;
+  - the shapes, which are 0 beyond the window;
+  - the hidden flags of the cell being mined and the falling cells.
+  - Rows inside the window are copied whole. The first version called `world.get` per cell, which
+    made empty chunks 5× slower than TypeScript.
+- **Fixed tables:** the view's tables are handed over once (`WasmScanner`): block flags,
+  materials per face band, the face tables, the five far templates and every shape's orientation
+  quaternion. `applyQuaternion` is three's formula.
+- **Output:** what the meshes are built from, in JS `Map` insertion order. That covers the near
+  lists, the seam backing, the far buffers (a buffer is created before its face is culled, as
+  `farBuffer()` does), studs, water cells and the top.
+- `apps/client/test/rust-scan.test.ts` renders random worlds twice, on TypeScript and on Rust,
+  and requires every mesh of every chunk to be equal. That covers near and far forms, shells,
+  instance matrices, backing, far attributes and groups, and studs.
+  - The worlds mix every shape family, glass, grass under blocks, water, hidden cells and the
+    field edge.
+  - It asserts the Rust scan really ran. A 0.25 change in one backing coordinate makes it fail;
+    that was checked.
+
+| | TypeScript | Rust |
+|---|---|---|
+| chunk scan, island, per chunk (Node, `pnpm engine:bench`) | 2.31 ms | 0.50 ms |
+
 ## Layout
 
 ```
@@ -147,11 +193,18 @@ packages/engine/               @robo/engine: wasm/ (committed build + SOURCE_HAS
 engine/crates/core/src/grid.rs    the game window mirror (client)
 engine/crates/core/src/field.rs   a classroom's sparse field mirror (server)
 engine/crates/core/src/kit.rs     brick shells (port of kitShell.ts); earcut.rs: three's earcut
+engine/crates/core/src/scan.rs    the chunk scan (port of VoxelView.scanChunk)
+engine/crates/core/src/world.rs   world storage + island generation (port of voxelWorld.ts)
+engine/crates/core/src/surface.rs block surface families and maps (port of blockMaterials.ts)
+engine/crates/core/src/blocks_gen.rs  GENERATED block catalog + shape codes (pnpm engine:catalog)
 engine/rust-toolchain.toml        pinned compiler (1.99.1)
 packages/shared/test/rust-parity.test.ts   Rust = TS, randomized, step by step
 apps/client/test/rust-water.test.ts        the game's WaterSim on Rust = on TS, tick by tick
 apps/server/test/rust-class-water.test.ts  a class's water on Rust = on TS, message by message
 apps/client/test/rust-kit.test.ts          brick shells on Rust = kitShell.ts, bit for bit (rust-kit-bench: speed)
+apps/client/test/rust-scan.test.ts         the chunk scan on Rust = scanChunk (whole views, every mesh)
+apps/client/test/rust-world.test.ts        generateIsland on Rust, every cell
+apps/client/test/rust-surface.test.ts      surface families + createMaterialMaps on Rust, every byte
 packages/shared/test/rust-bench.test.ts    speed on identical worlds (RUST_BENCH=1)
 .github/workflows/engine.yml               cargo test + clippy + wasm build + parity + bench
 ```

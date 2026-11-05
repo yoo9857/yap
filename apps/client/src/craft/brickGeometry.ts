@@ -19,17 +19,6 @@ export function roundBrickGeometry(): THREE.BufferGeometry {
   return new THREE.CylinderGeometry(0.5, 0.5, 1, 16);
 }
 
-/** Stud cap for flat-topped bricks. Sized for a 0.5 m sub-cell (4 studs per 1 m
- *  voxel — see voxelView) so the studs are as small + dense as the jump map's
- *  0.7 m tessellated bricks, instead of one big stud that reads oversized. */
-export function studGeometry(): THREE.CylinderGeometry {
-  // 8 segments, not 12: at 9 cm across the silhouette is identical on
-  // screen and this is the most-instanced geometry in the game.
-  const g = new THREE.CylinderGeometry(0.09, 0.1, 0.1, 8);
-  g.translate(0, 0.05, 0); // sits on the brick top
-  return g;
-}
-
 /**
  * A right-triangular wedge filling the cell: full height at the back (−Z) edge,
  * tapering to zero at the front (+Z) edge. Every face is wound CCW so

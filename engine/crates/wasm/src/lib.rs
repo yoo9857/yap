@@ -224,3 +224,131 @@ pub fn kit_cells_geometry(cells: &[i32], mask: &[u8], x0: i32, y0: i32, z0: i32,
         }
     }
 }
+
+/// The block renderer's chunk scan (`scan.rs`, a port of `VoxelView.scanChunk`). Built once per
+/// view from its tables; `scan` runs per chunk on a slab (the chunk + a one-cell ring, every height).
+#[wasm_bindgen]
+pub struct WasmScanner {
+    tables: craftyap_core::scan::Tables,
+}
+
+#[wasm_bindgen]
+impl WasmScanner {
+    /// Per block id (256 each): solid, see-through, def bits (1 exists, 2 noStud, 4 grass), material
+    /// count (0, 1 or 3) and 3 material slots; per shape code (256 each): full cube, far family;
+    /// `faces` 6 × (n, u, v, o); `corners` 6 × (u, v); `face_uv` 12; `quats` 256 × (x, y, z, w).
+    #[wasm_bindgen(constructor)]
+    #[allow(clippy::too_many_arguments)]
+    pub fn new(solid: &[u8], see_through: &[u8], def: &[u8], mat_count: &[u8], mats: &[i32], full_cube: &[u8], family: &[u8], dirt: u8, kit_cube: u8, round: u8, faces: &[f64], corners: &[f64], face_uv: &[f64], backing_inset: f64, quats: &[f64], world_y: i32) -> WasmScanner {
+        use craftyap_core::scan::{Face, Tables};
+        let flags = |a: &[u8]| -> [bool; 256] {
+            let mut out = [false; 256];
+            for (i, v) in a.iter().take(256).enumerate() {
+                out[i] = *v != 0;
+            }
+            out
+        };
+        let bytes = |a: &[u8]| -> [u8; 256] {
+            let mut out = [0u8; 256];
+            for (i, v) in a.iter().take(256).enumerate() {
+                out[i] = *v;
+            }
+            out
+        };
+        let materials = (0..256).map(|b| (0..mat_count[b] as usize).map(|k| mats[b * 3 + k]).collect()).collect();
+        let faces = faces.as_chunks::<12>().0.iter().map(|f| Face { n: [f[0], f[1], f[2]], u: [f[3], f[4], f[5]], v: [f[6], f[7], f[8]], o: [f[9], f[10], f[11]] }).collect();
+        let mut face_corners = [(0.0, 0.0); 6];
+        for k in 0..6 {
+            face_corners[k] = (corners[k * 2], corners[k * 2 + 1]);
+        }
+        let mut uv = [0.0; 12];
+        uv.copy_from_slice(&face_uv[..12]);
+        let quats = quats.as_chunks::<4>().0.to_vec();
+        WasmScanner {
+            tables: Tables {
+                solid: flags(solid),
+                full_cube: flags(full_cube),
+                see_through: flags(see_through),
+                def: bytes(def),
+                dirt,
+                kit_cube,
+                round,
+                faces,
+                face_corners,
+                face_uv: uv,
+                backing_inset,
+                materials,
+                family: bytes(family),
+                templates: Vec::new(),
+                quats,
+                world_y,
+            },
+        }
+    }
+
+    /// A far-form template, in the order `family` indexes them.
+    pub fn add_template(&mut self, pos: &[f32], nrm: &[f32], uv: Option<Vec<f32>>) {
+        self.tables.templates.push(craftyap_core::scan::Template {
+            pos: pos.iter().map(|v| *v as f64).collect(),
+            nrm: nrm.iter().map(|v| *v as f64).collect(),
+            uv: uv.map(|u| u.iter().map(|v| *v as f64).collect()),
+        });
+    }
+
+    /// One chunk. Packed float32: [ok, top, nWater, water…, nStuds, (key, len, xyz…)…,
+    /// nNear, (key, len, xyz…)…, nBacking, backing…, nFar, (index, nVerts, pos…, nrm…, uv…)…].
+    #[allow(clippy::too_many_arguments)]
+    pub fn scan(&self, cells: &[u8], shapes: &[u8], hidden: &[u8], sx0: i32, sz0: i32, sw: i32, sd: i32, x0: i32, z0: i32, x1: i32, z1: i32, far: bool) -> Vec<f32> {
+        use craftyap_core::scan::{scan, Slab};
+        let slab = Slab { x0: sx0, z0: sz0, w: sw, d: sd, cells, shapes, hidden };
+        let out = match scan(&self.tables, &slab, x0, z0, x1, z1, far) {
+            Ok(o) => o,
+            Err(_) => return vec![0.0],
+        };
+        let mut v: Vec<f32> = Vec::with_capacity(64 + out.water.len() + out.backing.len());
+        v.push(1.0);
+        v.push(out.top as f32);
+        v.push(out.water.len() as f32);
+        v.extend(out.water.iter().map(|x| *x as f32));
+        for map in [&out.studs, &out.near] {
+            v.push(map.keys.len() as f32);
+            for (k, list) in map.keys.iter().zip(&map.values) {
+                v.push(*k as f32);
+                v.push(list.len() as f32);
+                v.extend(list.iter().map(|x| *x as f32));
+            }
+        }
+        v.push(out.backing.len() as f32);
+        v.extend_from_slice(&out.backing);
+        v.push(out.far.keys.len() as f32);
+        for (k, b) in out.far.keys.iter().zip(&out.far.values) {
+            v.push(*k as f32);
+            v.push((b.pos.len() / 3) as f32);
+            v.extend_from_slice(&b.pos);
+            v.extend_from_slice(&b.nrm);
+            v.extend_from_slice(&b.uv);
+        }
+        v
+    }
+}
+
+/// `generateIsland(seed)` on the Rust core (`world.rs`): the cells, for the parity test.
+#[wasm_bindgen]
+pub fn generate_island(seed: f64) -> Vec<u8> {
+    craftyap_core::world::generate_island(seed).cells
+}
+
+/// `surfaceStyle(key).family` on the Rust core (`surface.rs`), for the parity test.
+#[wasm_bindgen]
+pub fn surface_family(key: &str) -> String {
+    craftyap_core::surface::family_of(key).name().to_string()
+}
+
+/// `createMaterialMaps(family, size)` on the Rust core: colour, normals and roughness bytes, concatenated.
+#[wasm_bindgen]
+pub fn material_maps(family: &str, size: usize) -> Vec<u8> {
+    use craftyap_core::surface::{create_material_maps, Family};
+    let Some(f) = Family::ALL.iter().copied().find(|f| f.name() == family) else { return Vec::new() };
+    let m = create_material_maps(f, size);
+    [m.colour, m.normals, m.rough].concat()
+}
