@@ -133,6 +133,9 @@ pub struct ClassSession {
     server_time: Option<(f64, f64)>,
     move_timer: f64,
     pub gather: Option<[f64; 3]>,
+    /// The last gather was a nudge back inside the student's plot fence (the app draws no fence:
+    /// it says why instead).
+    pub gather_nudge: bool,
     /// The server's furniture layout (absolute cells) and a counter bumped on every change.
     pub furniture: Vec<Furniture>,
     pub furniture_version: u64,
@@ -161,6 +164,7 @@ impl ClassSession {
             server_time: None,
             move_timer: 0.0,
             gather: None,
+            gather_nudge: false,
             furniture: Vec::new(),
             furniture_version: 0,
         }
@@ -267,7 +271,10 @@ impl ClassSession {
                     self.chat.remove(0);
                 }
             }
-            ClassServer::Gather { pos, .. } => self.gather = Some(pos),
+            ClassServer::Gather { pos, nudge, .. } => {
+                self.gather = Some(pos);
+                self.gather_nudge = nudge.unwrap_or(false);
+            }
             ClassServer::Settings { settings } => self.settings = Some(settings),
             ClassServer::Kicked => self.ended = Some(Ended::Kicked),
             ClassServer::Closed => self.ended = Some(Ended::Closed),

@@ -138,6 +138,10 @@ interface Member {
   jumpedAt?: number;
   /** Last time a student kept on their plot was sent back onto it (at most every 2 s). */
   pulledAt?: number;
+  /** Rejoined with a plot already theirs: their first reported position decides — still on it,
+   *  they are left alone (a Wi-Fi blip or a deploy must not yank a child mid-build); off it, the
+   *  seat. */
+  seatCheck?: boolean;
 }
 
 /**
@@ -520,12 +524,28 @@ export class ClassRoom {
     if (!this.seating || !this.seatOrigin || member.role !== "student") return;
     let seat = this.seatOf(member.name);
     if (!seat && this.seating.length < 400) {
+      // a new child: a plot beside the others, and onto it
       const spot = nextPlot(this.seating, this.seatOrigin.pos, this.seatOrigin.yaw);
       seat = { name: member.name, pos: spot.pos, yaw: spot.yaw };
       this.seating.push(seat);
       this.seatsChanged();
+      if (!this.seatRoam) this.sendToSeat(member, seat);
+      return;
     }
-    if (seat && !this.seatRoam) this.sendToSeat(member, seat);
+    // back again (a reconnect, a deploy, a new tab): their first move decides (keepOnPlot)
+    if (seat && !this.seatRoam) member.seatCheck = true;
+  }
+
+  /** Any cell of a furniture piece outside a kept-in student's plot (every footprint cell — a sofa
+   *  anchored on the fence line reaches into the neighbour's plot). */
+  private furnitureOffPlot(member: Member, t: ClassFurniture): boolean {
+    let cells: [number, number, number][];
+    try {
+      cells = this.furniture.cellsOf({ kind: t[0], x: t[1], y: t[2], z: t[3], rot: t[4] });
+    } catch {
+      cells = [[t[1], t[2], t[3]]]; // an unknown kind is refused further on; judge its anchor here
+    }
+    return cells.some(([x, , z]) => this.offPlot(member, x, z));
   }
 
   /** A student kept on their plot changing a cell outside it (absolute x, z): refused. */
@@ -551,6 +571,13 @@ export class ClassRoom {
     if (!seat) return;
     const [x0, x1, z0, z1] = plotBounds(seat);
     const [x, , z] = member.pos;
+    if (member.seatCheck) {
+      // the first move after a rejoin: on (or at) the plot → nothing; elsewhere → the seat
+      member.seatCheck = false;
+      const S0 = 1.5;
+      if (!(x > x0 - S0 && x < x1 + S0 && z > z0 - S0 && z < z1 + S0)) this.sendToSeat(member, seat);
+      return;
+    }
     const SLACK = 1.5;
     if (x > x0 - SLACK && x < x1 + SLACK && z > z0 - SLACK && z < z1 + SLACK) return;
     const now = Date.now();
@@ -865,7 +892,7 @@ export class ClassRoom {
     if (me.role === "student" && this.settings.buildLocked) return reject();
     if (msg.placed.length + msg.removed.length === 0) return;
     // a student kept on their plot places and takes furniture only on it
-    if ([...msg.placed, ...msg.removed].some((t) => this.offPlot(me, t[1], t[3]))) return reject();
+    if ([...msg.placed, ...msg.removed].some((t) => this.furnitureOffPlot(me, t))) return reject();
     const next = new FurnitureLayout();
     next.load(this.furniture.toJSON());
     const same = (p: PlacedFurniture, t: ClassFurniture) => p.kind === t[0] && p.x === t[1] &&

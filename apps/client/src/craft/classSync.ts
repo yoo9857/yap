@@ -273,12 +273,14 @@ export class ClassSync {
     client.onBonk = (msg) => this.applyBonk(msg);
     client.onSeats = (seats, roam) => {
       const wasKept = this.keptIn();
+      const wasRoam = this.roam;
       this.seats = seats;
       this.roam = roam;
       this.seating.set(seats);
       this.hud.setSeated(seats.length > 0, roam);
-      // tell a student when the fences start or stop holding them
-      if (this.session.role === "student" && seats.length > 0) {
+      // tell a student when the TEACHER lets them out or calls them back (a new seating or our own
+      // plot appearing has its own toast with the seat — never two at once)
+      if (this.session.role === "student" && seats.length > 0 && wasRoam !== roam) {
         const kept = this.keptIn();
         if (wasKept && !kept) this.whenStarted(() => hooks.toast(t("🚶 이제 자유롭게 돌아다닐 수 있어요", "🚶 You may roam now")));
         else if (!wasKept && kept) this.whenStarted(() => hooks.toast(t("🪑 자기 자리로 — 선생님이 풀어 줄 때까지 울타리 안에서 움직여요", "🪑 Back to your plot — stay inside the fence until the teacher lets you out")));
@@ -381,6 +383,9 @@ export class ClassSync {
    * that still gets out (an older page, a shove).
    */
   confineBox(): [number, number, number, number] | null {
+    // not before our first frame: the seat teleport sent on join waits for it (whenStarted), and
+    // clamping first would drag the body from its spawn to the plot's edge, into whatever is there
+    if (!this.started) return null;
     const plot = this.myPlot();
     if (!plot) return null;
     const [x0, x1, z0, z1] = plotBounds(plot);

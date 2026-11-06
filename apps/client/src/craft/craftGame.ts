@@ -337,6 +337,11 @@ export class CraftGame {
       hud: this.hud,
       sfx: this.sfx,
       canBuild: () => this.canBuild(),
+      canEditCell: (ax, az) => {
+        if (!this.field || !this.sync) return true;
+        const [gx, gz] = this.field.toGrid(ax, az);
+        return this.sync.canEditAt(gx, gz);
+      },
       changed: (placed, removed) => {
         for (const [kind, x, y, z, rot] of [...placed, ...removed])
           for (const [ax, ay, az] of this.state.furniture.cellsOf({ kind, x, y, z, rot }))
@@ -1514,8 +1519,13 @@ export class CraftGame {
   }
 
   private stepPickup(item: PlacedFurniture, dt: number): void {
-    const [pgx, pgz] = this.field ? this.field.toGrid(item.x, item.z) : [item.x, item.z];
-    if (!this.canBuild() || !this.mayEditAt(pgx, pgz)) {
+    // every cell of the piece, not just its anchor (a sofa reaching over the fence)
+    const offPlot = this.state.furniture.cellsOf(item).find(([cx, , cz]) => {
+      const [gx, gz] = this.field ? this.field.toGrid(cx, cz) : [cx, cz];
+      return !(this.sync?.canEditAt(gx, gz) ?? true);
+    });
+    const [pgx, pgz] = offPlot ? (this.field ? this.field.toGrid(offPlot[0], offPlot[2]) : [offPlot[0], offPlot[2]]) : [0, 0];
+    if (!this.canBuild() || (offPlot !== undefined && !this.mayEditAt(pgx, pgz))) {
       this.miningFrac = null;
       return;
     }

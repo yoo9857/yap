@@ -134,4 +134,68 @@ describe("the escape never moves the view sideways (aim and view stay on one lin
     for (let i = 0; i < 30; i++) cam.update(w, new THREE.Vector3(15.5, 1.6, 15.5), 0, 0, false, 1 / 60, 3.55);
     expect(three.position.y).toBeCloseTo(3.55, 1);
   });
+
+});
+
+describe("looking up over the ground: the camera rides over the floor instead of diving in", () => {
+  it("looking up over open ground keeps the full distance (no fade), lifted over the floor", () => {
+    const w = world();
+    const three = new THREE.PerspectiveCamera(70, 16 / 9, 0.1, 500);
+    const cam = new CraftCamera(three);
+    const eye = new THREE.Vector3(20.5, 2.6, 15.5); // floor top at y = 1, wall far away
+    settle(cam, w, eye, 0, 0.6);
+    const opacity = cam.update(w, eye, 0, 0.6, false, 1 / 60);
+    expect(opacity).toBeGreaterThan(0.99);
+    expect(three.position.y).toBeGreaterThanOrEqual(1 + 0.3);
+    expect(clipsBlock(w, three.position, 0.1)).toBe(false);
+  });
+
+  it("jumping while looking up does not pulse the robot's fade (the flicker)", () => {
+    const w = world();
+    const three = new THREE.PerspectiveCamera(70, 16 / 9, 0.1, 500);
+    const cam = new CraftCamera(three);
+    const eye = new THREE.Vector3(20.5, 2.6, 15.5);
+    settle(cam, w, eye, 0, 0.6);
+    let min = 1;
+    for (let i = 0; i < 120; i++) {
+      eye.y = 2.6 + Math.abs(Math.sin(i / 12)) * 1.2; // a few jumps
+      min = Math.min(min, cam.update(w, eye, 0, 0.6, false, 1 / 60));
+    }
+    expect(min).toBeGreaterThan(0.99);
+  });
+
+  it("looking straight up still fades the robot (the camera really is at its feet)", () => {
+    const w = world();
+    const three = new THREE.PerspectiveCamera(70, 16 / 9, 0.1, 500);
+    const cam = new CraftCamera(three);
+    const eye = new THREE.Vector3(20.5, 2.6, 15.5);
+    settle(cam, w, eye, 0, 1.5);
+    expect(cam.update(w, eye, 0, 1.5, false, 1 / 60)).toBeLessThan(0.75);
+    expect(clipsBlock(w, three.position, 0.1)).toBe(false);
+  });
+
+  it("in a room, looking up never puts the camera outside the wall behind (the floor no longer hides it)", () => {
+    // floor y=0 everywhere; the player stands at x=13 facing +x, the wall at x=10 is 3 m behind
+    const w = world();
+    const three = new THREE.PerspectiveCamera(70, 16 / 9, 0.1, 500);
+    const cam = new CraftCamera(three);
+    const eye = new THREE.Vector3(13.5, 2.6, 15.5);
+    const yaw = Math.PI / 2; // looking +x: the camera sits toward -x, toward the wall
+    settle(cam, w, eye, yaw, 0.6);
+    cam.update(w, eye, yaw, 0.6, false, 1 / 60);
+    expect(three.position.x).toBeGreaterThan(11); // stays on our side of the wall
+    expect(clipsBlock(w, three.position, 0.1)).toBe(false);
+  });
+
+  it("on a one-block-thick bridge, looking down-and-back never puts the camera under the deck", () => {
+    const w = new VoxelWorld();
+    for (let x = 0; x < 40; x++) for (let z = 10; z < 22; z++) w.set(x, 6, z, 3); // a deck at y = 6, air below
+    const three = new THREE.PerspectiveCamera(70, 16 / 9, 0.1, 500);
+    const cam = new CraftCamera(three);
+    const eye = new THREE.Vector3(20.5, 8.6, 15.5); // standing on the deck (top at y = 7)
+    settle(cam, w, eye, 0, 1.0);
+    cam.update(w, eye, 0, 1.0, false, 1 / 60);
+    expect(three.position.y).toBeGreaterThanOrEqual(7); // above the deck, not in the air beneath it
+    expect(clipsBlock(w, three.position, 0.1)).toBe(false);
+  });
 });

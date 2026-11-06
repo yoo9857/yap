@@ -646,6 +646,7 @@ impl App {
         }
         // the server's changes into the window
         let (mut dirty, mut reset, mut gather) = (HashSet::new(), false, None);
+        let mut nudged = false;
         if let (Some(c), Some(field)) = (self.menu.class_mut(), self.field.as_mut()) {
             if std::mem::take(&mut c.reset) {
                 field.reset();
@@ -672,6 +673,7 @@ impl App {
             if let Some(p) = c.gather.take() {
                 let (gx, gz) = field.to_grid(p[0], p[2]);
                 gather = Some([gx, p[1], gz]);
+                nudged = std::mem::take(&mut c.gather_nudge);
             }
         }
         if let Some(field) = &self.field {
@@ -683,6 +685,10 @@ impl App {
             for (cx, cz) in dirty {
                 self.remesh(cx, cz);
             }
+        }
+        if nudged {
+            // the teacher keeps the class on its plots: the server put us back inside our fence
+            self.menu.toast("지금은 내 자리 안에서만 움직여요");
         }
         if let Some(at) = gather {
             self.player.teleport(&self.world, at);

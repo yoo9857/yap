@@ -43,6 +43,9 @@ export interface FurnitureHost {
   };
   sfx: { play(name: "place" | "pickup" | "doorOpen" | "doorClose" | "sit" | "undo" | "click"): void };
   canBuild(): boolean;
+  /** May a piece fill the cell at ABSOLUTE (x, z)? A classroom student kept on their plot only on
+   *  it. Omitted = anywhere. */
+  canEditCell?(x: number, z: number): boolean;
   changed?(placed: ClassFurniture[], removed: ClassFurniture[]): void;
   /** Re-capture the mouse; called from a click handler (a user gesture). */
   resumePlay(): void;
@@ -57,16 +60,18 @@ export const PICKUP_TIME = 0.35;
  *  height h puts the feet at h − this. */
 const DEFAULT_SEAT_CONTACT = .38;
 
-/** A candidate placement (absolute anchor) and whether it is allowed. */
+/** A candidate placement (absolute anchor) and whether it is allowed (`off-plot`: a classroom
+ *  student kept on their plot, a cell past its fence). */
 interface Candidate {
   item: PlacedFurniture;
   /** Model lift above the anchor cell's floor (a surface piece's host top). */
   elevation: number;
-  verdict: PlaceVerdict;
+  verdict: PlaceVerdict | "off-plot";
 }
 
 /** What a refused right click says. `invalid` never reaches a player. */
-const REFUSAL: Record<Exclude<PlaceVerdict, "ok" | "invalid">, string> = {
+const REFUSAL: Record<Exclude<PlaceVerdict | "off-plot", "ok" | "invalid">, string> = {
+  "off-plot": t("🪑 지금은 내 자리 안에만 놓을 수 있어요", "🪑 Only on your own plot, for now"),
   limit: t("🛋️ 가구를 더 놓을 수 없어요 (최대 개수)", "🛋️ No room for more furniture (limit reached)"),
   occupied: t("🛋️ 이미 다른 가구가 있는 자리예요", "🛋️ Another piece is already there"),
   blocked: t("🧱 블록이 있는 자리에는 놓을 수 없어요", "🧱 Can't place it where a block is"),
@@ -307,8 +312,15 @@ export class FurnitureController {
     }
     const [ax, az] = this.toAbs(anchor[0], anchor[2]);
     const item: PlacedFurniture = { kind: this.kind, x: ax, y: anchor[1], z: az, rot, variant: this.variant };
-    verdict ??= this.host.layout.check(item, this.placementWorld);
-    return { item, elevation: this.host.layout.elevation(item), verdict };
+    let final: Candidate["verdict"] = verdict ?? this.host.layout.check(item, this.placementWorld);
+    if (final === "ok" && !this.cellsAllowed(item)) final = "off-plot";
+    return { item, elevation: this.host.layout.elevation(item), verdict: final };
+  }
+
+  /** Every cell of the piece may be changed by us (a kept-in classroom student: on their plot). */
+  private cellsAllowed(item: PlacedFurniture): boolean {
+    if (!this.host.canEditCell) return true;
+    return this.host.layout.cellsOf(item).every(([x, , z]) => this.host.canEditCell?.(x, z) ?? true);
   }
 
   private absCell(x: number, y: number, z: number): [number, number, number] {
@@ -345,6 +357,10 @@ export class FurnitureController {
   interact(item: PlacedFurniture): boolean {
     const def = furnitureDef(item.kind);
     if (!def.openParts) return false;
+    if (!this.cellsAllowed(item)) {
+      this.host.hud.toast(REFUSAL["off-plot"]);
+      return true;
+    }
     if (!this.host.canBuild()) {
       this.host.hud.toast(t("🧱 지금은 건축이 잠겨 있어요", "🧱 Building is locked right now"));
       return true;

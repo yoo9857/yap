@@ -10,6 +10,8 @@
 //          --warmup s   --edit-every s (per bot, 0 = never)     --water (teachers pour water)
 //          --shards N (SHARDS for the spawned server)  --bot-procs K  --cpus (taskset-like note only)
 //          --out file.json
+//          --arrange (teachers lay out plots — 자리 배치 — once the class is in: the students then
+//                     wander OUT of them, so the server's keep-on-plot nudges run at their worst)
 //
 // What it reports, and why each number:
 //   server.elu        event-loop utilisation: ~0.7+ means messages queue behind each other
@@ -17,21 +19,25 @@
 //   client.snapGapP99 time between snapshots as a STUDENT sees it (100 ms is perfect)
 //   client.editP99    one student places a brick → classmates see it
 import { fork, spawn } from "node:child_process";
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const SELF = fileURLToPath(import.meta.url);
 const ROOT = join(dirname(SELF), "..");
-const CLASS_V = 10; // CLASS_PROTOCOL_VERSION — a mismatch shows up as bad-version below
+// CLASS_PROTOCOL_VERSION, read from the source (a hard-coded copy went stale at every bump and the
+// whole run was refused bad-version)
+const CLASS_V = Number(/CLASS_PROTOCOL_VERSION = (\d+)/.exec(readFileSync(join(dirname(fileURLToPath(import.meta.url)), "../packages/shared/src/protocol/classroom.ts"), "utf8"))?.[1] ?? NaN);
+if (!Number.isFinite(CLASS_V)) throw new Error("could not read CLASS_PROTOCOL_VERSION from packages/shared/src/protocol/classroom.ts");
 
 function args(argv) {
-  const o = { classes: 10, students: 20, duration: 30, warmup: 8, editEvery: 2, water: false, shards: 1, botProcs: 2, url: "", out: "", port: 8090 };
+  const o = { classes: 10, students: 20, duration: 30, warmup: 8, editEvery: 2, water: false, arrange: false, shards: 1, botProcs: 2, url: "", out: "", port: 8090 };
   for (let i = 0; i < argv.length; i++) {
     const k = argv[i].replace(/^--/, "");
     const camel = k.replace(/-(\w)/g, (_, c) => c.toUpperCase());
     if (camel === "water") { o.water = true; continue; }
+    if (camel === "arrange") { o.arrange = true; continue; }
     if (!(camel in o)) throw new Error(`unknown option --${k}`);
     o[camel] = typeof o[camel] === "number" ? Number(argv[++i]) : argv[++i];
   }
@@ -43,7 +49,8 @@ const pct = (sorted, p) => (sorted.length ? sorted[Math.min(sorted.length - 1, M
 // ---------------------------------------------------------------- bot process
 
 async function botMain(spec) {
-  const { url, classes, students, warmup, duration, editEvery, water, run } = spec;
+  const { url, classes, students, warmup, duration, editEvery, water, arrange, run } = spec;
+  let nudges = 0, seats = 0;
   const sockets = [];
   let joined = 0, failed = 0, dropped = 0, bytes = 0;
   const errors = {};
@@ -82,6 +89,7 @@ async function botMain(spec) {
         const msg = JSON.parse(raw);
         if (msg.t === "s-k-welcome") { joined++; done(true); }
         else if (msg.t === "s-k-error") { errors[msg.code] = (errors[msg.code] ?? 0) + 1; failed++; done(false); }
+        else if (msg.t === "s-k-gather" && measuring) { if (msg.nudge) nudges++; else seats++; }
         else if (msg.t === "s-k-edit" && measuring) {
           for (const [x, y, z] of msg.edits) {
             const key = `${room}|${x},${y},${z}`; // the first classmate to see it
@@ -113,6 +121,16 @@ async function botMain(spec) {
     }
   }
   await wait(1500);
+  if (arrange) {
+    // every teacher seats its class (a k-move first: the server lays plots out from the teacher)
+    for (const r of rooms) {
+      const t = r.bots[0];
+      if (!t?.open) continue;
+      t.ws.send(JSON.stringify({ t: "k-move", pos: [0, 4, 0], yaw: 0, anim: "idle", ct: performance.now() }));
+      t.ws.send(JSON.stringify({ t: "k-arrange", yaw: 0 }));
+    }
+    await wait(500);
+  }
 
   // walking: k-move every 100 ms (what the client sends: every 6th 60 Hz tick)
   const start = performance.now();
@@ -166,7 +184,7 @@ async function botMain(spec) {
   gaps.sort((a, b) => a - b);
   editLat.sort((a, b) => a - b);
   const result = {
-    planned: classes.length * (students + 1), joined, failed, dropped, errors,
+    planned: classes.length * (students + 1), joined, failed, dropped, errors, nudges, seats,
     bytes, gaps: gaps.length, gapP50: pct(gaps, 50), gapP99: pct(gaps, 99), gapMax: gaps.at(-1) ?? 0,
     edits: editLat.length, editP50: pct(editLat, 50), editP99: pct(editLat, 99), editMax: editLat.at(-1) ?? 0,
     gapSample: gaps.filter((_, i) => i % Math.max(1, Math.floor(gaps.length / 4000)) === 0),
@@ -214,7 +232,7 @@ async function main() {
       const classes = [];
       for (let c = p; c < o.classes; c += procs) classes.push(c);
       const child = fork(SELF, ["--bot"], { stdio: ["ignore", "inherit", "inherit", "ipc"] });
-      child.send({ url: wsUrl, classes, students: o.students, warmup: o.warmup, duration: o.duration, editEvery: o.editEvery, water: o.water, run });
+      child.send({ url: wsUrl, classes, students: o.students, warmup: o.warmup, duration: o.duration, editEvery: o.editEvery, water: o.water, arrange: o.arrange, run });
       child.on("message", (m) => {
         if (m.t === "measuring" && ++n === procs) { measuringSince = performance.now(); resolve(); }
         if (m.t === "result") results.push(m.result);
@@ -247,7 +265,7 @@ async function main() {
     lagP99Max: Math.max(...xs.map((x) => x.lagMs.p99)), rssMaxMiB: Math.max(...xs.map((x) => x.rssMiB)),
   }));
   const report = {
-    scenario: { classes: o.classes, studentsPerClass: o.students, players: o.classes * (o.students + 1), shards: o.shards, editEvery: o.editEvery, water: o.water, measuredS: +measuredS.toFixed(1) },
+    scenario: { classes: o.classes, studentsPerClass: o.students, players: o.classes * (o.students + 1), shards: o.shards, editEvery: o.editEvery, water: o.water, arrange: o.arrange, measuredS: +measuredS.toFixed(1) },
     server: {
       cpuCoresTotal: +perProcess.reduce((s, p) => s + p.cpu, 0).toFixed(2),
       eluMax: Math.max(0, ...perProcess.map((p) => p.elu)),
@@ -258,6 +276,7 @@ async function main() {
     },
     client: {
       joined: sum("joined"), planned: sum("planned"), failed: sum("failed"), dropped: sum("dropped"),
+      plotNudges: sum("nudges"),
       errors: results.reduce((acc, r) => { for (const [k, v] of Object.entries(r.errors)) acc[k] = (acc[k] ?? 0) + v; return acc; }, {}),
       snapGapP50: +pct(gaps, 50).toFixed(1), snapGapP99: +pct(gaps, 99).toFixed(1), snapGapMax: +Math.max(0, ...results.map((r) => r.gapMax)).toFixed(1),
       editEchoes: sum("edits"), editP50: +pct(edits, 50).toFixed(1), editP99: +pct(edits, 99).toFixed(1),

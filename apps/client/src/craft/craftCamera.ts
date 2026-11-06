@@ -29,6 +29,8 @@ const WALL_MARGIN = 0.32;
 /** The closest the camera may ever be to what it is looking past: a little
  *  more than the near plane (0.1 m), so a wall is never cut open on screen. */
 const HARD_MARGIN = 0.14;
+/** Height kept above the floor when the camera is lifted over it (looking up). */
+const FLOOR_CLEAR = 0.35;
 /** Half-size of the box kept clear of blocks around the camera: the near plane's corner
  *  reach (0.1 m near, 75° fov, widescreen ≈ 0.16 m) — the screen never opens a block. */
 const NEAR_CLEAR = 0.22; // covers 21:9 at the running fov (corner reach ≈ 0.20 m)
@@ -78,6 +80,33 @@ export class CraftCamera {
   }
 
   /** Does a box of NEAR_CLEAR around `p` touch a block (or solid furniture)? */
+  private readonly los = new THREE.Vector3();
+
+  /** A ray hit that entered its block through the top face: the floor, not a wall or a ceiling. */
+  private static isFloorHit(hit: { voxel: [number, number, number]; before: [number, number, number] }): boolean {
+    return hit.before[1] === hit.voxel[1] + 1 && hit.before[0] === hit.voxel[0] && hit.before[2] === hit.voxel[2];
+  }
+
+  /**
+   * The top of the ground under (or around) a point: if the point is inside the ground, the first
+   * free cell above it; otherwise the first solid cell a few below. -Infinity when there is none
+   * close by (open air, a cliff edge) — nothing to lift over.
+   */
+  private floorUnder(world: VoxelWorld, p: THREE.Vector3): number {
+    const x = Math.floor(p.x);
+    const z = Math.floor(p.z);
+    let y = Math.floor(p.y);
+    if (world.isBlocked(x, y, z)) {
+      for (let i = 0; i < 8 && world.isBlocked(x, y, z); i++) y++;
+      return y;
+    }
+    for (let i = 0; i < 3; i++) {
+      if (world.isBlocked(x, y - 1, z)) return y;
+      y--;
+    }
+    return -Infinity;
+  }
+
   private boxBlocked(world: VoxelWorld, p: THREE.Vector3): boolean {
     for (const dx of [-NEAR_CLEAR, NEAR_CLEAR]) for (const dy of [-NEAR_CLEAR, NEAR_CLEAR]) for (const dz of [-NEAR_CLEAR, NEAR_CLEAR]) {
       if (world.isBlocked(Math.floor(p.x + dx), Math.floor(p.y + dy), Math.floor(p.z + dz))) return true;
@@ -135,6 +164,7 @@ export class CraftCamera {
     let wantDist = this.firstPerson ? 0 : MAX_DIST;
     // first person needs no wall limit — the camera is heading into the head
     let hardLimit = MAX_DIST;
+    let floorTop = -Infinity;
     if (!this.firstPerson) {
       let clear = MAX_DIST;
       for (const [sx, sy] of PROBES) {
@@ -149,7 +179,11 @@ export class CraftCamera {
           this.probeDir.x, this.probeDir.y, this.probeDir.z,
           MAX_DIST,
         );
-        if (hit) clear = Math.min(clear, hit.dist);
+        // the GROUND does not pull the camera in: looking up, the probes behind run down into it,
+        // and the camera came in (fading the robot) and out again with every jump — a flicker.
+        // A hit entered through a block's top face is floor; the camera is lifted over it below.
+        if (hit && CraftCamera.isFloorHit(hit)) floorTop = Math.max(floorTop, hit.voxel[1] + 1);
+        else if (hit) clear = Math.min(clear, hit.dist);
       }
       // MIN_DIST is a preference, never a reason to sit inside the wall: with the back
       // against a wall the camera comes all the way in (the robot fades out) instead
@@ -177,6 +211,25 @@ export class CraftCamera {
 
     this.camera.position.copy(this.pivot).addScaledVector(this.dir, -this.dist);
     if (!this.firstPerson && this.camera.position.y < 0.35) this.camera.position.y = 0.35;
+    // over the floor, not into it: the full distance kept, the camera just above the ground the probes
+    // hit (a bridge or a storey, not the ground far below it) or the ground in its own column
+    if (!this.firstPerson) {
+      const floor = Math.max(floorTop, this.floorUnder(world, this.camera.position));
+      if (this.camera.position.y < floor + FLOOR_CLEAR) this.camera.position.y = Math.min(floor + FLOOR_CLEAR, this.pivot.y);
+      // A floor hit ends a probe there, so nothing behind it was checked (a room's wall beyond its
+      // floor): the line from the head to the camera must be clear, or the camera comes in to it.
+      this.los.copy(this.camera.position).sub(this.pivot);
+      const len = this.los.length();
+      if (len > 1e-3) {
+        this.los.divideScalar(len);
+        const hit = world.raycast(this.pivot.x, this.pivot.y, this.pivot.z, this.los.x, this.los.y, this.los.z, len);
+        if (hit) {
+          const keep = Math.max(0, hit.dist - HARD_MARGIN);
+          this.camera.position.copy(this.pivot).addScaledVector(this.los, keep);
+          this.dist = Math.min(this.dist, keep);
+        }
+      }
+    }
     this.look.copy(this.pivot).addScaledVector(this.dir, 3);
     this.camera.lookAt(this.look);
 
@@ -212,7 +265,9 @@ export class CraftCamera {
 
     // Fade the robot out as the camera closes in — also while gliding into
     // first person, so V is a move into the head, not a cut with a vanishing
-    // robot.
-    return Math.min(1, Math.max(0, (this.dist - 0.9) / 0.9));
+    // robot. By the camera's REAL distance from the head: lifted over the floor it can be close
+    // while `dist` is long (looking straight up), and far while `dist` is long — the usual case.
+    const real = this.firstPerson ? this.dist : Math.min(this.dist, this.camera.position.distanceTo(this.pivot));
+    return Math.min(1, Math.max(0, (real - 0.9) / 0.9));
   }
 }

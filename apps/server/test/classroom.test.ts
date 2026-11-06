@@ -284,12 +284,43 @@ describe("ClassRoom", () => {
       room.leave(old);
       const again = new Peer();
       expect(room.joinStudent(again, "Jun", key)).toBe("ok");
-      expect(again.last("s-k-gather")).toEqual({ t: "s-k-gather", pos: jun.pos, yaw: jun.yaw });
       expect(teacher.last("s-k-seats")!.seats).toHaveLength(2); // no second plot for the same child
+      // back while still on the plot (a Wi-Fi blip, a deploy): left alone, never yanked mid-build
+      expect(again.last("s-k-gather")).toBeUndefined();
+      room.handle(again, { t: "k-move", pos: [jun.pos[0] + 3, 4, jun.pos[2] + 8], yaw: 0, anim: "idle" });
+      expect(again.last("s-k-gather")).toBeUndefined();
       room.leave(again);
+      // back from somewhere else (a new tab spawning elsewhere): its first move sends it to the seat
       const twin = new Peer();
       room.joinStudent(twin, "JUN", key);
-      expect(twin.last("s-k-gather")?.pos ?? null).toEqual(jun.pos);
+      room.handle(twin, { t: "k-move", pos: [jun.pos[0] + 60, 4, jun.pos[2]], yaw: 0, anim: "idle" });
+      expect(twin.last("s-k-gather")).toEqual({ t: "s-k-gather", pos: jun.pos, yaw: jun.yaw });
+    });
+
+    it("after a deploy (save → restore), a student on their plot stays put; one elsewhere goes to the seat", () => {
+      const { room, teacher } = seated("Ara", "Jun");
+      const seats = teacher.last("s-k-seats")!.seats;
+      const ara = seats.find((x) => x.name === "Ara")!;
+      const jun = seats.find((x) => x.name === "Jun")!;
+      const back = new ClassRoom("Ms Kim", AUTH, readSaved(JSON.parse(JSON.stringify(room.toSaved())))!);
+      const keys = room.toSaved().students;
+      const a = new Peer(), j = new Peer();
+      back.joinStudent(a, "Ara", keys.find((s) => s.name === "Ara")!.key);
+      back.joinStudent(j, "Jun", keys.find((s) => s.name === "Jun")!.key);
+      back.handle(a, { t: "k-move", pos: [ara.pos[0], 4, ara.pos[2] + 4], yaw: 0, anim: "idle" });
+      back.handle(j, { t: "k-move", pos: [jun.pos[0] + 80, 4, jun.pos[2]], yaw: 0, anim: "idle" });
+      expect(a.last("s-k-gather")).toBeUndefined();
+      expect(j.last("s-k-gather")).toEqual({ t: "s-k-gather", pos: jun.pos, yaw: jun.yaw });
+    });
+
+    it("furniture: every footprint cell must be on the plot (a double bed reaching over the fence is refused)", () => {
+      const { room, peers, teacher } = seated("Ara");
+      const ara = peers.get("Ara")!;
+      const plot = teacher.last("s-k-seats")!.seats[0]!;
+      const [, x1, z0] = plotBounds(plot);
+      // anchored on the plot's last column, 2 wide: its second column is the neighbour's
+      room.handle(ara, { t: "k-furniture", placed: [["double-bed", x1 - 1, 4, z0 + 4, 0, 0]], removed: [] });
+      expect(ara.last("s-k-furniture")!.rejected).toBe(true);
     });
 
     it("keeps students on their plot: a move well outside is pulled back (at most every 2 s); inside is left alone", () => {
