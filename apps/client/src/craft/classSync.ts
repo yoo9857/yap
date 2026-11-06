@@ -284,8 +284,13 @@ export class ClassSync {
         else if (!wasKept && kept) this.whenStarted(() => hooks.toast(t("🪑 자기 자리로 — 선생님이 풀어 줄 때까지 울타리 안에서 움직여요", "🪑 Back to your plot — stay inside the fence until the teacher lets you out")));
       }
     };
-    client.onGather = ([ax, y, az], yaw) => this.whenStarted(() => {
+    client.onGather = ([ax, y, az], yaw, nudge) => this.whenStarted(() => {
       const [x, z] = field.toGrid(ax, az);
+      if (nudge) {
+        // strayed past our fence: back just inside it, same facing, no fuss
+        hooks.teleport(x, y + 0.05, z);
+        return;
+      }
       if (yaw !== undefined) {
         // a seat: exactly this spot, facing the teacher
         hooks.teleport(x, y + 0.5, z);
@@ -797,6 +802,8 @@ export class ClassSync {
         id,
         name: this.members.find((m) => m.id === id)?.name,
         visible: r.rig.root.visible,
+        /** Meshes actually drawn inside the robot (a blink INSIDE the model shows here). */
+        meshes: (() => { let n = 0; r.rig.root.traverseVisible((o) => { if ((o as THREE.Mesh).isMesh) n++; }); return n; })(),
         abs: [r.target.x, r.target.y, r.target.z],
         drawn: [r.pos.x, r.pos.y, r.pos.z],
         // the upper-body layer it plays (homeRig.ts: "Upper/Interact" while digging); the model

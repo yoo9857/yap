@@ -88,7 +88,7 @@ const samples = {
     "s-k-wet": [{ t: "s-k-wet", cells: [[3, 2, -4, 19], [3, 2, -5, 0]] }],
     "s-k-chat": [{ t: "s-k-chat", from: "p1", name: "김선생", role: "teacher", text: "모여요", system: true }, { t: "s-k-chat", from: "p2", name: "Mina", role: "student", text: "네" }],
     "s-k-seats": [{ t: "s-k-seats", seats: [] }, { t: "s-k-seats", seats: [{ name: "민지", pos: [12.5, 5, -24.5], yaw: 3.14159 }] }, { t: "s-k-seats", seats: [], roam: true }],
-    "s-k-gather": [{ t: "s-k-gather", pos: [12, 5, -30.5] }, { t: "s-k-gather", pos: [14.5, 5, -24.5], yaw: 3.14159 }],
+    "s-k-gather": [{ t: "s-k-gather", pos: [12, 5, -30.5] }, { t: "s-k-gather", pos: [14.5, 5, -24.5], yaw: 3.14159 }, { t: "s-k-gather", pos: [14.5, 5, -10.5], nudge: true }],
     "s-k-bonk": [{ t: "s-k-bonk", by: "p2", target: "p3", seq: 4, vx: 1.5, vz: -0.5, vy: 2, at: [1, 2.2, 3] }],
     "s-k-settings": [{ t: "s-k-settings", settings: { chatLocked: true, buildLocked: true, tapsLocked: false } }],
     "s-k-reject": [{ t: "s-k-reject", edits, authoritative: true }, { t: "s-k-reject", edits: [] }],

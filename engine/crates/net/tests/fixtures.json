@@ -1,7 +1,7 @@
 {
  "versions": {
   "party": 1,
-  "class": 10
+  "class": 11
  },
  "partyClient": [
   {
@@ -146,7 +146,7 @@
  "classClient": [
   {
    "t": "k-host",
-   "v": 10,
+   "v": 11,
    "room": "햇살반",
    "teacher": "김선생",
    "password": "1234",
@@ -154,26 +154,26 @@
   },
   {
    "t": "k-host",
-   "v": 10,
+   "v": 11,
    "room": "햇살반",
    "teacher": "김선생"
   },
   {
    "t": "k-join",
-   "v": 10,
+   "v": 11,
    "room": "햇살반",
    "student": "Mina",
    "seatKey": "sk"
   },
   {
    "t": "k-join",
-   "v": 10,
+   "v": 11,
    "room": "햇살반",
    "student": "Mina"
   },
   {
    "t": "k-peek",
-   "v": 10,
+   "v": 11,
    "room": "햇살반"
   },
   {
@@ -593,6 +593,15 @@
     -24.5
    ],
    "yaw": 3.14159
+  },
+  {
+   "t": "s-k-gather",
+   "pos": [
+    14.5,
+    5,
+    -10.5
+   ],
+   "nudge": true
   },
   {
    "t": "s-k-bonk",

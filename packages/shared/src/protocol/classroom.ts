@@ -17,7 +17,7 @@ import { characterIdSchema, emoteIdSchema, characterActionSchema, heldItemSchema
  */
 
 /** 3: named classrooms. 4: water. 5: paced live-world streaming + reliable replay. 6: character emotes and low postures. 7: construction shapes through code 50. 8: light player taps. 9: half blocks and stairs. 10: water inside shaped blocks (s-k-wet). */
-export const CLASS_PROTOCOL_VERSION = 10;
+export const CLASS_PROTOCOL_VERSION = 11;
 /** Highest block layer of the field grid (WORLD_Y - 1). */
 export const CLASS_MAX_Y = 55;
 /** Field coordinates are bounded so a hostile client can't grow the store
@@ -229,8 +229,10 @@ export const classServerSchema = z.discriminatedUnion("t", [
     system: z.boolean().optional(),
   }),
   /** Come to `pos` (absolute). With `yaw` it is an exact spot (a seat) facing that way; without, the
-   *  student fans out around it (gather). Older clients ignore `yaw` and fan out. */
-  z.object({ t: z.literal("s-k-gather"), pos: vec3Schema, yaw: z.number().finite().optional() }),
+   *  student fans out around it (gather). `nudge`: a student kept on their plot strayed out —
+   *  stand exactly at `pos` (just inside the fence), keep facing and say nothing (a seat's teleport
+   *  and toast every 2 s read as the child blinking). */
+  z.object({ t: z.literal("s-k-gather"), pos: vec3Schema, yaw: z.number().finite().optional(), nudge: z.boolean().optional() }),
   /** The class's seating, for everyone (on change and on join): each seat's student, spot (absolute)
    *  and heading. Drawn as booths with dividers and a name sign; an empty list clears it. */
   z.object({

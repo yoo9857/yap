@@ -1292,6 +1292,11 @@ export class CraftGame {
       this.miningEffects.shift(shift.dx,shift.dz);
       this.pet.shift(shift.dx, shift.dz);
       this.sync?.shift(shift.dx, shift.dz);
+      // the camera moves with the window too: anything reading it before this frame's camera
+      // update (culling, LOD) must not see the old window's coordinates
+      this.renderer.camera.position.x -= shift.dx;
+      this.renderer.camera.position.z -= shift.dz;
+      this.renderer.camera.updateMatrixWorld();
       // the aimed cell was a grid coordinate: re-aim, or a frame drawn before the next tick
       // highlights a different absolute block
       this.updateAim();
@@ -1947,17 +1952,6 @@ export class CraftGame {
     this.hud.syncMenu(this.workshop.active || this.furniture.panelOpen || this.petShop.open || this.emoteMenu.open || this.science?.panelOpen === true || this.sync?.toolsOpen === true
       || performance.now() < this.resumeUntil || document.querySelector(".class-ended") !== null);
     this.sky.update(this.renderer.camera);
-    this.sync?.render(frameDt);
-    if (this.samples && this.field) {
-      const field = this.field;
-      this.samples.view.update((ax, az) => field.toGrid(ax, az));
-      for (const r of this.samples.rigs) {
-        const [gx, gz] = field.toGrid(r.pos[0], r.pos[2]);
-        r.rig.root.position.set(gx, r.pos[1], gz);
-        r.rig.root.rotation.y = r.yaw;
-        r.rig.update("idle", 0, frameDt);
-      }
-    }
     // integer steps keep the 1 m texture tiles aligned with the voxel grid
     this.fieldGround?.position.set(Math.round(this.body.x), FIELD_GROUND_Y, Math.round(this.body.z));
     // Detail (rounded bricks, studs) follows what you're looking AT — the
@@ -2026,6 +2020,20 @@ export class CraftGame {
       drawn.y + POSTURE_EYE[this.seated ? "sit" : this.posture],
     );
     this.applyRobotOpacity(this.debugHideRobot ? 0 : robotOpacity, frameDt);
+    // classmates AFTER the camera has its place for this frame: they are culled against it, and the
+    // camera of the frame before — still in the old window after a field scroll (16 m) — culled a
+    // classmate standing right ahead for one frame every time a running player crossed a scroll
+    this.sync?.render(frameDt);
+    if (this.samples && this.field) {
+      const field = this.field;
+      this.samples.view.update((ax, az) => field.toGrid(ax, az));
+      for (const r of this.samples.rigs) {
+        const [gx, gz] = field.toGrid(r.pos[0], r.pos[2]);
+        r.rig.root.position.set(gx, r.pos[1], gz);
+        r.rig.root.rotation.y = r.yaw;
+        r.rig.update("idle", 0, frameDt);
+      }
+    }
     this.renderer.trackTarget(eye);
     this.updateUnderwater();
     this.view.animateWater(performance.now() / 1000, this.field?.absOriginX ?? 0, this.field?.absOriginZ ?? 0);
@@ -2243,6 +2251,9 @@ export class CraftGame {
         toolTime: this.toolElapsed,
         pitch: this.pitch,
         yaw: this.yaw,
+        /** The own robot's fade (1 = solid) and whether it is drawn at all. */
+        robotOpacity: this.robotOpacity,
+        robotVisible: this.rig.root.visible,
         inventory: { ...this.state.inventory },
         hotbar: [...this.state.hotbar],
       }),
@@ -2274,7 +2285,9 @@ export class CraftGame {
       cameraState: () => {
         const p = this.renderer.camera.position;
         const dir = this.renderer.camera.getWorldDirection(new THREE.Vector3());
-        return { dist: this.camera.distance, x: p.x, y: p.y, z: p.z, dirY: dir.y, t: performance.now() };
+        const cam = this.renderer.camera;
+        const matrix = new THREE.Matrix4().multiplyMatrices(cam.projectionMatrix, cam.matrixWorldInverse).toArray();
+        return { dist: this.camera.distance, x: p.x, y: p.y, z: p.z, dirY: dir.y, t: performance.now(), matrix };
       },
       /** Perf bisection: switch costly render features off one at a time. */
       renderFlags: (flags: { shadows?: boolean; robot?: boolean }) => {

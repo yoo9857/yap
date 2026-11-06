@@ -16,7 +16,7 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
 /// `PARTY_PROTOCOL_VERSION` (party.ts). The fixtures carry the TypeScript value; a test compares.
 pub const PARTY_PROTOCOL_VERSION: u32 = 1;
 /// `CLASS_PROTOCOL_VERSION` (classroom.ts).
-pub const CLASS_PROTOCOL_VERSION: u32 = 10;
+pub const CLASS_PROTOCOL_VERSION: u32 = 11;
 /// Largest message the server sends (decodeClassServer's limit: whole-world batches).
 pub const MAX_SERVER_MESSAGE: usize = 4 * 1024 * 1024;
 
@@ -437,6 +437,8 @@ pub enum ClassServer {
         pos: [f64; 3],
         #[serde(default, skip_serializing_if = "Option::is_none")]
         yaw: Option<f64>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        nudge: Option<bool>,
     },
     /// The class's seating (dividers + name signs); empty clears it.
     #[serde(rename = "s-k-seats")]

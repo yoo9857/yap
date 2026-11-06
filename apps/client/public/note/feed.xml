@@ -51,6 +51,10 @@
 &lt;/li&gt;
 &lt;li&gt;&lt;p&gt;&lt;strong&gt;깜빡임&lt;/strong&gt; — 자리 배치 뒤 학생들이 움직일 때 그림자가 깜빡이던 문제와, 바닥 색이 캐릭터를 가릴 수 있던 문제를 고쳤어요.&lt;/p&gt;
 &lt;/li&gt;
+&lt;li&gt;&lt;p&gt;&lt;strong&gt;달릴 때 친구가 깜빡이던 문제&lt;/strong&gt; — 내가 달리다 보면 앞에 있는 친구가 한순간 사라졌다 나타났어요(16칸 달릴 때마다 한 번). 들판이 내 쪽으로 따라 움직이는 순간 화면 계산이 한 박자 늦었던 탓이라, 이제 깜빡이지 않아요.&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;&lt;p&gt;&lt;strong&gt;업데이트 전에 열어 둔 창&lt;/strong&gt; — 업데이트 전부터 켜져 있던 교실 창은 새 버전으로 알아서 다시 들어와요(자리와 땅은 그대로). 울타리를 넘은 학생은 순간이동 대신 울타리 바로 안쪽으로 살짝 돌아와요.&lt;/p&gt;
+&lt;/li&gt;
 &lt;li&gt;&lt;p&gt;&lt;strong&gt;수업이 끝나면 정리&lt;/strong&gt; — 수업 종료를 누르거나 반이 한동안 비면 자리 배치도 함께 걷혀요. 다음 수업에 어제 울타리가 남아 있지 않아요.&lt;/p&gt;
 &lt;/li&gt;
 &lt;/ul&gt;

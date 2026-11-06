@@ -555,7 +555,13 @@ export class ClassRoom {
     if (x > x0 - SLACK && x < x1 + SLACK && z > z0 - SLACK && z < z1 + SLACK) return;
     const now = Date.now();
     if (member.pulledAt !== undefined && now - member.pulledAt < 2000) return;
-    this.sendToSeat(member, seat);
+    // back just inside the fence where they crossed it (half a cell in), not across to the seat:
+    // the smallest move that puts them back, so nobody sees them jump
+    member.pulledAt = now;
+    const IN = 0.5;
+    const nx = Math.min(Math.max(x, x0 + IN), x1 - IN);
+    const nz = Math.min(Math.max(z, z0 + IN), z1 - IN);
+    member.peer?.send({ t: "s-k-gather", pos: [nx, member.pos[1], nz], nudge: true });
   }
 
   private attach(member: Member, peer: ClassPeer): void {

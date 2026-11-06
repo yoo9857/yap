@@ -305,7 +305,14 @@ describe("ClassRoom", () => {
       room.handle(ara, { t: "k-move", pos: [plot.pos[0] + 2, 4, plot.pos[2] + 5], yaw: 0, anim: "run" });
       expect(pulls()).toBe(start); // inside the fence
       room.handle(ara, { t: "k-move", pos: [plot.pos[0] + 30, 4, plot.pos[2]], yaw: 0, anim: "run" });
-      expect(pulls()).toBe(start + 1); // walked out: back onto the plot
+      expect(pulls()).toBe(start + 1); // walked out: back inside the fence
+      // a quiet nudge to just inside the fence where they crossed it — not a teleport to the seat
+      const nudge = ara.last("s-k-gather")!;
+      const [, bx1] = plotBounds(plot);
+      expect(nudge.nudge).toBe(true);
+      expect(nudge.yaw).toBeUndefined();
+      expect(nudge.pos[0]).toBeCloseTo(bx1 - 0.5);
+      expect(nudge.pos[2]).toBeCloseTo(plot.pos[2]);
       room.handle(ara, { t: "k-move", pos: [plot.pos[0] + 31, 4, plot.pos[2]], yaw: 0, anim: "run" });
       expect(pulls()).toBe(start + 1); // not again within 2 s
       vi.useRealTimers();

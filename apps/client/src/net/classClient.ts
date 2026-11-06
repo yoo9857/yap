@@ -196,7 +196,7 @@ export class ClassClient {
   onReject: ((edits: ClassEdit[], authoritative: boolean) => void) | null = null;
   onChat: ((msg: Extract<ClassServerMessage, { t: "s-k-chat" }>) => void) | null = null;
   /** The teacher called us: fan out around `pos`, or with `yaw`, stand exactly there facing that way (a seat). */
-  onGather: ((pos: [number, number, number], yaw?: number) => void) | null = null;
+  onGather: ((pos: [number, number, number], yaw?: number, nudge?: boolean) => void) | null = null;
   /** The class seating changed (or arrived on join): every seat's student, spot and heading. */
   onSeats: ((seats: { name: string; pos: [number, number, number]; yaw: number }[], roam: boolean) => void) | null = null;
   onBonk: ((msg: Extract<ClassServerMessage, { t: "s-k-bonk" }>) => void) | null = null;
@@ -480,7 +480,7 @@ export class ClassClient {
         this.onChat?.(msg);
         return;
       case "s-k-gather":
-        this.onGather?.(msg.pos, msg.yaw);
+        this.onGather?.(msg.pos, msg.yaw, msg.nudge === true);
         break;
       case "s-k-seats":
         this.onSeats?.(msg.seats, msg.roam === true);
