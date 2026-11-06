@@ -31,8 +31,11 @@ describe("playable block materials",()=>{
   const world=new VoxelWorld();world.setShaped(8,2,8,1,18);const scene=new THREE.Scene(),view=new VoxelView(scene);view.update(world);
   const near=scene.children.find(o=>o instanceof THREE.InstancedMesh&&Array.isArray(o.material)) as THREE.InstancedMesh<THREE.BufferGeometry,THREE.Material[]>|undefined;
   expect(near).toBeDefined();expect(near!.material).toHaveLength(3);expect(near!.geometry.groups).toHaveLength(3);
-  for(let i=0;i<15;i++)view.update(world,new THREE.Vector3(90,4,8));
-  const far=scene.children.find(o=>o instanceof THREE.Mesh&&!(o instanceof THREE.InstancedMesh)&&Array.isArray(o.material)) as THREE.Mesh<THREE.BufferGeometry,THREE.Material[]>|undefined;
+  // rebuilds run on a 4 ms/frame budget: a slow CI machine needs more frames than a fast one, so
+  // step until the far form is there (bounded) instead of a fixed count that raced the queue
+  const findFar=()=>scene.children.find(o=>o instanceof THREE.Mesh&&!(o instanceof THREE.InstancedMesh)&&Array.isArray(o.material)) as THREE.Mesh<THREE.BufferGeometry,THREE.Material[]>|undefined;
+  for(let i=0;i<300&&!findFar();i++)view.update(world,new THREE.Vector3(90,4,8));
+  const far=findFar();
   expect(far).toBeDefined();expect(new Set(far!.geometry.groups.map(g=>g.materialIndex)).size).toBe(3);
   const keys=far!.geometry.groups.map(g=>(far!.material[g.materialIndex!] as THREE.MeshPhysicalMaterial).name);
   expect(keys.some(k=>k.includes("grass-side"))).toBe(true);view.dispose();
