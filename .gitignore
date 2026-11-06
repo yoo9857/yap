@@ -13,3 +13,11 @@ tmp/
 .env.*
 !.env.example
 output/
+
+# science-mode art: generated concept / mockup images and render previews stay local
+# (large and reproducible from the briefs; the sprite masters and Blender sources are committed)
+assets/powercard/raw/
+assets/powercard/ref-*.png
+assets/powercard/minigame/raw/
+assets/powercard/minigame/ref-*.png
+assets/items/**/previews/

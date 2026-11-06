@@ -45,11 +45,13 @@ export const FIELD_HOTBAR: string[] = [
   "water",
 ];
 
-export type BlockGroup = "earth" | "wood" | "stone" | "ore" | "color" | "light" | "special" | "tools";
+export type BlockGroup = "earth" | "wood" | "stone" | "ore" | "color" | "light" | "special" | "tools" | "frames" | "parts";
 
 export const BLOCK_GROUPS: { id: BlockGroup | "all"; ko: string; en: string }[] = [
   { id: "all", ko: "전체", en: "All" },
   { id: "tools", ko: "도구", en: "Tools" },
+  { id: "frames", ko: "뼈대", en: "Frame" },
+  { id: "parts", ko: "부품", en: "Parts" },
   { id: "earth", ko: "땅", en: "Earth" },
   { id: "wood", ko: "나무", en: "Wood" },
   { id: "stone", ko: "돌", en: "Stone" },
@@ -61,6 +63,16 @@ export const BLOCK_GROUPS: { id: BlockGroup | "all"; ko: string; en: string }[] 
 
 const GROUP: Record<string, BlockGroup> = {
   "pickaxe-basic": "tools",
+  "frame-foundation": "frames",
+  "frame-foundation-center": "frames",
+  "frame-tower-base": "frames",
+  "frame-tower": "frames",
+  "frame-tower-top": "frames",
+  "frame-nacelle-tail": "frames",
+  "frame-hub": "frames",
+  "part-blades": "parts",
+  "part-generator": "parts",
+  "part-wire-terminal": "parts",
   grass: "earth",
   "flower-grass": "earth",
   dirt: "earth",
@@ -321,9 +333,14 @@ export function clearHotbarSlot(hotbar: string[], slot: number): boolean {
 }
 
 /** Education stacks: every placeable block topped up to 999 (fields saved before building was free may have run some down). */
-export function ensureFieldStacks(counts: Counts): Counts {
+export function ensureFieldStacks(counts: Counts, parts = false): Counts {
   const out = sanitizeCounts(counts);
   for (const key of Object.keys(GROUP)) {
+    // power-plant parts only where science mode runs (the solo field), never in a classroom
+    if ((GROUP[key] === "parts" || GROUP[key] === "frames") && !parts) {
+      delete out[key];
+      continue;
+    }
     const full = Math.min(999, itemByKey(key)?.maxStack ?? 9999);
     if ((out[key] ?? 0) < full) out[key] = full;
   }

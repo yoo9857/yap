@@ -1,0 +1,799 @@
+/* Science mode (T): a calm blue layer over play — lineless, soft-3D like the rest of the HUD. */
+
+.sci-tint {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 4;
+  opacity: 0;
+  transition: opacity 0.35s ease;
+  background:
+    radial-gradient(ellipse at center, rgba(88, 208, 255, 0) 55%, rgba(60, 150, 255, 0.22) 100%),
+    linear-gradient(rgba(70, 150, 255, 0.05), rgba(70, 150, 255, 0.05));
+}
+body.sci-on .sci-tint {
+  opacity: 1;
+}
+
+.sci-bar {
+  position: fixed;
+  top: 14px;
+  left: 50%;
+  z-index: 30;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  max-width: min(760px, calc(100vw - 32px));
+  pointer-events: none;
+  font-family: "Jua", system-ui, -apple-system, sans-serif;
+  transform: translate(-50%, -12px);
+  opacity: 0;
+  transition: opacity 0.25s ease, transform 0.25s ease;
+}
+body.sci-on .sci-bar {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}
+
+.sci-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 16px 7px 12px;
+  border-radius: 999px;
+  color: #fff;
+  font-size: 17px;
+  background: linear-gradient(180deg, #4aa8ff, #2f7fe8);
+  box-shadow: 0 6px 18px rgba(30, 90, 200, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.35);
+}
+.sci-pill kbd {
+  margin-left: 4px;
+}
+.sci-pill-quiet {
+  opacity: 0.85;
+  font-size: 14px;
+}
+.sci-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #b9f3ff;
+  box-shadow: 0 0 0 3px rgba(185, 243, 255, 0.35);
+  animation: sci-blink 1.6s ease-in-out infinite;
+}
+@keyframes sci-blink {
+  50% {
+    box-shadow: 0 0 0 7px rgba(185, 243, 255, 0);
+  }
+}
+
+.sci-task {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 10px 18px;
+  border-radius: 18px;
+  color: #24324a;
+  font-size: 17px;
+  line-height: 1.35;
+  text-align: center;
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 8px 24px rgba(20, 40, 80, 0.18);
+}
+.sci-task b {
+  flex: none;
+  padding: 2px 10px;
+  border-radius: 999px;
+  color: #2f7fe8;
+  font-size: 14px;
+  font-weight: 400;
+  background: #e5f1ff;
+}
+
+.sci-keys {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px 14px;
+  color: #fff;
+  font-size: 14px;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.45);
+}
+.sci-keys span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.sci-bar kbd {
+  display: inline-block;
+  min-width: 22px;
+  padding: 1px 7px;
+  border-radius: 7px;
+  color: #24324a;
+  font: inherit;
+  font-size: 13px;
+  text-align: center;
+  text-shadow: none;
+  background: #fff;
+  box-shadow: 0 2px 0 rgba(20, 40, 80, 0.25);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sci-dot {
+    animation: none;
+  }
+  .sci-bar,
+  .sci-tint {
+    transition: none;
+  }
+}
+
+/* the guide bar replaces the shape chip, and toasts drop below it */
+body.sci-on .craft-piece {
+  display: none;
+}
+body.sci-on .b-toast {
+  top: 150px;
+}
+
+/* block mode: when a plant or a part is in play, the task line alone peeks in */
+body.sci-peek:not(.sci-on) .sci-bar {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}
+body.sci-peek:not(.sci-on) .sci-pill,
+body.sci-peek:not(.sci-on) .sci-keys {
+  display: none;
+}
+body.sci-peek:not(.sci-on) .sci-bar {
+  top: 66px; /* under the shape chip */
+}
+
+/* ---- 건설 현황판 (Tab) ---------------------------------------------------- */
+.sci-board {
+  position: fixed;
+  top: 14px;
+  right: 14px;
+  bottom: 14px;
+  z-index: 45;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: min(400px, calc(100vw - 28px));
+  padding: 16px 16px 14px;
+  overflow: auto;
+  border-radius: 24px;
+  color: #24324a;
+  font-family: "Jua", system-ui, -apple-system, sans-serif;
+  background: rgba(247, 250, 255, 0.95);
+  box-shadow: 0 18px 50px rgba(20, 40, 90, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  backdrop-filter: blur(10px);
+  transform: translateX(calc(100% + 30px));
+  transition: transform 0.28s cubic-bezier(0.2, 0.9, 0.25, 1);
+  pointer-events: auto;
+}
+.sci-board.open {
+  transform: none;
+}
+.sci-board-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.sci-board-head h2 {
+  flex: 1;
+  margin: 0;
+  font-size: 22px;
+  font-weight: 400;
+}
+.sci-board-head h2::before {
+  content: "📊 ";
+}
+.sci-board-key kbd,
+.sci-board kbd {
+  padding: 1px 7px;
+  border-radius: 7px;
+  font: inherit;
+  font-size: 13px;
+  background: #fff;
+  box-shadow: 0 2px 0 rgba(20, 40, 80, 0.2);
+}
+.sci-board-close {
+  width: 34px;
+  height: 34px;
+  border: 0;
+  border-radius: 50%;
+  color: #5b6a82;
+  font-size: 16px;
+  background: #e8eef7;
+  cursor: pointer;
+}
+.sci-board-close:hover {
+  background: #dbe5f3;
+}
+.sci-board-sub {
+  margin: 4px 2px 0;
+  color: #5b6a82;
+  font-size: 15px;
+  font-weight: 400;
+}
+
+.sci-village {
+  padding: 12px 14px;
+  border-radius: 18px;
+  background: linear-gradient(180deg, #24324a, #2d4266);
+  color: #fff;
+}
+.sci-village-top {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  font-size: 16px;
+}
+.sci-village-top b {
+  font-weight: 400;
+}
+.sci-village-num em {
+  color: #ffd34a;
+  font-style: normal;
+  font-size: 22px;
+}
+.sci-houses {
+  display: grid;
+  grid-template-columns: repeat(12, 1fr);
+  gap: 5px;
+  margin: 10px 0 8px;
+}
+.sci-house {
+  position: relative;
+  aspect-ratio: 1 / 1.05;
+  border-radius: 3px 3px 4px 4px;
+  background: #4d5f80;
+}
+.sci-house::before {
+  content: "";
+  position: absolute;
+  left: -2px;
+  right: -2px;
+  top: -42%;
+  height: 50%;
+  clip-path: polygon(50% 0, 100% 100%, 0 100%);
+  background: #6b7fa3;
+}
+.sci-house::after {
+  content: "";
+  position: absolute;
+  left: 30%;
+  right: 30%;
+  top: 28%;
+  height: 32%;
+  border-radius: 2px;
+  background: #33415c;
+  transition: background 0.4s ease var(--d, 0ms), box-shadow 0.4s ease var(--d, 0ms);
+}
+.sci-house.lit::after {
+  background: #ffe27a;
+  box-shadow: 0 0 8px 2px rgba(255, 214, 90, 0.75);
+}
+.sci-meter {
+  height: 8px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.16);
+  overflow: hidden;
+}
+.sci-meter span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #ffd34a, #ffb02e);
+  transition: width 0.5s ease;
+}
+.sci-village-msg {
+  margin: 8px 0 0;
+  color: #c9d6ee;
+  font-size: 14px;
+}
+
+.sci-plants {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.sci-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 10px 12px;
+  border: 0;
+  border-radius: 18px;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  background: #fff;
+  box-shadow: 0 4px 14px rgba(20, 40, 80, 0.08);
+  cursor: pointer;
+  transition: transform 0.12s ease, box-shadow 0.12s ease;
+}
+.sci-card:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 20px rgba(20, 40, 80, 0.14);
+}
+.sci-card-icon {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 46px;
+  height: 46px;
+  border-radius: 14px;
+  font-size: 26px;
+  background: #e5f1ff;
+}
+.sci-card.running .sci-card-icon {
+  background: #e3f7ea;
+}
+.sci-card.parts .sci-card-icon {
+  background: #fff3dc;
+}
+.sci-card.inspection .sci-card-icon {
+  background: #ffe8e3;
+}
+.sci-card-main {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+.sci-card-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.sci-card-row b {
+  font-size: 16px;
+  font-weight: 400;
+}
+.sci-card-row b small {
+  color: #8a97ad;
+  font-size: 12px;
+}
+.sci-badge {
+  flex: none;
+  padding: 2px 10px;
+  border-radius: 999px;
+  color: #fff;
+  font-size: 13px;
+  background: #3d8fe0;
+}
+.sci-card.parts .sci-badge {
+  background: #f0a020;
+}
+.sci-card.ready .sci-badge {
+  background: #1fb5a8;
+}
+.sci-card.running .sci-badge {
+  background: #3fbf6a;
+}
+.sci-card.inspection .sci-badge {
+  background: #e8664f;
+}
+.sci-card-bar {
+  display: block;
+  height: 8px;
+  border-radius: 999px;
+  background: #e3eaf4;
+  overflow: hidden;
+}
+.sci-card-bar span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: #3d8fe0;
+}
+.sci-card.parts .sci-card-bar span,
+.sci-card.ready .sci-card-bar span,
+.sci-card.running .sci-card-bar span {
+  background: #3fbf6a;
+}
+.sci-parts {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.sci-parts small {
+  margin-left: 4px;
+  color: #8a97ad;
+  font-size: 12px;
+}
+.sci-part {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border: 2px dashed #c3cddc;
+  border-radius: 50%;
+  background: #f4f7fb;
+}
+.sci-part img {
+  width: 20px;
+  height: 20px;
+  opacity: 0.3;
+  filter: grayscale(1);
+}
+.sci-part.in {
+  border: 2px solid #9fdcb4;
+  background: #ebf9f0;
+}
+.sci-part.in img {
+  opacity: 1;
+  filter: none;
+}
+.sci-card-pct {
+  font-size: 15px;
+}
+.sci-card-go {
+  flex: none;
+  min-width: 52px;
+  color: #3d8fe0;
+  font-size: 14px;
+  line-height: 1.15;
+  text-align: center;
+}
+.sci-card-go small {
+  color: #8a97ad;
+  font-size: 11px;
+}
+.sci-empty {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 18px 16px;
+  border: 2px dashed #c9d4e4;
+  border-radius: 18px;
+  color: #5b6a82;
+  font-size: 14px;
+  text-align: center;
+}
+.sci-empty b {
+  color: #24324a;
+  font-size: 16px;
+  font-weight: 400;
+}
+
+.sci-flow {
+  margin-top: auto;
+  padding: 12px 12px 10px;
+  border-radius: 18px;
+  background: #fff;
+  box-shadow: 0 4px 14px rgba(20, 40, 80, 0.06);
+}
+.sci-flow .sci-board-sub {
+  margin: 0 0 8px;
+}
+.sci-flow-steps {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+}
+.sci-flow-step {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 52px;
+  padding: 6px 6px 4px;
+  border-radius: 12px;
+  background: #eef4fc;
+}
+.sci-flow-step b {
+  font-size: 18px;
+  font-weight: 400;
+}
+.sci-flow-step small {
+  color: #5b6a82;
+  font-size: 12px;
+}
+.sci-flow-step.house {
+  background: #fff6d8;
+}
+.sci-flow-arrow {
+  color: #a8b5c9;
+}
+.sci-flow-loss {
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+  color: #5b6a82;
+  font-size: 13px;
+  line-height: 1.45;
+}
+.sci-flow-loss b {
+  color: #e8664f;
+  font-weight: 400;
+}
+.sci-flow-note {
+  margin: 6px 0 0;
+  color: #24324a;
+  font-size: 13px;
+}
+
+/* the arrow toward a picked plant, at the screen edge while it is off screen */
+.sci-arrow {
+  position: fixed;
+  z-index: 29;
+  display: none;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px 6px 8px;
+  border-radius: 999px;
+  color: #24324a;
+  font-family: "Jua", system-ui, sans-serif;
+  font-size: 14px;
+  white-space: nowrap;
+  background: rgba(255, 255, 255, 0.94);
+  box-shadow: 0 6px 18px rgba(20, 40, 80, 0.22);
+  pointer-events: none;
+  left: 18px;
+  transform: translateY(-50%);
+  animation: sci-nudge-left 1.1s ease-in-out infinite;
+}
+.sci-arrow.right {
+  left: auto;
+  right: 18px;
+  animation-name: sci-nudge-right;
+}
+@keyframes sci-nudge-left {
+  50% { transform: translate(-6px, -50%); }
+}
+@keyframes sci-nudge-right {
+  50% { transform: translate(6px, -50%); }
+}
+.sci-arrow.show {
+  display: inline-flex;
+}
+.sci-arrow i {
+  display: inline-block;
+  width: 0;
+  height: 0;
+  border-top: 8px solid transparent;
+  border-bottom: 8px solid transparent;
+  border-left: 13px solid #f0a020;
+}
+.sci-arrow i.left {
+  border-left: 0;
+  border-right: 13px solid #f0a020;
+}
+
+/* ---- fitting mini-games (grounding · generator · wiring · rotor) -----------
+   Immersive, frameless: the world dims and blurs, a white title sits over it, and the painted
+   stage fills the window at its own aspect ratio — sized from BOTH the screen's width and height,
+   so it always fits whole. The button and the science card float on the art. */
+.sci-game {
+  --ar: 2.4;
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: none;
+  place-items: center;
+  padding: 16px;
+  background: radial-gradient(ellipse at center, rgba(14, 26, 48, 0.42), rgba(8, 14, 28, 0.72));
+  backdrop-filter: blur(10px) saturate(1.15);
+  font-family: "Jua", system-ui, -apple-system, sans-serif;
+}
+.sci-game[data-kind="wiring"] { --ar: 2; }
+.sci-game.open { display: grid; }
+.sci-game-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  /* the stage is width × 1/ar tall; header ≈ 76 px: never taller than the screen */
+  width: min(94vw, calc((100vh - 124px) * var(--ar)), 1240px);
+  animation: sci-rise 0.38s cubic-bezier(0.18, 0.9, 0.3, 1.1);
+}
+@keyframes sci-rise {
+  from { transform: translateY(26px) scale(0.96); opacity: 0; }
+}
+.sci-game-head {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 14px;
+  color: #fff;
+}
+.sci-game-icon {
+  width: 60px;
+  height: 60px;
+  object-fit: contain;
+  filter: drop-shadow(0 6px 14px rgba(0, 0, 0, 0.35));
+}
+.sci-game-head h2 {
+  margin: 0;
+  font-size: clamp(24px, 2.6vw, 34px);
+  font-weight: 400;
+  line-height: 1.05;
+  text-shadow: 0 2px 12px rgba(0, 0, 0, 0.35);
+}
+.sci-game-head p {
+  margin: 4px 0 0;
+  color: rgba(255, 255, 255, 0.88);
+  font-size: clamp(14px, 1.45vw, 18px);
+  line-height: 1.3;
+  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.4);
+}
+.sci-game-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 16px;
+  border-radius: 999px;
+  color: #fff;
+  font-size: 19px;
+  white-space: nowrap;
+  background: rgba(255, 255, 255, 0.16);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.28);
+}
+.sci-game-chip:empty { display: none; }
+.sci-game-dots { display: inline-flex; gap: 6px; }
+.sci-game-dots i {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.3);
+  transition: background 0.25s ease, transform 0.25s ease;
+}
+.sci-game-dots i.on {
+  background: #7dffb0;
+  box-shadow: 0 0 10px rgba(125, 255, 176, 0.8);
+  transform: scale(1.15);
+}
+.sci-game-x {
+  display: grid;
+  place-items: center;
+  width: 46px;
+  height: 46px;
+  border: 0;
+  border-radius: 50%;
+  color: #fff;
+  font-size: 20px;
+  background: rgba(255, 255, 255, 0.16);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.28);
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+.sci-game-x:hover { background: rgba(255, 255, 255, 0.28); }
+.sci-game-x:focus-visible, .sci-game-btn:focus-visible { outline: 3px solid #ffd84a; outline-offset: 3px; }
+.sci-game-stage {
+  position: relative;
+  aspect-ratio: var(--ar);
+  width: 100%;
+  border-radius: 26px;
+  overflow: hidden;
+  background: #cfe6f7;
+  box-shadow: 0 30px 70px rgba(0, 0, 0, 0.45), 0 0 0 1px rgba(255, 255, 255, 0.12);
+  transition: box-shadow 0.4s ease;
+}
+.sci-game-svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  touch-action: none;
+  user-select: none;
+}
+.sci-game-svg image { pointer-events: none; }
+.sci-game-svg .hit { cursor: pointer; pointer-events: all; }
+.sci-game-svg .drag { cursor: grab; pointer-events: all; }
+.sci-game-svg .drag:active { cursor: grabbing; }
+/* floating on the art */
+.sci-game-actions {
+  position: absolute;
+  left: 50%;
+  bottom: 4%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 10px;
+}
+.sci-game-actions:empty { display: none; }
+.sci-game-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 26px 12px 18px;
+  border: 0;
+  border-radius: 999px;
+  color: #3a2600;
+  font: 400 clamp(18px, 2vw, 26px) "Jua", system-ui, sans-serif;
+  background: linear-gradient(180deg, #ffe56f, #ffc52a);
+  box-shadow: 0 6px 0 #d99a10, 0 14px 26px rgba(0, 0, 0, 0.28), inset 0 2px 0 rgba(255, 255, 255, 0.6);
+  cursor: pointer;
+  transition: transform 0.08s ease, box-shadow 0.08s ease, opacity 0.3s ease;
+}
+.sci-game-btn img { width: 40px; height: 40px; object-fit: contain; }
+.sci-game-btn:active { transform: translateY(4px); box-shadow: 0 2px 0 #d99a10, 0 6px 14px rgba(0, 0, 0, 0.25); }
+.sci-game-btn[disabled] { opacity: 0; pointer-events: none; }
+.sci-game-note {
+  pointer-events: none; /* hidden it must not swallow taps meant for the button under it */
+  position: absolute;
+  left: 3%;
+  right: 3%;
+  bottom: 4%;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 0;
+  padding: 14px 20px;
+  border-radius: 20px;
+  color: #17432c;
+  font-size: clamp(15px, 1.6vw, 20px);
+  line-height: 1.4;
+  background: rgba(240, 255, 246, 0.92);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.22);
+  backdrop-filter: blur(6px);
+  opacity: 0;
+  transform: translateY(20px);
+  pointer-events: none;
+  transition: opacity 0.35s ease, transform 0.35s cubic-bezier(0.2, 0.9, 0.3, 1.2);
+}
+.sci-game-note.show { opacity: 1; transform: none; pointer-events: auto; }
+.sci-game.won .sci-game-stage {
+  box-shadow: 0 30px 70px rgba(0, 0, 0, 0.45), 0 0 0 4px rgba(125, 255, 176, 0.9), 0 0 60px rgba(125, 255, 176, 0.55);
+}
+.sci-game-confetti { position: absolute; inset: 0; pointer-events: none; overflow: visible; }
+.sci-game-confetti i {
+  position: absolute;
+  top: 45%;
+  left: 50%;
+  width: 12px;
+  height: 18px;
+  border-radius: 4px;
+  animation: sci-confetti 1.2s cubic-bezier(0.2, 0.7, 0.4, 1) forwards;
+}
+@keyframes sci-confetti {
+  from { transform: translate(0, 0) rotate(0); opacity: 1; }
+  to { transform: translate(var(--dx), var(--dy)) rotate(var(--r)); opacity: 0; }
+}
+.sci-game.zap .sci-game-stage { animation: sci-zap 0.32s ease-in-out; }
+@keyframes sci-zap {
+  25% { transform: translateX(-9px); }
+  75% { transform: translateX(9px); }
+}
+/* svg motion */
+.sci-g-ring { animation: sci-ring 1.1s ease-in-out infinite; transform-box: fill-box; transform-origin: center; }
+@keyframes sci-ring {
+  50% { transform: scale(1.18); opacity: 0.5; }
+}
+.sci-g-hint { animation: sci-hint 1.6s ease-in-out infinite; }
+@keyframes sci-hint {
+  50% { opacity: 0.35; }
+}
+.sci-g-march { animation: sci-march 0.9s linear infinite; }
+@keyframes sci-march {
+  to { stroke-dashoffset: -40; }
+}
+.sci-g-wind {
+  stroke-dasharray: 60 400;
+  animation: sci-wind 3.6s linear infinite;
+}
+@keyframes sci-wind {
+  from { stroke-dashoffset: 380; opacity: 0; }
+  20% { opacity: 1; }
+  to { stroke-dashoffset: -140; opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sci-game-card, .sci-g-ring, .sci-g-hint, .sci-g-wind, .sci-g-march, .sci-game.zap .sci-game-stage, .sci-game-confetti i {
+    animation: none;
+  }
+}
+
+/* a game still fetching its art: a soft spinner on the empty stage (never a half-drawn scene) */
+.sci-game.loading .sci-game-stage { background: rgba(255, 255, 255, .14); }
+.sci-game.loading .sci-game-stage::after {
+  content: ""; position: absolute; left: 50%; top: 50%; width: 54px; height: 54px; margin: -27px 0 0 -27px;
+  border-radius: 50%; border: 6px solid rgba(255, 255, 255, .25); border-top-color: #fff;
+  animation: sci-spin .8s linear infinite;
+}
+@keyframes sci-spin { to { transform: rotate(360deg); } }

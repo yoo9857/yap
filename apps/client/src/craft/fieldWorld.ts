@@ -62,6 +62,8 @@ const saveSchema = z.object({
   pet: z.string().optional(),
   /** Placed furniture in ABSOLUTE cells, like `edits`. */
   furniture: furnitureSaveSchema.optional(),
+  /** Power-plant blueprints (science mode), ABSOLUTE anchors. Checked row by row in `loadPlants`. */
+  plants: z.unknown().optional(),
 });
 
 export class FieldWindow {
@@ -184,6 +186,15 @@ export class FieldWindow {
     return this.edits.get(voxelKey(ax, y, az)) ?? [this.column[y] ?? 0, 0];
   }
 
+  /** Just the block id at an absolute cell (no tuple: for per-frame loops). */
+  blockIdAt(ax: number, y: number, az: number): number {
+    const x = ax - this.originX;
+    const z = az - this.originZ;
+    if (this.world.inBounds(x, y, z)) return this.world.get(x, y, z);
+    const edit = this.edits.get(voxelKey(ax, y, az));
+    return edit ? edit[0] : (this.column[y] ?? 0);
+  }
+
   /** The water a shaped block at an absolute cell holds (0: none). */
   wetAt(ax: number, y: number, az: number): number {
     const [x, z] = this.toGrid(ax, az);
@@ -243,6 +254,7 @@ export class FieldWindow {
     pet?: string,
     furniture?: FurnitureTuple[],
     hotbar?: readonly string[],
+    plants?: unknown[],
   ): boolean {
     this.bank();
     saveStatus.tooBig = false;
@@ -255,7 +267,7 @@ export class FieldWindow {
     try {
       storage.setItem(
         SAVE_KEY,
-        JSON.stringify({ v: 1, originX: this.originX, originZ: this.originZ, edits, inventory, player, pet, furniture, ...(hotbar ? { hotbar: [...hotbar] } : {}) }),
+        JSON.stringify({ v: 1, originX: this.originX, originZ: this.originZ, edits, inventory, player, pet, furniture, ...(plants?.length ? { plants } : {}), ...(hotbar ? { hotbar: [...hotbar] } : {}) }),
       );
       return true;
     } catch (e) {
@@ -269,7 +281,7 @@ export class FieldWindow {
   /** Restore a saved field; returns its inventory/player or null for a fresh one. */
   load(
     storage: KeyValueStorage,
-  ): { inventory: Counts; hotbar: string[]; player: { x: number; y: number; z: number }; pet?: string; furniture?: unknown[] } | null {
+  ): { inventory: Counts; hotbar: string[]; player: { x: number; y: number; z: number }; pet?: string; furniture?: unknown[]; plants?: unknown } | null {
     let raw: string | null;
     try {
       raw = storage.getItem(SAVE_KEY);
@@ -307,6 +319,7 @@ export class FieldWindow {
       player: { x: clamp(d.player.x, WORLD_X), y: clamp(d.player.y, WORLD_Y + 4), z: clamp(d.player.z, WORLD_Z) },
       pet: d.pet,
       furniture: d.furniture,
+      plants: d.plants,
     };
   }
 }

@@ -36,7 +36,7 @@ import { SkyDome } from "./skyDome.js";
 import { createSkyEnvironment } from "../render/skyEnvironment.js";
 import { ClassSync } from "./classSync.js";
 import type { ClassClient, ClassSession } from "../net/classClient.js";
-import { SWIM_DEPTH, pointInWater, stepBody, unstick, overlapsShapedVoxel, wishFromInput, type Body } from "./voxelBody.js";
+import { SWIM_DEPTH, pointInWater, stepBody, unstick, overlapsShapedVoxel, overlapsVoxel, wishFromInput, type Body } from "./voxelBody.js";
 import {SandSim} from "./sandSim.js";
 import { WaterSim } from "./waterSim.js";
 import { WATER, WATER_SETTLED, isWater, emoteDef, lookDirection, pickBonk, bonkBlocked, tapBeatsDig, BONK_COOLDOWN_MS, BONK_DECAY, BONK_PUSH_CAP, type EmoteId, type CharacterId, type ClassAnim, type CharacterAction, type CharacterPresentation, postureTransition } from "@robo/shared";
@@ -71,6 +71,10 @@ import { approach, easeAngle, interpolate, turnToward } from "./smoothing.js";
 import { FurnitureLayout } from "./furniture/layout.js";
 import type { RustEngine } from "../engine/rustEngine.js";
 import { FurnitureController, PICKUP_TIME } from "./furniture/controller.js";
+import { ScienceMode, itemLabel } from "./science/scienceMode.js";
+import { loadItemModels } from "./science/itemModels.js";
+import { isFrameKey } from "./science/frames.js";
+import { isPartKey } from "./science/parts.js";
 import type { PlacedFurniture } from "./furniture/types.js";
 
 const DEFAULT_SEED = 20260718;
@@ -131,6 +135,10 @@ export class CraftGame {
   private readonly pet: PetCompanion;
   private readonly petShop: PetShop;
   private readonly furniture: FurnitureController;
+  /** Science mode (T): power-plant blueprints. Solo education field only for now (W1). */
+  private readonly science: ScienceMode | null = null;
+  /** The field save's plants, held until science mode exists (it is built after the world). */
+  private savedPlants: unknown = undefined;
   /** Furniture under the crosshair (nearer than the block the ray hit). */
   private aimFurniture: PlacedFurniture | null = null;
   /** The piece a held left click is putting away. */
@@ -250,6 +258,7 @@ export class CraftGame {
     });
     this.hud = new CraftHud(document.body, (recipe, many) => this.handleCraft(recipe, many), {
       furniture: true,
+      science: opts.field === true && opts.classroom === undefined,
       creative: opts.field === true || opts.classroom !== undefined,
       mode: opts.classroom
         ? t(`교실 · ${opts.classroom.session.room}`, `Class · ${opts.classroom.session.room}`)
@@ -294,13 +303,14 @@ export class CraftGame {
       this.state = {
         seed: 0,
         world: this.field.world,
-        inventory: ensureFieldStacks(saved?.inventory ?? {}),
+        inventory: ensureFieldStacks(saved?.inventory ?? {}, true), // the solo field has science mode: parts too
         hotbar: saved?.hotbar ?? fieldStarterHotbar(),
         player: saved?.player ?? this.field.spawn,
         pet: isPetSpecies(saved?.pet) ? saved.pet : "dog",
         furniture: new FurnitureLayout(),
       };
       this.state.furniture.load(saved?.furniture);
+      this.savedPlants = saved?.plants;
       this.buildFieldGround();
     } else {
       if (reset) clearCraftSave(localStorage);
@@ -339,6 +349,44 @@ export class CraftGame {
     }, true);
     this.body = { ...this.state.player, vx: 0, vy: 0, vz: 0, grounded: false };
     unstick(this.state.world, this.body); // never spawn embedded in a block
+    if (this.field && !opts.classroom) {
+      const field = this.field;
+      this.science = new ScienceMode({
+        scene: this.renderer.scene,
+        world: this.state.world,
+        originX: () => field.absOriginX,
+        originZ: () => field.absOriginZ,
+        blockAt: (x, y, z) => field.blockIdAt(x, y, z),
+        playerIn: (x, y, z) => overlapsVoxel(this.body, x, y, z),
+        furnitureIn: (x, y, z) => this.furniture.blocksCell(x, y, z),
+        ray: () => {
+          const [dx, dy, dz] = lookDirection(this.yaw, this.pitch);
+          return { ox: this.body.x, oy: this.body.y + POSTURE_EYE[this.seated ? "sit" : this.posture], oz: this.body.z, dx, dy, dz, reach: REACH };
+        },
+        heldKey: () => (this.emptyHands ? "" : this.heldKey()),
+        // the education field never runs out (like its blocks): a part is only checked, not spent
+        takeItem: (key, check) => (this.field || check ? countOf(this.state.inventory, key) > 0 : removeItem(this.state.inventory, key)),
+        giveItem: (key, n) => { if (!this.field) addItem(this.state.inventory, key, n); },
+        holdItem: (key) => { this.assignToHotbar(this.selected, key, false, true); this.emptyHands = false; },
+        toast: (text) => this.hud.toast(text),
+        sound: (name) => this.sfx.play(name),
+        changed: () => { this.mining = this.placing = false; },
+        openPanel: () => {
+          this.hud.hideRecipes(); this.petShop.setOpen(false); this.furniture.closePanel();
+          this.keys.clear(); this.mining = this.placing = false; this.rightHeld = false;
+          document.exitPointerLock();
+        },
+        resumePlay: () => this.resumePlay(),
+        // bodies and rays read propSolid live: nothing is cached to refresh
+        solidsChanged: () => {},
+      });
+      // fitted plant items are solid: walls for bodies, targets for rays (furniture's hook stays first)
+      const science = this.science;
+      const furnitureSolid = this.state.world.propSolid;
+      this.state.world.propSolid = (x, y, z) => (furnitureSolid?.(x, y, z) ?? false) || science.solidAt(x, y, z);
+      this.science.load(this.savedPlants);
+      this.savedPlants = undefined;
+    }
     this.renderer.scene.add(this.rig.root);
     this.pet = new PetCompanion(
       this.renderer.scene,
@@ -481,6 +529,7 @@ export class CraftGame {
    *  until the recall teleported it out), and a classmate (it popped them up out of the block). */
   private readonly buildBlocked = (x: number, y: number, z: number): boolean =>
     this.furniture.blocksCell(x, y, z) || overlapsShapedVoxel(this.pet.body, x, y, z, 0) ||
+    (this.science?.solidAt(x, y, z) ?? false) ||
     (this.sync?.bodyInGridCell(x, y, z, 0) ?? false);
 
   private holdingWater(): boolean {
@@ -568,11 +617,13 @@ export class CraftGame {
   async prepare(setMessage: (text: string) => void = () => {}): Promise<void> {
     setMessage(t("텍스처 불러오는 중…", "Loading textures…"));
     // the Blender studs too: the first frame shows them, not the code twin
-    await Promise.all([texturesReady(),preloadHeldItemsWithin(8000),loadBlockStuds()]);
+    await Promise.all([texturesReady(),preloadHeldItemsWithin(8000),loadBlockStuds(),
+      this.science ? Promise.race([loadItemModels(), new Promise((r) => setTimeout(r, 6000))]) : null]);
     if(!this.disposed)this.rig.setHeldItem(this.heldTool(),this.toolOption);
     if (this.disposed || this.started) return; // timed out (main.ts): start() warmed up its own way
     setMessage(t("그래픽 준비하는 중…", "Preparing graphics…"));
     this.furniture.setWarm(true);
+    this.science?.setWarm(true); // holograms, part models, sparks, beacon
     this.view.setWarm(true); // the water shader, too
     this.miningEffects.prewarm(BLOCKS.filter((def) => !def.fluid).map((def) => ({ def, materials: this.view.miningMaterials(def.id) })));
     this.warming = true;
@@ -590,6 +641,7 @@ export class CraftGame {
   private endWarm(): void {
     this.warming = false;
     this.furniture.setWarm(false);
+    this.science?.setWarm(false);
     this.view.setWarm(false);
     this.miningEffects.endWarm();
     this.sync?.warm(false);
@@ -654,6 +706,7 @@ export class CraftGame {
     this.pet.dispose();
     this.petShop.dispose();
     this.furniture.dispose();
+    this.science?.dispose();
     this.bgm.dispose();
     this.sfx.dispose();
     this.perf.dispose();
@@ -706,16 +759,18 @@ export class CraftGame {
         if(!this.emptyHands&&toolByKey(this.heldKey())){const key=this.attackIdentity();if(key)this.itemAttack.request(key);}
         this.mining = true;
       }
-      if (e.button === 2) this.placing = true;
+      if (e.button === 2) { this.placing = true; this.rightHeld = true; this.sciHold = 0; }
       if (e.button === 1) {
         e.preventDefault(); // no autoscroll cursor
-        if (this.aimFurniture) this.furniture.pickKind(this.aimFurniture);
+        const socketItem = this.science?.pickAimed();
+        if (socketItem) { this.assignToHotbar(this.selected, socketItem, false, true); this.emptyHands = false; }
+        else if (this.aimFurniture) this.furniture.pickKind(this.aimFurniture);
         else this.pickAimedBlock();
       }
     });
     on("mouseup", (e) => {
       if (e.button === 0) this.mining = false;
-      if (e.button === 2) this.placing = false;
+      if (e.button === 2) { this.placing = false; this.rightHeld = false; }
     });
     on("contextmenu", (e) => e.preventDefault());
     on("wheel", (e) => {
@@ -755,6 +810,30 @@ export class CraftGame {
       if (this.hud.recipesOpen && (key === "e" || key === "i") && !e.repeat) { this.toggleBag(key); return; }
       // G from the bag goes straight to furniture: one panel at a time
       if (key === "g" && this.hud.recipesOpen) { this.hud.hideRecipes(); this.resumePlay(); }
+      // T: science mode (power-plant blueprints). Shift+T still tips a block shape.
+      if (key === "t" && !e.shiftKey && this.science) {
+        if (!e.repeat) {
+          if (this.furniture.active) this.furniture.select(null);
+          this.science.toggle();
+        }
+        return;
+      }
+      if (key === "g" && this.science?.active) this.science.setActive(false); // furniture replaces it
+      // Tab: the power plants' status board (it frees the mouse; Tab or Esc closes it)
+      if (key === "tab" && this.science) {
+        e.preventDefault();
+        if (!e.repeat) this.science.toggleBoard();
+        return;
+      }
+      if (key === "escape" && this.science?.panelOpen) {
+        if (this.science.boardOpen) this.science.closeBoard(true);
+        else this.science.closePanels(); // a mini-game: its close resumes play
+        return;
+      }
+      // a science panel is up (board, mini-game): no second panel over it, no walking
+      if (this.science?.panelOpen) return;
+      if (!e.shiftKey && this.science?.handleKey(key, e.repeat)) return;
+      if (e.shiftKey && this.science?.active && (key === "r" || key === "t")) return; // no hidden shape changes
       // furniture's keys first: in furniture mode 1-9, Q/E, X and R are its own
       if (this.furniture.handleKey(key, e.repeat)) return;
       if (key >= "1" && key <= "9") {
@@ -796,7 +875,8 @@ export class CraftGame {
       }
       if (key === "r" && e.shiftKey && !e.repeat) {this.pieceRot=0;this.pieceTilt=0;this.hud.toast(t("기본 방향으로 맞췄어요", "Reset to upright"));return;}
       if (key === "r" && !e.repeat) this.pieceRot = (this.pieceRot + 1) % 4; // spin (yaw)
-      if (key === "t" && !e.repeat) this.pieceTilt = (this.pieceTilt + 1) % 4; // tip sideways (tilt)
+      // tip sideways (tilt): Shift+T where T is science mode, plain T elsewhere
+      if (key === "t" && !e.repeat && (e.shiftKey || !this.science)) this.pieceTilt = (this.pieceTilt + 1) % 4;
       if (key === "f" && !e.repeat) {
         this.pieceIndex = (this.pieceIndex + 1) % PIECES.length;
         this.pieceRot = 0;
@@ -924,6 +1004,14 @@ export class CraftGame {
       this.tryPlace();
       this.placing = false; // one block per press
     }
+    // power plants: holding the right button keeps building, one piece every 0.3 s after a beat
+    if (this.rightHeld && this.science && this.locked) {
+      this.sciHold += dt;
+      if (this.sciHold >= 0.45) {
+        this.sciHold -= 0.3;
+        if (this.science.holdBuild()) this.beginWork("place");
+      }
+    }
 
     if (Date.now() - this.lastSaveAt > SAVE_INTERVAL_MS) this.perf.time("save", () => this.persist());
   }
@@ -1039,6 +1127,12 @@ export class CraftGame {
       else this.clearMiningTarget();
       return;
     }
+    // a fitted power-plant item: a held left click takes it back out (like putting furniture away)
+    if (this.aim && this.science?.fittedAt(...this.aim.voxel)) {
+      this.stepTakeOut(this.aim.voxel, dt);
+      return;
+    }
+    this.takeOutKey = "";
     this.pickupTarget = null;
     if (!this.aim || this.usingPickaxe()&&!pickaxeInReach(this.aim.dist,this.yaw-this.facing,this.toolOption)) {
       this.miningTarget = null;
@@ -1308,6 +1402,31 @@ export class CraftGame {
   }
 
   /** Held left click on furniture: a short hold puts it away (it is free). */
+  /** The right mouse button is down, and for how long (power plants build while it is held). */
+  private rightHeld = false;
+  private sciHold = 0;
+
+  /** The fitted item being taken out ("x,y,z" of its cell) and the hold so far. */
+  private takeOutKey = "";
+
+  private stepTakeOut(cell: [number, number, number], dt: number): void {
+    const key = cell.join(",");
+    if (this.takeOutKey !== key) {
+      this.takeOutKey = key;
+      this.miningProgress = 0;
+    }
+    this.miningTarget = null;
+    this.miningProgress += dt;
+    this.beginWork("interact", true);
+    this.miningFrac = this.miningProgress / PICKUP_TIME;
+    if (this.miningProgress < PICKUP_TIME) return;
+    this.science?.takeOutAt(...cell);
+    this.takeOutKey = "";
+    this.miningProgress = 0;
+    this.miningFrac = null;
+    this.mining = false; // one piece per hold: no chain of take-outs
+  }
+
   private stepPickup(item: PlacedFurniture, dt: number): void {
     if (!this.canBuild()) {
       this.miningFrac = null;
@@ -1340,6 +1459,13 @@ export class CraftGame {
     // ...and on a chair, sofa or bed you sit down — unless you are placing
     // furniture, where the click means "put the piece here"
     if (this.aimFurniture && !this.furniture.active && this.trySit(this.aimFurniture)) return;
+    // power plants: fit a part into the aimed gold slot, or switch a ready plant on (any mode)
+    if (this.science?.interact()) { this.beginWork("place"); return; }
+    // science mode: a right click lays the previewed power-plant blueprint
+    if (this.science?.active) {
+      if (this.science.place()) this.beginWork("place");
+      return;
+    }
     if ((this.emptyHands||!!this.heldTool()) && !this.furniture.active) return;
     if (!this.aim) return;
     if (!this.canBuild()) {
@@ -1384,6 +1510,7 @@ export class CraftGame {
     this.sand?.touch(x,y,z);
     this.sync?.recordEdit(x, y, z, prevBlock, prevShape, block, shape);
     if (block === AIR) this.furniture.onBlockRemoved(x, y, z);
+    this.science?.onCellWritten(x + (this.field?.absOriginX ?? 0), y, z + (this.field?.absOriginZ ?? 0));
   }
 
   private canBuild(): boolean {
@@ -1434,7 +1561,7 @@ export class CraftGame {
       return;
     }
     // furniture mode draws its own ghost (FurnitureController.render)
-    if (!this.locked || !this.aim || this.mining || this.furniture.active || this.emptyHands || !!this.heldTool()) {
+    if (!this.locked || !this.aim || this.mining || this.furniture.active || this.science?.active || this.emptyHands || !!this.heldTool() || isPartKey(this.heldKey()) || isFrameKey(this.heldKey())) {
       for (const m of this.ghostMeshes) m.visible = false;
       return;
     }
@@ -1562,14 +1689,14 @@ export class CraftGame {
     if (this.savedElsewhere) return; // another tab owns the save now
     // standing still with no edits: nothing to write, skip the serialise +
     // synchronous localStorage write entirely
-    const signature = `${this.field?.absOriginX ?? 0},${this.field?.absOriginZ ?? 0}|${this.state.world.version}|${Math.round(this.body.x * 2)},${Math.round(this.body.y * 2)},${Math.round(this.body.z * 2)}|${JSON.stringify(this.state.inventory)}|${this.state.hotbar.join(",")}|${this.pet.species}|${this.state.furniture.version}`;
+    const signature = `${this.field?.absOriginX ?? 0},${this.field?.absOriginZ ?? 0}|${this.state.world.version}|${Math.round(this.body.x * 2)},${Math.round(this.body.y * 2)},${Math.round(this.body.z * 2)}|${JSON.stringify(this.state.inventory)}|${this.state.hotbar.join(",")}|${this.pet.species}|${this.state.furniture.version}|${this.science?.version ?? 0}`;
     if (signature === this.lastSaveSignature) return;
     this.state.player = { x: this.body.x, y: this.body.y, z: this.body.z };
     this.state.pet = this.pet.species;
     let saved = false;
     try {
       saved = this.field
-        ? this.field.save(localStorage, this.state.inventory, this.state.player, this.state.pet, this.state.furniture.toJSON(), this.state.hotbar)
+        ? this.field.save(localStorage, this.state.inventory, this.state.player, this.state.pet, this.state.furniture.toJSON(), this.state.hotbar, this.science?.toJSON())
         : saveCraft(this.state, localStorage, Date.now());
     } catch { /* access to localStorage itself can be disabled by the browser */ }
     if (saved) {
@@ -1703,6 +1830,7 @@ export class CraftGame {
     this.hud.setPointerLocked(locked);
     if (locked) {
       // back in play: a panel left open would sit over the view, unusable
+      this.science?.closePanels();
       this.furniture.closePanel();
       this.petShop.setOpen(false);
       this.hud.hideRecipes();
@@ -1722,7 +1850,7 @@ export class CraftGame {
     }else this.miningEffects.clearTarget();
     this.miningEffects.update(frameDt,this.state.world);
     const drawn = this.interpolatedBody(alpha);
-    this.hud.syncMenu(this.workshop.active || this.furniture.panelOpen || this.petShop.open || this.emoteMenu.open
+    this.hud.syncMenu(this.workshop.active || this.furniture.panelOpen || this.petShop.open || this.emoteMenu.open || this.science?.panelOpen === true
       || performance.now() < this.resumeUntil || document.querySelector(".class-ended") !== null);
     this.sky.update(this.renderer.camera);
     this.sync?.render(frameDt);
@@ -1803,8 +1931,11 @@ export class CraftGame {
     this.hud.setMineProgress(this.miningFrac);
     this.perf.phase("camera", performance.now() - t0);
     this.perf.time("furniture", () => this.furniture.render(this.aim, this.yaw, this.locked && !this.mining, this.ghostOk, this.ghostBad));
-    if (!this.furniture.active) {
+    this.perf.time("science", () => this.science?.render(this.aim, this.renderer.camera, this.locked && !this.mining));
+    if (this.science?.active) this.hud.setPiece(t("🌬️ 풍력 발전기 설계도 · R 돌리기", "🌬️ Wind turbine blueprint · R to turn"), 0, 0, "🔬");
+    else if (!this.furniture.active) {
       if(this.heldTool())this.hud.setPiece(this.toolLabel(),0,0,"⛏️");
+      else if (!this.emptyHands && (isPartKey(this.heldKey()) || isFrameKey(this.heldKey()))) this.hud.setPiece(`${itemLabel(this.heldKey() as import("./science/plants.js").SocketItem)} · ${t("빛나는 칸에 끼우기", "fit into a glowing slot")}`, 0, 0, "🔩");
       else if (this.emptyHands) this.hud.setPiece(t("빈손 · Q로 블록 들기", "Empty hands · Q to hold blocks"), 0, 0, "✋");
       else this.hud.setPiece(PIECES[this.pieceIndex]!, this.pieceRot, this.pieceTilt);
     }
@@ -1958,6 +2089,35 @@ export class CraftGame {
 
   private installDebugHooks(): void {
     const hooks = {
+      /** Science mode (T): sites with their build %, the live preview. */
+      science: () => this.science?.debug() ?? null,
+      /** Toggle science mode without a key press. */
+      scienceMode: (on: boolean) => this.science?.setActive(on),
+      /** Lay a blueprint at an ABSOLUTE anchor; returns the problem (null = laid). */
+      scienceLay: (x: number, y: number, z: number, rot = 0) => (this.science ? this.science.debugLay(x, y, z, rot) : "outside"),
+      /** A site's cells (ABSOLUTE) with the block id each wants. */
+      /** A site's sockets (ABSOLUTE): item, frame/part, filled, open now. */
+      scienceSockets: (index = 0) => this.science?.socketsOf(index) ?? [],
+      /** Fit the held item into a socket by index (the same rules as aiming + right click). */
+      scienceFit: (site: number, socket: number) => this.science?.debugFit(site, socket) ?? false,
+      /** What a middle click would put in hand now. */
+      sciencePickAimed: () => this.science?.pickAimed() ?? null,
+      /** One step of "right button held" (the timer calls it every 0.3 s). */
+      scienceHoldBuild: () => this.science?.holdBuild() ?? false,
+      /** The real right-click path (tryPlace): in science mode it lays the previewed blueprint. */
+      scienceRightClick: () => { this.tryPlace(); },
+      /** The open fitting mini-game, and finishing it through its own rules. */
+      scienceGame: () => this.science?.gameState() ?? null,
+      scienceSolveGame: () => this.science?.solveGame(),
+      /** Take the fitted item in an ABSOLUTE cell back out (the held-left-click path). */
+      scienceTakeOut: (ax: number, y: number, az: number) => this.science?.takeOutAt(ax - (this.field?.absOriginX ?? 0), y, az - (this.field?.absOriginZ ?? 0)) ?? false,
+      /** A right click's power-plant meaning right now (fit / switch on); true when it acted. */
+      scienceInteract: () => this.science?.interact() ?? false,
+      /** The status board: toggle it, or pick a plant's card (lights its beacon). */
+      scienceBoard: () => this.science?.toggleBoard(),
+      sciencePick: (id: number) => this.science?.pick(id),
+      /** Put an item into the selected hotbar slot and hold it (as the bag's "load" does). */
+      hold: (key: string) => { this.assignToHotbar(this.selected, key, false, true); this.emptyHands = false; return this.heldKey(); },
       /** Which model the player's rig shows: a skinned HOME/TT, or the code-built fallback mascot. */
       rigInfo: () => {
         let skinned = false;

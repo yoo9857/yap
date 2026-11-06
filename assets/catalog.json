@@ -287,6 +287,236 @@
           "runtime": "apps/client/public/models/items/tools/pickaxe-basic/pickaxe-basic.glb"
         }
       ]
+    },
+    {
+      "id": "power-plant-parts",
+      "category": "items/parts",
+      "workflow": "Blender build script (Codex) -> three GLBs -> science-mode part slots (web); bag icons are Codex art cut to /items/parts/*.webp",
+      "files": [
+        {
+          "path": "assets/items/parts/source/build_parts.py",
+          "role": "generator"
+        },
+        {
+          "path": "assets/items/parts/source/Parts.blend",
+          "role": "source"
+        },
+        {
+          "path": "assets/items/parts/runtime/manifest.json",
+          "role": "manifest"
+        },
+        {
+          "path": "assets/items/parts/README_KO.md",
+          "role": "documentation"
+        },
+        {
+          "path": "assets/items/parts/CODEX_BRIEF.md",
+          "role": "documentation"
+        },
+        {
+          "path": "assets/items/parts/previews",
+          "role": "previews"
+        },
+        {
+          "path": "assets/items/parts/runtime/part-generator.glb",
+          "role": "canonical-runtime"
+        },
+        {
+          "path": "assets/items/parts/runtime/part-blades.glb",
+          "role": "canonical-runtime"
+        },
+        {
+          "path": "assets/items/parts/runtime/part-wire-terminal.glb",
+          "role": "canonical-runtime"
+        },
+        {
+          "path": "apps/client/public/models/items/parts/part-generator.glb",
+          "role": "runtime"
+        },
+        {
+          "path": "apps/client/public/models/items/parts/part-blades.glb",
+          "role": "runtime"
+        },
+        {
+          "path": "apps/client/public/models/items/parts/part-wire-terminal.glb",
+          "role": "runtime"
+        },
+        {
+          "path": "apps/client/public/items/parts/part-generator.webp",
+          "role": "icon"
+        },
+        {
+          "path": "apps/client/public/items/parts/part-blades.webp",
+          "role": "icon"
+        },
+        {
+          "path": "apps/client/public/items/parts/part-wire-terminal.webp",
+          "role": "icon"
+        }
+      ],
+      "mirrors": [
+        {
+          "source": "assets/items/parts/runtime/part-generator.glb",
+          "runtime": "apps/client/public/models/items/parts/part-generator.glb"
+        },
+        {
+          "source": "assets/items/parts/runtime/part-blades.glb",
+          "runtime": "apps/client/public/models/items/parts/part-blades.glb"
+        },
+        {
+          "source": "assets/items/parts/runtime/part-wire-terminal.glb",
+          "runtime": "apps/client/public/models/items/parts/part-wire-terminal.glb"
+        }
+      ]
+    },
+    {
+      "id": "power-plant-frames",
+      "category": "items/frames",
+      "workflow": "Blender build script (Codex) -> seven frame GLBs -> science-mode item sockets (web); bag icons rendered from the GLBs by render_icons.py",
+      "files": [
+        {
+          "path": "assets/items/frames/source/build_frames.py",
+          "role": "generator"
+        },
+        {
+          "path": "assets/items/frames/source/Frames.blend",
+          "role": "source"
+        },
+        {
+          "path": "assets/items/frames/source/render_icons.py",
+          "role": "generator"
+        },
+        {
+          "path": "assets/items/frames/runtime/manifest.json",
+          "role": "manifest"
+        },
+        {
+          "path": "assets/items/frames/CODEX_BRIEF.md",
+          "role": "documentation"
+        },
+        {
+          "path": "assets/items/CODEX_BRIEF_V2.md",
+          "role": "documentation"
+        },
+        {
+          "path": "assets/items/frames/previews",
+          "role": "previews"
+        },
+        {
+          "path": "assets/items/frames/runtime/frame-foundation.glb",
+          "role": "canonical-runtime"
+        },
+        {
+          "path": "assets/items/frames/runtime/frame-foundation-center.glb",
+          "role": "canonical-runtime"
+        },
+        {
+          "path": "assets/items/frames/runtime/frame-tower-base.glb",
+          "role": "canonical-runtime"
+        },
+        {
+          "path": "assets/items/frames/runtime/frame-tower.glb",
+          "role": "canonical-runtime"
+        },
+        {
+          "path": "assets/items/frames/runtime/frame-tower-top.glb",
+          "role": "canonical-runtime"
+        },
+        {
+          "path": "assets/items/frames/runtime/frame-nacelle-tail.glb",
+          "role": "canonical-runtime"
+        },
+        {
+          "path": "assets/items/frames/runtime/frame-hub.glb",
+          "role": "canonical-runtime"
+        },
+        {
+          "path": "apps/client/public/models/items/frames/frame-foundation.glb",
+          "role": "runtime"
+        },
+        {
+          "path": "apps/client/public/models/items/frames/frame-foundation-center.glb",
+          "role": "runtime"
+        },
+        {
+          "path": "apps/client/public/models/items/frames/frame-tower-base.glb",
+          "role": "runtime"
+        },
+        {
+          "path": "apps/client/public/models/items/frames/frame-tower.glb",
+          "role": "runtime"
+        },
+        {
+          "path": "apps/client/public/models/items/frames/frame-tower-top.glb",
+          "role": "runtime"
+        },
+        {
+          "path": "apps/client/public/models/items/frames/frame-nacelle-tail.glb",
+          "role": "runtime"
+        },
+        {
+          "path": "apps/client/public/models/items/frames/frame-hub.glb",
+          "role": "runtime"
+        },
+        {
+          "path": "apps/client/public/items/frames/frame-foundation.webp",
+          "role": "icon"
+        },
+        {
+          "path": "apps/client/public/items/frames/frame-foundation-center.webp",
+          "role": "icon"
+        },
+        {
+          "path": "apps/client/public/items/frames/frame-tower-base.webp",
+          "role": "icon"
+        },
+        {
+          "path": "apps/client/public/items/frames/frame-tower.webp",
+          "role": "icon"
+        },
+        {
+          "path": "apps/client/public/items/frames/frame-tower-top.webp",
+          "role": "icon"
+        },
+        {
+          "path": "apps/client/public/items/frames/frame-nacelle-tail.webp",
+          "role": "icon"
+        },
+        {
+          "path": "apps/client/public/items/frames/frame-hub.webp",
+          "role": "icon"
+        }
+      ],
+      "mirrors": [
+        {
+          "source": "assets/items/frames/runtime/frame-foundation.glb",
+          "runtime": "apps/client/public/models/items/frames/frame-foundation.glb"
+        },
+        {
+          "source": "assets/items/frames/runtime/frame-foundation-center.glb",
+          "runtime": "apps/client/public/models/items/frames/frame-foundation-center.glb"
+        },
+        {
+          "source": "assets/items/frames/runtime/frame-tower-base.glb",
+          "runtime": "apps/client/public/models/items/frames/frame-tower-base.glb"
+        },
+        {
+          "source": "assets/items/frames/runtime/frame-tower.glb",
+          "runtime": "apps/client/public/models/items/frames/frame-tower.glb"
+        },
+        {
+          "source": "assets/items/frames/runtime/frame-tower-top.glb",
+          "runtime": "apps/client/public/models/items/frames/frame-tower-top.glb"
+        },
+        {
+          "source": "assets/items/frames/runtime/frame-nacelle-tail.glb",
+          "runtime": "apps/client/public/models/items/frames/frame-nacelle-tail.glb"
+        },
+        {
+          "source": "assets/items/frames/runtime/frame-hub.glb",
+          "runtime": "apps/client/public/models/items/frames/frame-hub.glb"
+        }
+      ]
     }
   ]
 }

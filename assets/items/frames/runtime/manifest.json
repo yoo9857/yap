@@ -1,0 +1,388 @@
+{
+  "schema_version": 1,
+  "units": "metres",
+  "up_axis": "+Y",
+  "front_axis": "+Z",
+  "cell_size_m": 1,
+  "triangle_budgets": {
+    "frame-foundation": 1500,
+    "frame-foundation-center": 2000,
+    "frame-tower-base": 2500,
+    "frame-tower": 1500,
+    "frame-tower-top": 1500,
+    "frame-nacelle-tail": 1500,
+    "frame-hub": 1500
+  },
+  "palette_srgb": {
+    "concrete": "#C9CDD3",
+    "concrete_dark": "#A9AFB8",
+    "tower": "#F2F4F7",
+    "steel": "#AEB8C2",
+    "dark_steel": "#7F8994",
+    "door": "#4A6496",
+    "nacelle": "#F4F6F8",
+    "yellow": "#FFCF3A",
+    "bolts": "#8E98A3",
+    "window": "#6FA8E8"
+  },
+  "files": {
+    "frame-foundation.glb": {
+      "file": "runtime/frame-foundation.glb",
+      "root_node": "frame-foundation",
+      "triangle_count": 508,
+      "triangle_budget": 1500,
+      "bounding_box": {
+        "min": [
+          -0.5,
+          -0.5,
+          -0.5
+        ],
+        "max": [
+          0.5,
+          0.5,
+          0.5
+        ]
+      },
+      "cell_span_xyz": [
+        1,
+        1,
+        1
+      ],
+      "node_names": [
+        "chamfered_concrete_pad_recess_trim_and_skirt",
+        "corner_fastener_1",
+        "corner_fastener_2",
+        "corner_fastener_3",
+        "corner_fastener_4",
+        "frame-foundation"
+      ],
+      "mesh_count": 5,
+      "all_transforms_applied": true,
+      "non_manifold_edges": 0
+    },
+    "frame-foundation-center.glb": {
+      "file": "runtime/frame-foundation-center.glb",
+      "root_node": "frame-foundation-center",
+      "triangle_count": 1780,
+      "triangle_budget": 2000,
+      "bounding_box": {
+        "min": [
+          -0.5,
+          -0.5,
+          -0.5
+        ],
+        "max": [
+          0.5,
+          0.5,
+          0.5
+        ]
+      },
+      "cell_span_xyz": [
+        1,
+        1,
+        1
+      ],
+      "node_names": [
+        "anchor_bolt_01",
+        "anchor_bolt_02",
+        "anchor_bolt_03",
+        "anchor_bolt_04",
+        "anchor_bolt_05",
+        "anchor_bolt_06",
+        "anchor_bolt_07",
+        "anchor_bolt_08",
+        "anchor_bolt_09",
+        "anchor_bolt_10",
+        "anchor_bolt_11",
+        "anchor_bolt_12",
+        "chamfered_concrete_pad_recess_trim_and_skirt.001",
+        "corner_fastener_1.001",
+        "corner_fastener_2.001",
+        "corner_fastener_3.001",
+        "corner_fastener_4.001",
+        "raised_concrete_round_plinth",
+        "steel_tower_anchor_ring",
+        "frame-foundation-center"
+      ],
+      "mesh_count": 19,
+      "all_transforms_applied": true,
+      "non_manifold_edges": 0
+    },
+    "frame-tower-base.glb": {
+      "file": "runtime/frame-tower-base.glb",
+      "root_node": "frame-tower-base",
+      "triangle_count": 2128,
+      "triangle_budget": 2500,
+      "bounding_box": {
+        "min": [
+          -0.475,
+          -1.0,
+          -0.475
+        ],
+        "max": [
+          0.475,
+          1.0,
+          0.5
+        ]
+      },
+      "cell_span_xyz": [
+        1,
+        2,
+        1
+      ],
+      "node_names": [
+        "door_dark_recess_surround",
+        "door_lamp_steel_hood",
+        "door_lamp_warm_diffuser",
+        "door_pull_handle",
+        "robot_height_navy_access_door",
+        "small_blue_window",
+        "small_window_steel_frame",
+        "steel_entry_step",
+        "step_grip_1",
+        "step_grip_2",
+        "step_grip_3",
+        "two_cell_white_tower_and_flared_flange",
+        "frame-tower-base"
+      ],
+      "mesh_count": 12,
+      "all_transforms_applied": true,
+      "non_manifold_edges": 0
+    },
+    "frame-tower.glb": {
+      "file": "runtime/frame-tower.glb",
+      "root_node": "frame-tower",
+      "triangle_count": 396,
+      "triangle_budget": 1500,
+      "bounding_box": {
+        "min": [
+          -0.412,
+          -0.5,
+          -0.412
+        ],
+        "max": [
+          0.412,
+          0.5,
+          0.412
+        ]
+      },
+      "cell_span_xyz": [
+        1,
+        1,
+        1
+      ],
+      "node_names": [
+        "continuous_white_tube_and_top_flange",
+        "frame-tower"
+      ],
+      "mesh_count": 1,
+      "all_transforms_applied": true,
+      "non_manifold_edges": 0
+    },
+    "frame-tower-top.glb": {
+      "file": "runtime/frame-tower-top.glb",
+      "root_node": "frame-tower-top",
+      "triangle_count": 952,
+      "triangle_budget": 1500,
+      "bounding_box": {
+        "min": [
+          -0.427,
+          -0.5,
+          -0.427
+        ],
+        "max": [
+          0.427,
+          0.5,
+          0.427
+        ]
+      },
+      "cell_span_xyz": [
+        1,
+        1,
+        1
+      ],
+      "node_names": [
+        "steel_yaw_turntable",
+        "tapered_white_tube",
+        "frame-tower-top"
+      ],
+      "mesh_count": 2,
+      "all_transforms_applied": true,
+      "non_manifold_edges": 0
+    },
+    "frame-nacelle-tail.glb": {
+      "file": "runtime/frame-nacelle-tail.glb",
+      "root_node": "frame-nacelle-tail",
+      "triangle_count": 904,
+      "triangle_budget": 1500,
+      "bounding_box": {
+        "min": [
+          -0.453,
+          -0.5,
+          -0.5
+        ],
+        "max": [
+          0.453,
+          0.495,
+          0.5
+        ]
+      },
+      "cell_span_xyz": [
+        1,
+        1,
+        1
+      ],
+      "node_names": [
+        "side_vent_L_1",
+        "side_vent_L_2",
+        "side_vent_L_3",
+        "side_vent_R_1",
+        "side_vent_R_2",
+        "side_vent_R_3",
+        "tail_mounting_keel",
+        "tail_shell_open_front",
+        "wind_vane_crossarm",
+        "wind_vane_mast",
+        "wind_vane_nose",
+        "wind_vane_tail_fin",
+        "frame-nacelle-tail"
+      ],
+      "mesh_count": 12,
+      "all_transforms_applied": true,
+      "non_manifold_edges": 0
+    },
+    "frame-hub.glb": {
+      "file": "runtime/frame-hub.glb",
+      "root_node": "frame-hub",
+      "triangle_count": 1256,
+      "triangle_budget": 1500,
+      "bounding_box": {
+        "min": [
+          -0.45,
+          -0.5,
+          -0.5
+        ],
+        "max": [
+          0.45,
+          0.44,
+          0.5
+        ]
+      },
+      "cell_span_xyz": [
+        1,
+        1,
+        1
+      ],
+      "node_names": [
+        "hub_mounting_keel",
+        "rotor_flange_bolt_01",
+        "rotor_flange_bolt_02",
+        "rotor_flange_bolt_03",
+        "rotor_flange_bolt_04",
+        "rotor_flange_bolt_05",
+        "rotor_flange_bolt_06",
+        "rotor_housing_open_back",
+        "rotor_mount_flange",
+        "rotor_shaft_socket",
+        "frame-hub"
+      ],
+      "mesh_count": 10,
+      "all_transforms_applied": true,
+      "non_manifold_edges": 0
+    }
+  },
+  "assembly": {
+    "foundation": {
+      "y": 0,
+      "x": [
+        -1,
+        0,
+        1
+      ],
+      "z": [
+        -1,
+        0,
+        1
+      ]
+    },
+    "tower_base": {
+      "occupied_cells": [
+        [
+          0,
+          1,
+          0
+        ],
+        [
+          0,
+          2,
+          0
+        ]
+      ],
+      "origin": [
+        0,
+        1.5,
+        0
+      ]
+    },
+    "tower": {
+      "x": 0,
+      "z": 0,
+      "y": [
+        3,
+        4,
+        5
+      ]
+    },
+    "tower_top_cell": [
+      0,
+      6,
+      0
+    ],
+    "tail_cell": [
+      0,
+      7,
+      -2
+    ],
+    "generator": {
+      "occupied_cells": [
+        [
+          0,
+          7,
+          -1
+        ],
+        [
+          0,
+          7,
+          0
+        ]
+      ],
+      "origin": [
+        0,
+        7,
+        -0.5
+      ]
+    },
+    "hub_cell": [
+      0,
+      7,
+      1
+    ],
+    "blades_cell": [
+      0,
+      7,
+      2
+    ],
+    "terminal_cell": [
+      1,
+      1,
+      0
+    ]
+  },
+  "integration_notes": [
+    "Multi-cell origins are the centres of the entire occupied volumes.",
+    "All parts in renders come from the sibling parts runtime exports.",
+    "Generator base local Y=-0.45, leaving the specified 0.05 m clearance above the yaw bearing.",
+    "Blades and unchanged frame pieces retain their original geometry and pivots.",
+    "The plain yellow 0.9 x 1.8 x 0.7 m robot scale box is preview-only."
+  ]
+}

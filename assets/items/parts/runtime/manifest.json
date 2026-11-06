@@ -1,0 +1,172 @@
+{
+  "schema_version": 1,
+  "units": "metres",
+  "up_axis": "+Y",
+  "front_axis": "+Z",
+  "bounding_box_space": "glTF root-local",
+  "files": {
+    "part-generator.glb": {
+      "triangle_count": 5588,
+      "triangle_budget": 6000,
+      "bounding_box": {
+        "min": [
+          -0.42,
+          -0.45,
+          -0.993
+        ],
+        "max": [
+          0.42,
+          0.476,
+          0.99
+        ]
+      },
+      "node_names": [
+        "copper_coil_winding_1",
+        "copper_coil_winding_2",
+        "copper_coil_winding_3",
+        "copper_coil_winding_4",
+        "copper_coil_winding_5",
+        "coupling_bolt_1",
+        "coupling_bolt_2",
+        "coupling_bolt_3",
+        "coupling_bolt_4",
+        "generator_base_frame",
+        "generator_coupling_disc",
+        "generator_foot_bolt_1_1",
+        "generator_foot_bolt_1_-1",
+        "generator_foot_bolt_2_1",
+        "generator_foot_bolt_2_-1",
+        "generator_front_bearing",
+        "generator_front_bearing_endcap",
+        "generator_front_shaft",
+        "generator_mounting_feet_1",
+        "generator_mounting_feet_2",
+        "generator_rear_bearing",
+        "generator_rear_bearing_endcap",
+        "generator_terminal_warning_lightning_bolt",
+        "generator_terminal_warning_yellow_warning_triangle",
+        "generator_thick_top_cable_1",
+        "generator_thick_top_cable_2",
+        "generator_top_terminal_box",
+        "rotor_iron_core",
+        "rotor_magnet_1_RED",
+        "rotor_magnet_2_BLUE",
+        "rotor_magnet_3_RED",
+        "rotor_magnet_4_BLUE",
+        "stator_cooling_rib_1",
+        "stator_cooling_rib_2",
+        "stator_cooling_rib_3",
+        "stator_cooling_rib_4",
+        "stator_cooling_rib_5",
+        "stator_cooling_rib_6",
+        "stator_housing_true_side_cutaway",
+        "part-generator"
+      ],
+      "root_node": "part-generator",
+      "mesh_node_count": 39,
+      "file_bytes": 139996,
+      "cell_span_xyz": [
+        1,
+        1,
+        2
+      ],
+      "origin": "centre of occupied volume"
+    },
+    "part-blades.glb": {
+      "triangle_count": 2212,
+      "triangle_budget": 3000,
+      "bounding_box": {
+        "min": [
+          -2.2722027,
+          -1.3602018,
+          -0.33
+        ],
+        "max": [
+          2.2176437,
+          2.5899999,
+          -0.059
+        ]
+      },
+      "node_names": [
+        "rotor_blade_1",
+        "rotor_blade_2",
+        "rotor_blade_3",
+        "rotor_blue_nose",
+        "rotor_hub",
+        "spin",
+        "part-blades"
+      ],
+      "root_node": "part-blades",
+      "mesh_node_count": 5,
+      "file_bytes": 39208,
+      "cell_span_xyz": [
+        1,
+        1,
+        1
+      ],
+      "origin": "centre of occupied volume",
+      "spin": {
+        "node": "spin",
+        "translation": [
+          0,
+          0,
+          -0.25
+        ],
+        "rotation_axis": "+Z",
+        "swept_diameter": 5.18
+      }
+    },
+    "part-wire-terminal.glb": {
+      "triangle_count": 2016,
+      "triangle_budget": 3000,
+      "bounding_box": {
+        "min": [
+          -0.4943277,
+          -0.5,
+          -0.459
+        ],
+        "max": [
+          0.365,
+          0.45,
+          0.347
+        ]
+      },
+      "node_names": [
+        "cabinet_door_shadow_reveal",
+        "cabinet_front_access_door",
+        "cabinet_front_vent_1",
+        "cabinet_front_vent_2",
+        "cabinet_front_vent_3",
+        "cabinet_front_vent_4",
+        "cabinet_front_vent_5",
+        "cabinet_hinge_0.18",
+        "cabinet_hinge_-0.27",
+        "cabinet_lightning_bolt",
+        "cabinet_pull_handle",
+        "cabinet_rounded_navy_body",
+        "cabinet_steel_plinth",
+        "cabinet_yellow_warning_triangle",
+        "ground_conduit_flange",
+        "steel_conduit_into_ground",
+        "terminal_cap_BLACK",
+        "terminal_cap_RED",
+        "terminal_hex_nut_BLACK",
+        "terminal_hex_nut_RED",
+        "terminal_insulated_post_BLACK",
+        "terminal_insulated_post_RED",
+        "thick_cable_toward_tower_minus_X",
+        "tower_side_cable_gland",
+        "part-wire-terminal"
+      ],
+      "root_node": "part-wire-terminal",
+      "mesh_node_count": 24,
+      "file_bytes": 65908,
+      "cell_span_xyz": [
+        1,
+        1,
+        1
+      ],
+      "origin": "centre of occupied volume"
+    }
+  }
+}

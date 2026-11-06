@@ -664,7 +664,8 @@ export class BagPanel {
   /** Blocks this bag lists: everything in creative, only what you own otherwise. */
   private pool(): InventoryItem[] {
     return inventoryItems()
-      .filter((def) => this.creative || countOf(this.counts, def.key) > 0)
+      // parts are listed only when owned, creative or not: a classroom has none to show
+      .filter((def) => (this.creative && def.kind !== "part") || countOf(this.counts, def.key) > 0)
       .sort((a, b) => blockBagOrder(a.key) - blockBagOrder(b.key));
   }
 
@@ -884,6 +885,22 @@ export class BagPanel {
       this.detail.innerHTML=`<div class="bag-detail-art"><img src="${itemIcon(def)}" alt="" />${held?`<i class="bag-equipped">${slot+1}</i>`:""}</div><h2>${blockLabel(def)}</h2><p class="bag-detail-group">${t("도구 · 공격 / 채굴","Tool · attack / mining")}</p><dl class="bag-detail-stats"><div><dt>${t("가진 수","Owned")}</dt><dd>${formatCount(n)}</dd></div><div><dt>${t("사거리","Reach")}</dt><dd>${PICKAXE.targeting.reach}m</dd></div><div><dt>${t("스윙","Swing")}</dt><dd>${PICKAXE.swing.seconds}${t("초","s")}</dd></div></dl><button type="button" class="bag-cta" data-load="${def.key}" ${n>0||this.creative?"":"disabled"}>${held?t(`${slot+1}번 칸 들기`,`Hold slot ${slot+1}`):t(`${this.armed+1}번 칸에 넣기`,`Load into slot ${this.armed+1}`)}</button><p class="bag-detail-note">${t("핫바에서 선택하면 공격 모드로 전환합니다. 왼쪽 클릭으로 내려찍기, 길게 눌러 연속 채굴, R로 옵션을 바꿉니다.","Select its hotbar slot to enter attack mode. Left click swings, hold repeats mining, R cycles options.")}</p>`;
       return;
     }
+    if (def.kind === "part") {
+      this.detail.innerHTML = `
+      <div class="bag-detail-art"><img src="${itemIcon(def)}" alt="" />${held ? `<i class="bag-equipped">${slot + 1}</i>` : ""}</div>
+      <h2>${blockLabel(def)}</h2>
+      <p class="bag-detail-group">${blockGroup(def.key) === "frames" ? t("발전소 뼈대", "Power-plant frame") : t("발전소 부품", "Power-plant part")}</p>
+      <dl class="bag-detail-stats">
+        <div><dt>${t("가진 수", "Owned")}</dt><dd>${formatCount(n)}</dd></div>
+        <div><dt>${t("핫바", "Hotbar")}</dt><dd>${held ? t(`${slot + 1}번`, `#${slot + 1}`) : "—"}</dd></div>
+      </dl>
+      <button type="button" class="bag-cta" data-load="${def.key}" ${n > 0 || this.creative ? "" : "disabled"}>${held
+        ? t(`${slot + 1}번 칸 들기`, `Hold slot ${slot + 1}`)
+        : t(`${this.armed + 1}번 칸에 넣기`, `Load into slot ${this.armed + 1}`)}</button>
+      <p class="bag-detail-note">${t(def.note ?? "", def.noteEn ?? "")}</p>
+      <p class="bag-detail-note">${t("발전소 설계도의 빛나는 모양을 오른쪽 클릭하면 이 조각이 가방에서 나와 끼워져요. 꾹 누르면 차례대로 계속 지어져요. 끼운 것은 왼쪽 버튼을 꾹 눌러 뺄 수 있어요. (과학 모드: T)", "Hold it, aim at a glowing slot of a power-plant blueprint and right click to fit it. Middle-click a slot to hold its item. (Science mode: T)")}</p>`;
+      return;
+    }
     const makes = CRAFT_RECIPES.filter((recipe) => recipe.output[def.key]);
     const uses = CRAFT_RECIPES.filter((recipe) => recipe.input[def.key]);
     const recipeLink = (recipe: CraftRecipe, ofKey: string): string => {
@@ -911,7 +928,7 @@ export class BagPanel {
    * you can lay. With the grid empty, a hovered recipe shows as a faint shape.
    */
   private paintBench(hoverId: string): void {
-    const mats = this.pool().filter((def) => def.kind !== "tool" && !def.fluid);
+    const mats = this.pool().filter((def) => def.kind !== "tool" && def.kind !== "part" && !def.fluid);
     if (this.brush && !mats.some((def) => def.key === this.brush)) this.brush = "";
     const matches = matchGrid(this.bench);
     const recipe = matches.find((entry) => entry.id === this.pick) ?? matches[0];

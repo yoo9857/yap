@@ -20,7 +20,7 @@ const ESSENTIALS = (): KeyHelp[] => [
   { keys: [MOUSE_RIGHT], label: t("블록 놓기", "Place block") },
 ];
 
-function helpGroups(furniture: boolean): HelpGroup[] {
+function helpGroups(furniture: boolean, science = false): HelpGroup[] {
   return [
     {
       title: t("움직이기", "Moving"),
@@ -47,7 +47,9 @@ function helpGroups(furniture: boolean): HelpGroup[] {
         { keys: ["0"], label: t("물 양동이", "Water bucket") },
         { keys: [MOUSE_MIDDLE], label: t("보고 있는 블록을 핫바에 넣기", "Put the aimed block on the hotbar") },
         { keys: ["F"], label: t("블록 모양 바꾸기", "Change brick shape") },
-        { keys: ["R", "T"], label: t("돌리기 · 기울이기", "Rotate · tilt") },
+        science
+          ? { keys: ["R", "Shift", "T"], label: t("돌리기 · Shift+T 기울이기", "Rotate · Shift+T tilt") }
+          : { keys: ["R", "T"], label: t("돌리기 · 기울이기", "Rotate · tilt") },
         { keys: ["Q"], label: t("빈손 ↔ 블록 쌓기 (빈손은 캐기만, 놓지 않아요)", "Empty hands ↔ building (empty hands mine but never place)") },
       ],
     },
@@ -62,6 +64,19 @@ function helpGroups(furniture: boolean): HelpGroup[] {
         { keys: ["Ctrl", "Z"], label: t("되돌리기 (가구)", "Undo (furniture)") },
       ],
     },
+    ...(science ? [{
+      title: t("과학 모드 (T)", "Science mode (T)"),
+      items: [
+        { keys: ["T"], label: t("과학 모드 켜기 / 끄기", "Science mode on / off") },
+        { keys: [MOUSE_RIGHT], label: t("발전소 설계도 펼치기", "Lay a power-plant blueprint") },
+        { keys: ["R"], label: t("설계도 돌리기", "Turn the blueprint") },
+        { keys: ["X"], label: t("보고 있는 설계도 걷기", "Take back the aimed blueprint") },
+        { keys: ["Tab"], label: t("건설 현황판 — 마을 전기 · 내 발전소 · 에너지 흐름, 카드를 누르면 찾아가기", "Status board — village power, your plants, energy flow; click a card to find it") },
+        { keys: [MOUSE_RIGHT], label: t("빛나는 모양을 누르면 그 조각이 끼워져요 · 꾹 누르고 있으면 아래층부터 차례대로 지어져요", "Click a glowing shape to fit that piece · hold to build it up in order") },
+        { keys: [MOUSE_MIDDLE], label: t("칸의 아이템 바로 들기", "Hold a slot's item") },
+        { keys: [MOUSE_LEFT], label: t("끼운 아이템을 꾹 눌러 빼기 (위층부터, 부품 먼저)", "Hold on a fitted item to take it out (top first, parts first)") },
+      ],
+    }] : []),
     ...(furniture ? [{
       title: t("가구 모드 (G)", "Furniture mode (G)"),
       items: [
@@ -141,6 +156,8 @@ export class CraftHud {
     private readonly onCraft: (recipe: CraftRecipe, many: boolean) => void,
     opts: {
       furniture?: boolean;
+      /** Science mode (T) exists here: list it, and tilt moves to Shift+T. */
+      science?: boolean;
       creative?: boolean;
       mode?: string;
       onResume: () => void;
@@ -198,7 +215,7 @@ export class CraftHud {
     this.menu = new GameMenu(parent, {
       mode: opts.mode ?? "Craft Island",
       essentials: ESSENTIALS(),
-      help: helpGroups(opts.furniture !== false),
+      help: helpGroups(opts.furniture !== false, opts.science === true),
       onResume: opts.onResume,
     });
   }

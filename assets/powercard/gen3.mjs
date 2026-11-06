@@ -1,0 +1,13 @@
+import { spawn } from "node:child_process";
+import { existsSync } from "node:fs";
+import { join, dirname } from "node:path";
+import { fileURLToPath } from "node:url";
+const HERE = dirname(fileURLToPath(import.meta.url));
+const CODEX_JS = join(process.env.APPDATA ?? "", "npm/node_modules/@openai/codex/bin/codex.js");
+const REFS = ["ref-world.png", "ref-island.png", "ref-character.png", "raw/model-sheet.png"].map((p) => join(HERE, p));
+const prompt = "Match the attached CraftYap game screenshots and model sheet EXACTLY in look: 1-metre voxel blocks with soft rounded toy-brick edges and round studs, the game's block textures, bright soft daylight, no black outlines. Subject: gameplay moment on the grass island — a HOLOGRAM BLUEPRINT of a small hydro dam power plant (as on the model sheet) floats in place as translucent glowing light-blue cells with thin bright edges; the lower half is already filled with real solid stone-brick and glass blocks the kids placed, the upper half is still hologram. Three key part cells glow brighter in yellow (turbine, generator, wire terminal). The yellow HOME robot and the purple TT bunny stand beside it placing blocks, a small floating progress ring at the top shows roughly 60 percent as a filled arc (no numbers). A few block houses nearby are still dark. No text, no letters, no numbers anywhere. Landscape 1536x1024.";
+const args = ["exec", "--skip-git-repo-check", "-s", "workspace-write", "-C", HERE, "-i", ...REFS];
+const c = spawn(process.execPath, [CODEX_JS, ...args], { stdio: ["pipe", "ignore", "pipe"] });
+let err = ""; c.stderr.on("data", (d) => (err += d));
+c.stdin.end(`Use your image generation tool to create exactly ONE image and save it as raw/hologram.png in the current directory. ${prompt}\nDo not create or change any other file. Reply with the path only.`);
+c.on("close", () => console.log(existsSync(join(HERE, "raw/hologram.png")) ? "OK" : "MISS " + err.trim().split("\n").slice(-1)));
