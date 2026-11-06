@@ -102,7 +102,7 @@
           <h1 id="post-title">11월 6일 패치 노트 (2) — 수업 도구(F2): 아이마다 15×20칸 자기 땅</h1>
           <p class="note-summary">선생님이 교실에서 F2를 누르면 수업 도구가 열려요. &#39;자리 배치&#39;를 고르면 학생마다 가로 15 × 세로 20칸 땅을 나눠 주고, 칸막이와 이름 팻말을 세워요. 업데이트가 있어도 수업을 멈추지 않도록 무중단 업데이트로 바꿨어요.</p>
           <ul class="note-tags" aria-label="태그"><li>패치 노트</li><li>새 기능</li><li>교실</li><li>수업 도구</li></ul>
-          <nav class="note-chips" aria-label="이번 노트의 변경 사항"><a class="note-chip note-chip--new" href="#new">신규 <b>8</b></a><a class="note-chip note-chip--up" href="#up">개선 <b>2</b></a><a class="note-chip note-chip--known" href="#known">알려진 문제 <b>2</b></a></nav>
+          <nav class="note-chips" aria-label="이번 노트의 변경 사항"><a class="note-chip note-chip--new" href="#new">신규 <b>8</b></a><a class="note-chip note-chip--up" href="#up">개선 <b>2</b></a><a class="note-chip note-chip--fix" href="#fix">수정 <b>5</b></a><a class="note-chip note-chip--known" href="#known">알려진 문제 <b>1</b></a></nav>
         </header>
         <div class="note-body">
 <section class="note-sec note-sec--summary" id="s0" aria-labelledby="s0-h">
@@ -146,12 +146,29 @@
 </ul>
 </div>
 </section>
+<section class="note-sec note-sec--fix" id="fix" aria-labelledby="fix-h">
+<h2 id="fix-h"><span class="note-badge" aria-hidden="true">FIX</span>버그 수정 <small>5</small></h2>
+<div class="note-sec-body">
+<p>같은 날 추가로 고쳤어요.</p>
+<ul>
+<li><p><strong>늦게 들어온 학생</strong> — 자리 배치를 한 뒤에 들어오거나 다시 접속한 학생도 자기 땅을 받아요. 원래 땅이 있으면 그 땅으로, 처음이면 다른 친구들 땅을 건드리지 않고 옆 빈자리에 새 땅이 생겨요. (전에는 자리 없이 아무 데나 돌아다녔고, 접속 자체가 안 되는 경우도 있었어요.)</p>
+</li>
+<li><p><strong>자기 땅 안에서만</strong> — 자리 배치를 하면 학생은 자기 울타리 안에서만 움직이고, 블록과 가구도 자기 땅 안에서만 놓고 캘 수 있어요. 선생님이 F2 → <strong>4 자유롭게 돌아다니기</strong>를 누르면 풀리고, 다시 누르면(자기 자리로) 모두 자기 땅으로 돌아가요. &#39;모두 모이기&#39;를 누르면 자동으로 풀려요.</p>
+</li>
+<li><p><strong>업데이트해도 그대로</strong> — 자리 배치가 반과 함께 저장돼서, 수업 중에 사이트가 업데이트돼도 칸막이·팻말·자리가 그대로예요.</p>
+</li>
+<li><p><strong>깜빡임</strong> — 자리 배치 뒤 학생들이 움직일 때 그림자가 깜빡이던 문제와, 바닥 색이 캐릭터를 가릴 수 있던 문제를 고쳤어요.</p>
+</li>
+<li><p><strong>수업이 끝나면 정리</strong> — 수업 종료를 누르거나 반이 한동안 비면 자리 배치도 함께 걷혀요. 다음 수업에 어제 울타리가 남아 있지 않아요.</p>
+</li>
+</ul>
+</div>
+</section>
 <section class="note-sec note-sec--known" id="known" aria-labelledby="known-h">
-<h2 id="known-h"><span class="note-badge" aria-hidden="true">!</span>알려진 문제 <small>2</small></h2>
+<h2 id="known-h"><span class="note-badge" aria-hidden="true">!</span>알려진 문제 <small>1</small></h2>
 <div class="note-sec-body">
 <ul>
-<li>칸막이는 아직 눈에만 보여요. 몸은 통과하고, 남의 땅에도 블록을 놓을 수 있어요.</li>
-<li>자리 배치는 그 수업 동안만 유지돼요. 수업을 다시 열거나 사이트가 업데이트되면 칸막이와 팻말이 사라지니, F2로 다시 배치해 주세요(지은 것은 그대로예요).</li>
+<li>앱(안드로이드)으로 들어온 학생에게는 아직 칸막이와 팻말이 보이지 않아요. 대신 자기 땅 밖으로 나가면 서버가 자리로 돌려보내요.</li>
 </ul>
 </div>
 </section>

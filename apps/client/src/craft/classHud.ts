@@ -10,6 +10,8 @@ export interface ClassHudActions {
   arrange(): void;
   /** Take the seating (dividers and name signs) away. */
   unarrange(): void;
+  /** Let the students walk off their plots (true), or send them back and keep them in (false). */
+  roam(on: boolean): void;
   /** The F2 class-tools panel opened / closed. `resume`: closed by a click or F2 (a user gesture,
    *  so the mouse can be captured again); Esc leaves the game paused instead. */
   toolsOpen(open: boolean, resume?: boolean): void;
@@ -52,6 +54,9 @@ export class ClassHud {
   private tools: HTMLDivElement | null = null;
   /** "자리 치우기" — only offered while a seating stands. */
   private unseat: HTMLButtonElement | null = null;
+  /** "자유롭게 돌아다니기" / "자기 자리로" — only while a seating stands. */
+  private roamOpt: HTMLButtonElement | null = null;
+  private roaming = false;
   private readonly onKey = (e: KeyboardEvent) => this.handleKey(e);
 
   constructor(
@@ -174,9 +179,18 @@ export class ClassHud {
     document.exitPointerLock();
   }
 
-  /** A seating stands (or not): the tools offer to put it away. */
-  setSeated(seated: boolean): void {
+  /** A seating stands (or not), and whether the students may roam: the tools follow. */
+  setSeated(seated: boolean, roam = false): void {
+    this.roaming = roam;
     if (this.unseat) this.unseat.hidden = !seated;
+    if (!this.roamOpt) return;
+    this.roamOpt.hidden = !seated;
+    const [icon, title, desc] = roam
+      ? ["🪑", t("자기 자리로", "Back to your plots"), t("학생들을 자기 땅으로 돌려보내고, 울타리 밖으로 못 나가게 해요", "Send the students back to their plots and keep them inside the fences")]
+      : ["🚶", t("자유롭게 돌아다니기", "Free to roam"), t("학생들이 자기 땅 밖으로 나가 돌아다닐 수 있게 해요", "Let the students walk off their plots")];
+    this.roamOpt.querySelector(".class-tools-icon")!.textContent = icon;
+    this.roamOpt.querySelector(".class-tools-text b")!.textContent = title;
+    this.roamOpt.querySelector(".class-tools-text small")!.textContent = desc;
   }
 
   get toolsOpen(): boolean {
@@ -214,7 +228,9 @@ export class ClassHud {
     );
     this.unseat = option(3, "🧹", t("자리 치우기", "Put the seating away"), t("칸막이와 이름 팻말을 걷어요", "Take the fences and name signs away"), () => this.actions.unarrange());
     this.unseat.hidden = true;
-    list.append(this.unseat);
+    this.roamOpt = option(4, "🚶", "", "", () => this.actions.roam(!this.roaming));
+    this.roamOpt.hidden = true;
+    list.append(this.unseat, this.roamOpt);
     card.append(head, list, el("p", "class-tools-tip", t("숫자 키로 바로 골라요 · F2 / Esc 닫기", "Pick with a number key · F2 / Esc to close")));
     wrap.append(card);
     wrap.addEventListener("pointerdown", (e) => {

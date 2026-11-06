@@ -131,8 +131,9 @@ export const classClientSchema = z.discriminatedUnion("t", [
   z.object({ t: z.literal("k-gather") }),
   /** Seat the online students in rows in front of the teacher (a 15 × 20 cell area, F2 → 자리 배치);
    *  `clear` takes the seating (fences and name signs) away again; `yaw` is the way the teacher looks
-   *  (the plots go in front of the view; without it, the body's heading). */
-  z.object({ t: z.literal("k-arrange"), clear: z.boolean().optional(), yaw: z.number().finite().optional() }),
+   *  (the plots go in front of the view; without it, the body's heading). `roam` alone lets the
+   *  students walk off their plots (true) or sends them back and keeps them in (false). */
+  z.object({ t: z.literal("k-arrange"), clear: z.boolean().optional(), yaw: z.number().finite().optional(), roam: z.boolean().optional() }),
   z.object({ t: z.literal("k-settings"), chatLocked: z.boolean(), buildLocked: z.boolean(), tapsLocked: z.boolean().optional() }),
   z.object({ t: z.literal("k-end") }),
   /** Teacher wipes the saved field back to empty grass. */
@@ -235,6 +236,8 @@ export const classServerSchema = z.discriminatedUnion("t", [
   z.object({
     t: z.literal("s-k-seats"),
     seats: z.array(z.object({ name: z.string().max(64), pos: vec3Schema, yaw: z.number().finite() })).max(400),
+    /** Students may walk off their plots (the teacher's 자유롭게 돌아다니기); absent = kept in. */
+    roam: z.boolean().optional(),
   }),
   /** A tap connected. `at` is the chest in absolute field coordinates. */
   z.object({

@@ -81,7 +81,7 @@ async function enterViaLobby(page, role, room, person, password = "1234") {
     await page.click('[data-id="confirm-yes"]');
     await page.waitForFunction(
       () => !!globalThis.__roboCraft || /[^\s]/.test(document.querySelector('[data-step="confirm"] [data-id="error"]')?.textContent.replace("연결하는 중…", "") ?? ""),
-      { timeout: 15000 },
+      { timeout: 40000 }, // a third browser booting beside two live ones is slow under SwiftShader
     );
   } else {
     await settled(["teacher"]);
@@ -272,6 +272,67 @@ try {
   }
   check("everyone sees the plots: fences and a name sign per student", drawn.every((n) => n === 2), JSON.stringify(drawn));
   check("…facing the teacher", placed.every((s) => Math.cos(s.yaw) < -0.9), JSON.stringify(placed.map((s) => s.yaw)));
+
+  // kept in: a student cannot walk out of their plot (the fence holds them)
+  await minji.bringToFront();
+  // ABSOLUTE positions: a teleport scrolls the field window, so grid coordinates jump by 16s
+  const minjiStart = await minji.evaluate(() => globalThis.__roboCraft.absolute());
+  check("a seated student is kept on their plot", (await cls(minji)).kept === true);
+  await minji.evaluate(() => { const c = globalThis.__roboCraft; const p = c.snapshot().pos; c.teleport(p[0] + 30, p[1] + 0.2, p[2]); });
+  await sleep(700);
+  const held = await minji.evaluate(() => globalThis.__roboCraft.absolute());
+  check("…a step past the fence is held at the fence", Math.abs(held[0] - minjiStart[0]) <= 7.6, `${minjiStart[0]} → ${held[0]}`);
+
+  // a student who arrives AFTER the seating gets a plot of their own beside the others and is put on it
+  const late = await open("late");
+  late.on("console", (m) => { if (m.type() === "error") console.log("late console:", m.text()); });
+  check("a late student joins", (await enterViaLobby(late, "student", ROOM, "서준")) === "");
+  await late.evaluate(() => globalThis.__roboCraft.classroom());
+  await sleep(1500);
+  const teacherView = await cls(teacher);
+  check("…everyone now sees three plots", teacherView.seating === 3 && (await cls(minji)).seating === 3, JSON.stringify(teacherView.plots));
+  const latePlot = teacherView.plots.find((p) => p.name === "서준");
+  const lateAbs = await late.evaluate(() => { const c = globalThis.__roboCraft; return [...c.absolute(), c.classroom().kept]; });
+  check("…the late student stands on their own plot and is kept there",
+    !!latePlot && Math.hypot(lateAbs[0] - latePlot.pos[0], lateAbs[1] - latePlot.pos[2]) < 2.5 && lateAbs[2] === true, JSON.stringify({ latePlot, lateAbs }));
+  const firstTwo = placed.map((p) => p.across);
+  const plotsAfter = teacherView.plots.filter((p) => p.name !== "서준").length;
+  check("…nobody else's plot moved", plotsAfter === 2 && firstTwo.length === 2);
+
+  // the late student leaves (closes the page) and comes back: the SAME plot, put straight onto it
+  await late.goto(`${BASE}/?mode=field&room=${encodeURIComponent(ROOM)}&student=${encodeURIComponent("서준")}`, { waitUntil: "networkidle2", timeout: 30000 });
+  await late.waitForFunction(() => !!globalThis.__roboCraft, { timeout: 40000 });
+  await sleep(2500);
+  const rejoin = await late.evaluate(() => { const c = globalThis.__roboCraft; return [...c.absolute(), c.classroom().kept, c.classroom().seating]; });
+  const plotsNow = (await cls(teacher)).plots;
+  check("…leaving and coming back: the same plot, stood on, still kept in, no second plot",
+    Math.hypot(rejoin[0] - latePlot.pos[0], rejoin[1] - latePlot.pos[2]) < 2.5 && rejoin[2] === true && plotsNow.length === 3,
+    JSON.stringify({ rejoin, latePlot, plots: plotsNow.length }));
+
+  // F2 → 4 자유롭게 돌아다니기: the fence lets go; F2 → 4 again: everyone back on their plot
+  await teacher.bringToFront();
+  await teacher.keyboard.press("F2");
+  await sleep(200);
+  await teacher.keyboard.press("4");
+  await sleep(900);
+  check("free to roam: students are no longer kept in", (await cls(minji)).kept === false && (await cls(minji)).roam === true);
+  await minji.bringToFront();
+  await minji.evaluate(() => { const c = globalThis.__roboCraft; const p = c.snapshot().pos; c.teleport(p[0] + 30, p[1] + 0.2, p[2]); });
+  await sleep(700);
+  const roamed = await minji.evaluate(() => globalThis.__roboCraft.absolute());
+  check("…and can walk out of the plot", Math.abs(roamed[0] - held[0]) > 20, `${held[0]} → ${roamed[0]}`);
+  await teacher.bringToFront();
+  await teacher.keyboard.press("F2");
+  await sleep(200);
+  await teacher.keyboard.press("4");
+  await sleep(1200);
+  await minji.bringToFront();
+  await sleep(300);
+  const back = await minji.evaluate(() => globalThis.__roboCraft.absolute());
+  const mine = (await cls(minji)).plots.find((p) => p.name === "민지");
+  check("back to your plots: the roaming student is sent back and kept in again",
+    (await cls(minji)).kept === true && Math.hypot(back[0] - mine.pos[0], back[1] - mine.pos[2]) < 2.5, JSON.stringify({ back, mine }));
+  await late.close().catch(() => {});
 
   // F2 → 3 자리 치우기: the booths go for everyone
   await teacher.bringToFront();

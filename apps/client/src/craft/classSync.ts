@@ -3,6 +3,7 @@ import { surfaceStyle } from "./blockMaterials.js";
 import type { FurnitureLayout } from "./furniture/layout.js";
 import * as THREE from "three";
 import type { ClassEdit, ClassMember, ClassSettings, ClassAnim, ClassServerMessage, CharacterPresentation, BonkCandidate } from "@robo/shared";
+import { classKey, plotBounds } from "@robo/shared";
 import { BonkFx } from "./bonkFx.js";
 import { CharacterRig, disposeRig } from "../player/rig.js";
 import type { ClassClient, ClassSession } from "../net/classClient.js";
@@ -163,6 +164,21 @@ export class ClassSync {
   private readonly fx: BonkFx;
   /** The teacher's seating: booths with dividers and name signs (F2 → 자리 배치). */
   private readonly seating: SeatingView;
+  /**
+   * Things that act on the GAME (move the player, toast) wait for its first frame: the reliable
+   * replay runs inside this constructor, while the game that hosts us is still being built — a
+   * seat sent on join (s-k-gather) teleporting a half-built game failed the whole boot.
+   */
+  private started = false;
+  private readonly early: (() => void)[] = [];
+  private whenStarted(fn: () => void): void {
+    if (this.started) fn();
+    else this.early.push(fn);
+  }
+
+  /** The plots as the server sent them (absolute), and whether students may leave theirs. */
+  private seats: { name: string; pos: [number, number, number]; yaw: number }[] = [];
+  private roam = false;
 
   constructor(
     readonly client: ClassClient,
@@ -189,6 +205,10 @@ export class ClassSync {
       gather: () => {
         client.send({ t: "k-gather" });
         hooks.toast(t("📣 학생들을 불렀어요", "📣 You called everyone over"));
+      },
+      roam: (on) => {
+        client.send({ t: "k-arrange", roam: on });
+        hooks.toast(on ? t("🚶 학생들이 자유롭게 돌아다닐 수 있어요", "🚶 The students may roam now") : t("🪑 학생들을 자기 자리로 돌려보냈어요", "🪑 The students are back on their plots"));
       },
       unarrange: () => {
         client.send({ t: "k-arrange", clear: true });
@@ -251,11 +271,20 @@ export class ClassSync {
       }
     };
     client.onBonk = (msg) => this.applyBonk(msg);
-    client.onSeats = (seats) => {
+    client.onSeats = (seats, roam) => {
+      const wasKept = this.keptIn();
+      this.seats = seats;
+      this.roam = roam;
       this.seating.set(seats);
-      this.hud.setSeated(seats.length > 0);
+      this.hud.setSeated(seats.length > 0, roam);
+      // tell a student when the fences start or stop holding them
+      if (this.session.role === "student" && seats.length > 0) {
+        const kept = this.keptIn();
+        if (wasKept && !kept) this.whenStarted(() => hooks.toast(t("🚶 이제 자유롭게 돌아다닐 수 있어요", "🚶 You may roam now")));
+        else if (!wasKept && kept) this.whenStarted(() => hooks.toast(t("🪑 자기 자리로 — 선생님이 풀어 줄 때까지 울타리 안에서 움직여요", "🪑 Back to your plot — stay inside the fence until the teacher lets you out")));
+      }
     };
-    client.onGather = ([ax, y, az], yaw) => {
+    client.onGather = ([ax, y, az], yaw) => this.whenStarted(() => {
       const [x, z] = field.toGrid(ax, az);
       if (yaw !== undefined) {
         // a seat: exactly this spot, facing the teacher
@@ -268,7 +297,7 @@ export class ClassSync {
       const angle = Math.random() * Math.PI * 2;
       hooks.teleport(x + Math.cos(angle) * 2.5, y + 0.5, z + Math.sin(angle) * 2.5);
       hooks.toast(t("📣 선생님이 불렀어요!", "📣 The teacher called you over!"));
-    };
+    });
     client.onWorldReset = () => {
       field.replaceAll([]);
       furniture.clear();
@@ -324,6 +353,45 @@ export class ClassSync {
       );
     };
     client.activate(); // replay reliable edits that arrived during world/graphics setup
+  }
+
+  /** This student is kept on their plot right now (a seating stands, roaming is off, it has one). */
+  private keptIn(): boolean {
+    return this.myPlot() !== null;
+  }
+
+  private myPlot(): { name: string; pos: [number, number, number]; yaw: number } | null {
+    if (this.session.role !== "student" || this.roam || this.seats.length === 0) return null;
+    const me = this.members.find((m) => m.id === this.session.you)?.name;
+    if (!me) return null;
+    // the server's own name rule (case/space-insensitive): the plot it gave is found the same way
+    const key = classKey(me);
+    return this.seats.find((s) => classKey(s.name) === key) ?? null;
+  }
+
+  /**
+   * Where this student may stand right now, in GRID coordinates ([minX, maxX, minZ, maxZ]), or null
+   * when free: their own plot while the teacher keeps the class on its plots. The game clamps the
+   * body into it after every physics step (the fence holds them); the server pulls back anything
+   * that still gets out (an older page, a shove).
+   */
+  confineBox(): [number, number, number, number] | null {
+    const plot = this.myPlot();
+    if (!plot) return null;
+    const [x0, x1, z0, z1] = plotBounds(plot);
+    const [gx0, gz0] = this.field.toGrid(x0, z0);
+    const [gx1, gz1] = this.field.toGrid(x1, z1);
+    return [Math.min(gx0, gx1), Math.max(gx0, gx1), Math.min(gz0, gz1), Math.max(gz0, gz1)];
+  }
+
+  /** May we change the cell at grid (x, z)? A student kept on their plot only changes their own
+   *  plot's cells (the server refuses the rest — checking here first means no optimistic edit that
+   *  pops back a moment later). */
+  canEditAt(x: number, z: number): boolean {
+    const box = this.confineBox();
+    if (!box) return true;
+    const e = 1e-6;
+    return x >= box[0] - e && x + 1 <= box[1] + e && z >= box[2] - e && z + 1 <= box[3] + e;
   }
 
   /** The teacher's F2 class-tools panel is up (it owns the screen like the bag). */
@@ -437,6 +505,11 @@ export class ClassSync {
   /** Per rendered frame: place remote robots in local grid space. */
   render(frameDt: number): void {
     this.frameNo++;
+    if (!this.started) {
+      // the game is whole now: what arrived while it was being built happens here, in order
+      this.started = true;
+      for (const fn of this.early.splice(0)) fn();
+    }
     this.seating.update((ax, az) => this.field.toGrid(ax, az));
     const camera = this.hooks.camera?.();
     if (camera) {
@@ -539,8 +612,11 @@ export class ClassSync {
    * only flip flags and layers — no material or shader variant switches.
    */
   private rankDetail(): void {
+    // hysteresis: whoever has full detail keeps it until someone is clearly (1.5 m) nearer — a
+    // seated class stands at near-equal distances, and a plain ranking flipped their shadows
+    // (and ink) on and off every frame as the viewer moved
     const shown = [...this.remotes.values()].filter((r) => r.rig.root.visible)
-      .map((r) => ({ r, d: Math.hypot(r.rig.root.position.x - this.meX, r.rig.root.position.z - this.meZ) }))
+      .map((r) => ({ r, d: Math.hypot(r.rig.root.position.x - this.meX, r.rig.root.position.z - this.meZ) - (r.fullDetail ? 1.5 : 0) }))
       .sort((a, b) => a.d - b.d);
     shown.forEach(({ r }, i) => {
       const full = i < FULL_DETAIL;
@@ -710,8 +786,12 @@ export class ClassSync {
       you: this.session.you,
       online: this.online,
       settings: this.settings,
-      /** Seats drawn (booths with dividers and name signs). */
+      /** Plots drawn (fences and name signs). */
       seating: this.seating.count,
+      /** The plots as the server sent them (absolute), whether students may roam, and whether WE are kept in. */
+      plots: this.seats.map((x) => ({ name: x.name, pos: x.pos })),
+      roam: this.roam,
+      kept: this.keptIn(),
       members: this.members.map((m) => ({ name: m.name, role: m.role, online: m.online })),
       remotes: [...this.remotes.entries()].map(([id, r]) => ({
         id,

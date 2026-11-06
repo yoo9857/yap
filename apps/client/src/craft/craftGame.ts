@@ -542,7 +542,9 @@ export class CraftGame {
   private readonly buildBlocked = (x: number, y: number, z: number): boolean =>
     this.furniture.blocksCell(x, y, z) || overlapsShapedVoxel(this.pet.body, x, y, z, 0) ||
     (this.science?.solidAt(x, y, z) ?? false) ||
-    (this.sync?.bodyInGridCell(x, y, z, 0) ?? false);
+    (this.sync?.bodyInGridCell(x, y, z, 0) ?? false) ||
+    // a student kept on their plot builds only inside it
+    !(this.sync?.canEditAt(x, z) ?? true);
 
   private holdingWater(): boolean {
     return !this.emptyHands && blockByKey(this.heldKey())?.fluid === true;
@@ -684,6 +686,30 @@ export class CraftGame {
 
   /** Release the WebGL/audio-facing resources when the mode is replaced. */
   private offSettings: (() => void) | null = null;
+
+  /**
+   * Classroom plots: while the teacher keeps the class on its plots, a student cannot walk out of
+   * theirs — the body is held inside the fence after every physics step (a wall, not a teleport;
+   * the server pulls back anything that still gets out). Says why, now and then.
+   */
+  private keepInPlot(): void {
+    const box = this.sync?.confineBox();
+    if (!box) return;
+    const half = (this.body.w ?? 0.6) / 2 + 0.05;
+    const [x0, x1, z0, z1] = box;
+    let hit = false;
+    if (this.body.x < x0 + half) { this.body.x = x0 + half; if (this.body.vx < 0) this.body.vx = 0; hit = true; }
+    if (this.body.x > x1 - half) { this.body.x = x1 - half; if (this.body.vx > 0) this.body.vx = 0; hit = true; }
+    if (this.body.z < z0 + half) { this.body.z = z0 + half; if (this.body.vz < 0) this.body.vz = 0; hit = true; }
+    if (this.body.z > z1 - half) { this.body.z = z1 - half; if (this.body.vz > 0) this.body.vz = 0; hit = true; }
+    if (hit && this.knockX * this.knockX + this.knockZ * this.knockZ > 0) this.knockX = this.knockZ = 0;
+    const now = performance.now();
+    if (hit && now - this.fenceToldAt > 6000) {
+      this.fenceToldAt = now;
+      this.hud.toast(t("🪑 지금은 내 자리 안에서만 움직여요 — 선생님이 풀어 줄 때까지", "🪑 Stay on your plot for now — until the teacher lets you out"));
+    }
+  }
+  private fenceToldAt = -Infinity;
 
   /**
    * Dev (solo field): lay out the teacher's 자리 배치 for `count` stand-in students in front of the
@@ -1018,6 +1044,7 @@ export class CraftGame {
     const wishZ = this.wishZ * this.moveRatio;
     this.prevVy = this.body.vy;
     this.perf.time("physics", () => stepBody(this.state.world, this.body, dt, wishX, wishZ, this.locked && this.posture === "stand" && this.postureDelay <= 0 && !this.rig.postureBusy && this.keys.has("Space"), this.knockX, this.knockZ));
+    this.keepInPlot();
     const knockKeep = Math.exp(-BONK_DECAY * dt);
     this.knockX *= knockKeep;
     this.knockZ *= knockKeep;
@@ -1202,7 +1229,7 @@ export class CraftGame {
       return;
     }
     const def = blockById(cellId);
-    if (!def || def.hardness <= 0 || !this.canBuild()) {
+    if (!def || def.hardness <= 0 || !this.canBuild() || !this.mayEditAt(x, z)) {
       this.miningFrac = null;this.miningTarget=null;this.miningProgress=0;this.miningIdentity=""; // bedrock or build lock cancels accumulated damage
       return;
     }
@@ -1433,6 +1460,7 @@ export class CraftGame {
   private scoop(x: number, y: number, z: number, id: number): void {
     this.mining = false;
     this.miningFrac = null;
+    if (!this.mayEditAt(x, z)) return;
     if (!this.canBuild()) {
       this.hud.toast(t("🧱 지금은 건축이 잠겨 있어요", "🧱 Building is locked right now"));
       return;
@@ -1481,7 +1509,8 @@ export class CraftGame {
   }
 
   private stepPickup(item: PlacedFurniture, dt: number): void {
-    if (!this.canBuild()) {
+    const [pgx, pgz] = this.field ? this.field.toGrid(item.x, item.z) : [item.x, item.z];
+    if (!this.canBuild() || !this.mayEditAt(pgx, pgz)) {
       this.miningFrac = null;
       return;
     }
@@ -1565,6 +1594,18 @@ export class CraftGame {
     if (block === AIR) this.furniture.onBlockRemoved(x, y, z);
     this.science?.onCellWritten(x + (this.field?.absOriginX ?? 0), y, z + (this.field?.absOriginZ ?? 0));
   }
+
+  /** A classroom student kept on their plot may change only its cells (grid x, z); says so now and then. */
+  private mayEditAt(x: number, z: number): boolean {
+    if (this.sync?.canEditAt(x, z) ?? true) return true;
+    const now = performance.now();
+    if (now - this.plotEditToldAt > 4000) {
+      this.plotEditToldAt = now;
+      this.hud.toast(t("🪑 지금은 내 자리 안의 블록만 바꿀 수 있어요", "🪑 Only the blocks on your own plot, for now"));
+    }
+    return false;
+  }
+  private plotEditToldAt = -Infinity;
 
   private canBuild(): boolean {
     return this.sync ? this.sync.canBuild() : true;

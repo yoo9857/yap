@@ -296,6 +296,10 @@
    "yaw": 1.5708
   },
   {
+   "t": "k-arrange",
+   "roam": true
+  },
+  {
    "t": "k-settings",
    "chatLocked": true,
    "buildLocked": false,
@@ -567,6 +571,11 @@
      "yaw": 3.14159
     }
    ]
+  },
+  {
+   "t": "s-k-seats",
+   "seats": [],
+   "roam": true
   },
   {
    "t": "s-k-gather",

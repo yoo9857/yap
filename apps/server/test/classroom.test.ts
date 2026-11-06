@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
-import { BONK_COOLDOWN_MS, BONK_HOP, BONK_SPEED, BONK_TARGET_REST_MS, MAX_SOLID_ID, classSettingsSchema, decodeClassClient, decodeClassServer, seatLayout, type ClassFurniture, type ClassServerMessage } from "@robo/shared";
+import { BONK_COOLDOWN_MS, BONK_HOP, BONK_SPEED, BONK_TARGET_REST_MS, MAX_SOLID_ID, classSettingsSchema, decodeClassClient, decodeClassServer, plotBounds, seatLayout, type ClassFurniture, type ClassServerMessage } from "@robo/shared";
 import { ClassRoom, type ClassPeer } from "../src/classroom/classRoom.js";
-import { MemoryClassStore, hashPassword } from "../src/classroom/classStore.js";
+import { MemoryClassStore, hashPassword, readSaved } from "../src/classroom/classStore.js";
 
 const AUTH = (() => {
   const { hash, salt } = hashPassword("1234");
@@ -226,10 +226,12 @@ describe("ClassRoom", () => {
     const seating = teacher.last("s-k-seats")!.seats;
     expect(seating.map((s) => s.name)).toEqual(["Ara", "Jun", "Minji"]);
     expect(peers[2]!.p.last("s-k-seats")!.seats).toEqual(seating);
-    // a late joiner is sent it too
+    // a late joiner is sent it too — with a plot of their own added beside the others
     const late = new Peer();
     room.joinStudent(late, "Yuna");
-    expect(late.last("s-k-seats")!.seats).toEqual(seating);
+    const withLate = late.last("s-k-seats")!.seats;
+    expect(withLate.slice(0, 3)).toEqual(seating);
+    expect(withLate[3]!.name).toBe("Yuna");
     // put away: an empty list for everyone, and nothing for the next joiner
     room.handle(teacher, { t: "k-arrange", clear: true });
     expect(peers[0]!.p.last("s-k-seats")!.seats).toEqual([]);
@@ -242,6 +244,167 @@ describe("ClassRoom", () => {
     fresh.room.joinStudent(kid, "Ara");
     fresh.room.handle(fresh.teacher, { t: "k-arrange", clear: true });
     expect(kid.last("s-k-seats")!.seats).toEqual([]);
+  });
+
+  describe("plots (자리 배치): late students, staying in, roaming, deploys", () => {
+    /** A class seated in front of a teacher at (500.4, 4, -30.2) looking +z, with these students. */
+    const seated = (...names: string[]) => {
+      const { room, teacher } = classWithTeacher();
+      const peers = new Map<string, Peer>();
+      for (const n of names) {
+        const p = new Peer();
+        room.joinStudent(p, n);
+        peers.set(n, p);
+      }
+      room.handle(teacher, { t: "k-move", pos: [500.4, 4, -30.2], yaw: 0, anim: "idle" });
+      room.handle(teacher, { t: "k-arrange", yaw: 0 });
+      return { room, teacher, peers };
+    };
+    const overlap = (a: number[], b: number[]) => Math.min(a[1]!, b[1]!) - Math.max(a[0]!, b[0]!) > 1e-6 && Math.min(a[3]!, b[3]!) - Math.max(a[2]!, b[2]!) > 1e-6;
+
+    it("a student who joins AFTER the seating gets a plot of their own, is sent onto it, and everyone sees it", () => {
+      const { room, teacher, peers } = seated("Ara", "Jun");
+      const before = teacher.last("s-k-seats")!.seats;
+      const late = new Peer();
+      room.joinStudent(late, "Yuna");
+      const seats = teacher.last("s-k-seats")!.seats;
+      expect(seats).toHaveLength(3);
+      expect(seats.slice(0, 2)).toEqual(before); // nobody else's plot moved
+      const mine = seats.find((x) => x.name === "Yuna")!;
+      for (const other of before) expect(overlap(plotBounds(mine), plotBounds(other))).toBe(false);
+      expect(late.last("s-k-gather")).toEqual({ t: "s-k-gather", pos: mine.pos, yaw: mine.yaw });
+      expect(peers.get("Ara")!.last("s-k-seats")!.seats).toHaveLength(3);
+    });
+
+    it("a student who reconnects gets the SAME plot back, by name (any case or spacing)", () => {
+      const { room, teacher, peers } = seated("Ara", "Jun");
+      const jun = teacher.last("s-k-seats")!.seats.find((x) => x.name === "Jun")!;
+      const old = peers.get("Jun")!;
+      const key = old.welcome().key;
+      room.leave(old);
+      const again = new Peer();
+      expect(room.joinStudent(again, "Jun", key)).toBe("ok");
+      expect(again.last("s-k-gather")).toEqual({ t: "s-k-gather", pos: jun.pos, yaw: jun.yaw });
+      expect(teacher.last("s-k-seats")!.seats).toHaveLength(2); // no second plot for the same child
+      room.leave(again);
+      const twin = new Peer();
+      room.joinStudent(twin, "JUN", key);
+      expect(twin.last("s-k-gather")?.pos ?? null).toEqual(jun.pos);
+    });
+
+    it("keeps students on their plot: a move well outside is pulled back (at most every 2 s); inside is left alone", () => {
+      vi.useFakeTimers({ now: 1_000_000 });
+      const { room, peers, teacher } = seated("Ara");
+      // a position reported just after being seated (still from the old spot) is not pulled again
+      vi.setSystemTime(1_000_000 + 2500);
+      const ara = peers.get("Ara")!;
+      const plot = teacher.last("s-k-seats")!.seats[0]!;
+      const pulls = () => ara.inbox.filter((m) => m.t === "s-k-gather").length;
+      const start = pulls();
+      // the plot runs away from the teacher (+z here): 5 cells further in is inside the fence
+      room.handle(ara, { t: "k-move", pos: [plot.pos[0] + 2, 4, plot.pos[2] + 5], yaw: 0, anim: "run" });
+      expect(pulls()).toBe(start); // inside the fence
+      room.handle(ara, { t: "k-move", pos: [plot.pos[0] + 30, 4, plot.pos[2]], yaw: 0, anim: "run" });
+      expect(pulls()).toBe(start + 1); // walked out: back onto the plot
+      room.handle(ara, { t: "k-move", pos: [plot.pos[0] + 31, 4, plot.pos[2]], yaw: 0, anim: "run" });
+      expect(pulls()).toBe(start + 1); // not again within 2 s
+      vi.useRealTimers();
+    });
+
+    it("a student kept on their plot builds only on it; roaming lifts that", () => {
+      const { room, peers, teacher } = seated("Ara");
+      const ara = peers.get("Ara")!;
+      const plot = teacher.last("s-k-seats")!.seats[0]!;
+      const [x0, x1, z0, z1] = plotBounds(plot);
+      const inside: [number, number, number, number, number] = [Math.floor((x0 + x1) / 2), 4, Math.floor((z0 + z1) / 2), 3, 0];
+      const outside: [number, number, number, number, number] = [x1 + 3, 4, z0 + 2, 3, 0];
+      room.handle(ara, { t: "k-edit", edits: [inside, outside] });
+      expect(teacher.last("s-k-edit")!.edits).toEqual([inside]); // the plot's own cell went in
+      expect(ara.last("s-k-reject")!.edits.map((e) => [e[0], e[2]])).toEqual([[outside[0], outside[2]]]);
+      // furniture outside the plot is refused as a whole
+      room.handle(ara, { t: "k-furniture", placed: [["chair", outside[0], 4, outside[2], 0, 0]], removed: [] });
+      expect(ara.last("s-k-furniture")!.rejected).toBe(true);
+      // free to roam: the whole field again
+      room.handle(teacher, { t: "k-arrange", roam: true });
+      room.handle(ara, { t: "k-edit", edits: [[outside[0], 4, outside[2] + 1, 3, 0]] });
+      expect(teacher.last("s-k-edit")!.edits).toEqual([[outside[0], 4, outside[2] + 1, 3, 0]]);
+    });
+
+    it("roaming: the teacher lets them out (no pull, late students not moved), and calls them back", () => {
+      const { room, teacher, peers } = seated("Ara");
+      const ara = peers.get("Ara")!;
+      room.handle(teacher, { t: "k-arrange", roam: true });
+      expect(ara.last("s-k-seats")!.roam).toBe(true);
+      const pulls = () => ara.inbox.filter((m) => m.t === "s-k-gather").length;
+      const n = pulls();
+      const plot = teacher.last("s-k-seats")!.seats[0]!;
+      room.handle(ara, { t: "k-move", pos: [plot.pos[0] + 40, 4, plot.pos[2]], yaw: 0, anim: "run" });
+      expect(pulls()).toBe(n); // free to roam
+      const late = new Peer();
+      room.joinStudent(late, "Bo");
+      expect(late.last("s-k-gather")).toBeUndefined(); // a plot is kept for them, but they are not moved
+      expect(teacher.last("s-k-seats")!.seats.map((x) => x.name)).toContain("Bo");
+      room.handle(teacher, { t: "k-arrange", roam: false });
+      expect(ara.last("s-k-seats")!.roam).toBeUndefined();
+      expect(ara.last("s-k-gather")).toEqual({ t: "s-k-gather", pos: plot.pos, yaw: plot.yaw }); // back to the plot
+      expect(late.last("s-k-gather")).toBeDefined();
+    });
+
+    it("gathering everyone lets them off their plots (or the plots would pull them straight back)", () => {
+      const { room, teacher, peers } = seated("Ara");
+      room.handle(teacher, { t: "k-gather" });
+      expect(peers.get("Ara")!.last("s-k-seats")!.roam).toBe(true);
+    });
+
+    it("survives a save / restore (a deploy mid-lesson): plots, origin and roaming come back", () => {
+      const { room, teacher } = seated("Ara", "Jun");
+      const seats = teacher.last("s-k-seats")!.seats;
+      const saved = JSON.parse(JSON.stringify(room.toSaved())) as unknown;
+      const back = new ClassRoom("Ms Kim", AUTH, readSaved(saved)!);
+      const t2 = new Peer();
+      expect(back.hostTeacher(t2, { hostKey: teacher.welcome().key })).toBe("ok");
+      expect(t2.last("s-k-seats")!.seats).toEqual(seats);
+      const late = new Peer();
+      back.joinStudent(late, "Yuna"); // a late student after the deploy still gets a plot beside the others
+      expect(t2.last("s-k-seats")!.seats).toHaveLength(3);
+      expect(late.last("s-k-gather")).toBeDefined();
+    });
+
+    it("the plots end with the lesson (수업 종료 / collected), but survive a deploy's save", () => {
+      const { room, teacher } = seated("Ara");
+      expect(room.toSaved().seating).toBeDefined(); // what a deploy's shutdown saves
+      room.handle(teacher, { t: "k-end" });
+      expect(room.toSaved().seating).toBeUndefined(); // the next lesson starts without them
+    });
+
+    it("a damaged saved seating is dropped, never thrown", () => {
+      const { room } = seated("Ara");
+      const saved = JSON.parse(JSON.stringify(room.toSaved())) as Record<string, unknown>;
+      for (const bad of [{ seats: "x" }, { seats: [{ name: 1 }], origin: { pos: [0, 0, 0], yaw: 0 } }, { seats: [], origin: null }, 42]) {
+        const row = readSaved({ ...saved, seating: bad });
+        expect(row).not.toBeNull();
+        expect(row!.seating).toBeUndefined();
+        expect(() => new ClassRoom("Ms Kim", AUTH, row!)).not.toThrow();
+      }
+    });
+
+    it("clearing takes the plots away for good: late students roam free, nothing is pulled", () => {
+      const { room, teacher } = seated("Ara");
+      room.handle(teacher, { t: "k-arrange", clear: true });
+      const late = new Peer();
+      room.joinStudent(late, "Bo");
+      expect(late.last("s-k-seats")!.seats).toEqual([]);
+      expect(late.last("s-k-gather")).toBeUndefined();
+      expect(room.toSaved().seating).toBeUndefined();
+    });
+
+    it("the teacher is never given a plot or pulled", () => {
+      const { room, teacher } = seated("Ara");
+      const before = teacher.inbox.filter((m) => m.t === "s-k-gather").length;
+      room.handle(teacher, { t: "k-move", pos: [900, 4, 900], yaw: 0, anim: "run" });
+      expect(teacher.inbox.filter((m) => m.t === "s-k-gather").length).toBe(before);
+      expect(teacher.last("s-k-seats")!.seats.map((x) => x.name)).not.toContain("Ms Kim");
+    });
   });
 
   it("snapshots carry every connected player's position", () => {

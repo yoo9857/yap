@@ -102,7 +102,9 @@ export class SeatingView {
       tint.rotation.x = -Math.PI / 2;
       tint.scale.set(w - 0.2, d - 0.2, 1);
       tint.position.set(cx - ox, seat.pos[1] - oy + 0.07, cz - oz); // above the floor's studs
-      tint.renderOrder = 1;
+      // first among the see-through things (renderOrder beats distance sorting): drawn after a
+      // faded robot, a ground-sized plane sorted by its far-away centre could paint over it
+      tint.renderOrder = -1;
       this.group.add(tint);
     });
 

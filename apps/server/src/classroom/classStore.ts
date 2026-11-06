@@ -21,6 +21,36 @@ export interface SavedClass {
   settings: ClassSettings;
   edits: ClassEdit[];
   furniture?: ClassFurniture[];
+  /** The teacher's plots (F2 → 자리 배치), so a deploy or restart mid-lesson keeps them — late
+   *  students still get theirs and the class stays on its plots. Optional: older rows have none,
+   *  and an older server (rollback) simply ignores it. */
+  seating?: SavedSeating;
+}
+
+export interface SavedSeating {
+  seats: { name: string; pos: [number, number, number]; yaw: number }[];
+  origin: { pos: [number, number, number]; yaw: number };
+  roam: boolean;
+}
+
+const finite = (v: unknown): v is number => typeof v === "number" && Number.isFinite(v);
+const vec3 = (v: unknown): v is [number, number, number] => Array.isArray(v) && v.length === 3 && v.every(finite);
+
+/** A saved seating, checked field by field; anything malformed means "no seating" (never a throw). */
+function readSeating(raw: unknown): SavedSeating | undefined {
+  if (!raw || typeof raw !== "object") return undefined;
+  const d = raw as Record<string, unknown>;
+  const origin = d.origin as Record<string, unknown> | undefined;
+  if (!Array.isArray(d.seats) || !origin || !vec3(origin.pos) || !finite(origin.yaw)) return undefined;
+  const seats = d.seats
+    .filter((s): s is { name: string; pos: [number, number, number]; yaw: number } => {
+      const r = s as Record<string, unknown> | null;
+      return !!r && typeof r.name === "string" && r.name.length <= 64 && vec3(r.pos) && finite(r.yaw);
+    })
+    .slice(0, 400)
+    .map((s) => ({ name: s.name, pos: [s.pos[0], s.pos[1], s.pos[2]] as [number, number, number], yaw: s.yaw }));
+  if (seats.length === 0) return undefined;
+  return { seats, origin: { pos: [origin.pos[0], origin.pos[1], origin.pos[2]], yaw: origin.yaw }, roam: d.roam === true };
 }
 
 export interface ClassStore {
@@ -54,6 +84,7 @@ export function readSaved(raw: unknown): SavedClass | null {
     students,
     settings: { chatLocked: settings.chatLocked === true, buildLocked: settings.buildLocked === true, ...(settings.tapsLocked === undefined ? {} : { tapsLocked: settings.tapsLocked === true }) },
     furniture: Array.isArray(d.furniture) ? (d.furniture as ClassFurniture[]) : undefined,
+    seating: readSeating(d.seating),
   };
 }
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { PLOT, PLOT_COLS, PLOT_FRONT, plotCorners, seatLayout } from "../src/classSeats.js";
+import { PLOT, PLOT_COLS, PLOT_FRONT, nextPlot, plotBounds, plotCorners, seatLayout } from "../src/classSeats.js";
 
 const TEACHER: [number, number, number] = [100.3, 5, -40.8];
 
@@ -69,5 +69,44 @@ describe("classroom plots: every student gets their own 15 × 20 plot", () => {
 
   it("an empty class gets no plots", () => {
     expect(seatLayout(0, TEACHER, 0)).toEqual([]);
+  });
+
+  it("a late student gets a free plot beside the others, without moving anyone", () => {
+    for (const count of [1, 2, 3, 6, 7]) {
+      for (const yaw of [0, Math.PI / 2]) {
+        const spots = seatLayout(count, TEACHER, yaw);
+        const before = JSON.stringify(spots);
+        const late = nextPlot(spots, TEACHER, yaw);
+        expect(JSON.stringify(spots)).toBe(before); // nobody moved
+        const nb = plotBounds(late);
+        for (const s of spots) {
+          const b = plotBounds(s);
+          const ox = Math.min(b[1], nb[1]) - Math.max(b[0], nb[0]);
+          const oz = Math.min(b[3], nb[3]) - Math.max(b[2], nb[2]);
+          expect(ox <= 1e-6 || oz <= 1e-6).toBe(true); // no overlap
+        }
+        for (const v of nb) expect(v).toBe(Math.round(v)); // on the grid
+        // on a row that already exists or the next one, touching a neighbour
+        const touching = spots.some((s) => { const b = plotBounds(s); return Math.abs(b[0] - nb[1]) < 1e-6 || Math.abs(b[1] - nb[0]) < 1e-6 || Math.abs(b[2] - nb[3]) < 1e-6 || Math.abs(b[3] - nb[2]) < 1e-6; });
+        expect(touching).toBe(true);
+      }
+    }
+  });
+
+  it("late students keep coming without ever overlapping", () => {
+    const spots = seatLayout(3, TEACHER, 0);
+    for (let i = 0; i < 20; i++) spots.push(nextPlot(spots, TEACHER, 0));
+    const boxes = spots.map(plotBounds);
+    for (let i = 0; i < boxes.length; i++) for (let j = i + 1; j < boxes.length; j++) {
+      const [a0, a1, b0, b1] = boxes[i]!; const [c0, c1, d0, d1] = boxes[j]!;
+      expect(Math.min(a1, c1) - Math.max(a0, c0) <= 1e-6 || Math.min(b1, d1) - Math.max(b0, d0) <= 1e-6).toBe(true);
+    }
+  });
+
+  it("plotBounds is the plot's own box, its student inside", () => {
+    const [spot] = seatLayout(1, TEACHER, 0);
+    const [x0, x1, z0, z1] = plotBounds(spot!);
+    expect([x1 - x0, z1 - z0]).toEqual([PLOT.width, PLOT.depth]);
+    expect(spot!.pos[0] > x0 && spot!.pos[0] < x1 && spot!.pos[2] > z0 && spot!.pos[2] < z1).toBe(true);
   });
 });

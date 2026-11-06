@@ -1,6 +1,6 @@
 import { FurnitureLayout, type PlacementWorld } from "@robo/shared/furniture/layout";
 import type { PlacedFurniture } from "@robo/shared/furniture/types";
-import { holdsFurniture, holdsWaterlog, seatLayout, shapeSeal, type ClassWet, type FluidChange } from "@robo/shared";
+import { holdsFurniture, holdsWaterlog, nextPlot, plotBounds, seatLayout, shapeSeal, type ClassWet, type FluidChange } from "@robo/shared";
 import type { RustModule } from "@robo/engine/node";
 import { randomBytes, randomUUID } from "node:crypto";
 import {
@@ -136,6 +136,8 @@ interface Member {
   shovedAt?: number;
   /** Wall-clock ms of the last position jump (see JUMP_M). */
   jumpedAt?: number;
+  /** Last time a student kept on their plot was sent back onto it (at most every 2 s). */
+  pulledAt?: number;
 }
 
 /**
@@ -196,6 +198,11 @@ export class ClassRoom {
     if (!saved) return;
     this.settings = saved.settings;
     this.furniture.load(saved.furniture);
+    if (saved.seating) {
+      this.seating = saved.seating.seats.map((x) => ({ ...x, pos: [x.pos[0], x.pos[1], x.pos[2]] as [number, number, number] }));
+      this.seatOrigin = { pos: [saved.seating.origin.pos[0], saved.seating.origin.pos[1], saved.seating.origin.pos[2]], yaw: saved.seating.origin.yaw };
+      this.seatRoam = saved.seating.roam;
+    }
     this.addMember(saved.teacherName, "teacher", saved.teacherKey);
     for (const s of saved.students) this.addMember(s.name, "student", s.key);
     for (const [x, y, z, block, shape] of saved.edits) {
@@ -374,6 +381,7 @@ export class ClassRoom {
       settings: this.settings,
       edits,
       furniture: this.furniture.toJSON(),
+      ...(this.seating && this.seatOrigin ? { seating: { seats: this.seating, origin: this.seatOrigin, roam: this.seatRoam } } : {}),
     };
   }
 
@@ -483,6 +491,72 @@ export class ClassRoom {
   /** The teacher's plots (F2 → 자리 배치): drawn by everyone, sent again to whoever joins. Lives
    *  with the room in memory (a lesson's arrangement, not part of the saved field). */
   private seating: { name: string; pos: [number, number, number]; yaw: number }[] | null = null;
+  /** Where the seating was laid out from (late students get a plot beside the others from it). */
+  private seatOrigin: { pos: [number, number, number]; yaw: number } | null = null;
+  /** The teacher lets the students walk off their plots (자유롭게 돌아다니기); else they are kept in. */
+  private seatRoam = false;
+
+  /** Tell everyone the plots changed — and save them (a deploy mid-lesson must not lose them). */
+  private seatsChanged(): void {
+    this.dirty = true;
+    this.broadcast(this.seatsMessage());
+  }
+
+  private seatsMessage(): Extract<ClassServerMessage, { t: "s-k-seats" }> {
+    // a copy: the list grows when a late student arrives, and a message already handed out must not change
+    const seats = (this.seating ?? []).map((x) => ({ name: x.name, pos: [x.pos[0], x.pos[1], x.pos[2]] as [number, number, number], yaw: x.yaw }));
+    return this.seatRoam && seats.length ? { t: "s-k-seats", seats, roam: true } : { t: "s-k-seats", seats };
+  }
+
+  /** A student's plot (by name: a reconnect, or a kicked-and-back student, finds the same one). */
+  private seatOf(name: string): { name: string; pos: [number, number, number]; yaw: number } | undefined {
+    const key = classKey(name);
+    return this.seating?.find((s) => classKey(s.name) === key);
+  }
+
+  /** A student (re)joins while plots stand: their own plot (a new one beside the others if they
+   *  had none — nobody else's moves), everyone told, and — unless roaming — sent onto it. */
+  private seatArrival(member: Member): void {
+    if (!this.seating || !this.seatOrigin || member.role !== "student") return;
+    let seat = this.seatOf(member.name);
+    if (!seat && this.seating.length < 400) {
+      const spot = nextPlot(this.seating, this.seatOrigin.pos, this.seatOrigin.yaw);
+      seat = { name: member.name, pos: spot.pos, yaw: spot.yaw };
+      this.seating.push(seat);
+      this.seatsChanged();
+    }
+    if (seat && !this.seatRoam) this.sendToSeat(member, seat);
+  }
+
+  /** A student kept on their plot changing a cell outside it (absolute x, z): refused. */
+  private offPlot(member: Member, x: number, z: number): boolean {
+    if (!this.seating || this.seatRoam || member.role !== "student") return false;
+    const seat = this.seatOf(member.name);
+    if (!seat) return false;
+    const [x0, x1, z0, z1] = plotBounds(seat);
+    return x < x0 || x + 1 > x1 || z < z0 || z + 1 > z1;
+  }
+
+  /** Send a student onto their plot; positions reported just before it are not pulled again. */
+  private sendToSeat(member: Member, seat: { pos: [number, number, number]; yaw: number }): void {
+    member.pulledAt = Date.now();
+    member.peer?.send({ t: "s-k-gather", pos: seat.pos, yaw: seat.yaw });
+  }
+
+  /** A kept-in student reported a spot well outside their plot (an old page, a shove, a glitch):
+   *  back onto it — at most every 2 s, and never while they are being moved there. */
+  private keepOnPlot(member: Member): void {
+    if (!this.seating || this.seatRoam || member.role !== "student" || !member.pos) return;
+    const seat = this.seatOf(member.name);
+    if (!seat) return;
+    const [x0, x1, z0, z1] = plotBounds(seat);
+    const [x, , z] = member.pos;
+    const SLACK = 1.5;
+    if (x > x0 - SLACK && x < x1 + SLACK && z > z0 - SLACK && z < z1 + SLACK) return;
+    const now = Date.now();
+    if (member.pulledAt !== undefined && now - member.pulledAt < 2000) return;
+    this.sendToSeat(member, seat);
+  }
 
   private attach(member: Member, peer: ClassPeer): void {
     member.peer = peer;
@@ -515,7 +589,8 @@ export class ClassRoom {
       peer.streamWorld(this.worldBatches(keys, count), count);
       this.sendWet(peer); // replayed after the streamed world, like any reliable update
       // always (an empty list when none): a reconnect after a deploy must drop fences this server never set
-      peer.send({ t: "s-k-seats", seats: this.seating ?? [] });
+      peer.send(this.seatsMessage());
+      this.seatArrival(member);
       this.broadcastMembers();
       return;
     }
@@ -531,7 +606,8 @@ export class ClassRoom {
     }
     if (batch.length > 0) peer.send({ t: "s-k-world", edits: batch });
     this.sendWet(peer);
-    peer.send({ t: "s-k-seats", seats: this.seating ?? [] });
+    peer.send(this.seatsMessage());
+    this.seatArrival(member);
     this.broadcastMembers();
   }
 
@@ -566,6 +642,7 @@ export class ClassRoom {
         me.emoteSeq = msg.emoteSeq ?? 0;
         me.action=msg.action??"none";me.actionSeq=msg.actionSeq??0;me.actionLoop=msg.actionLoop??false;me.swimming=msg.swimming??false;
         me.heldItem=msg.heldItem??null;me.toolOption=msg.toolOption??"balanced";me.toolPhase=msg.toolPhase??0;
+        this.keepOnPlot(me);
         return;
       case "k-edit":
         this.applyEdits(me, peer, msg.edits);
@@ -605,6 +682,11 @@ export class ClassRoom {
         return;
       }
       case "k-gather":
+        if (this.seating && !this.seatRoam) {
+          // calling everyone over lets them off their plots (or the plots would pull them back)
+          this.seatRoam = true;
+          this.seatsChanged();
+        }
         if (me.pos) {
           for (const m of this.byPeer.values()) {
             if (m.role === "student") m.peer?.send({ t: "s-k-gather", pos: me.pos });
@@ -617,8 +699,25 @@ export class ClassRoom {
           // (which this process never saw) must still come down for everyone
           const had = this.seating !== null;
           this.seating = null;
+          this.seatOrigin = null;
+          this.seatRoam = false;
+          this.dirty = true;
           this.broadcast({ t: "s-k-seats", seats: [] });
           if (had) this.system("선생님이 자리를 치웠어요");
+          return;
+        }
+        if (msg.roam !== undefined && msg.yaw === undefined) {
+          // 자유롭게 돌아다니기 on/off; off sends everyone back onto their plot
+          if (!this.seating) return;
+          this.seatRoam = msg.roam;
+          this.seatsChanged();
+          if (!msg.roam) {
+            for (const m of this.byPeer.values()) {
+              const seat = m.role === "student" ? this.seatOf(m.name) : undefined;
+              if (seat) this.sendToSeat(m, seat);
+            }
+          }
+          this.system(msg.roam ? "이제 자유롭게 돌아다닐 수 있어요" : "모두 자기 자리로 돌아가요");
           return;
         }
         // every online student gets a 15 × 20 plot of their own, side by side in front of the teacher
@@ -629,10 +728,13 @@ export class ClassRoom {
         const students = [...this.byPeer.values()].filter((m) => m.role === "student").sort((a, b) => a.name.localeCompare(b.name, "ko")).slice(0, 400);
         // the way the teacher LOOKS (sent with the request), not the body's heading: after walking
         // backwards the body faces the camera, and the plots would land behind the view
+        if (students.length === 0) return; // nobody to seat: no empty seating the tools could not clear
         const spots = seatLayout(students.length, me.pos, msg.yaw ?? me.yaw);
-        students.forEach((m, i) => m.peer?.send({ t: "s-k-gather", pos: spots[i]!.pos, yaw: spots[i]!.yaw }));
+        students.forEach((m, i) => this.sendToSeat(m, spots[i]!));
         this.seating = students.map((m, i) => ({ name: m.name, pos: spots[i]!.pos, yaw: spots[i]!.yaw }));
-        this.broadcast({ t: "s-k-seats", seats: this.seating });
+        this.seatOrigin = { pos: [me.pos[0], me.pos[1], me.pos[2]], yaw: msg.yaw ?? me.yaw };
+        this.seatRoam = false;
+        this.seatsChanged();
         this.system(`선생님이 자리를 배치했어요 (${students.length}명)`);
         return;
       }
@@ -675,7 +777,7 @@ export class ClassRoom {
       // bedrock is unbreakable, and a full store takes no NEW cells
       // Solids are the shared catalog (ids past the water states included).
       // Flowing, falling and settled water stay simulation-owned.
-      if (y === 0 || !isPlayerBlock(block) || (isWater(block) && shape !== 0) || (block !== 0 && this.furniture.blocksBlock(x, y, z)) || (!this.edits.has(cell) && this.edits.size >= MAX_EDITS)) {
+      if (y === 0 || this.offPlot(me, x, z) || !isPlayerBlock(block) || (isWater(block) && shape !== 0) || (block !== 0 && this.furniture.blocksBlock(x, y, z)) || (!this.edits.has(cell) && this.edits.size >= MAX_EDITS)) {
         refused.push(edit);
         continue;
       }
@@ -756,6 +858,8 @@ export class ClassRoom {
     const reject = () => peer.send({ t: "s-k-furniture", furniture: this.furniture.toJSON(), rejected: true });
     if (me.role === "student" && this.settings.buildLocked) return reject();
     if (msg.placed.length + msg.removed.length === 0) return;
+    // a student kept on their plot places and takes furniture only on it
+    if ([...msg.placed, ...msg.removed].some((t) => this.offPlot(me, t[1], t[3]))) return reject();
     const next = new FurnitureLayout();
     next.load(this.furniture.toJSON());
     const same = (p: PlacedFurniture, t: ClassFurniture) => p.kind === t[0] && p.x === t[1] &&
@@ -875,6 +979,15 @@ export class ClassRoom {
   close(): void {
     if (this.closed) return;
     this.closed = true;
+    // the lesson is over (수업 종료, or the class sat empty long enough to be collected): its
+    // plots end with it — the next lesson must not find its students fenced in by yesterday's.
+    // (A deploy does NOT come through here: shutdown saves and drops sockets, the plots survive.)
+    if (this.seating) {
+      this.seating = null;
+      this.seatOrigin = null;
+      this.seatRoam = false;
+      this.dirty = true;
+    }
     for (const peer of this.byPeer.keys()) {
       peer.send({ t: "s-k-closed" });
       peer.close("class ended");

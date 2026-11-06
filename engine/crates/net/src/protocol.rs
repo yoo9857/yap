@@ -347,6 +347,8 @@ pub enum ClassClient {
         clear: Option<bool>,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         yaw: Option<f64>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        roam: Option<bool>,
     },
     #[serde(rename = "k-settings")]
     Settings {
@@ -438,7 +440,11 @@ pub enum ClassServer {
     },
     /// The class's seating (dividers + name signs); empty clears it.
     #[serde(rename = "s-k-seats")]
-    Seats { seats: Vec<SeatSign> },
+    Seats {
+        seats: Vec<SeatSign>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        roam: Option<bool>,
+    },
     #[serde(rename = "s-k-bonk")]
     Bonk { by: String, target: String, seq: u32, vx: f64, vz: f64, vy: f64, at: [f64; 3] },
     #[serde(rename = "s-k-settings")]
