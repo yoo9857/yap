@@ -6,7 +6,14 @@
     <atom:link href="https://craftyap.com/feed.xml" rel="self" type="application/rss+xml" />
     <description>크래프트얍(CraftYap) 패치 노트와 개발 이야기</description>
     <language>ko</language>
-    <lastBuildDate>Wed, 04 Nov 2026 15:00:00 +0000</lastBuildDate>
+    <lastBuildDate>Thu, 05 Nov 2026 15:00:00 +0000</lastBuildDate>
+    <item>
+      <title>11월 6일 패치 노트 — 과학 모드: 풍력 발전기를 직접 지어요</title>
+      <link>https://craftyap.com/note/patch-2026-11-06-1/</link>
+      <guid isPermaLink="true">https://craftyap.com/note/patch-2026-11-06-1/</guid>
+      <pubDate>Thu, 05 Nov 2026 15:00:00 +0000</pubDate>
+      <description>혼자 하는 교육 들판에서 T를 누르면 과학 모드가 열려요. 설계도를 펼치고 뼈대와 부품을 아래부터 하나씩 끼워 풍력 발전기를 세우고, 접지·발전기·전선·날개 조립 미니게임으로 전기가 만들어지는 원리를 배워요.</description>
+    </item>
     <item>
       <title>모바일 버전 개발일지 (1) — 앱이 진짜 게임처럼 보이기 시작했어요</title>
       <link>https://craftyap.com/note/mobile-devlog-1/</link>
@@ -139,13 +146,6 @@
       <guid isPermaLink="true">https://craftyap.com/note/patch-2026-11-03-3/</guid>
       <pubDate>Mon, 02 Nov 2026 15:00:00 +0000</pubDate>
       <description>온라인 허브에서 방을 만들고, 방 목록이나 코드로 친구 방에 들어가 대기실에서 함께 시작할 수 있어요. 게임 중인 방에도 바로 들어갈 수 있어요. 게임을 불러오는 시간도 약 20% 줄였어요.</description>
-    </item>
-    <item>
-      <title>11월 3일 패치 노트 (2) — 새 첫 화면과 온라인 허브, 블록 질감의 새 메뉴</title>
-      <link>https://craftyap.com/note/patch-2026-11-03-2/</link>
-      <guid isPermaLink="true">https://craftyap.com/note/patch-2026-11-03-2/</guid>
-      <pubDate>Mon, 02 Nov 2026 15:00:00 +0000</pubDate>
-      <description>첫 화면을 교육 모드 / 게임 모드(온라인) 두 갈래로 다시 만들고, 게임 모드를 고르면 온라인 허브가 열립니다. 교실 로비와 로딩 화면도 같은 디자인으로 맞추고, 메뉴의 테두리·버튼·아이콘을 장난감 블록 질감으로 새로 그렸어요.</description>
     </item>
   </channel>
 </rss>
