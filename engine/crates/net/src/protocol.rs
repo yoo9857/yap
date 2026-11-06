@@ -16,7 +16,7 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
 /// `PARTY_PROTOCOL_VERSION` (party.ts). The fixtures carry the TypeScript value; a test compares.
 pub const PARTY_PROTOCOL_VERSION: u32 = 1;
 /// `CLASS_PROTOCOL_VERSION` (classroom.ts).
-pub const CLASS_PROTOCOL_VERSION: u32 = 11;
+pub const CLASS_PROTOCOL_VERSION: u32 = 12;
 /// Largest message the server sends (decodeClassServer's limit: whole-world batches).
 pub const MAX_SERVER_MESSAGE: usize = 4 * 1024 * 1024;
 
@@ -350,6 +350,17 @@ pub enum ClassClient {
         #[serde(default, skip_serializing_if = "Option::is_none")]
         roam: Option<bool>,
     },
+    /// Lesson-wide state (F2): `freeze` stops every student; `timer` starts a countdown (s, 0 stops).
+    #[serde(rename = "k-lesson")]
+    Lesson {
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        freeze: Option<bool>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        timer: Option<u32>,
+    },
+    /// A big message in the middle of every screen for a few seconds.
+    #[serde(rename = "k-announce")]
+    Announce { text: String },
     #[serde(rename = "k-settings")]
     Settings {
         chat_locked: bool,
@@ -447,6 +458,20 @@ pub enum ClassServer {
         #[serde(default, skip_serializing_if = "Option::is_none")]
         roam: Option<bool>,
     },
+    /// The lesson's state (on change and on every join): students frozen, and the timer's
+    /// `timer_left` ms of `timer_total` (absent: no timer).
+    #[serde(rename = "s-k-lesson")]
+    Lesson {
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        frozen: Option<bool>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        timer_left: Option<u64>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        timer_total: Option<u64>,
+    },
+    /// The teacher's announcement.
+    #[serde(rename = "s-k-announce")]
+    Announce { text: String },
     #[serde(rename = "s-k-bonk")]
     Bonk { by: String, target: String, seq: u32, vx: f64, vz: f64, vy: f64, at: [f64; 3] },
     #[serde(rename = "s-k-settings")]

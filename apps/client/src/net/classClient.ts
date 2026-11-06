@@ -185,6 +185,15 @@ function storeKey(join: ClassJoin, key: string | null): void {
  * socket reconnects by itself with the stored key; each re-welcome is handed
  * to `onResync` so the game can replace its field with the server's.
  */
+/** The lesson's state as the game uses it (F2 → 모두 멈춰 / 타이머). */
+export interface ClassLesson {
+  frozen: boolean;
+  /** `performance.now()` ms when the countdown ends, or null (no timer). */
+  timerEnd: number | null;
+  /** The countdown's whole length (ms), for its progress ring. */
+  timerTotal: number;
+}
+
 export class ClassClient {
   onMembers: ((members: ClassMember[]) => void) | null = null;
   /** `ts`: the server's stamp (ms) for interpolation; undefined from older servers. */
@@ -200,6 +209,14 @@ export class ClassClient {
   /** The class seating changed (or arrived on join): every seat's student, spot and heading. */
   onSeats: ((seats: { name: string; pos: [number, number, number]; yaw: number }[], roam: boolean) => void) | null = null;
   onBonk: ((msg: Extract<ClassServerMessage, { t: "s-k-bonk" }>) => void) | null = null;
+  /** The lesson's state (F2): students frozen, and the timer as a deadline on OUR clock
+   *  (`performance.now()` ms, measured from when the message arrived — a replay after loading
+   *  does not restart it), or null. */
+  onLesson: ((lesson: ClassLesson) => void) | null = null;
+  /** The teacher's announcement (big, mid-screen). */
+  onAnnounce: ((text: string) => void) | null = null;
+  /** When each s-k-lesson arrived (it may be replayed seconds later, after the field loaded). */
+  private readonly arrivedAt = new WeakMap<object, number>();
   onSettings: ((settings: ClassSettings) => void) | null = null;
   onResync: ((session: ClassSession) => void) | null = null;
   onWorldReset: (() => void) | null = null;
@@ -293,6 +310,7 @@ export class ClassClient {
     const ws = this.ws; this.ws = null;
     if (ws) { ws.onopen = ws.onmessage = ws.onclose = ws.onerror = null; ws.close(1000, "left"); }
     this.onMembers = this.onSnap = this.onEdit = this.onWet = this.onFurniture = this.onReject = this.onChat = null;
+    this.onLesson = this.onAnnounce = null;
     this.onGather = this.onSeats = this.onBonk = this.onSettings = this.onResync = this.onWorldReset = this.onEnded = this.onConnection = null;
   }
 
@@ -442,6 +460,7 @@ export class ClassClient {
         else this.onEnded?.(msg.t === "s-k-kicked" ? "kicked" : "closed");
         return;
     }
+    if (msg.t === "s-k-lesson") this.arrivedAt.set(msg, performance.now());
     if (this.pending || !this.active) {
       if (msg.t === "s-k-snap" || msg.t === "s-k-bonk") return;
       this.earlyEdits += msg.t === "s-k-edit" || msg.t === "s-k-reject" ? msg.edits.length
@@ -484,6 +503,18 @@ export class ClassClient {
         break;
       case "s-k-seats":
         this.onSeats?.(msg.seats, msg.roam === true);
+        return;
+      case "s-k-lesson": {
+        const at = this.arrivedAt.get(msg) ?? performance.now();
+        this.onLesson?.({
+          frozen: msg.frozen === true,
+          timerEnd: msg.timerLeft !== undefined ? at + msg.timerLeft : null,
+          timerTotal: msg.timerTotal ?? 0,
+        });
+        return;
+      }
+      case "s-k-announce":
+        this.onAnnounce?.(msg.text);
         return;
       case "s-k-bonk":
         this.onBonk?.(msg);

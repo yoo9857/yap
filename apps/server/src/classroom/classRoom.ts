@@ -142,6 +142,9 @@ interface Member {
    *  they are left alone (a Wi-Fi blip or a deploy must not yank a child mid-build); off it, the
    *  seat. */
   seatCheck?: boolean;
+  /** Where a frozen student stands (their first position after the freeze, or after a gather/seat
+   *  moved them): a k-move well away from it is put back. */
+  freezeAt?: [number, number, number];
 }
 
 /**
@@ -206,6 +209,13 @@ export class ClassRoom {
       this.seating = saved.seating.seats.map((x) => ({ ...x, pos: [x.pos[0], x.pos[1], x.pos[2]] as [number, number, number] }));
       this.seatOrigin = { pos: [saved.seating.origin.pos[0], saved.seating.origin.pos[1], saved.seating.origin.pos[2]], yaw: saved.seating.origin.yaw };
       this.seatRoam = saved.seating.roam;
+    }
+    if (saved.lesson) {
+      this.frozen = saved.lesson.frozen;
+      if (saved.lesson.timerEnd !== undefined && saved.lesson.timerTotal !== undefined) {
+        this.timerEnd = saved.lesson.timerEnd;
+        this.timerTotal = saved.lesson.timerTotal;
+      }
     }
     this.addMember(saved.teacherName, "teacher", saved.teacherKey);
     for (const s of saved.students) this.addMember(s.name, "student", s.key);
@@ -386,6 +396,9 @@ export class ClassRoom {
       edits,
       furniture: this.furniture.toJSON(),
       ...(this.seating && this.seatOrigin ? { seating: { seats: this.seating, origin: this.seatOrigin, roam: this.seatRoam } } : {}),
+      ...(this.frozen || this.timerEnd !== null
+        ? { lesson: { frozen: this.frozen, ...(this.timerEnd !== null ? { timerEnd: this.timerEnd, timerTotal: this.timerTotal } : {}) } }
+        : {}),
     };
   }
 
@@ -500,6 +513,57 @@ export class ClassRoom {
   /** The teacher lets the students walk off their plots (자유롭게 돌아다니기); else they are kept in. */
   private seatRoam = false;
 
+  /** F2 → 모두 멈춰: students can't move, build, chat or tap until the teacher lets them go. */
+  private frozen = false;
+  /** F2 → 타이머: when the countdown ends (epoch ms — survives a save/restore) and how long it was. */
+  private timerEnd: number | null = null;
+  private timerTotal = 0;
+
+  private lessonMessage(): Extract<ClassServerMessage, { t: "s-k-lesson" }> {
+    const msg: Extract<ClassServerMessage, { t: "s-k-lesson" }> = { t: "s-k-lesson" };
+    if (this.frozen) msg.frozen = true;
+    if (this.timerEnd !== null) {
+      msg.timerLeft = Math.min(this.timerTotal, Math.max(0, Math.round(this.timerEnd - Date.now())));
+      msg.timerTotal = this.timerTotal;
+    }
+    return msg;
+  }
+
+  private lessonChanged(): void {
+    this.dirty = true;
+    this.broadcast(this.lessonMessage());
+  }
+
+  /** A student held still by the teacher (모두 멈춰). */
+  private held(member: Member): boolean {
+    return this.frozen && member.role === "student";
+  }
+
+  /** A frozen student reported a spot away from where they were frozen (an old page, a shove):
+   *  back to it, at most every second. The first report after a freeze or a move sets the spot. */
+  private keepFrozen(member: Member): void {
+    if (!member.pos) return;
+    if (!member.freezeAt) {
+      member.freezeAt = [member.pos[0], member.pos[1], member.pos[2]];
+      return;
+    }
+    const [fx, fy, fz] = member.freezeAt;
+    if (Math.hypot(member.pos[0] - fx, member.pos[2] - fz) < 1.5) return;
+    const now = Date.now();
+    if (member.pulledAt !== undefined && now - member.pulledAt < 1000) return;
+    member.pulledAt = now;
+    member.peer?.send({ t: "s-k-gather", pos: [fx, fy, fz], nudge: true });
+  }
+
+  /** The countdown ran out (checked on the snapshot clock). */
+  private lessonTick(): void {
+    if (this.timerEnd === null || Date.now() < this.timerEnd) return;
+    this.timerEnd = null;
+    this.timerTotal = 0;
+    this.lessonChanged();
+    this.system("⏰ 시간이 다 됐어요!");
+  }
+
   /** Tell everyone the plots changed — and save them (a deploy mid-lesson must not lose them). */
   private seatsChanged(): void {
     this.dirty = true;
@@ -560,6 +624,7 @@ export class ClassRoom {
   /** Send a student onto their plot; positions reported just before it are not pulled again. */
   private sendToSeat(member: Member, seat: { pos: [number, number, number]; yaw: number }): void {
     member.pulledAt = Date.now();
+    member.freezeAt = undefined; // frozen, they are held where this puts them
     member.peer?.send({ t: "s-k-gather", pos: seat.pos, yaw: seat.yaw });
   }
 
@@ -623,6 +688,8 @@ export class ClassRoom {
       this.sendWet(peer); // replayed after the streamed world, like any reliable update
       // always (an empty list when none): a reconnect after a deploy must drop fences this server never set
       peer.send(this.seatsMessage());
+      peer.send(this.lessonMessage()); // always: a page from before a restart must drop a stale freeze/timer
+      member.freezeAt = undefined;
       this.seatArrival(member);
       this.broadcastMembers();
       return;
@@ -640,6 +707,8 @@ export class ClassRoom {
     if (batch.length > 0) peer.send({ t: "s-k-world", edits: batch });
     this.sendWet(peer);
     peer.send(this.seatsMessage());
+    peer.send(this.lessonMessage());
+    member.freezeAt = undefined;
     this.seatArrival(member);
     this.broadcastMembers();
   }
@@ -675,7 +744,8 @@ export class ClassRoom {
         me.emoteSeq = msg.emoteSeq ?? 0;
         me.action=msg.action??"none";me.actionSeq=msg.actionSeq??0;me.actionLoop=msg.actionLoop??false;me.swimming=msg.swimming??false;
         me.heldItem=msg.heldItem??null;me.toolOption=msg.toolOption??"balanced";me.toolPhase=msg.toolPhase??0;
-        this.keepOnPlot(me);
+        if (this.held(me)) this.keepFrozen(me);
+        else this.keepOnPlot(me);
         return;
       case "k-edit":
         this.applyEdits(me, peer, msg.edits);
@@ -685,7 +755,7 @@ export class ClassRoom {
         try { this.applyFurniture(me, peer, msg); } finally { this.placer = null; }
         return;
       case "k-chat": {
-        if (me.role === "student" && this.settings.chatLocked) return;
+        if (me.role === "student" && (this.settings.chatLocked || this.frozen)) return;
         // control characters (newlines, bidi overrides…) never reach other screens
         // eslint-disable-next-line no-control-regex
         const text = msg.text.replace(/[\u0000-\u001f\u007f-\u009f\u200e\u200f\u202a-\u202e\u2066-\u2069]/g, " ").trim();
@@ -694,6 +764,7 @@ export class ClassRoom {
         return;
       }
       case "k-bonk":
+        if (this.held(me)) return;
         this.bonk(me, msg);
         return;
     }
@@ -722,10 +793,45 @@ export class ClassRoom {
         }
         if (me.pos) {
           for (const m of this.byPeer.values()) {
-            if (m.role === "student") m.peer?.send({ t: "s-k-gather", pos: me.pos });
+            if (m.role !== "student") continue;
+            m.freezeAt = undefined; // frozen, they are held where the gather puts them
+            m.peer?.send({ t: "s-k-gather", pos: me.pos });
           }
         }
         return;
+      case "k-lesson": {
+        let changed = false;
+        if (msg.freeze !== undefined && msg.freeze !== this.frozen) {
+          this.frozen = msg.freeze;
+          for (const m of this.members.values()) m.freezeAt = m.pos ? [m.pos[0], m.pos[1], m.pos[2]] : undefined;
+          this.system(msg.freeze ? "✋ 선생님이 모두 멈추게 했어요 — 선생님을 봐 주세요" : "▶️ 다시 움직일 수 있어요");
+          changed = true;
+        }
+        if (msg.timer !== undefined) {
+          const had = this.timerEnd !== null;
+          if (msg.timer === 0) {
+            this.timerEnd = null;
+            this.timerTotal = 0;
+            if (had) this.system("⏱️ 선생님이 타이머를 껐어요");
+            changed ||= had;
+          } else {
+            this.timerTotal = msg.timer * 1000;
+            this.timerEnd = Date.now() + this.timerTotal;
+            const min = Math.floor(msg.timer / 60), sec = msg.timer % 60;
+            this.system(`⏱️ 타이머 시작: ${[min > 0 ? `${min}분` : "", sec > 0 ? `${sec}초` : ""].filter(Boolean).join(" ")}`);
+            changed = true;
+          }
+        }
+        if (changed) this.lessonChanged();
+        return;
+      }
+      case "k-announce": {
+        // eslint-disable-next-line no-control-regex
+        const text = msg.text.replace(/[\u0000-\u001f\u007f-\u009f\u200e\u200f\u202a-\u202e\u2066-\u2069]/g, " ").trim();
+        if (!text) return;
+        this.broadcast({ t: "s-k-announce", text });
+        return;
+      }
       case "k-arrange": {
         if (msg.clear) {
           // broadcast even when this server holds none: fences drawn before a deploy or a restart
@@ -795,7 +901,7 @@ export class ClassRoom {
   }
 
   private applyEdits(me: Member, peer: ClassPeer, edits: ClassEdit[]): void {
-    if (me.role === "student" && this.settings.buildLocked) {
+    if (me.role === "student" && (this.settings.buildLocked || this.frozen)) {
       this.rejectEdits(peer, edits);
       peer.send({ t: "s-k-furniture", furniture: this.furniture.toJSON() });
       return;
@@ -889,7 +995,7 @@ export class ClassRoom {
   /** Validate a complete transaction on a copy: conflicting edits never half-apply. */
   private applyFurniture(me: Member, peer: ClassPeer, msg: Extract<ClassClientMessage, { t: "k-furniture" }>): void {
     const reject = () => peer.send({ t: "s-k-furniture", furniture: this.furniture.toJSON(), rejected: true });
-    if (me.role === "student" && this.settings.buildLocked) return reject();
+    if (me.role === "student" && (this.settings.buildLocked || this.frozen)) return reject();
     if (msg.placed.length + msg.removed.length === 0) return;
     // a student kept on their plot places and takes furniture only on it
     if ([...msg.placed, ...msg.removed].some((t) => this.furnitureOffPlot(me, t))) return reject();
@@ -982,6 +1088,7 @@ export class ClassRoom {
    * client's 3 s "gone" timeout, and invisible at that distance anyway.
    */
   snapshot(): void {
+    this.lessonTick();
     const tick = ++this.snapTick;
     const entries: { m: Member; obj: SnapPlayer; json: string }[] = [];
     for (const m of this.byPeer.values()) {
@@ -1019,6 +1126,13 @@ export class ClassRoom {
       this.seating = null;
       this.seatOrigin = null;
       this.seatRoam = false;
+      this.dirty = true;
+    }
+    // the freeze and the timer end with the lesson too
+    if (this.frozen || this.timerEnd !== null) {
+      this.frozen = false;
+      this.timerEnd = null;
+      this.timerTotal = 0;
       this.dirty = true;
     }
     for (const peer of this.byPeer.keys()) {

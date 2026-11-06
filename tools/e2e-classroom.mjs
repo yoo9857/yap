@@ -228,12 +228,12 @@ try {
   }
   await teacher.keyboard.press("F2");
   await sleep(200);
-  check("F2 opens the teacher's class tools", await teacher.evaluate(() => !document.querySelector(".class-tools")?.hidden));
-  check("students have no class tools", !(await minji.$(".class-tools")));
+  check("F2 opens the teacher's class tools", await teacher.evaluate(() => !document.querySelector(".ct")?.hidden));
+  check("students have no class tools", !(await minji.$(".ct")));
   if (process.env.SHOTS) await teacher.screenshot({ path: `${process.env.SHOTS}/class-f2-tools.png` });
   await teacher.keyboard.press("1");
   await sleep(1200);
-  check("picking a tool closes the panel", await teacher.evaluate(() => document.querySelector(".class-tools")?.hidden === true));
+  check("picking a tool closes the panel", await teacher.evaluate(() => document.querySelector(".ct")?.hidden === true));
   const tSeat = await teacher.evaluate(() => globalThis.__roboCraft.absolute());
   const placed = [];
   for (const page of [minji, jun]) {
@@ -338,11 +338,77 @@ try {
   await teacher.bringToFront();
   await teacher.keyboard.press("F2");
   await sleep(200);
-  check("the tools offer to put the seating away while it stands", await teacher.evaluate(() => !document.querySelector('.class-tools [data-opt="3"]')?.hidden));
+  check("the tools offer to put the seating away while it stands", await teacher.evaluate(() => document.querySelector('.ct [data-key="3"]')?.disabled === false));
   await teacher.keyboard.press("3");
   await sleep(900);
   const gone = await Promise.all([teacher, minji].map((p) => p.evaluate(() => globalThis.__roboCraft.classroom().seating)));
   check("…and it is gone for everyone", gone.every((n) => n === 0), JSON.stringify(gone));
+  check("…and then the seating-only tools are greyed out", await teacher.evaluate(() => document.querySelector('.ct [data-key="3"]')?.disabled === true && document.querySelector('.ct [data-key="4"]')?.disabled === true));
+
+  // 7c) lesson tools: F2 → 5 모두 멈춰 / 6 타이머 / 7 공지, and 찾아가기 from the roster
+  const lessonOf = (page) => page.evaluate(() => globalThis.__roboCraft.classroom().lesson);
+  await teacher.bringToFront();
+  await teacher.keyboard.press("F2");
+  await sleep(200);
+  check("the roster lists both students with a visit button", await teacher.evaluate(() => document.querySelectorAll(".ct-roster .ct-visit").length === 2));
+  await teacher.keyboard.press("5");
+  await sleep(700);
+  check("freeze: the student's screen shows the freeze card", (await lessonOf(minji)).frozen === true);
+  await minji.bringToFront();
+  const frozenAt = await minji.evaluate(() => globalThis.__roboCraft.absolute());
+  await minji.evaluate(() => globalThis.__roboCraft.debugWalk(0, 1));
+  await sleep(900);
+  await minji.evaluate(() => globalThis.__roboCraft.debugWalk(0, 0));
+  const frozenNow = await minji.evaluate(() => globalThis.__roboCraft.absolute());
+  check("…and the student cannot walk", Math.hypot(frozenNow[0] - frozenAt[0], frozenNow[1] - frozenAt[1]) < 0.2, JSON.stringify({ frozenAt, frozenNow }));
+  if (process.env.SHOTS) await minji.screenshot({ path: `${process.env.SHOTS}/class-freeze-student.png` });
+  check("…nor build", (await cls(minji)).canBuild === false);
+  await teacher.bringToFront();
+  await teacher.keyboard.press("F2");
+  await sleep(200);
+  await teacher.keyboard.press("6");
+  await sleep(250);
+  check("timer: a second step with the presets", await teacher.evaluate(() => !!document.querySelector(".ct-sub:not([hidden]) .ct-preset")));
+  if (process.env.SHOTS) await teacher.screenshot({ path: `${process.env.SHOTS}/class-f2-timer.png` });
+  await teacher.keyboard.press("2"); // 3 minutes
+  await sleep(800);
+  const tl = await lessonOf(minji);
+  check("…every screen counts down", /^[23]:\d\d$/.test(tl.timer ?? ""), JSON.stringify(tl));
+  await teacher.keyboard.press("F2");
+  await sleep(200);
+  check("…the panel shows it running", await teacher.evaluate(() => /\d:\d\d/.test(document.querySelector(".ct-chip-timer")?.textContent ?? "")));
+  await teacher.keyboard.press("7");
+  await sleep(250);
+  if (process.env.SHOTS) await teacher.screenshot({ path: `${process.env.SHOTS}/class-f2-announce.png` });
+  await teacher.keyboard.press("1");
+  await sleep(700);
+  const an = await lessonOf(minji);
+  check("announcement: big on every student's screen", (an.announce ?? "").includes("선생님"), JSON.stringify(an));
+  if (process.env.SHOTS) { await minji.bringToFront(); await sleep(300); await minji.screenshot({ path: `${process.env.SHOTS}/class-announce-student.png` }); await teacher.bringToFront(); }
+  await teacher.keyboard.press("F2");
+  await sleep(200);
+  if (process.env.SHOTS) await teacher.screenshot({ path: `${process.env.SHOTS}/class-f2-busy.png` });
+  await teacher.keyboard.press("5"); // let them go
+  await sleep(300);
+  await teacher.keyboard.press("F2");
+  await sleep(200);
+  await teacher.keyboard.press("6");
+  await sleep(200);
+  await teacher.keyboard.press("0"); // stop the timer
+  await sleep(800);
+  const lessonAfter = await lessonOf(minji);
+  check("let go and timer stopped: nothing left on the student's screen", lessonAfter.frozen === false && lessonAfter.timer === null, JSON.stringify(lessonAfter));
+  // 찾아가기: the teacher lands in front of the student
+  await teacher.keyboard.press("F2");
+  await sleep(200);
+  const target = await teacher.evaluate(() => {
+    const li = [...document.querySelectorAll(".ct-roster li")].find((x) => x.textContent.includes("민지"));
+    li?.querySelector(".ct-visit")?.click();
+    return !!li;
+  });
+  await sleep(900);
+  const [tAt, mAt] = await Promise.all([teacher, minji].map((p) => p.evaluate(() => globalThis.__roboCraft.absolute())));
+  check("visit: the teacher stands right beside the student", target && Math.hypot(tAt[0] - mAt[0], tAt[1] - mAt[1]) < 5, JSON.stringify({ tAt, mAt }));
 
   // 8) kick
   const junMember = (await cls(teacher)).members.find((m) => m.name === "준");

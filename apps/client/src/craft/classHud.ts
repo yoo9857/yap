@@ -1,6 +1,8 @@
 import type { ClassMember, ClassRole, ClassSettings } from "@robo/shared";
 import "./classroom.css";
 import { t } from "../ui/i18n.js";
+import { ClassTools } from "./classTools.js";
+import type { ClassLesson } from "../net/classClient.js";
 
 export interface ClassHudActions {
   chat(text: string): void;
@@ -12,6 +14,14 @@ export interface ClassHudActions {
   unarrange(): void;
   /** Let the students walk off their plots (true), or send them back and keep them in (false). */
   roam(on: boolean): void;
+  /** 모두 멈춰 on/off: students can't move, build, chat or tap. */
+  freeze(on: boolean): void;
+  /** A countdown for the whole class, in seconds (0 stops it). */
+  timer(sec: number): void;
+  /** A big mid-screen message for everyone. */
+  announce(text: string): void;
+  /** The teacher goes and stands beside a student. */
+  visit(member: ClassMember): void;
   /** The F2 class-tools panel opened / closed. `resume`: closed by a click or F2 (a user gesture,
    *  so the mouse can be captured again); Esc leaves the game paused instead. */
   toolsOpen(open: boolean, resume?: boolean): void;
@@ -51,12 +61,9 @@ export class ClassHud {
   /** The class is over (showEnded): Enter no longer opens the chat. */
   private ended = false;
   /** The teacher's F2 class tools (null for students). */
-  private tools: HTMLDivElement | null = null;
-  /** "자리 치우기" — only offered while a seating stands. */
-  private unseat: HTMLButtonElement | null = null;
-  /** "자유롭게 돌아다니기" / "자기 자리로" — only while a seating stands. */
-  private roamOpt: HTMLButtonElement | null = null;
-  private roaming = false;
+  private tools: ClassTools | null = null;
+  /** The teacher froze the class (모두 멈춰): a student's chat waits too. */
+  private frozen = false;
   private readonly onKey = (e: KeyboardEvent) => this.handleKey(e);
 
   constructor(
@@ -102,7 +109,22 @@ export class ClassHud {
       });
       this.controls.append(gather, this.chatLock, this.buildLock, this.tapsLock, reset, end);
       this.panel.append(this.controls);
-      this.tools = this.buildTools();
+      this.tools = new ClassTools(party ? `${t("방", "Room")} ${party}` : room, {
+        arrange: () => this.actions.arrange(),
+        gather: () => this.actions.gather(),
+        unarrange: () => this.actions.unarrange(),
+        roam: (on) => this.actions.roam(on),
+        freeze: (on) => this.actions.freeze(on),
+        timer: (sec) => this.actions.timer(sec),
+        announce: (text) => this.actions.announce(text),
+        visit: (m) => this.actions.visit(m),
+        settings: (next) => this.actions.settings(next),
+        toolsOpen: (open, resume) => {
+          if (open) this.closeInput();
+          this.actions.toolsOpen(open, resume);
+        },
+        busy: () => this.ended || (this.actions.busy?.() ?? false),
+      });
     }
     this.panel.append(el("div", "class-tip", role === "teacher"
       ? t("F2 수업 도구 · Esc로 마우스를 풀면 버튼을 누를 수 있어요 · Enter 채팅", "F2 class tools · Press Esc to free the mouse and use the buttons · Enter to chat")
@@ -126,6 +148,7 @@ export class ClassHud {
 
   setMembers(members: ClassMember[]): void {
     this.members = members;
+    this.tools?.setMembers(members, this.you);
     const students = members.filter((m) => m.role === "student");
     this.count.textContent = t(` · 학생 ${students.filter((m) => m.online).length}/${students.length}명 접속 중`, ` · ${students.filter((m) => m.online).length}/${students.length} students online`);
     this.list.replaceChildren(
@@ -147,6 +170,7 @@ export class ClassHud {
 
   setSettings(settings: ClassSettings): void {
     this.settings = settings;
+    this.tools?.setSettings(settings);
     this.chatLock.textContent = settings.chatLocked ? t("💬 채팅 잠금 해제", "💬 Unlock chat") : t("💬 채팅 잠그기", "💬 Lock chat");
     this.buildLock.textContent = settings.buildLocked ? t("🧱 건축 잠금 해제", "🧱 Unlock building") : t("🧱 건축 잠그기", "🧱 Lock building");
     this.chatLock.classList.toggle("on", settings.chatLocked);
@@ -179,78 +203,20 @@ export class ClassHud {
     document.exitPointerLock();
   }
 
-  /** A seating stands (or not), and whether the students may roam: the tools follow. */
-  setSeated(seated: boolean, roam = false): void {
-    this.roaming = roam;
-    if (this.unseat) this.unseat.hidden = !seated;
-    if (!this.roamOpt) return;
-    this.roamOpt.hidden = !seated;
-    const [icon, title, desc] = roam
-      ? ["🪑", t("자기 자리로", "Back to your plots"), t("학생들을 자기 땅으로 돌려보내고, 울타리 밖으로 못 나가게 해요", "Send the students back to their plots and keep them inside the fences")]
-      : ["🚶", t("자유롭게 돌아다니기", "Free to roam"), t("학생들이 자기 땅 밖으로 나가 돌아다닐 수 있게 해요", "Let the students walk off their plots")];
-    this.roamOpt.querySelector(".class-tools-icon")!.textContent = icon;
-    this.roamOpt.querySelector(".class-tools-text b")!.textContent = title;
-    this.roamOpt.querySelector(".class-tools-text small")!.textContent = desc;
+  /** A seating stands (or not), whether the students may roam, and whose plots: the tools follow. */
+  setSeated(seated: boolean, roam = false, plots: string[] = []): void {
+    this.tools?.setSeated(seated, roam, plots);
+  }
+
+  /** The lesson's state (freeze, timer): the tools show it; a frozen student's chat waits. */
+  setLesson(lesson: ClassLesson): void {
+    this.frozen = lesson.frozen;
+    this.tools?.setLesson(lesson);
+    if (this.role === "student" && lesson.frozen) this.closeInput();
   }
 
   get toolsOpen(): boolean {
-    return this.tools !== null && !this.tools.hidden;
-  }
-
-  /** The F2 panel: what the teacher can do with the whole class, one click each. */
-  private buildTools(): HTMLDivElement {
-    const wrap = el("div", "class-tools");
-    wrap.hidden = true;
-    const card = el("div", "class-tools-card");
-    const head = el("div", "class-tools-head");
-    const close = el("button", "class-tools-x", "✕");
-    close.title = t("닫기 (F2 / Esc)", "Close (F2 / Esc)");
-    close.addEventListener("click", () => this.closeTools());
-    head.append(el("h2", "", t("수업 도구", "Class tools")), el("span", "class-tools-key", "F2"), close);
-    const option = (n: number, icon: string, title: string, desc: string, run: () => void) => {
-      const b = el("button", "class-tools-opt");
-      b.dataset.opt = String(n);
-      const text = el("span", "class-tools-text");
-      text.append(el("b", "", title), el("small", "", desc));
-      b.append(el("span", "class-tools-num", String(n)), el("span", "class-tools-icon", icon), text);
-      b.addEventListener("click", () => {
-        run();
-        this.closeTools();
-      });
-      return b;
-    };
-    const list = el("div", "class-tools-list");
-    list.append(
-      option(1, "🪑", t("자리 배치", "Seat the class"),
-        t("학생마다 가로 15 × 세로 20칸 땅을 나눠 주고, 칸막이와 이름 팻말을 세워요 (내 앞에 이름순)", "Give every student a 15 × 20 plot of their own, with fences and a name sign (in front of you, name order)"),
-        () => this.actions.arrange()),
-      option(2, "📣", t("모두 모이기", "Gather everyone"), t("학생들을 내 주변으로 불러요", "Call everyone over to you"), () => this.actions.gather()),
-    );
-    this.unseat = option(3, "🧹", t("자리 치우기", "Put the seating away"), t("칸막이와 이름 팻말을 걷어요", "Take the fences and name signs away"), () => this.actions.unarrange());
-    this.unseat.hidden = true;
-    this.roamOpt = option(4, "🚶", "", "", () => this.actions.roam(!this.roaming));
-    this.roamOpt.hidden = true;
-    list.append(this.unseat, this.roamOpt);
-    card.append(head, list, el("p", "class-tools-tip", t("숫자 키로 바로 골라요 · F2 / Esc 닫기", "Pick with a number key · F2 / Esc to close")));
-    wrap.append(card);
-    wrap.addEventListener("pointerdown", (e) => {
-      if (e.target === wrap) this.closeTools();
-    });
-    document.body.append(wrap);
-    return wrap;
-  }
-
-  private openTools(): void {
-    if (!this.tools || !this.tools.hidden || this.ended || this.actions.busy?.()) return;
-    this.closeInput();
-    this.tools.hidden = false;
-    this.actions.toolsOpen(true);
-  }
-
-  private closeTools(resume = true): void {
-    if (!this.tools || this.tools.hidden) return;
-    this.tools.hidden = true;
-    this.actions.toolsOpen(false, resume);
+    return this.tools?.open ?? false;
   }
 
   get memberList(): ClassMember[] {
@@ -258,29 +224,14 @@ export class ClassHud {
   }
 
   private handleKey(e: KeyboardEvent): void {
-    // the teacher's class tools: F2 toggles, Esc closes, a number picks
+    // the teacher's class tools: F2 toggles; while open, every key is theirs (numbers, Esc, typing)
     if (this.tools && e.key === "F2") {
       e.preventDefault();
       e.stopPropagation();
-      if (this.toolsOpen) this.closeTools();
-      else this.openTools();
+      if (!this.ended) this.tools.toggle();
       return;
     }
-    if (this.toolsOpen) {
-      e.stopPropagation();
-      if (e.key === "Escape") {
-        // Esc is no user activation for pointer lock: close to the pause card, not to play
-        e.preventDefault();
-        this.closeTools(false);
-        return;
-      }
-      const pick = this.tools!.querySelector<HTMLButtonElement>(`[data-opt="${e.key}"]:not([hidden])`);
-      if (pick) {
-        e.preventDefault();
-        pick.click();
-      }
-      return;
-    }
+    if (this.tools?.handleKey(e)) return;
     if (e.target === this.input) {
       if (e.key === "Enter") {
         const text = this.input.value.trim();
@@ -297,6 +248,10 @@ export class ClassHud {
     if (e.target instanceof HTMLElement && /INPUT|TEXTAREA|SELECT/.test(e.target.tagName)) return;
     if (this.role === "student" && this.settings.chatLocked) {
       this.chat("", "teacher", t("선생님이 채팅을 잠갔어요", "The teacher locked the chat"), true);
+      return;
+    }
+    if (this.role === "student" && this.frozen) {
+      this.chat("", "teacher", t("✋ 지금은 선생님을 봐요 — 채팅은 잠시 후에", "✋ Eyes on the teacher — chat in a moment"), true);
       return;
     }
     e.preventDefault();
@@ -319,7 +274,7 @@ export class ClassHud {
 
   dispose(): void {
     document.removeEventListener("keydown", this.onKey, true);
-    this.tools?.remove();
+    this.tools?.dispose();
     this.panel.remove();
     this.log.parentElement?.remove();
   }

@@ -858,4 +858,116 @@ describe("a seat that comes back (new page = new clock)", () => {
     room.snapshot();
     expect(teacher.last("s-k-snap")!.players.map((p) => p.pos)).toContainEqual([9, 4, 9]);
   });
+
+  describe("lesson tools (F2: freeze, timer, announcement)", () => {
+    const lessonClass = () => {
+      const { room, teacher } = classWithTeacher();
+      const kid = new Peer();
+      room.joinStudent(kid, "Ara");
+      room.handle(kid, { t: "k-move", pos: [10.5, 4, 10.5], yaw: 0, anim: "idle" });
+      return { room, teacher, kid };
+    };
+
+    it("every join is told the lesson state (an empty one too, so a stale freeze drops)", () => {
+      const { kid } = lessonClass();
+      expect(kid.last("s-k-lesson")).toEqual({ t: "s-k-lesson" });
+    });
+
+    it("freeze: students can't build, chat or tap, and moving away is put back; the teacher can", () => {
+      const { room, teacher, kid } = lessonClass();
+      room.handle(teacher, { t: "k-lesson", freeze: true });
+      expect(kid.last("s-k-lesson")).toEqual({ t: "s-k-lesson", frozen: true });
+      room.handle(kid, { t: "k-edit", edits: [[10, 4, 11, 3, 0]] });
+      expect(kid.last("s-k-reject")).toBeDefined();
+      room.handle(kid, { t: "k-furniture", placed: [["chair", 10, 4, 12, 0, 0]], removed: [] });
+      expect(kid.last("s-k-furniture")!.rejected).toBe(true);
+      const chats = teacher.inbox.filter((m) => m.t === "s-k-chat").length;
+      room.handle(kid, { t: "k-chat", text: "hi" });
+      expect(teacher.inbox.filter((m) => m.t === "s-k-chat").length).toBe(chats);
+      // a small shuffle is fine; walking off is put back where they were frozen
+      room.handle(kid, { t: "k-move", pos: [11, 4, 10.5], yaw: 0, anim: "idle" });
+      expect(kid.last("s-k-gather")).toBeUndefined();
+      room.handle(kid, { t: "k-move", pos: [20, 4, 10.5], yaw: 0, anim: "run" });
+      expect(kid.last("s-k-gather")).toEqual({ t: "s-k-gather", pos: [10.5, 4, 10.5], nudge: true });
+      // the teacher is not frozen
+      room.handle(teacher, { t: "k-edit", edits: [[30, 4, 30, 3, 0]] });
+      expect(teacher.last("s-k-reject")).toBeUndefined();
+      // let go: building works again
+      room.handle(teacher, { t: "k-lesson", freeze: false });
+      expect(kid.last("s-k-lesson")).toEqual({ t: "s-k-lesson" });
+      kid.inbox.length = 0;
+      room.handle(kid, { t: "k-edit", edits: [[10, 4, 11, 3, 0]] });
+      expect(kid.last("s-k-reject")).toBeUndefined();
+    });
+
+    it("a gather while frozen moves the class and holds them THERE", () => {
+      const { room, teacher, kid } = lessonClass();
+      room.handle(teacher, { t: "k-move", pos: [100, 4, 100], yaw: 0, anim: "idle" });
+      room.handle(teacher, { t: "k-lesson", freeze: true });
+      room.handle(teacher, { t: "k-gather" });
+      kid.inbox.length = 0;
+      room.handle(kid, { t: "k-move", pos: [102, 4, 100], yaw: 0, anim: "idle" }); // where the gather put us
+      room.handle(kid, { t: "k-move", pos: [102.5, 4, 100], yaw: 0, anim: "idle" });
+      expect(kid.last("s-k-gather")).toBeUndefined();
+    });
+
+    it("only the teacher runs the lesson tools", () => {
+      const { room, kid } = lessonClass();
+      room.handle(kid, { t: "k-lesson", freeze: true, timer: 60 });
+      room.handle(kid, { t: "k-announce", text: "free time!" });
+      expect(kid.last("s-k-lesson")).toEqual({ t: "s-k-lesson" });
+      expect(kid.last("s-k-announce")).toBeUndefined();
+    });
+
+    it("timer: everyone sees it, late joiners get the time LEFT, and it ends by itself", () => {
+      vi.useFakeTimers();
+      try {
+        vi.setSystemTime(new Date("2026-11-06T09:00:00Z"));
+        const { room, teacher, kid } = lessonClass();
+        room.handle(teacher, { t: "k-lesson", timer: 180 });
+        expect(kid.last("s-k-lesson")).toEqual({ t: "s-k-lesson", timerLeft: 180_000, timerTotal: 180_000 });
+        vi.setSystemTime(new Date("2026-11-06T09:01:00Z"));
+        const late = new Peer();
+        room.joinStudent(late, "Yuna");
+        expect(late.last("s-k-lesson")).toEqual({ t: "s-k-lesson", timerLeft: 120_000, timerTotal: 180_000 });
+        vi.setSystemTime(new Date("2026-11-06T09:03:00Z"));
+        room.snapshot();
+        expect(kid.last("s-k-lesson")).toEqual({ t: "s-k-lesson" });
+        expect(kid.last("s-k-chat")!.text).toContain("시간");
+        // 0 stops a running timer
+        room.handle(teacher, { t: "k-lesson", timer: 60 });
+        room.handle(teacher, { t: "k-lesson", timer: 0 });
+        expect(kid.last("s-k-lesson")).toEqual({ t: "s-k-lesson" });
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it("a deploy (save → restore) keeps the freeze and the timer's end; 수업 종료 clears them", () => {
+      const { room, teacher } = lessonClass();
+      room.handle(teacher, { t: "k-lesson", freeze: true, timer: 300 });
+      const saved = JSON.parse(JSON.stringify(room.toSaved())) as ReturnType<ClassRoom["toSaved"]>;
+      expect(saved.lesson?.frozen).toBe(true);
+      const back = new ClassRoom("Ms Kim", AUTH, readSaved(saved)!);
+      const key = room.toSaved().students.find((s) => s.name === "Ara")!.key;
+      const kid = new Peer();
+      back.joinStudent(kid, "Ara", key);
+      const lesson = kid.last("s-k-lesson")!;
+      expect(lesson.frozen).toBe(true);
+      expect(lesson.timerTotal).toBe(300_000);
+      expect(lesson.timerLeft).toBeGreaterThan(290_000);
+      back.close();
+      expect(back.toSaved().lesson).toBeUndefined();
+      // a damaged saved lesson reads as none, never a throw
+      expect(readSaved({ ...saved, lesson: { frozen: "yes", timerEnd: "soon" } })!.lesson).toBeUndefined();
+    });
+
+    it("announcements reach everyone, without control characters", () => {
+      const { room, teacher, kid } = lessonClass();
+      room.handle(teacher, { t: "k-announce", text: "정리‮할 시간" });
+      expect(kid.last("s-k-announce")).toEqual({ t: "s-k-announce", text: "정리 할 시간" });
+      expect(teacher.last("s-k-announce")).toBeDefined();
+      expect(decodeClassClient(JSON.stringify({ t: "k-announce", text: "x".repeat(61) }))).toBeNull();
+    });
+  });
 });

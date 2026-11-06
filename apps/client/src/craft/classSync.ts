@@ -9,6 +9,7 @@ import { CharacterRig, disposeRig } from "../player/rig.js";
 import type { ClassClient, ClassSession } from "../net/classClient.js";
 import { ClassHud } from "./classHud.js";
 import { SeatingView } from "./seatingView.js";
+import { LessonOverlay } from "./lessonOverlay.js";
 import { turnToward } from "./smoothing.js";
 import { RemoteTrack, SnapClock, type TrackPose } from "./remoteTrack.js";
 import { SOLID_ID, blockById } from "./blocks.js";
@@ -93,6 +94,8 @@ export interface ClassSyncHooks {
   bonked?(push: { vx: number; vz: number; vy: number }): void;
   /** The connect sound, for everyone who can see it, at the chest that was hit (grid metres). */
   impact?(x?: number, y?: number, z?: number): void;
+  /** A lesson cue: an announcement arrived, or the class timer ran out. */
+  chime?(kind: "announce" | "time"): void;
   /** A classmate's sound at a grid position (their steps, digs, blows, bricks). */
   sound?: (kind: ClassmateSound, family: string, x: number, y: number, z: number, wet?: boolean) => void;
 }
@@ -176,6 +179,9 @@ export class ClassSync {
     else this.early.push(fn);
   }
 
+  /** The teacher's lesson tools on screen (timer, freeze card, announcements). */
+  private readonly lesson: LessonOverlay;
+
   /** The plots as the server sent them (absolute), and whether students may leave theirs. */
   private seats: { name: string; pos: [number, number, number]; yaw: number }[] = [];
   private roam = false;
@@ -194,6 +200,7 @@ export class ClassSync {
     this.session = { you: session.you, role: session.role };
     this.fx = new BonkFx(scene);
     this.seating = new SeatingView(scene);
+    this.lesson = new LessonOverlay(session.role, () => hooks.chime?.("time"));
     this.online = client.connected;
     this.members = session.members;
     this.settings = session.settings;
@@ -219,6 +226,16 @@ export class ClassSync {
         client.send(yaw === undefined || !Number.isFinite(yaw) ? { t: "k-arrange" } : { t: "k-arrange", yaw });
         hooks.toast(t("🪑 학생마다 15×20칸 땅을 나눠 줬어요", "🪑 Every student got a 15×20 plot of their own"));
       },
+      freeze: (on) => {
+        client.send({ t: "k-lesson", freeze: on });
+        hooks.toast(on ? t("✋ 학생들을 멈췄어요 — F2 → 5로 풀어요", "✋ The students are frozen — F2 → 5 lets them go") : t("▶️ 학생들이 다시 움직여요", "▶️ The students can move again"));
+      },
+      timer: (sec) => {
+        client.send({ t: "k-lesson", timer: sec });
+        if (sec === 0) hooks.toast(t("⏱️ 타이머를 껐어요", "⏱️ Timer stopped"));
+      },
+      announce: (text) => client.send({ t: "k-announce", text }),
+      visit: (m) => this.visit(m),
       toolsOpen: (open, resume) => {
         hooks.clearKeys();
         if (open) document.exitPointerLock();
@@ -277,7 +294,7 @@ export class ClassSync {
       this.seats = seats;
       this.roam = roam;
       this.seating.set(seats);
-      this.hud.setSeated(seats.length > 0, roam);
+      this.hud.setSeated(seats.length > 0, roam, seats.map((x) => x.name));
       // tell a student when the TEACHER lets them out or calls them back (a new seating or our own
       // plot appearing has its own toast with the seat — never two at once)
       if (this.session.role === "student" && seats.length > 0 && wasRoam !== roam) {
@@ -285,6 +302,17 @@ export class ClassSync {
         if (wasKept && !kept) this.whenStarted(() => hooks.toast(t("🚶 이제 자유롭게 돌아다닐 수 있어요", "🚶 You may roam now")));
         else if (!wasKept && kept) this.whenStarted(() => hooks.toast(t("🪑 자기 자리로 — 선생님이 풀어 줄 때까지 울타리 안에서 움직여요", "🪑 Back to your plot — stay inside the fence until the teacher lets you out")));
       }
+    };
+    client.onLesson = (lesson) => {
+      const was = this.lesson.frozen;
+      this.lesson.set(lesson);
+      this.hud.setLesson(lesson);
+      if (lesson.frozen && !was && this.session.role === "student") this.whenStarted(() => hooks.clearKeys());
+    };
+    client.onAnnounce = (text) => {
+      this.lesson.announce(text);
+      this.hud.chat("", "teacher", `📢 ${text}`, true);
+      this.whenStarted(() => hooks.chime?.("announce"));
     };
     client.onGather = ([ax, y, az], yaw, nudge) => this.whenStarted(() => {
       const [x, z] = field.toGrid(ax, az);
@@ -413,9 +441,29 @@ export class ClassSync {
     return this.session.role;
   }
 
-  /** Students can't touch blocks while the teacher has building locked. */
+  /** Students can't touch blocks while the teacher has building locked (or the class frozen). */
   canBuild(): boolean {
-    return this.online && (this.session.role === "teacher" || !this.settings.buildLocked);
+    return this.online && (this.session.role === "teacher" || (!this.settings.buildLocked && !this.lesson.frozen));
+  }
+
+  /** The teacher froze the class (모두 멈춰) and we are a student: no moving, building or taps. */
+  get frozen(): boolean {
+    return this.session.role === "student" && this.lesson.frozen;
+  }
+
+  /** The teacher goes to a student: 3 m in front of them, facing them (they see the teacher arrive
+   *  and the teacher sees their face and what they are building). */
+  private visit(member: ClassMember): void {
+    const r = this.remotes.get(member.id);
+    if (!r) {
+      this.hooks.toast(t(`📍 ${member.name} 학생의 위치를 아직 몰라요 — 잠시 후 다시 해 봐요`, `📍 ${member.name}'s position hasn't arrived yet — try again in a moment`));
+      return;
+    }
+    const fx = Math.sin(r.yaw), fz = Math.cos(r.yaw);
+    const [x, z] = this.field.toGrid(r.target.x + fx * 3, r.target.z + fz * 3);
+    this.hooks.teleport(x, r.target.y + 0.5, z);
+    this.hooks.face?.(r.yaw + Math.PI);
+    this.hooks.toast(t(`👀 ${member.name} 학생에게 왔어요`, `👀 You're at ${member.name}'s side`));
   }
 
   /** A local block change (grid coordinates) — queue it for the class. */
@@ -457,7 +505,7 @@ export class ClassSync {
 
   /** False while the teacher has taps switched off: a click on a classmate digs as usual. */
   get tapsAllowed(): boolean {
-    return this.settings.tapsLocked !== true;
+    return this.settings.tapsLocked !== true && !this.frozen;
   }
 
   sendBonk(target: string, yaw: number, pitch: number, seq: number): void {
@@ -802,6 +850,10 @@ export class ClassSync {
       plots: this.seats.map((x) => ({ name: x.name, pos: x.pos })),
       roam: this.roam,
       kept: this.keptIn(),
+      /** The lesson overlay as drawn (timer text, freeze card, announcement). */
+      lesson: this.lesson.state(),
+      toolsOpen: this.hud.toolsOpen,
+      canBuild: this.canBuild(),
       members: this.members.map((m) => ({ name: m.name, role: m.role, online: m.online })),
       remotes: [...this.remotes.entries()].map(([id, r]) => ({
         id,
@@ -822,6 +874,7 @@ export class ClassSync {
     for (const id of [...this.remotes.keys()]) this.dropRemote(id);
     this.fx.dispose();
     this.seating.dispose();
+    this.lesson.dispose();
     this.hud.dispose();
     this.client.close();
     this.pending.clear(); this.outbox.length = 0; this.members = [];

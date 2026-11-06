@@ -16,8 +16,8 @@ import { characterIdSchema, emoteIdSchema, characterActionSchema, heldItemSchema
  * selected with `?mode=class`.
  */
 
-/** 3: named classrooms. 4: water. 5: paced live-world streaming + reliable replay. 6: character emotes and low postures. 7: construction shapes through code 50. 8: light player taps. 9: half blocks and stairs. 10: water inside shaped blocks (s-k-wet). */
-export const CLASS_PROTOCOL_VERSION = 11;
+/** 3: named classrooms. 4: water. 5: paced live-world streaming + reliable replay. 6: character emotes and low postures. 7: construction shapes through code 50. 8: light player taps. 9: half blocks and stairs. 10: water inside shaped blocks (s-k-wet). 11: plot nudges. 12: lesson tools (freeze, timer, announcements). */
+export const CLASS_PROTOCOL_VERSION = 12;
 /** Highest block layer of the field grid (WORLD_Y - 1). */
 export const CLASS_MAX_Y = 55;
 /** Field coordinates are bounded so a hostile client can't grow the store
@@ -26,6 +26,10 @@ export const CLASS_MAX_COORD = 1_000_000;
 const COORD = CLASS_MAX_COORD;
 export const CLASS_MAX_STUDENTS = 40;
 export const CLASS_CHAT_MAX = 120;
+/** A big on-screen announcement (F2 → 공지), shorter than a chat line: it is read from across the room. */
+export const CLASS_ANNOUNCE_MAX = 60;
+/** The lesson timer's longest run (s): one class period and then some. */
+export const CLASS_TIMER_MAX_S = 60 * 60;
 export const CLASS_PASSWORD_MIN = 4;
 export const CLASS_PASSWORD_MAX = 32;
 
@@ -134,6 +138,15 @@ export const classClientSchema = z.discriminatedUnion("t", [
    *  (the plots go in front of the view; without it, the body's heading). `roam` alone lets the
    *  students walk off their plots (true) or sends them back and keeps them in (false). */
   z.object({ t: z.literal("k-arrange"), clear: z.boolean().optional(), yaw: z.number().finite().optional(), roam: z.boolean().optional() }),
+  /** Lesson-wide state (F2): `freeze` stops every student (no moving, building, chatting or taps —
+   *  "eyes on me"); `timer` starts a countdown everyone sees (seconds; 0 stops it). */
+  z.object({
+    t: z.literal("k-lesson"),
+    freeze: z.boolean().optional(),
+    timer: z.number().int().min(0).max(CLASS_TIMER_MAX_S).optional(),
+  }),
+  /** A big message in the middle of every screen for a few seconds (F2 → 공지). */
+  z.object({ t: z.literal("k-announce"), text: z.string().trim().min(1).max(CLASS_ANNOUNCE_MAX) }),
   z.object({ t: z.literal("k-settings"), chatLocked: z.boolean(), buildLocked: z.boolean(), tapsLocked: z.boolean().optional() }),
   z.object({ t: z.literal("k-end") }),
   /** Teacher wipes the saved field back to empty grass. */
@@ -241,6 +254,16 @@ export const classServerSchema = z.discriminatedUnion("t", [
     /** Students may walk off their plots (the teacher's 자유롭게 돌아다니기); absent = kept in. */
     roam: z.boolean().optional(),
   }),
+  /** The lesson's state (on change and on EVERY join): students frozen, and the timer — `timerLeft`
+   *  ms of `timerTotal` (absent: no timer). Clients count down on their own clock from arrival. */
+  z.object({
+    t: z.literal("s-k-lesson"),
+    frozen: z.boolean().optional(),
+    timerLeft: z.number().int().min(0).max(CLASS_TIMER_MAX_S * 1000).optional(),
+    timerTotal: z.number().int().min(1).max(CLASS_TIMER_MAX_S * 1000).optional(),
+  }),
+  /** The teacher's announcement: shown big in the middle of the screen for a few seconds. */
+  z.object({ t: z.literal("s-k-announce"), text: z.string().max(CLASS_ANNOUNCE_MAX) }),
   /** A tap connected. `at` is the chest in absolute field coordinates. */
   z.object({
     t: z.literal("s-k-bonk"),

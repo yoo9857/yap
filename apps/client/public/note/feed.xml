@@ -7,6 +7,56 @@
   <updated>2026-11-06T00:00:00+09:00</updated>
   <author><name>크래프트얍(CraftYap)</name></author>
   <entry xml:base="https://craftyap.com/">
+    <title>11월 6일 패치 노트 (3) — 수업 도구(F2) 새 단장: 모두 멈춰, 타이머, 큰 글씨 공지, 찾아가기</title>
+    <link href="https://craftyap.com/note/patch-2026-11-06-3/" />
+    <id>https://craftyap.com/note/patch-2026-11-06-3/</id>
+    <published>2026-11-06T00:00:00+09:00</published>
+    <updated>2026-11-06T00:00:00+09:00</updated>
+    <summary>선생님의 F2 수업 도구를 새로 만들었어요. 한 화면에서 반 전체를 보며 학생들을 멈추고, 타이머를 켜고, 화면 가운데에 공지를 띄우고, 학생 옆으로 바로 찾아갈 수 있어요.</summary>
+    <content type="html">&lt;h2&gt;한눈에 보기&lt;/h2&gt;
+&lt;p&gt;F2 수업 도구가 버튼 두 개짜리 목록에서 &lt;strong&gt;수업을 이끄는 한 화면&lt;/strong&gt;으로 바뀌었어요. 왼쪽에는 도구, 오른쪽에는 우리 반 학생들이 보여요. 위쪽 표시를 보면 지금 반이 어떤 상태인지(자리 배치 중, 멈춤, 남은 시간, 잠금) 한눈에 알 수 있어요.&lt;/p&gt;
+&lt;h2&gt;BEFORE / AFTER&lt;/h2&gt;
+&lt;p&gt;&lt;img src=&quot;/note/assets/20261106-f2-ba.webp&quot; alt=&quot;수업 도구 비교: 왼쪽 이전 창에는 자리 배치와 모두 모이기 두 줄만 있고, 오른쪽 새 창에는 자리·수업 진행·잠금 세 묶음의 그림 버튼 9개와 학생 목록, 위쪽에 자리 배치 중·모두 멈춤·5:00 표시가 보인다&quot;&gt;&lt;/p&gt;
+&lt;h2&gt;새로 추가&lt;/h2&gt;
+&lt;h3&gt;✋ 5 모두 멈춰!&lt;/h3&gt;
+&lt;ul&gt;
+&lt;li&gt;누르면 학생들이 &lt;strong&gt;움직이기, 블록·가구 바꾸기, 채팅, 친구 밀기&lt;/strong&gt;를 잠깐 멈춰요. 학생 화면 가운데에 &amp;quot;잠깐! 선생님을 봐 주세요&amp;quot;가 떠요.&lt;/li&gt;
+&lt;li&gt;다시 누르면(다시 움직이기) 풀려요. 멈춘 동안 &amp;#39;모두 모이기&amp;#39;를 하면 모인 자리에서 계속 멈춰 있어요.&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3&gt;⏱️ 6 타이머&lt;/h3&gt;
+&lt;ul&gt;
+&lt;li&gt;1분 · 3분 · 5분 · 10분 · 15분 중에 골라요. 모든 학생 화면 위쪽에 남은 시간이 링과 함께 보이고, 마지막 10초는 빨갛게 깜빡여요.&lt;/li&gt;
+&lt;li&gt;시간이 다 되면 소리와 함께 &amp;quot;끝!&amp;quot;이 떠요. 0번으로 언제든 끌 수 있어요.&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;&lt;img src=&quot;/note/assets/20261106-f2-timer.webp&quot; alt=&quot;타이머 고르기: 1분, 3분, 5분, 10분, 15분, 타이머 끄기 버튼과 오른쪽에 학생 목록&quot;&gt;&lt;/p&gt;
+&lt;h3&gt;📢 7 큰 글씨 공지&lt;/h3&gt;
+&lt;ul&gt;
+&lt;li&gt;&amp;quot;선생님을 봐 주세요&amp;quot;, &amp;quot;정리할 시간이에요&amp;quot; 같은 자주 쓰는 말을 숫자 키 하나로 보내요. 직접 써서 보낼 수도 있어요.&lt;/li&gt;
+&lt;li&gt;학생 화면 가운데에 6초 동안 크게 떠요. 채팅 기록에도 남아요.&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;&lt;img src=&quot;/note/assets/20261106-lesson-student.webp&quot; alt=&quot;학생 화면: 가운데에 &#39;선생님 공지 — 선생님을 봐 주세요&#39; 카드와 &#39;잠깐! 선생님을 봐 주세요&#39; 카드, 위쪽에 4:57 타이머&quot;&gt;&lt;/p&gt;
+&lt;h3&gt;👀 찾아가기&lt;/h3&gt;
+&lt;ul&gt;
+&lt;li&gt;오른쪽 학생 목록에서 &lt;strong&gt;찾아가기&lt;/strong&gt;를 누르면 그 학생 바로 앞으로 가서 학생을 바라봐요. 무엇을 만들고 있는지 바로 볼 수 있어요.&lt;/li&gt;
+&lt;li&gt;목록은 접속한 학생부터, 이름순으로 보여요. 자리 배치를 했으면 자기 자리가 있는지도 표시돼요.&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3&gt;🔒 8·9 잠금 스위치&lt;/h3&gt;
+&lt;ul&gt;
+&lt;li&gt;건축 잠금과 채팅 잠금을 켜고 끄는 스위치가 F2 안에도 생겼어요. 스위치는 눌러도 창이 닫히지 않아요.&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2&gt;개선&lt;/h2&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;도구 그림&lt;/strong&gt;을 새로 그렸어요(테두리 없는 말랑한 3D 스타일). 아직 쓸 수 없는 도구(자리 치우기, 돌아다니기)는 흐리게 보이고, 마우스를 올리면 이유가 나와요.&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;업데이트해도 그대로&lt;/strong&gt; — 멈춤과 타이머도 반과 함께 저장돼서, 수업 중에 사이트가 업데이트돼도 이어져요. 수업 종료를 누르면 함께 끝나요.&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;늦게 들어온 학생&lt;/strong&gt;도 지금 멈춤 중인지, 타이머가 몇 분 남았는지 바로 받아요.&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2&gt;알려진 문제&lt;/h2&gt;
+&lt;ul&gt;
+&lt;li&gt;앱(안드로이드)에서는 타이머가 화면에 표시되지 않고 채팅으로 알려 줘요. 멈춤과 공지는 앱에서도 돼요(멈추면 움직일 수 없고, 공지는 알림으로 떠요).&lt;/li&gt;
+&lt;/ul&gt;
+</content>
+  </entry>
+  <entry xml:base="https://craftyap.com/">
     <title>11월 6일 패치 노트 (2) — 수업 도구(F2): 아이마다 15×20칸 자기 땅</title>
     <link href="https://craftyap.com/note/patch-2026-11-06-2/" />
     <id>https://craftyap.com/note/patch-2026-11-06-2/</id>
@@ -608,44 +658,6 @@
 &lt;h2&gt;알려진 문제&lt;/h2&gt;
 &lt;ul&gt;
 &lt;li&gt;아직 업데이트하지 않은 브라우저 탭에서 접속한 친구는 이전 방식으로 보여요. 새로고침하면 새 방식이 적용돼요.&lt;/li&gt;
-&lt;/ul&gt;
-</content>
-  </entry>
-  <entry xml:base="https://craftyap.com/">
-    <title>11월 3일 패치 노트 (4) — 한 방에 50명, 사람이 많아도 부드럽게</title>
-    <link href="https://craftyap.com/note/patch-2026-11-03-4/" />
-    <id>https://craftyap.com/note/patch-2026-11-03-4/</id>
-    <published>2026-11-03T00:00:00+09:00</published>
-    <updated>2026-11-03T00:00:00+09:00</updated>
-    <summary>방을 50명까지 만들 수 있어요. 사람이 많아져도 친구 캐릭터가 순간이동하지 않고 부드럽게 움직이도록 네트워크와 화면 그리기를 고도화했고, 여러 사람이 동시에 누를 때 생기던 충돌도 정리했어요.</summary>
-    <content type="html">&lt;h2&gt;한눈에 보기&lt;/h2&gt;
-&lt;p&gt;이제 &lt;strong&gt;한 방에 50명&lt;/strong&gt;까지 모일 수 있어요. 사람이 많아질수록 느려지고 친구가 &lt;strong&gt;순간이동하듯 튀던 문제&lt;/strong&gt;를, 큰 온라인 게임들이 쓰는 방식으로 고쳤어요. 여러 명이 동시에 누를 때 생기던 &lt;strong&gt;충돌&lt;/strong&gt;도 정리했어요.&lt;/p&gt;
-&lt;h2&gt;BEFORE / AFTER&lt;/h2&gt;
-&lt;p&gt;&lt;strong&gt;대기실&lt;/strong&gt; — 8명이 최대였던 방이 50명까지 늘었어요. 9명이 넘는 방은 자리 카드 대신 한눈에 보이는 참가자 목록으로 바뀌고, 준비한 사람 수도 위에 보여요.&lt;/p&gt;
-&lt;p&gt;&lt;img src=&quot;/note/assets/20261103-room50-ba.webp&quot; alt=&quot;대기실 비교: 왼쪽은 8칸 자리 카드가 가득 찬 이전 화면, 오른쪽은 참가자 12/50명 목록과 준비 9/12가 보이는 새 화면&quot;&gt;&lt;/p&gt;
-&lt;h2&gt;새로 추가&lt;/h2&gt;
-&lt;ul&gt;
-&lt;li&gt;&lt;strong&gt;한 방 50명&lt;/strong&gt; — 방을 만들 때 최대 인원을 50명까지 고를 수 있어요. 고른 게임에 맞춰 선택지가 바뀌어요(함께 짓기 50명, Daily Tower 8명).&lt;/li&gt;
-&lt;li&gt;&lt;strong&gt;참가자 목록&lt;/strong&gt; — 큰 방은 방장이 맨 위, 접속한 사람이 먼저 보이는 목록으로 보여요.&lt;/li&gt;
-&lt;/ul&gt;
-&lt;h2&gt;개선&lt;/h2&gt;
-&lt;ul&gt;
-&lt;li&gt;&lt;strong&gt;친구가 부드럽게 움직여요&lt;/strong&gt; — 친구 캐릭터를 아주 조금(약 0.13초) 늦게, 받은 두 위치 사이를 이어서 그려요. 와이파이가 흔들려서 정보가 늦게 오거나 몰려 와도 순간이동하지 않아요. 멀리 있는 친구도 끊기지 않아요.&lt;/li&gt;
-&lt;li&gt;&lt;strong&gt;잠깐 멈춰도 튀지 않아요&lt;/strong&gt; — 서버나 인터넷이 잠깐 멈췄다 풀려도, 친구가 휙 튀는 대신 짧게 미끄러지듯 제자리로 돌아가요.&lt;/li&gt;
-&lt;li&gt;&lt;strong&gt;사람이 많아도 빨라요&lt;/strong&gt; — 화면 밖에 있는 친구는 그리지 않고, 가까운 10명만 그림자와 외곽선까지 그려요. 40명이 모인 방에서 화면이 초당 48장에서 &lt;strong&gt;60장&lt;/strong&gt;으로 부드러워졌어요.&lt;/li&gt;
-&lt;li&gt;&lt;strong&gt;서버가 가벼워졌어요&lt;/strong&gt; — 위치 정보를 한 번만 만들어 나눠 보내고, 멀리 있는 친구 정보는 덜 자주 보내요. 50명일 때 서버가 보내는 양이 &lt;strong&gt;약 4분의 1&lt;/strong&gt;로 줄었어요.&lt;/li&gt;
-&lt;/ul&gt;
-&lt;h2&gt;버그 수정&lt;/h2&gt;
-&lt;ul&gt;
-&lt;li&gt;&lt;strong&gt;시작을 두 번 누르면&lt;/strong&gt; 게임 중인 친구들까지 다시 이동하던 문제를 고쳤어요.&lt;/li&gt;
-&lt;li&gt;&lt;strong&gt;게임 중에 게임을 바꾸면&lt;/strong&gt; 새로 들어온 친구만 다른 게임으로 가던 문제를 막았어요.&lt;/li&gt;
-&lt;li&gt;&lt;strong&gt;방에 없는 사람이 친구 이름으로&lt;/strong&gt; 함께 짓기에 먼저 들어와 진짜 친구가 막히던 문제를 고쳤어요. 내보낸 친구도 다시 들어올 수 없어요.&lt;/li&gt;
-&lt;li&gt;사람이 많은 방에서 Daily Tower(8명까지)로 바꾸려 하면 이유를 알려 주고 막아요.&lt;/li&gt;
-&lt;/ul&gt;
-&lt;h2&gt;알려진 문제&lt;/h2&gt;
-&lt;ul&gt;
-&lt;li&gt;방은 서버가 업데이트되면 닫혀요.&lt;/li&gt;
-&lt;li&gt;아주 많은 사람(수백 명 이상)이 동시에 접속하려면 서버를 여러 대로 나누는 작업이 더 필요해요.&lt;/li&gt;
 &lt;/ul&gt;
 </content>
   </entry>

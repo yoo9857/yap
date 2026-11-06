@@ -462,6 +462,7 @@ export class CraftGame {
             if (overlapsShapedVoxel(this.pet.body, x, y, z, 0)) unstick(this.state.world, this.pet.body);
           },
           bonked: (push) => this.receiveBonk(push),
+          chime: (kind) => this.sfx.play(kind === "time" ? "clear" : "checkpoint"),
           impact: (x, y, z) => x === undefined ? this.sfx.play("bonk") : this.sfx.at(x, y!, z!, () => this.sfx.play("bonk")),
           sound: (kind, family, x, y, z, wet) => this.sfx.at(x, y, z, () => {
             if (kind === "step") this.sfx.step(family, wet, 0.8);
@@ -715,6 +716,15 @@ export class CraftGame {
     }
   }
   private fenceToldAt = -Infinity;
+
+  /** Moving while frozen: say why, now and then (the big card is already on screen). */
+  private tellFrozen(): void {
+    const now = performance.now();
+    if (now - this.frozenToldAt < 5000) return;
+    this.frozenToldAt = now;
+    this.hud.toast(t("✋ 지금은 멈춰 있어요 — 선생님이 풀어 줄 때까지 기다려요", "✋ You're frozen — wait until the teacher lets you go"));
+  }
+  private frozenToldAt = -Infinity;
 
   /**
    * Dev (solo field): lay out the teacher's 자리 배치 for `count` stand-in students in front of the
@@ -1020,14 +1030,17 @@ export class CraftGame {
     }
     let fwd = 0;
     let strafe = 0;
-    if (this.locked && this.posture !== "lie" && this.postureDelay <= 0 && !this.rig.postureBusy && !this.emoteMenu.open) {
+    // the teacher froze the class (F2 → 모두 멈춰): a student stands still until let go
+    const frozen = this.sync?.frozen === true;
+    if (frozen && movement) this.tellFrozen();
+    if (!frozen && this.locked && this.posture !== "lie" && this.postureDelay <= 0 && !this.rig.postureBusy && !this.emoteMenu.open) {
       if (this.keys.has("KeyW")) fwd += 1;
       if (this.keys.has("KeyS")) fwd -= 1;
       if (this.keys.has("KeyA")) strafe -= 1;
       if (this.keys.has("KeyD")) strafe += 1;
     }
     // dev hook (`__roboCraft.debugWalk`): hold movement without a captured mouse, for headless checks
-    if (this.debugWalkInput) { fwd = this.debugWalkInput[1]; strafe = this.debugWalkInput[0]; }
+    if (this.debugWalkInput && !frozen) { fwd = this.debugWalkInput[1]; strafe = this.debugWalkInput[0]; }
     const [rawX, rawZ] = wishFromInput(this.yaw, fwd, strafe);
     // the way the keys point (camera-relative), for the body to turn toward
     if (fwd || strafe) this.moveYaw = Math.atan2(rawX, rawZ);
@@ -1048,7 +1061,7 @@ export class CraftGame {
     const wishX = this.wishX * this.moveRatio;
     const wishZ = this.wishZ * this.moveRatio;
     this.prevVy = this.body.vy;
-    this.perf.time("physics", () => stepBody(this.state.world, this.body, dt, wishX, wishZ, this.locked && this.posture === "stand" && this.postureDelay <= 0 && !this.rig.postureBusy && this.keys.has("Space"), this.knockX, this.knockZ));
+    this.perf.time("physics", () => stepBody(this.state.world, this.body, dt, wishX, wishZ, !frozen && this.locked && this.posture === "stand" && this.postureDelay <= 0 && !this.rig.postureBusy && this.keys.has("Space"), this.knockX, this.knockZ));
     this.keepInPlot();
     const knockKeep = Math.exp(-BONK_DECAY * dt);
     this.knockX *= knockKeep;

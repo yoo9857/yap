@@ -136,6 +136,10 @@ pub struct ClassSession {
     /// The last gather was a nudge back inside the student's plot fence (the app draws no fence:
     /// it says why instead).
     pub gather_nudge: bool,
+    /// The teacher froze the class (F2 → 모두 멈춰): a student stands still and builds nothing.
+    pub frozen: bool,
+    /// Lines to show as toasts: the teacher's announcements and lesson changes.
+    pub notices: Vec<String>,
     /// The server's furniture layout (absolute cells) and a counter bumped on every change.
     pub furniture: Vec<Furniture>,
     pub furniture_version: u64,
@@ -165,6 +169,8 @@ impl ClassSession {
             move_timer: 0.0,
             gather: None,
             gather_nudge: false,
+            frozen: false,
+            notices: Vec::new(),
             furniture: Vec::new(),
             furniture_version: 0,
         }
@@ -276,6 +282,14 @@ impl ClassSession {
                 self.gather_nudge = nudge.unwrap_or(false);
             }
             ClassServer::Settings { settings } => self.settings = Some(settings),
+            ClassServer::Lesson { frozen, .. } => {
+                let frozen = frozen.unwrap_or(false);
+                if frozen != self.frozen && !self.teacher {
+                    self.notices.push(if frozen { "✋ 잠깐! 선생님을 봐 주세요".into() } else { "▶️ 다시 움직일 수 있어요".into() });
+                }
+                self.frozen = frozen;
+            }
+            ClassServer::Announce { text } => self.notices.push(format!("📢 {text}")),
             ClassServer::Kicked => self.ended = Some(Ended::Kicked),
             ClassServer::Closed => self.ended = Some(Ended::Closed),
             ClassServer::Error { code } => self.ended = Some(Ended::Error(code)),

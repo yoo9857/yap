@@ -647,6 +647,7 @@ impl App {
         // the server's changes into the window
         let (mut dirty, mut reset, mut gather) = (HashSet::new(), false, None);
         let mut nudged = false;
+        let mut notices = Vec::new();
         if let (Some(c), Some(field)) = (self.menu.class_mut(), self.field.as_mut()) {
             if std::mem::take(&mut c.reset) {
                 field.reset();
@@ -675,6 +676,7 @@ impl App {
                 gather = Some([gx, p[1], gz]);
                 nudged = std::mem::take(&mut c.gather_nudge);
             }
+            notices = std::mem::take(&mut c.notices);
         }
         if let Some(field) = &self.field {
             self.world = field.world.clone();
@@ -689,6 +691,9 @@ impl App {
         if nudged {
             // the teacher keeps the class on its plots: the server put us back inside our fence
             self.menu.toast("지금은 내 자리 안에서만 움직여요");
+        }
+        for line in notices {
+            self.menu.toast(line);
         }
         if let Some(at) = gather {
             self.player.teleport(&self.world, at);
@@ -734,7 +739,7 @@ impl App {
         self.input.build_buttons = self.menu.focus.is_none();
         // classmates where they are drawn (grid coordinates): no block goes inside one
         let classmates: Vec<craftyap_core::body::Body> = self.menu.class_mut().map(|c| c.remotes.values().filter_map(|r| r.last_drawn).map(|g| craftyap_core::body::Body::at(g[0], g[1], g[2])).collect()).unwrap_or_default();
-        let locked = self.menu.class_mut().is_some_and(|c| !c.teacher && c.settings.as_ref().is_some_and(|s| s.build_locked));
+        let locked = self.menu.class_mut().is_some_and(|c| !c.teacher && (c.frozen || c.settings.as_ref().is_some_and(|s| s.build_locked)));
         let edits = if locked { self.dig.stop(); Vec::new() } else { self.build_frame(dt, &classmates) };
         self.update_ghost(&classmates);
         if !edits.is_empty() {
@@ -1597,8 +1602,15 @@ impl App {
         let pinch = self.input.take_pinch();
         self.follow.zoom_by(-pinch * 0.04);
         self.player.first_person = self.follow.first_person();
+        // the teacher froze the class: a student looks around but does not move
+        let frozen = self.menu.class_mut().is_some_and(|c| !c.teacher && c.frozen);
         let st = &self.menu.profile.settings;
         let mut intent = self.input.intent(st.sensitivity, st.invert_y);
+        if frozen {
+            intent.forward = 0.0;
+            intent.strafe = 0.0;
+            intent.jump = false;
+        }
         if self.posture != Posture::Stand {
             if intent.forward != 0.0 || intent.strafe != 0.0 || intent.jump {
                 self.posture = Posture::Stand;

@@ -71,6 +71,19 @@ const ASSETS = [
   // the lobby's big start button (wide, stretched by its rounded ends)
   ["btn-start", "1536x1024", "A wide pill-shaped start button across the middle of the canvas (about 85% of the width, 30% of the height): sunny-yellow soft satin plastic, a row of small round studs along its top edge, a soft darker golden underside so it looks pressable, a gentle highlight on the upper half. Plain face, nothing written on it. Everything else transparent."],
   ["btn-start-pressed", "1536x1024", "The same wide yellow pill start button pressed down: the darker underside almost gone, the face a touch darker and lower, studs along the top. Plain face. Everything else transparent."],
+  // the teacher's F2 class tools: one icon family with the nav rail (same size, weight, light)
+  ["tool-seat", "1024x1024", `${ICON} Subject: a small square patch of green grass ground seen from slightly above, bordered by a low cream picket fence, with a tiny yellow wooden name sign on a post at its front edge.`],
+  ["tool-gather", "1024x1024", `${ICON} Subject: a chunky sunny-yellow megaphone pointing right with three small soft sky-blue sound arcs in front of it.`],
+  ["tool-clear", "1024x1024", `${ICON} Subject: a cute chunky broom with a warm wood handle and a sunny-yellow bristle head sweeping up two small cream fence pieces.`],
+  ["tool-roam", "1024x1024", `${ICON} Subject: a pair of chunky rounded sneaker shoe prints walking diagonally, sky blue with cream soles.`],
+  ["tool-home", "1024x1024", `${ICON} Subject: a chunky cream wooden school chair with a small sunny-yellow seat cushion and a soft green curved arrow pointing down into it.`],
+  ["tool-freeze", "1024x1024", `${ICON} Subject: a big friendly open hand raised palm forward (a gentle "stop, look here" gesture), coral red sleeve cuff, cream hand, with a small soft sky-blue snowflake badge on the corner.`],
+  ["tool-timer", "1024x1024", `${ICON} Subject: a chunky round stopwatch in sunny yellow with a cream face, one soft navy hand, a button on top, a coral red quarter wedge marking time on the face.`],
+  ["tool-visit", "1024x1024", `${ICON} Subject: a pair of chunky rounded binoculars in soft navy with sky-blue glossy lenses.`],
+  ["tool-announce", "1024x1024", `${ICON} Subject: a small rounded cream billboard sign on two wooden legs with a big coral red exclamation-shaped balloon floating above it (no letters).`],
+  ["tool-lock-build", "1024x1024", `${ICON} Subject: a single cream toy brick with four studs and a chunky golden padlock hanging on its front.`],
+  ["tool-lock-chat", "1024x1024", `${ICON} Subject: a white rounded speech bubble with a chunky golden padlock in front of its lower corner.`],
+  ["tool-teacher", "1024x1024", `${ICON} Subject: a soft green chalkboard with a small sunny-yellow star and a cream apple resting on its wooden ledge.`],
   // animated sheets
   ["fx-crack", "1536x1024", `${SHEET} Subject: cracks spreading over a square block face, drawn as deep recessed fissures (dark grey-brown inside with a pale lit edge on one side, NOT ink lines; no block, no fill): frame 1 a tiny chip at the centre, frame 6 cracks reaching all four edges, each frame a little more cracked.`],
   ["fx-poof", "1536x1024", `${SHEET} Subject: a cute cartoon dust puff when a toy brick lands: frame 1 a tiny puff at the bottom centre, frames 2-4 three or four round cream clouds and small brick crumbs growing outward, frames 5-6 the clouds fading and shrinking away to almost nothing.`],

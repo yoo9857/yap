@@ -23,7 +23,7 @@ const SIZE = (name) =>
   : name.startsWith("btn-start") ? 1024
   : name.startsWith("btn-") || name.startsWith("stick-") ? 256
   : name.startsWith("fx-") ? 256
-  : name.startsWith("pet-") || name.startsWith("nav-") ? 192
+  : name.startsWith("pet-") || name.startsWith("nav-") || name.startsWith("tool-") ? 192
   : 640;
 
 mkdirSync(OUT, { recursive: true });

@@ -9,6 +9,10 @@ import type { VoxelView } from "../src/craft/voxelView.js";
 vi.mock("../src/craft/classHud.js", () => ({ ClassHud: class {
   setMembers() {} setSettings() {} setYou() {} setOnline() {} showEnded() {} chat() {} dispose() {}
 } }));
+// the lesson overlay is DOM only (driven end to end by tools/e2e-classroom.mjs)
+vi.mock("../src/craft/lessonOverlay.js", () => ({ LessonOverlay: class {
+  frozen = false; set(l: { frozen: boolean }) { this.frozen = l.frozen; } announce() {} state() { return { timer: null, frozen: this.frozen, announce: null }; } dispose() {}
+} }));
 vi.mock("../src/player/rig.js", async () => {
   const THREE = await import("three");
   return { CharacterRig: class { root = new THREE.Group(); update(_anim:string,_speed:number,_dt:number,context:unknown) {this.root.userData.motionContext=context;} setHeldItem(id:string|null,option:string){this.root.userData.heldItem=id;this.root.userData.toolOption=option;} flashHit() { this.root.userData.flashed = (Number(this.root.userData.flashed) || 0) + 1; } pop() { this.root.userData.popped = (Number(this.root.userData.popped) || 0) + 1; } performAction(id: string, seq: number) { this.root.userData.action = id; this.root.userData.actionSeq = seq; } setCharacter(id: string) { this.root.userData.characterId=id; } setEmote(id: string,seq: number) { this.root.userData.emote=id; this.root.userData.emoteSeq=seq; } setDetail(full: boolean) { this.root.userData.fullDetail=full; } }, disposeRig: (root: THREE.Object3D) => {

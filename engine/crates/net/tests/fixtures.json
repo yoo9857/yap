@@ -1,7 +1,7 @@
 {
  "versions": {
   "party": 1,
-  "class": 11
+  "class": 12
  },
  "partyClient": [
   {
@@ -146,7 +146,7 @@
  "classClient": [
   {
    "t": "k-host",
-   "v": 11,
+   "v": 12,
    "room": "햇살반",
    "teacher": "김선생",
    "password": "1234",
@@ -154,26 +154,26 @@
   },
   {
    "t": "k-host",
-   "v": 11,
+   "v": 12,
    "room": "햇살반",
    "teacher": "김선생"
   },
   {
    "t": "k-join",
-   "v": 11,
+   "v": 12,
    "room": "햇살반",
    "student": "Mina",
    "seatKey": "sk"
   },
   {
    "t": "k-join",
-   "v": 11,
+   "v": 12,
    "room": "햇살반",
    "student": "Mina"
   },
   {
    "t": "k-peek",
-   "v": 11,
+   "v": 12,
    "room": "햇살반"
   },
   {
@@ -298,6 +298,23 @@
   {
    "t": "k-arrange",
    "roam": true
+  },
+  {
+   "t": "k-lesson",
+   "freeze": true
+  },
+  {
+   "t": "k-lesson",
+   "timer": 300
+  },
+  {
+   "t": "k-lesson",
+   "freeze": false,
+   "timer": 0
+  },
+  {
+   "t": "k-announce",
+   "text": "선생님을 봐 주세요"
   },
   {
    "t": "k-settings",
@@ -576,6 +593,22 @@
    "t": "s-k-seats",
    "seats": [],
    "roam": true
+  },
+  {
+   "t": "s-k-lesson"
+  },
+  {
+   "t": "s-k-lesson",
+   "frozen": true
+  },
+  {
+   "t": "s-k-lesson",
+   "timerLeft": 179500,
+   "timerTotal": 180000
+  },
+  {
+   "t": "s-k-announce",
+   "text": "👏 모두 정말 잘했어요!"
   },
   {
    "t": "s-k-gather",

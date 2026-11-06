@@ -25,6 +25,25 @@ export interface SavedClass {
    *  students still get theirs and the class stays on its plots. Optional: older rows have none,
    *  and an older server (rollback) simply ignores it. */
   seating?: SavedSeating;
+  /** The lesson's state (F2): students frozen, and a running timer's end (epoch ms) and length.
+   *  Optional like `seating`: a deploy mid-countdown keeps it; older rows and servers do without. */
+  lesson?: SavedLesson;
+}
+
+export interface SavedLesson {
+  frozen: boolean;
+  timerEnd?: number;
+  timerTotal?: number;
+}
+
+/** A saved lesson state, checked field by field; malformed means none. */
+function readLesson(raw: unknown): SavedLesson | undefined {
+  if (!raw || typeof raw !== "object") return undefined;
+  const d = raw as Record<string, unknown>;
+  const timer = typeof d.timerEnd === "number" && Number.isFinite(d.timerEnd) && typeof d.timerTotal === "number" &&
+    Number.isInteger(d.timerTotal) && d.timerTotal > 0 && d.timerTotal <= 3_600_000;
+  const lesson: SavedLesson = { frozen: d.frozen === true, ...(timer ? { timerEnd: d.timerEnd as number, timerTotal: d.timerTotal as number } : {}) };
+  return lesson.frozen || lesson.timerEnd !== undefined ? lesson : undefined;
 }
 
 export interface SavedSeating {
@@ -85,6 +104,7 @@ export function readSaved(raw: unknown): SavedClass | null {
     settings: { chatLocked: settings.chatLocked === true, buildLocked: settings.buildLocked === true, ...(settings.tapsLocked === undefined ? {} : { tapsLocked: settings.tapsLocked === true }) },
     furniture: Array.isArray(d.furniture) ? (d.furniture as ClassFurniture[]) : undefined,
     seating: readSeating(d.seating),
+    lesson: readLesson(d.lesson),
   };
 }
 
