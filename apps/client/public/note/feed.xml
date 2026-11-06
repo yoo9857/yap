@@ -4,8 +4,52 @@
   <link href="https://craftyap.com/note/" />
   <link rel="self" href="https://craftyap.com/note/feed.xml" />
   <id>https://craftyap.com/note/</id>
-  <updated>2026-11-05T00:00:00+09:00</updated>
+  <updated>2026-11-06T00:00:00+09:00</updated>
   <author><name>크래프트얍(CraftYap)</name></author>
+  <entry xml:base="https://craftyap.com/">
+    <title>11월 6일 패치 노트 — 과학 모드: 풍력 발전기를 직접 지어요</title>
+    <link href="https://craftyap.com/note/patch-2026-11-06-1/" />
+    <id>https://craftyap.com/note/patch-2026-11-06-1/</id>
+    <published>2026-11-06T00:00:00+09:00</published>
+    <updated>2026-11-06T00:00:00+09:00</updated>
+    <summary>혼자 하는 교육 들판에서 T를 누르면 과학 모드가 열려요. 설계도를 펼치고 뼈대와 부품을 아래부터 하나씩 끼워 풍력 발전기를 세우고, 접지·발전기·전선·날개 조립 미니게임으로 전기가 만들어지는 원리를 배워요.</summary>
+    <content type="html">&lt;h2&gt;한눈에 보기&lt;/h2&gt;
+&lt;p&gt;혼자 하는 교육 들판에서 &lt;strong&gt;T를 누르면 과학 모드&lt;/strong&gt;가 열려요. 땅에 &lt;strong&gt;풍력 발전기 설계도&lt;/strong&gt;를 펼치고, 빛나는 칸에 &lt;strong&gt;뼈대를 아래층부터 차례로&lt;/strong&gt; 끼운 다음 &lt;strong&gt;발전기·날개·전선 단자&lt;/strong&gt;를 달면 발전기가 돌아가요. 중요한 부품 네 개는 끼우기 전에 &lt;strong&gt;미니게임&lt;/strong&gt;으로 직접 만들어 봐요.&lt;/p&gt;
+&lt;h2&gt;BEFORE / AFTER&lt;/h2&gt;
+&lt;p&gt;&lt;strong&gt;들판에서 T를 눌렀을 때&lt;/strong&gt; — 이전에는 손에 든 블록 모양만 돌아갔어요. 이제는 과학 모드가 켜지고, 위에 지금 할 일과 조작법이 나와요.&lt;/p&gt;
+&lt;p&gt;&lt;img src=&quot;/note/assets/20261106-science-t-ba.webp&quot; alt=&quot;T를 눌렀을 때 비교: 왼쪽 이전 화면은 위에 블록 모양 안내만 있고, 오른쪽 새 화면은 위에 과학 모드 표시와 지금 할 일 안내, 조작법이 보인다&quot;&gt;&lt;/p&gt;
+&lt;h2&gt;새로 추가&lt;/h2&gt;
+&lt;h3&gt;과학 모드 (T)&lt;/h3&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;설계도 펼치기&lt;/strong&gt; — 땅을 바라보면 발전기 설계도가 보이고, 오른쪽 클릭으로 펼쳐요. &lt;strong&gt;R&lt;/strong&gt;로 방향을 돌리고, 설계도 안에 블록·가구가 있거나 공중이면 펼쳐지지 않아요.&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;아이템 소켓으로 짓기&lt;/strong&gt; — 설계도의 빛나는 칸(소켓)을 보고 오른쪽 클릭 한 번이면, 가방에서 그 칸의 조각이 알아서 나와 끼워져요. 오른쪽 클릭을 &lt;strong&gt;꾹 누르고 있으면&lt;/strong&gt; 순서대로 계속 지어요.&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;아래부터 차례로&lt;/strong&gt; — 기초(바닥) → 문이 달린 2층 높이 탑 아랫부분 → 탑 → 탑 꼭대기 → 나셀·허브 순서예요. 아래층이 다 차야 위층 칸이 열리고, 뼈대가 다 서야 부품(발전기·날개·전선 단자) 칸이 열려요.&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;빼기·고르기&lt;/strong&gt; — 왼쪽을 꾹 누르면 위에서부터 다시 빼고, 가운데 클릭은 그 칸의 조각을 손에 들어요. &lt;strong&gt;X&lt;/strong&gt;로 설계도째 거둘 수 있어요.&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;켜고 돌리기&lt;/strong&gt; — 모든 칸이 차면 오른쪽 클릭으로 켜요. 날개가 돌고 전선 단자에서 전기가 흘러요. 칸이 하나라도 비면 돌지 않아요.&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3&gt;미니게임 네 가지&lt;/h3&gt;
+&lt;p&gt;중요한 조각은 끼우기 전에 미니게임을 끝내야 들어가요. ✕나 Esc로 닫으면 아무것도 끼워지지 않아요.&lt;/p&gt;
+&lt;p&gt;&lt;img src=&quot;/note/assets/20261106-science-minigames.webp&quot; alt=&quot;미니게임 네 장면: 접지하기(접지봉에 집게를 물린 장면), 자석과 코일(자석을 돌려 전구가 켜진 장면), 전선 연결(세 전선이 같은 색 단자에 꽂힌 장면), 날개 조립(날개 세 장을 단 허브가 도는 장면)&quot;&gt;&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;접지하기&lt;/strong&gt; (기초 중심) — 망치로 구리 접지봉을 네 번 쾅 박고, 접지선 집게를 끌어다 봉 머리에 물려요.&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;자석과 코일&lt;/strong&gt; (발전기) — 코일 안의 자석을 빙글빙글 돌려요. 돌릴 때만 바늘이 올라가고 전구가 켜져요.&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;전선 연결&lt;/strong&gt; (전선 단자) — 빨강은 +, 검정은 −, 초록·노랑은 접지 단자에 꽂아요. 틀린 단자에 꽂으면 찌릿! 하고 돌아와요.&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;날개 조립&lt;/strong&gt; (날개) — 날개 세 장을 허브 구멍에 &lt;strong&gt;한 칸씩 건너뛰어&lt;/strong&gt; 달고 볼트를 조이면 시험 회전을 해요. 한쪽에 몰아 달면 덜컹거려요.&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3&gt;건설 현황 (Tab)&lt;/h3&gt;
+&lt;ul&gt;
+&lt;li&gt;내 발전소의 진행률과 상태(짓는 중·부품 대기·준비됨·가동 중·점검)를 보여 줘요. 카드를 누르면 그 발전소 쪽으로 화살표가 생겨요.&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;마을 전기&lt;/strong&gt; — 돌아가는 발전기 하나가 마을 집 12채 중 3채에 불을 켜요. 바람 100 중에서 날개·발전기·전선을 거치며 얼마가 마을에 닿는지도 그림으로 보여 줘요.&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;&lt;img src=&quot;/note/assets/20261106-science-running.webp&quot; alt=&quot;돌아가는 풍력 발전기 옆에 선 캐릭터와 강아지. 발전기 위에 &#39;풍력 발전기 100% 가동 중&#39; 표시가 떠 있다&quot;&gt;&lt;/p&gt;
+&lt;p&gt;&lt;img src=&quot;/note/assets/20261106-science-board.webp&quot; alt=&quot;건설 현황 판: 마을 집 12채 중 3채에 불이 켜져 있고, 풍력 발전기 #1이 가동 중 100%로 보이며, 아래에 바람 100이 날개 45, 발전기 41, 전선 38로 줄어드는 그림이 있다&quot;&gt;&lt;/p&gt;
+&lt;h2&gt;알려진 문제&lt;/h2&gt;
+&lt;ul&gt;
+&lt;li&gt;과학 모드는 아직 &lt;strong&gt;혼자 하는 교육 들판&lt;/strong&gt;에서만 열려요. 교실과 Craft Island에는 다음에 들어가요.&lt;/li&gt;
+&lt;li&gt;지금은 풍력 발전기 한 종류만 지을 수 있어요.&lt;/li&gt;
+&lt;/ul&gt;
+</content>
+  </entry>
   <entry xml:base="https://craftyap.com/">
     <title>모바일 버전 개발일지 (1) — 앱이 진짜 게임처럼 보이기 시작했어요</title>
     <link href="https://craftyap.com/note/mobile-devlog-1/" />
@@ -586,40 +630,6 @@
 &lt;li&gt;방은 서버가 업데이트되면 닫혀요. 그때 함께 짓던 들판도 처음부터 다시 시작해요.&lt;/li&gt;
 &lt;li&gt;방에서 내보낸 친구도 방 코드를 알면 함께 짓기 들판에 다시 들어올 수 있어요. 다음 업데이트에서 막을게요.&lt;/li&gt;
 &lt;li&gt;Daily Tower 방은 타워 시작 화면에서 [플레이]를 한 번 더 눌러야 해요.&lt;/li&gt;
-&lt;/ul&gt;
-</content>
-  </entry>
-  <entry xml:base="https://craftyap.com/">
-    <title>11월 3일 패치 노트 (2) — 새 첫 화면과 온라인 허브, 블록 질감의 새 메뉴</title>
-    <link href="https://craftyap.com/note/patch-2026-11-03-2/" />
-    <id>https://craftyap.com/note/patch-2026-11-03-2/</id>
-    <published>2026-11-03T00:00:00+09:00</published>
-    <updated>2026-11-03T00:00:00+09:00</updated>
-    <summary>첫 화면을 교육 모드 / 게임 모드(온라인) 두 갈래로 다시 만들고, 게임 모드를 고르면 온라인 허브가 열립니다. 교실 로비와 로딩 화면도 같은 디자인으로 맞추고, 메뉴의 테두리·버튼·아이콘을 장난감 블록 질감으로 새로 그렸어요.</summary>
-    <content type="html">&lt;h2&gt;한눈에 보기&lt;/h2&gt;
-&lt;p&gt;첫 화면부터 새로 만들었어요. 들어오면 &lt;strong&gt;교육 모드&lt;/strong&gt;와 &lt;strong&gt;게임 모드(온라인)&lt;/strong&gt; 중 하나를 고르고, 게임 모드를 고르면 게임과 소식이 한눈에 보이는 &lt;strong&gt;온라인 허브&lt;/strong&gt;가 열려요. 나무 게시판이던 &lt;strong&gt;교실 로비와 로딩 화면&lt;/strong&gt;도 같은 디자인으로 맞췄고, 메뉴의 &lt;strong&gt;테두리 · 버튼 · 아이콘&lt;/strong&gt;은 모두 장난감 블록 질감으로 새로 그렸어요.&lt;/p&gt;
-&lt;h2&gt;BEFORE / AFTER&lt;/h2&gt;
-&lt;p&gt;&lt;strong&gt;첫 화면&lt;/strong&gt; — 나무 게시판이 화면 가운데를 가리고 있었어요. 이제 배경의 큰 로고가 그대로 보이고, 아래쪽에 두 모드가 큼직한 카드로 나란히 있어요. 노트북에서도 스크롤 없이 한 화면에 들어와요.&lt;/p&gt;
-&lt;p&gt;&lt;img src=&quot;/note/assets/20261103-entry-ba.webp&quot; alt=&quot;첫 화면 비교: 왼쪽은 나무 게시판 안에 두 모드가 있는 이전 화면, 오른쪽은 로고 아래에 교육 모드와 게임 모드 카드가 나란히 있는 새 화면&quot;&gt;&lt;/p&gt;
-&lt;p&gt;&lt;strong&gt;온라인 허브&lt;/strong&gt; — 게임 모드를 고르면 게임 목록만 있던 게시판 대신 허브가 열려요. 가운데에 게임 4개와 큰 &lt;strong&gt;게임 시작&lt;/strong&gt; 버튼, 오른쪽 위에 최신 소식이 있어요.&lt;/p&gt;
-&lt;p&gt;&lt;img src=&quot;/note/assets/20261103-hub-ba.webp&quot; alt=&quot;게임 모드 화면 비교: 왼쪽은 나무 게시판의 게임 목록, 오른쪽은 패널과 게임 카드, 게임 시작 버튼이 있는 온라인 허브&quot;&gt;&lt;/p&gt;
-&lt;p&gt;&lt;strong&gt;교실 로비&lt;/strong&gt; — 교육 모드 안의 화면도 같은 흰 카드 디자인이 됐어요.&lt;/p&gt;
-&lt;p&gt;&lt;img src=&quot;/note/assets/20261103-edu-lobby-ba.webp&quot; alt=&quot;교실 로비 비교: 왼쪽은 나무 게시판, 오른쪽은 흰 카드로 바뀐 선생님 · 학생 · 혼자 하기 선택 화면&quot;&gt;&lt;/p&gt;
-&lt;h2&gt;새로 추가&lt;/h2&gt;
-&lt;ul&gt;
-&lt;li&gt;&lt;strong&gt;온라인 허브&lt;/strong&gt; — 게임 4개, 게임 시작 버튼, 최신 개발 노트 배너, 알림 종(새 글이 있으면 빨간 점)이 한 화면에 있어요.&lt;/li&gt;
-&lt;li&gt;&lt;strong&gt;게임 시작 버튼&lt;/strong&gt; — 지난번에 한 게임(처음에는 Craft Island)이 미리 골라져 있어서 한 번에 시작해요. 다른 카드에 마우스를 올리면 그 게임으로 바뀌어요.&lt;/li&gt;
-&lt;li&gt;&lt;strong&gt;곧 열릴 자리&lt;/strong&gt; — 친구, 데일리 미션, 출석 보상, 상점, 파티 찾기 같은 칸은 미리 자리만 두었어요. 누르면 &amp;quot;곧 열려요!&amp;quot;라고 알려 줘요.&lt;/li&gt;
-&lt;/ul&gt;
-&lt;h2&gt;개선&lt;/h2&gt;
-&lt;ul&gt;
-&lt;li&gt;&lt;strong&gt;교실 로비 · 로딩 화면&lt;/strong&gt; — 나무 게시판에서 흰 카드 디자인으로 바꿔 첫 화면 · 허브와 같은 모습이 됐어요.&lt;/li&gt;
-&lt;li&gt;&lt;strong&gt;블록 질감 메뉴&lt;/strong&gt; — 패널 테두리, 게임 카드, 게임 시작 버튼, 아이콘을 장난감 블록 느낌으로 새로 그렸어요. 패널은 진한 바탕이라 글자가 배경 그림에 묻히지 않아요.&lt;/li&gt;
-&lt;li&gt;&lt;strong&gt;뒤로 가기&lt;/strong&gt; — 허브에서는 왼쪽 위 뒤로 버튼이나 Esc로 첫 화면에 돌아가요.&lt;/li&gt;
-&lt;/ul&gt;
-&lt;h2&gt;알려진 문제&lt;/h2&gt;
-&lt;ul&gt;
-&lt;li&gt;허브의 친구 · 미션 · 출석 · 상점 등은 아직 준비 중이에요. 다음에는 &lt;strong&gt;방을 만들고 친구와 함께 들어가는 멀티 게임&lt;/strong&gt;을 준비하고 있어요.&lt;/li&gt;
 &lt;/ul&gt;
 </content>
   </entry>
