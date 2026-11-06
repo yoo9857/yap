@@ -11,6 +11,7 @@ import { ConnectionGate, WS_OPTIONS, clientAddress } from "../net/wsServer.js";
 import { PartyManager } from "../party/partyManager.js";
 import { HUB_ROUTE, LiveDirectory, PUBLIC_TOWER, partyFieldRoute, routeOf } from "./directory.js";
 import type { ShardCounts, ToPrimary, ToShard } from "./ipc.js";
+import { handoffPending } from "../net/handoff.js";
 
 /** A crashed shard comes back after this (its classes reload from the database on rejoin). */
 const RESPAWN_MS = 1000;
@@ -204,6 +205,11 @@ export function runPrimary(config: Config, staticRoot: string | null, shards: nu
         return;
       }
       const address = clientAddress(req);
+      if (handoffPending()) {
+        // a deploy is handing the games over to the new container: come back in a moment
+        refuse(req, socket, head, "busy");
+        return;
+      }
       if (!gate.admit(address)) {
         log.warn({ from: address, open: gate.total }, "connection refused: too many sockets");
         refuse(req, socket, head, "busy");

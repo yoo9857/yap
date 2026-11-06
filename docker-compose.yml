@@ -1,11 +1,16 @@
 # CraftYap — runs alongside the existing poke stack on the same host.
 # Isolation from poke: own project name, own host port, own bind-mounted DB.
-#   deploy:  docker compose up -d --build
+#   deploy:  docker compose build && bash scripts/zero-downtime-deploy.sh
+# Zero-downtime deploys run this file as TWO projects in turn — "craftyap" on 8082 and
+# "craftyap-green" on 8083 (HOST_PORT) — on the same image and the same data directory; nginx's
+# upstream (/etc/nginx/craftyap-upstream.conf) names the live one, /srv/craftyap/active-project too.
 name: craftyap
 
 services:
   app:
     build: .
+    # one image for both deploy colours (built once, started as either project)
+    image: craftyap-app:latest
     restart: unless-stopped
     env_file:
       - .env

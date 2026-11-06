@@ -6,6 +6,12 @@
 #   30 4 * * * /srv/craftyap/app/scripts/backup-db.sh >> /srv/craftyap/logs/backup.log 2>&1
 set -euo pipefail
 
+# zero-downtime deploys alternate two compose projects: talk to the live one
+if [[ -z "${COMPOSE_PROJECT_NAME:-}" && -s "${ACTIVE_FILE:-/srv/craftyap/active-project}" ]]; then
+  read -r COMPOSE_PROJECT_NAME _ < "${ACTIVE_FILE:-/srv/craftyap/active-project}"
+  export COMPOSE_PROJECT_NAME
+fi
+
 DB_DIR="${DB_DIR:-/srv/craftyap/data}"
 DB="${DB_DIR}/records.db"
 OUT_DIR="${OUT_DIR:-/srv/craftyap/backups}"

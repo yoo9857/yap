@@ -7,6 +7,7 @@ import { BonkFx } from "./bonkFx.js";
 import { CharacterRig, disposeRig } from "../player/rig.js";
 import type { ClassClient, ClassSession } from "../net/classClient.js";
 import { ClassHud } from "./classHud.js";
+import { SeatingView } from "./seatingView.js";
 import { turnToward } from "./smoothing.js";
 import { RemoteTrack, SnapClock, type TrackPose } from "./remoteTrack.js";
 import { SOLID_ID, blockById } from "./blocks.js";
@@ -69,6 +70,14 @@ export interface ClassSyncHooks {
   camera?(): THREE.Camera;
   /** Move the local player to grid coordinates (gather). */
   teleport(x: number, y: number, z: number): void;
+  /** Turn the player (body and view) to a heading — a seat faces the teacher. */
+  face?(yaw: number): void;
+  /** A class panel closed: capture the mouse again and go back to play. */
+  resumePlay?(): void;
+  /** The way the player looks (camera yaw): the teacher's plots go in front of the view. */
+  viewYaw?(): number;
+  /** Another panel owns the screen: the teacher's F2 tools wait. */
+  panelBusy?(): boolean;
   toast(text: string): void;
   clearKeys(): void;
   worldChanged?(): void;
@@ -152,6 +161,8 @@ export class ClassSync {
   private rankedAt = 0;
   private readonly pose: TrackPose = { x: 0, y: 0, z: 0, yaw: 0, speed: 0 };
   private readonly fx: BonkFx;
+  /** The teacher's seating: booths with dividers and name signs (F2 → 자리 배치). */
+  private readonly seating: SeatingView;
 
   constructor(
     readonly client: ClassClient,
@@ -166,6 +177,7 @@ export class ClassSync {
     // the live state; retain only identity, not a second obsolete world copy.
     this.session = { you: session.you, role: session.role };
     this.fx = new BonkFx(scene);
+    this.seating = new SeatingView(scene);
     this.online = client.connected;
     this.members = session.members;
     this.settings = session.settings;
@@ -178,6 +190,21 @@ export class ClassSync {
         client.send({ t: "k-gather" });
         hooks.toast(t("📣 학생들을 불렀어요", "📣 You called everyone over"));
       },
+      unarrange: () => {
+        client.send({ t: "k-arrange", clear: true });
+        hooks.toast(t("🧹 칸막이와 이름 팻말을 치웠어요", "🧹 Fences and name signs put away"));
+      },
+      arrange: () => {
+        const yaw = hooks.viewYaw?.();
+        client.send(yaw === undefined || !Number.isFinite(yaw) ? { t: "k-arrange" } : { t: "k-arrange", yaw });
+        hooks.toast(t("🪑 학생마다 15×20칸 땅을 나눠 줬어요", "🪑 Every student got a 15×20 plot of their own"));
+      },
+      toolsOpen: (open, resume) => {
+        hooks.clearKeys();
+        if (open) document.exitPointerLock();
+        else if (resume) hooks.resumePlay?.();
+      },
+      busy: () => hooks.panelBusy?.() ?? false,
       settings: (next) => client.send({ t: "k-settings", ...next }),
       end: () => client.send({ t: "k-end" }),
       resetWorld: () => client.send({ t: "k-reset-world" }),
@@ -224,8 +251,19 @@ export class ClassSync {
       }
     };
     client.onBonk = (msg) => this.applyBonk(msg);
-    client.onGather = ([ax, y, az]) => {
+    client.onSeats = (seats) => {
+      this.seating.set(seats);
+      this.hud.setSeated(seats.length > 0);
+    };
+    client.onGather = ([ax, y, az], yaw) => {
       const [x, z] = field.toGrid(ax, az);
+      if (yaw !== undefined) {
+        // a seat: exactly this spot, facing the teacher
+        hooks.teleport(x, y + 0.5, z);
+        hooks.face?.(yaw);
+        hooks.toast(t("🪑 내 자리를 받았어요 — 이름 팻말이 있는 15×20칸 땅이에요", "🪑 You got your own plot — the 15×20 one with your name sign"));
+        return;
+      }
       // fan out around the teacher instead of stacking in one cell
       const angle = Math.random() * Math.PI * 2;
       hooks.teleport(x + Math.cos(angle) * 2.5, y + 0.5, z + Math.sin(angle) * 2.5);
@@ -286,6 +324,11 @@ export class ClassSync {
       );
     };
     client.activate(); // replay reliable edits that arrived during world/graphics setup
+  }
+
+  /** The teacher's F2 class-tools panel is up (it owns the screen like the bag). */
+  get toolsOpen(): boolean {
+    return this.hud.toolsOpen;
   }
 
   get role(): "teacher" | "student" {
@@ -394,6 +437,7 @@ export class ClassSync {
   /** Per rendered frame: place remote robots in local grid space. */
   render(frameDt: number): void {
     this.frameNo++;
+    this.seating.update((ax, az) => this.field.toGrid(ax, az));
     const camera = this.hooks.camera?.();
     if (camera) {
       camera.updateMatrixWorld();
@@ -666,6 +710,8 @@ export class ClassSync {
       you: this.session.you,
       online: this.online,
       settings: this.settings,
+      /** Seats drawn (booths with dividers and name signs). */
+      seating: this.seating.count,
       members: this.members.map((m) => ({ name: m.name, role: m.role, online: m.online })),
       remotes: [...this.remotes.entries()].map(([id, r]) => ({
         id,
@@ -683,6 +729,7 @@ export class ClassSync {
   dispose(): void {
     for (const id of [...this.remotes.keys()]) this.dropRemote(id);
     this.fx.dispose();
+    this.seating.dispose();
     this.hud.dispose();
     this.client.close();
     this.pending.clear(); this.outbox.length = 0; this.members = [];

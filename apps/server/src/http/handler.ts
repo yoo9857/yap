@@ -3,6 +3,9 @@ import { existsSync, createReadStream, statSync } from "node:fs";
 import { extname, join, normalize, sep } from "node:path";
 import { log } from "../log.js";
 import { metricsAllowed } from "../metrics.js";
+import { hostname } from "node:os";
+
+const INSTANCE = hostname();
 
 /**
  * Static files (production single-port mode), /healthz, and the operator-only
@@ -50,8 +53,10 @@ function cacheControlFor(urlPath: string, resolvedFile: string): string {
 export function createRequestHandler(staticRoot: string | null, metrics: () => unknown, ready: () => boolean = () => true): RequestListener {
   return (req, res) => {
     if (req.url === "/healthz") {
-      if (ready()) res.writeHead(200, { "content-type": "text/plain" }).end("ok");
-      else res.writeHead(503, { "content-type": "text/plain", "retry-after": "1" }).end("starting");
+      // x-instance (the container's hostname): the zero-downtime deploy checks that nginx really
+      // reaches the NEW container before it stops the old one
+      if (ready()) res.writeHead(200, { "content-type": "text/plain", "x-instance": INSTANCE }).end("ok");
+      else res.writeHead(503, { "content-type": "text/plain", "retry-after": "1", "x-instance": INSTANCE }).end("starting");
       return;
     }
     if (req.url === "/metrics") {

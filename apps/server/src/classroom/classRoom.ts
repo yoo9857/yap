@@ -1,6 +1,6 @@
 import { FurnitureLayout, type PlacementWorld } from "@robo/shared/furniture/layout";
 import type { PlacedFurniture } from "@robo/shared/furniture/types";
-import { holdsFurniture, holdsWaterlog, shapeSeal, type ClassWet, type FluidChange } from "@robo/shared";
+import { holdsFurniture, holdsWaterlog, seatLayout, shapeSeal, type ClassWet, type FluidChange } from "@robo/shared";
 import type { RustModule } from "@robo/engine/node";
 import { randomBytes, randomUUID } from "node:crypto";
 import {
@@ -480,6 +480,10 @@ export class ClassRoom {
     return member;
   }
 
+  /** The teacher's plots (F2 → 자리 배치): drawn by everyone, sent again to whoever joins. Lives
+   *  with the room in memory (a lesson's arrangement, not part of the saved field). */
+  private seating: { name: string; pos: [number, number, number]; yaw: number }[] | null = null;
+
   private attach(member: Member, peer: ClassPeer): void {
     member.peer = peer;
     // a new connection is a new page: its clock (ct) starts again near 0, so the old order
@@ -510,6 +514,8 @@ export class ClassRoom {
     if (peer.streamWorld) {
       peer.streamWorld(this.worldBatches(keys, count), count);
       this.sendWet(peer); // replayed after the streamed world, like any reliable update
+      // always (an empty list when none): a reconnect after a deploy must drop fences this server never set
+      peer.send({ t: "s-k-seats", seats: this.seating ?? [] });
       this.broadcastMembers();
       return;
     }
@@ -525,6 +531,7 @@ export class ClassRoom {
     }
     if (batch.length > 0) peer.send({ t: "s-k-world", edits: batch });
     this.sendWet(peer);
+    peer.send({ t: "s-k-seats", seats: this.seating ?? [] });
     this.broadcastMembers();
   }
 
@@ -604,6 +611,31 @@ export class ClassRoom {
           }
         }
         return;
+      case "k-arrange": {
+        if (msg.clear) {
+          // broadcast even when this server holds none: fences drawn before a deploy or a restart
+          // (which this process never saw) must still come down for everyone
+          const had = this.seating !== null;
+          this.seating = null;
+          this.broadcast({ t: "s-k-seats", seats: [] });
+          if (had) this.system("선생님이 자리를 치웠어요");
+          return;
+        }
+        // every online student gets a 15 × 20 plot of their own, side by side in front of the teacher
+        // in name order (a class finds its places the same way every lesson); each one stands in
+        // theirs facing the teacher, and everyone sees the fences and name signs
+        if (!me.pos) return;
+        // (at most 400: the s-k-seats schema's cap — far above any class's online students)
+        const students = [...this.byPeer.values()].filter((m) => m.role === "student").sort((a, b) => a.name.localeCompare(b.name, "ko")).slice(0, 400);
+        // the way the teacher LOOKS (sent with the request), not the body's heading: after walking
+        // backwards the body faces the camera, and the plots would land behind the view
+        const spots = seatLayout(students.length, me.pos, msg.yaw ?? me.yaw);
+        students.forEach((m, i) => m.peer?.send({ t: "s-k-gather", pos: spots[i]!.pos, yaw: spots[i]!.yaw }));
+        this.seating = students.map((m, i) => ({ name: m.name, pos: spots[i]!.pos, yaw: spots[i]!.yaw }));
+        this.broadcast({ t: "s-k-seats", seats: this.seating });
+        this.system(`선생님이 자리를 배치했어요 (${students.length}명)`);
+        return;
+      }
       case "k-settings":
         this.settings = { chatLocked: msg.chatLocked, buildLocked: msg.buildLocked, tapsLocked: msg.tapsLocked ?? this.settings.tapsLocked ?? false };
         this.dirty = true;

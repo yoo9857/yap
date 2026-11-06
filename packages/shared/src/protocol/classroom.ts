@@ -129,6 +129,10 @@ export const classClientSchema = z.discriminatedUnion("t", [
   // teacher only — the server checks the role
   z.object({ t: z.literal("k-kick"), playerId: z.string().max(32) }),
   z.object({ t: z.literal("k-gather") }),
+  /** Seat the online students in rows in front of the teacher (a 15 × 20 cell area, F2 → 자리 배치);
+   *  `clear` takes the seating (fences and name signs) away again; `yaw` is the way the teacher looks
+   *  (the plots go in front of the view; without it, the body's heading). */
+  z.object({ t: z.literal("k-arrange"), clear: z.boolean().optional(), yaw: z.number().finite().optional() }),
   z.object({ t: z.literal("k-settings"), chatLocked: z.boolean(), buildLocked: z.boolean(), tapsLocked: z.boolean().optional() }),
   z.object({ t: z.literal("k-end") }),
   /** Teacher wipes the saved field back to empty grass. */
@@ -223,7 +227,15 @@ export const classServerSchema = z.discriminatedUnion("t", [
     text: z.string(),
     system: z.boolean().optional(),
   }),
-  z.object({ t: z.literal("s-k-gather"), pos: vec3Schema }),
+  /** Come to `pos` (absolute). With `yaw` it is an exact spot (a seat) facing that way; without, the
+   *  student fans out around it (gather). Older clients ignore `yaw` and fan out. */
+  z.object({ t: z.literal("s-k-gather"), pos: vec3Schema, yaw: z.number().finite().optional() }),
+  /** The class's seating, for everyone (on change and on join): each seat's student, spot (absolute)
+   *  and heading. Drawn as booths with dividers and a name sign; an empty list clears it. */
+  z.object({
+    t: z.literal("s-k-seats"),
+    seats: z.array(z.object({ name: z.string().max(64), pos: vec3Schema, yaw: z.number().finite() })).max(400),
+  }),
   /** A tap connected. `at` is the chest in absolute field coordinates. */
   z.object({
     t: z.literal("s-k-bonk"),

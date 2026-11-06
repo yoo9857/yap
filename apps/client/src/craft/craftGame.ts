@@ -4,6 +4,7 @@ import { GameLoop } from "../app/loop.js";
 import { GameRenderer } from "../render/renderer.js";
 import { texturesReady, warmupGpu, warmupGpuAsync } from "../render/textures.js";
 import { CharacterRig, disposeRig } from "../player/rig.js";
+import { SeatingView } from "./seatingView.js";
 import { Sfx } from "../audio/sfx.js";
 import { Bgm, BGM_PLAYLIST } from "../audio/bgm.js";
 import { PerfMonitor } from "../ui/perf.js";
@@ -39,7 +40,7 @@ import type { ClassClient, ClassSession } from "../net/classClient.js";
 import { SWIM_DEPTH, pointInWater, stepBody, unstick, overlapsShapedVoxel, overlapsVoxel, wishFromInput, type Body } from "./voxelBody.js";
 import {SandSim} from "./sandSim.js";
 import { WaterSim } from "./waterSim.js";
-import { WATER, WATER_SETTLED, isWater, emoteDef, lookDirection, pickBonk, bonkBlocked, tapBeatsDig, BONK_COOLDOWN_MS, BONK_DECAY, BONK_PUSH_CAP, type EmoteId, type CharacterId, type ClassAnim, type CharacterAction, type CharacterPresentation, postureTransition } from "@robo/shared";
+import { seatLayout, WATER, WATER_SETTLED, isWater, emoteDef, lookDirection, pickBonk, bonkBlocked, tapBeatsDig, BONK_COOLDOWN_MS, BONK_DECAY, BONK_PUSH_CAP, type EmoteId, type CharacterId, type ClassAnim, type CharacterAction, type CharacterPresentation, postureTransition } from "@robo/shared";
 import { EmoteMenu } from "./emoteMenu.js";
 import { adoptPosture, moveScale, POSTURE_EYE, type Posture } from "./posture.js";
 import { gaitBlend } from "../player/motionPolicy.js";
@@ -137,6 +138,9 @@ export class CraftGame {
   private readonly furniture: FurnitureController;
   /** Science mode (T): power-plant blueprints. Solo education field only for now (W1). */
   private readonly science: ScienceMode | null = null;
+  /** Dev only (solo field, F2): sample classroom plots with stand-in students, to see 자리 배치
+   *  without a class. */
+  private samples: { view: SeatingView; rigs: { rig: CharacterRig; pos: [number, number, number]; yaw: number }[] } | null = null;
   /** The field save's plants, held until science mode exists (it is built after the world). */
   private savedPlants: unknown = undefined;
   /** Furniture under the crosshair (nearer than the block the ray hit). */
@@ -430,6 +434,14 @@ export class CraftGame {
             this.pet.recall(this.state.world, this.body);
           },
           furnitureReset: () => this.furniture.forgetHistory(),
+          face: (yaw) => {
+            this.yaw = yaw;
+            this.facing = yaw;
+          },
+          resumePlay: () => this.resumePlay(),
+          viewYaw: () => this.yaw,
+          panelBusy: () => this.workshop.active || this.furniture.panelOpen || this.petShop.open || this.emoteMenu.open
+            || this.hud.recipesOpen || this.science?.panelOpen === true,
           furnitureMoved: () => {
             // a classmate's sofa can land on us (the server judges bodies at 10 Hz) or on the pet
             if (!this.seated) {
@@ -673,9 +685,43 @@ export class CraftGame {
   /** Release the WebGL/audio-facing resources when the mode is replaced. */
   private offSettings: (() => void) | null = null;
 
+  /**
+   * Dev (solo field): lay out the teacher's 자리 배치 for `count` stand-in students in front of the
+   * player — the same layout, fences and name signs a class gets — or take it away again.
+   */
+  toggleSamplePlots(count = 12): number {
+    if (this.samples) {
+      this.samples.view.dispose();
+      for (const r of this.samples.rigs) {
+        this.renderer.scene.remove(r.rig.root);
+        disposeRig(r.rig.root);
+      }
+      this.samples = null;
+      this.hud.toast(t("🧹 샘플 자리를 치웠어요", "🧹 Sample plots put away"));
+      return 0;
+    }
+    if (!this.field) return 0;
+    const NAMES = ["민지", "준", "서연", "하준", "지우", "도윤", "서윤", "시우", "하은", "예준", "지아", "주원", "수아", "유준", "채원", "지호", "다은", "건우", "소율", "우진", "윤서", "선우", "나은", "현우"];
+    const names = Array.from({ length: Math.max(1, Math.min(count, 60)) }, (_, i) => NAMES[i % NAMES.length]! + (i >= NAMES.length ? String(Math.floor(i / NAMES.length) + 1) : ""))
+      .sort((a, b) => a.localeCompare(b, "ko"));
+    const [ax, az] = this.field.toAbsolute(this.body.x, this.body.z);
+    const spots = seatLayout(names.length, [ax, this.body.y, az], this.facing);
+    const view = new SeatingView(this.renderer.scene);
+    view.set(names.map((name, i) => ({ name, pos: spots[i]!.pos, yaw: spots[i]!.yaw })));
+    const rigs = spots.map((spot) => {
+      const rig = new CharacterRig("mascot");
+      this.renderer.scene.add(rig.root);
+      return { rig, pos: spot.pos, yaw: spot.yaw };
+    });
+    this.samples = { view, rigs };
+    this.hud.toast(t(`🪑 샘플: 학생 ${names.length}명에게 15×20칸 땅을 나눠 줬어요 (F2 치우기)`, `🪑 Sample: ${names.length} students got a 15×20 plot each (F2 to clear)`));
+    return names.length;
+  }
+
   dispose(): void {
     if (this.disposed) return;
     this.disposed = true;
+    if (this.samples) this.toggleSamplePlots();
     this.offSettings?.();
     this.loop.dispose();
     this.persist();
@@ -819,6 +865,12 @@ export class CraftGame {
         return;
       }
       if (key === "g" && this.science?.active) this.science.setActive(false); // furniture replaces it
+      // dev, solo field: F2 lays out sample classroom plots (the teacher's 자리 배치) to look at
+      if (key === "f2" && import.meta.env.DEV && this.field && !this.sync) {
+        e.preventDefault();
+        if (!e.repeat) this.toggleSamplePlots();
+        return;
+      }
       // Tab: the power plants' status board (it frees the mouse; Tab or Esc closes it)
       if (key === "tab" && this.science) {
         e.preventDefault();
@@ -832,6 +884,7 @@ export class CraftGame {
       }
       // a science panel is up (board, mini-game): no second panel over it, no walking
       if (this.science?.panelOpen) return;
+      if (this.sync?.toolsOpen) return; // the teacher's F2 class tools own the keys
       if (!e.shiftKey && this.science?.handleKey(key, e.repeat)) return;
       if (e.shiftKey && this.science?.active && (key === "r" || key === "t")) return; // no hidden shape changes
       // furniture's keys first: in furniture mode 1-9, Q/E, X and R are its own
@@ -1850,10 +1903,20 @@ export class CraftGame {
     }else this.miningEffects.clearTarget();
     this.miningEffects.update(frameDt,this.state.world);
     const drawn = this.interpolatedBody(alpha);
-    this.hud.syncMenu(this.workshop.active || this.furniture.panelOpen || this.petShop.open || this.emoteMenu.open || this.science?.panelOpen === true
+    this.hud.syncMenu(this.workshop.active || this.furniture.panelOpen || this.petShop.open || this.emoteMenu.open || this.science?.panelOpen === true || this.sync?.toolsOpen === true
       || performance.now() < this.resumeUntil || document.querySelector(".class-ended") !== null);
     this.sky.update(this.renderer.camera);
     this.sync?.render(frameDt);
+    if (this.samples && this.field) {
+      const field = this.field;
+      this.samples.view.update((ax, az) => field.toGrid(ax, az));
+      for (const r of this.samples.rigs) {
+        const [gx, gz] = field.toGrid(r.pos[0], r.pos[2]);
+        r.rig.root.position.set(gx, r.pos[1], gz);
+        r.rig.root.rotation.y = r.yaw;
+        r.rig.update("idle", 0, frameDt);
+      }
+    }
     // integer steps keep the 1 m texture tiles aligned with the voxel grid
     this.fieldGround?.position.set(Math.round(this.body.x), FIELD_GROUND_Y, Math.round(this.body.z));
     // Detail (rounded bricks, studs) follows what you're looking AT — the
@@ -2093,6 +2156,8 @@ export class CraftGame {
       science: () => this.science?.debug() ?? null,
       /** Toggle science mode without a key press. */
       scienceMode: (on: boolean) => this.science?.setActive(on),
+      /** Dev: sample classroom plots (F2 on the solo field) — lay out / take away; returns the count. */
+      samplePlots: (count?: number) => this.toggleSamplePlots(count),
       /** Lay a blueprint at an ABSOLUTE anchor; returns the problem (null = laid). */
       scienceLay: (x: number, y: number, z: number, rot = 0) => (this.science ? this.science.debugLay(x, y, z, rot) : "outside"),
       /** A site's cells (ABSOLUTE) with the block id each wants. */

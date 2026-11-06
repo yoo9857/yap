@@ -212,6 +212,77 @@ try {
   const dist = Math.hypot(tAbs[0] - mAbs[0], tAbs[1] - mAbs[1]);
   check("gather brings students to the teacher (200 m away)", dist < 6, `teacher ${tAbs} student ${mAbs}`);
 
+  // 7b) F2 class tools → 1 자리 배치: every student gets a 15 × 20 plot of their own in front of the
+  // teacher (name order: 민지 before 준, side by side), standing in it facing the teacher
+  await teacher.bringToFront();
+  await teacher.evaluate(() => globalThis.__roboCraft.look(0, 0)); // facing +z
+  await sleep(700); // the heading reaches the server with the next k-move
+  if (process.env.SHOTS) {
+    // BEFORE for the notes: the same camera as the seated shot, before 자리 배치
+    await teacher.addStyleTag({ content: ".craft-hint{display:none!important}" });
+    await teacher.evaluate(() => globalThis.__roboCraft.look(0, -0.42));
+    await sleep(800);
+    await teacher.screenshot({ path: `${process.env.SHOTS}/class-before.png` });
+    await teacher.evaluate(() => globalThis.__roboCraft.look(0, 0));
+    await sleep(700);
+  }
+  await teacher.keyboard.press("F2");
+  await sleep(200);
+  check("F2 opens the teacher's class tools", await teacher.evaluate(() => !document.querySelector(".class-tools")?.hidden));
+  check("students have no class tools", !(await minji.$(".class-tools")));
+  if (process.env.SHOTS) await teacher.screenshot({ path: `${process.env.SHOTS}/class-f2-tools.png` });
+  await teacher.keyboard.press("1");
+  await sleep(1200);
+  check("picking a tool closes the panel", await teacher.evaluate(() => document.querySelector(".class-tools")?.hidden === true));
+  const tSeat = await teacher.evaluate(() => globalThis.__roboCraft.absolute());
+  const placed = [];
+  for (const page of [minji, jun]) {
+    const [x, z] = await page.evaluate(() => globalThis.__roboCraft.absolute());
+    const yaw = await page.evaluate(() => globalThis.__roboCraft.snapshot().yaw);
+    placed.push({ across: x - (Math.floor(tSeat[0]) + 0.5), ahead: z - (Math.floor(tSeat[1]) + 0.5), yaw });
+  }
+  check("each student stands just inside the front of their own plot in front of the teacher",
+    placed.every((s) => Math.abs(s.ahead - 6) < 0.6), JSON.stringify(placed));
+  check("…the two plots side by side, 15 cells apart (one plot each)", Math.abs(Math.abs(placed[0].across - placed[1].across) - 15) < 0.6, JSON.stringify(placed));
+  // facing +z the teacher's left is +x: name order reads left → right from the teacher's view
+  check("…in name order (left → right as the teacher sees it), side by side on the front row", placed[0].across > placed[1].across && Math.abs(placed[0].ahead - placed[1].ahead) < 0.6, JSON.stringify(placed));
+  if (process.env.SHOTS) {
+    await teacher.addStyleTag({ content: ".craft-hint{display:none!important}" });
+    await teacher.evaluate(() => globalThis.__roboCraft.look(0, -0.42));
+    await sleep(800);
+    await teacher.screenshot({ path: `${process.env.SHOTS}/class-seated.png` });
+  }
+  const drawn = await Promise.all([teacher, minji, jun].map((p) => p.evaluate(() => globalThis.__roboCraft.classroom().seating)));
+  if (process.env.SHOTS) {
+    // from above: lift the teacher and look down over the plots (a quick shot before the fall)
+    await teacher.evaluate(() => {
+      const c = globalThis.__roboCraft;
+      const p = c.snapshot().pos;
+      c.teleport(p[0], p[1] + 16, p[2] - 4);
+      c.look(0, -0.95);
+    });
+    await sleep(120);
+    await teacher.screenshot({ path: `${process.env.SHOTS}/class-plots-air.png` });
+    await minji.bringToFront();
+    await minji.addStyleTag({ content: ".craft-hint{display:none!important}" });
+    await minji.evaluate(() => globalThis.__roboCraft.look(Math.PI, -0.1)); // turn round into the plot
+    await sleep(600);
+    await minji.screenshot({ path: `${process.env.SHOTS}/class-plot-student.png` });
+    await teacher.bringToFront();
+  }
+  check("everyone sees the plots: fences and a name sign per student", drawn.every((n) => n === 2), JSON.stringify(drawn));
+  check("…facing the teacher", placed.every((s) => Math.cos(s.yaw) < -0.9), JSON.stringify(placed.map((s) => s.yaw)));
+
+  // F2 → 3 자리 치우기: the booths go for everyone
+  await teacher.bringToFront();
+  await teacher.keyboard.press("F2");
+  await sleep(200);
+  check("the tools offer to put the seating away while it stands", await teacher.evaluate(() => !document.querySelector('.class-tools [data-opt="3"]')?.hidden));
+  await teacher.keyboard.press("3");
+  await sleep(900);
+  const gone = await Promise.all([teacher, minji].map((p) => p.evaluate(() => globalThis.__roboCraft.classroom().seating)));
+  check("…and it is gone for everyone", gone.every((n) => n === 0), JSON.stringify(gone));
+
   // 8) kick
   const junMember = (await cls(teacher)).members.find((m) => m.name === "준");
   check("roster lists the second student", !!junMember?.online);

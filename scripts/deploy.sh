@@ -1,11 +1,9 @@
 #!/usr/bin/env bash
-# CraftYap deploy — build + (re)start the container, then health-check.
+# CraftYap deploy (by hand) — build, then the zero-downtime hand-over the workflow uses.
 # Run from the app dir on the server (default /srv/craftyap/app).
 set -euo pipefail
 
 APP_DIR="${APP_DIR:-/srv/craftyap/app}"
-HOST_PORT="${HOST_PORT:-8082}"
-HEALTH_URL="http://127.0.0.1:${HOST_PORT}/healthz"
 
 cd "${APP_DIR}"
 
@@ -17,19 +15,6 @@ DB_DIR="${DB_DIR:-/srv/craftyap/data}"
 mkdir -p "${DB_DIR}"
 
 docker compose config >/dev/null
-# rollback point for saved classrooms + leaderboard, before the restart
-bash scripts/pre-deploy-backup.sh
-docker compose up -d --build
-docker compose ps
-
-for attempt in $(seq 1 20); do
-  if curl -fsS "${HEALTH_URL}" >/dev/null 2>&1; then
-    echo "Health check passed (attempt ${attempt}). Deploy complete."
-    exit 0
-  fi
-  sleep 3
-done
-
-echo "Health check failed after 60s: ${HEALTH_URL}" >&2
-docker compose logs --tail=50 app >&2
-exit 1
+# build while the live container serves, then hand over without downtime (backup included)
+docker compose build
+exec bash scripts/zero-downtime-deploy.sh

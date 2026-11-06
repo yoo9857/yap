@@ -32,7 +32,8 @@ cp .env.example .env      # 필요시 편집 (기본값 그대로도 동작)
 ## 3. 앱 먼저 기동 (nginx가 프록시할 대상)
 ```bash
 cd /srv/craftyap/app
-bash scripts/deploy.sh          # → Health check passed
+docker compose up -d --build    # 최초 1회: nginx가 아직 없으니 바로 기동 (이후 배포는 무중단 스크립트)
+echo "craftyap 8082" | sudo tee /srv/craftyap/active-project
 curl -s http://127.0.0.1:8082/healthz   # ok
 ```
 
@@ -55,6 +56,8 @@ sudo certbot certonly --webroot -w /var/www/craftyap \
         -d craftyap.com -d www.craftyap.com
 
 # (c) 풀 TLS vhost로 교체 (인증서가 생겼으니 경로가 유효)
+#     풀 vhost는 지금 살아 있는 컨테이너를 upstream 파일에서 읽어요 (무중단 배포가 8082↔8083을 바꿔 씀)
+printf 'upstream craftyap_app {\n    server 127.0.0.1:8082;\n}\n' | sudo tee /etc/nginx/craftyap-upstream.conf
 sudo cp /srv/craftyap/app/ops/nginx/craftyap.com.conf \
         /etc/nginx/sites-available/craftyap.com.conf
 sudo nginx -t && sudo systemctl reload nginx
@@ -81,13 +84,29 @@ node tools/smoke-prod.mjs https://craftyap.com   # 전 구간 10개 체크
    cd /srv/craftyap/app && cp .env.example .env
    # 이후 §3(앱 기동) → §4(부트스트랩→인증서→풀 vhost)
    ```
-이후로는 **`git push`만 하면** test(typecheck+test) 통과 시 자동 빌드·재기동·nginx 반영·헬스체크까지 끝납니다.
+이후로는 **`git push`만 하면** test(typecheck+test) 통과 시 자동 빌드 → **무중단 교체** → nginx 반영 → 헬스체크까지 끝납니다.
+
+## 무중단 배포 (접속자가 있어도 배포)
+`scripts/zero-downtime-deploy.sh` — 수업 중에도 기다리지 않고 바로 교체해요.
+
+1. 새 버전 컨테이너를 **옆 포트**에 먼저 띄워요 (blue `craftyap` :8082 ↔ green `craftyap-green` :8083, 같은 이미지·같은 DB 폴더). `/healthz`가 통과해야 다음 단계로 가요. 실패하면 기존 컨테이너가 그대로 서비스해요.
+2. 살아 있는 컨테이너에서 DB 스냅샷 (`/srv/craftyap/data/pre-deploy/`, 롤백 지점).
+3. 넘겨주기 (몇 초):
+   - `data/handoff.lock`이 있는 동안 두 컨테이너 모두 **새 게임 접속만** "잠시 후 다시"(1013)로 돌려보내요. 클라이언트는 알아서 다시 붙고, 웹페이지·리소스는 계속 나가요. 그래서 옛 컨테이너가 저장하기 전에 새 컨테이너가 같은 반을 여는 일(들판이 갈라지는 일)이 없어요.
+   - nginx upstream(`/etc/nginx/craftyap-upstream.conf`)을 새 포트로 바꾸고 `nginx -t` 후 reload (진행 중 요청은 끊기지 않음).
+   - 옛 컨테이너에 SIGTERM → 모든 반을 저장하고 소켓을 닫아요("수업 끝"이 아님). 아이들은 몇 초 안에 새 컨테이너로 자동 재접속.
+   - 잠금 해제. 배포가 중간에 죽어도 잠금은 60초 뒤 저절로 무시돼요.
+4. 살아 있는 쪽을 `/srv/craftyap/active-project`에 기록 (`craftyap-green 8083` 처럼). 백업 스크립트도 이 파일로 컨테이너를 찾아요.
+
+- 교체 순간 두 컨테이너가 수십 초 함께 떠요 (1코어/2GB에서 감당 가능한 크기).
+- 지금 살아 있는 쪽 로그: `docker compose -p "$(cut -d' ' -f1 /srv/craftyap/active-project)" logs --tail=50 app`
+- 파티 방(허브 대기실)은 메모리에만 있어서 배포 때 비워져요 (예전과 같음). 교실 들판은 저장돼서 그대로예요.
 
 ## 수동 업데이트 (CI 없이)
 ```bash
 cd /srv/craftyap/app
 git pull
-bash scripts/deploy.sh   # --build 포함, 무중단에 가깝게 교체
+bash scripts/deploy.sh   # 빌드 후 무중단 교체 (위 '무중단 배포')
 ```
 
 ## DB (별도 관리 — 중요)

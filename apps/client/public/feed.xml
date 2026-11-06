@@ -8,6 +8,13 @@
     <language>ko</language>
     <lastBuildDate>Thu, 05 Nov 2026 15:00:00 +0000</lastBuildDate>
     <item>
+      <title>11월 6일 패치 노트 (2) — 수업 도구(F2): 아이마다 15×20칸 자기 땅</title>
+      <link>https://craftyap.com/note/patch-2026-11-06-2/</link>
+      <guid isPermaLink="true">https://craftyap.com/note/patch-2026-11-06-2/</guid>
+      <pubDate>Thu, 05 Nov 2026 15:00:00 +0000</pubDate>
+      <description>선생님이 교실에서 F2를 누르면 수업 도구가 열려요. &#39;자리 배치&#39;를 고르면 학생마다 가로 15 × 세로 20칸 땅을 나눠 주고, 칸막이와 이름 팻말을 세워요. 업데이트가 있어도 수업을 멈추지 않도록 무중단 업데이트로 바꿨어요.</description>
+    </item>
+    <item>
       <title>11월 6일 패치 노트 — 과학 모드: 풍력 발전기를 직접 지어요</title>
       <link>https://craftyap.com/note/patch-2026-11-06-1/</link>
       <guid isPermaLink="true">https://craftyap.com/note/patch-2026-11-06-1/</guid>
@@ -139,13 +146,6 @@
       <guid isPermaLink="true">https://craftyap.com/note/patch-2026-11-03-4/</guid>
       <pubDate>Mon, 02 Nov 2026 15:00:00 +0000</pubDate>
       <description>방을 50명까지 만들 수 있어요. 사람이 많아져도 친구 캐릭터가 순간이동하지 않고 부드럽게 움직이도록 네트워크와 화면 그리기를 고도화했고, 여러 사람이 동시에 누를 때 생기던 충돌도 정리했어요.</description>
-    </item>
-    <item>
-      <title>11월 3일 패치 노트 (3) — 친구와 방에서 함께, 게임 로딩은 더 빠르게</title>
-      <link>https://craftyap.com/note/patch-2026-11-03-3/</link>
-      <guid isPermaLink="true">https://craftyap.com/note/patch-2026-11-03-3/</guid>
-      <pubDate>Mon, 02 Nov 2026 15:00:00 +0000</pubDate>
-      <description>온라인 허브에서 방을 만들고, 방 목록이나 코드로 친구 방에 들어가 대기실에서 함께 시작할 수 있어요. 게임 중인 방에도 바로 들어갈 수 있어요. 게임을 불러오는 시간도 약 20% 줄였어요.</description>
     </item>
   </channel>
 </rss>

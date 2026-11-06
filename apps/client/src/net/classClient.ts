@@ -121,12 +121,17 @@ function classSocketUrl(room: string): string {
   return `${proto}://${location.host}/ws?mode=class&room=${encodeURIComponent(room)}`;
 }
 
+/** A first connection refused 1013 "busy" (a full server, or the few seconds of a zero-downtime
+ *  deploy's hand-over) is tried again this many times, this far apart, before it counts as offline. */
+const BUSY_RETRIES = 20;
+const BUSY_WAIT_MS = 1200; // 20 × 1.2 s ≈ 24 s: longer than a deploy's hand-over (old container's stop ≤ ~20 s)
+
 /**
  * Ask the server whose class a class name is, without joining: a student sees
  * "김선생 선생님의 햇살반" and confirms before walking in. Rejects with
  * "offline" or "bad-version".
  */
-export function peekClass(room: string): Promise<ClassPeek> {
+export function peekClass(room: string, busyLeft = BUSY_RETRIES): Promise<ClassPeek> {
   return new Promise((resolve, rejectWith) => {
     // rejects with a code, like connect() — the lobby maps codes to messages
     const reject: (code: ClassErrorCode | "offline") => void = rejectWith;
@@ -146,7 +151,16 @@ export function peekClass(room: string): Promise<ClassPeek> {
       if (msg?.t === "s-k-room") finish(() => resolve({ room: msg.room, exists: msg.exists, open: msg.open, teacher: msg.teacher }));
       else if (msg?.t === "s-k-error") finish(() => reject(msg.code));
     };
-    ws.onclose = () => finish(() => reject("offline"));
+    ws.onclose = (e) => {
+      // 1013 "busy": the server is full for a moment or a deploy is handing over — ask again shortly
+      if (!settled && e.reason === "busy" && busyLeft > 0) {
+        settled = true;
+        clearTimeout(timer);
+        setTimeout(() => void peekClass(room, busyLeft - 1).then(resolve, rejectWith), BUSY_WAIT_MS);
+        return;
+      }
+      finish(() => reject("offline"));
+    };
   });
 }
 function loadKey(join: ClassJoin): string | undefined {
@@ -181,7 +195,10 @@ export class ClassClient {
   onFurniture: ((items: ClassFurniture[], rejected: boolean) => void) | null = null;
   onReject: ((edits: ClassEdit[], authoritative: boolean) => void) | null = null;
   onChat: ((msg: Extract<ClassServerMessage, { t: "s-k-chat" }>) => void) | null = null;
-  onGather: ((pos: [number, number, number]) => void) | null = null;
+  /** The teacher called us: fan out around `pos`, or with `yaw`, stand exactly there facing that way (a seat). */
+  onGather: ((pos: [number, number, number], yaw?: number) => void) | null = null;
+  /** The class seating changed (or arrived on join): every seat's student, spot and heading. */
+  onSeats: ((seats: { name: string; pos: [number, number, number]; yaw: number }[]) => void) | null = null;
   onBonk: ((msg: Extract<ClassServerMessage, { t: "s-k-bonk" }>) => void) | null = null;
   onSettings: ((settings: ClassSettings) => void) | null = null;
   onResync: ((session: ClassSession) => void) | null = null;
@@ -193,6 +210,8 @@ export class ClassClient {
   private ws: WebSocket | null = null;
   private ended = false;
   private attempts = 0;
+  /** First connection only: "busy" refusals still allowed before giving up (BUSY_RETRIES). */
+  private busyLeft = BUSY_RETRIES;
   private timer: ReturnType<typeof setTimeout> | null = null;
   private loadTimer: ReturnType<typeof setTimeout> | null = null;
   private loadStarted = 0;
@@ -274,7 +293,7 @@ export class ClassClient {
     const ws = this.ws; this.ws = null;
     if (ws) { ws.onopen = ws.onmessage = ws.onclose = ws.onerror = null; ws.close(1000, "left"); }
     this.onMembers = this.onSnap = this.onEdit = this.onWet = this.onFurniture = this.onReject = this.onChat = null;
-    this.onGather = this.onBonk = this.onSettings = this.onResync = this.onWorldReset = this.onEnded = this.onConnection = null;
+    this.onGather = this.onSeats = this.onBonk = this.onSettings = this.onResync = this.onWorldReset = this.onEnded = this.onConnection = null;
   }
 
   /** Any message proves the link alive; silence past the server's promise means it is not. */
@@ -337,6 +356,12 @@ export class ClassClient {
       this.resynced = null;
       if (this.active) this.onEnded?.("replaced");
       else this.replacedWhileLoading = true; // told at activate(), with the right card
+      return;
+    }
+    if (this.first && reason === "busy" && this.busyLeft > 0) {
+      // refused "try again later" (a deploy handing over, a full server): not offline — ask again
+      this.busyLeft--;
+      this.timer = setTimeout(() => { this.timer = null; this.open(); }, BUSY_WAIT_MS * (0.75 + Math.random() * 0.5));
       return;
     }
     if (this.first) {
@@ -455,7 +480,10 @@ export class ClassClient {
         this.onChat?.(msg);
         return;
       case "s-k-gather":
-        this.onGather?.(msg.pos);
+        this.onGather?.(msg.pos, msg.yaw);
+        break;
+      case "s-k-seats":
+        this.onSeats?.(msg.seats);
         return;
       case "s-k-bonk":
         this.onBonk?.(msg);

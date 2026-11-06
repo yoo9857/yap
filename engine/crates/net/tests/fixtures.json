@@ -285,6 +285,17 @@
    "t": "k-gather"
   },
   {
+   "t": "k-arrange"
+  },
+  {
+   "t": "k-arrange",
+   "clear": true
+  },
+  {
+   "t": "k-arrange",
+   "yaw": 1.5708
+  },
+  {
    "t": "k-settings",
    "chatLocked": true,
    "buildLocked": false,
@@ -540,12 +551,39 @@
    "text": "네"
   },
   {
+   "t": "s-k-seats",
+   "seats": []
+  },
+  {
+   "t": "s-k-seats",
+   "seats": [
+    {
+     "name": "민지",
+     "pos": [
+      12.5,
+      5,
+      -24.5
+     ],
+     "yaw": 3.14159
+    }
+   ]
+  },
+  {
    "t": "s-k-gather",
    "pos": [
     12,
     5,
     -30.5
    ]
+  },
+  {
+   "t": "s-k-gather",
+   "pos": [
+    14.5,
+    5,
+    -24.5
+   ],
+   "yaw": 3.14159
   },
   {
    "t": "s-k-bonk",

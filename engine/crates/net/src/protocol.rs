@@ -340,6 +340,14 @@ pub enum ClassClient {
     Kick { player_id: String },
     #[serde(rename = "k-gather")]
     Gather,
+    /// Seat the online students in rows in front of the teacher (15 × 20 cell area).
+    #[serde(rename = "k-arrange")]
+    Arrange {
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        clear: Option<bool>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        yaw: Option<f64>,
+    },
     #[serde(rename = "k-settings")]
     Settings {
         chat_locked: bool,
@@ -351,6 +359,14 @@ pub enum ClassClient {
     End,
     #[serde(rename = "k-reset-world")]
     ResetWorld,
+}
+
+/// One seat of a classroom seating: whose it is, where (absolute) and which way it faces.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct SeatSign {
+    pub name: String,
+    pub pos: [f64; 3],
+    pub yaw: f64,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -413,8 +429,16 @@ pub enum ClassServer {
         #[serde(default, skip_serializing_if = "Option::is_none")]
         system: Option<bool>,
     },
+    /// With `yaw` an exact seat facing that way; without, fan out around `pos` (gather).
     #[serde(rename = "s-k-gather")]
-    Gather { pos: [f64; 3] },
+    Gather {
+        pos: [f64; 3],
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        yaw: Option<f64>,
+    },
+    /// The class's seating (dividers + name signs); empty clears it.
+    #[serde(rename = "s-k-seats")]
+    Seats { seats: Vec<SeatSign> },
     #[serde(rename = "s-k-bonk")]
     Bonk { by: String, target: String, seq: u32, vx: f64, vz: f64, vy: f64, at: [f64; 3] },
     #[serde(rename = "s-k-settings")]

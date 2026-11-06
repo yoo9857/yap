@@ -7,6 +7,7 @@ import { runSingle } from "./cluster/single.js";
 import { runPrimary } from "./cluster/primary.js";
 import { runShard } from "./cluster/shard.js";
 import { decideShards, readCapacity } from "./cluster/capacity.js";
+import { setHandoffFile } from "./net/handoff.js";
 
 const config = loadConfig();
 const entryDir = dirname(fileURLToPath(import.meta.url));
@@ -22,6 +23,8 @@ if (cluster.isWorker) {
   runShard(config, entryDir, Number(process.env.SHARD_INDEX), Number(process.env.SHARD_COUNT));
 } else {
   log.info({ shards, why: decision?.reason }, "game processes");
+  // the process that takes game sockets (single, or the cluster's primary) honours the deploy's hand-over lock
+  setHandoffFile(resolve(entryDir, config.HANDOFF_FILE));
   const shutdown = shards > 1 ? runPrimary(config, staticRoot, shards) : runSingle(config, entryDir, staticRoot);
   process.on("SIGINT", () => shutdown("SIGINT", 0));
   process.on("SIGTERM", () => shutdown("SIGTERM", 0));

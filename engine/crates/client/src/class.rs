@@ -267,7 +267,7 @@ impl ClassSession {
                     self.chat.remove(0);
                 }
             }
-            ClassServer::Gather { pos } => self.gather = Some(pos),
+            ClassServer::Gather { pos, .. } => self.gather = Some(pos),
             ClassServer::Settings { settings } => self.settings = Some(settings),
             ClassServer::Kicked => self.ended = Some(Ended::Kicked),
             ClassServer::Closed => self.ended = Some(Ended::Closed),
@@ -279,7 +279,7 @@ impl ClassSession {
             }
             ClassServer::Wet { cells } => self.pending_wet.extend(cells),
             // taps arrive later
-            ClassServer::Bonk { .. } | ClassServer::Room { .. } => {}
+            ClassServer::Bonk { .. } | ClassServer::Room { .. } | ClassServer::Seats { .. } => {}
         }
     }
 

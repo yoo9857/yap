@@ -103,10 +103,11 @@ door displacement, worker failure and stale-generation cancellation.
 - Compatibility proof: the previous production ClassRoom loads and preserves all
   water IDs, furniture, class name and credentials in a new saved classroom.
 
-Deployment snapshots the live SQLite database before rebuilding. After the image
-is ready, `scripts/wait-idle.sh` checks established app connections inside the
-container. If they remain active for two minutes it aborts without replacing the
-running app. Initial, idle and active-connection paths are verified with mocks.
+Deployment snapshots the live SQLite database before the hand-over. Since
+2026-11-06 deploys no longer wait for an idle app: `scripts/zero-downtime-deploy.sh`
+starts the new container beside the old one, locks new game sockets for the few
+seconds of the switch (so a class can never open on both), and the old container
+saves every class before it closes (see DEPLOY_KO.md, 무중단 배포).
 Refreshing an older classroom tab loads protocol 5 and the current water renderer.
 
 Automatic ocean/lake generation remains a separate follow-up; this release covers

@@ -6,6 +6,15 @@ export interface ClassHudActions {
   chat(text: string): void;
   kick(member: ClassMember): void;
   gather(): void;
+  /** Give every online student a 15 × 20 plot of their own in front of the teacher. */
+  arrange(): void;
+  /** Take the seating (dividers and name signs) away. */
+  unarrange(): void;
+  /** The F2 class-tools panel opened / closed. `resume`: closed by a click or F2 (a user gesture,
+   *  so the mouse can be captured again); Esc leaves the game paused instead. */
+  toolsOpen(open: boolean, resume?: boolean): void;
+  /** Another panel owns the screen (bag, furniture, machine lab…): F2 waits. */
+  busy?(): boolean;
   settings(next: ClassSettings): void;
   end(): void;
   resetWorld(): void;
@@ -39,6 +48,10 @@ export class ClassHud {
   private members: ClassMember[] = [];
   /** The class is over (showEnded): Enter no longer opens the chat. */
   private ended = false;
+  /** The teacher's F2 class tools (null for students). */
+  private tools: HTMLDivElement | null = null;
+  /** "자리 치우기" — only offered while a seating stands. */
+  private unseat: HTMLButtonElement | null = null;
   private readonly onKey = (e: KeyboardEvent) => this.handleKey(e);
 
   constructor(
@@ -84,8 +97,11 @@ export class ClassHud {
       });
       this.controls.append(gather, this.chatLock, this.buildLock, this.tapsLock, reset, end);
       this.panel.append(this.controls);
+      this.tools = this.buildTools();
     }
-    this.panel.append(el("div", "class-tip", t("Esc로 마우스를 풀면 버튼을 누를 수 있어요 · Enter 채팅", "Press Esc to free the mouse and use the buttons · Enter to chat")));
+    this.panel.append(el("div", "class-tip", role === "teacher"
+      ? t("F2 수업 도구 · Esc로 마우스를 풀면 버튼을 누를 수 있어요 · Enter 채팅", "F2 class tools · Press Esc to free the mouse and use the buttons · Enter to chat")
+      : t("Esc로 마우스를 풀면 버튼을 누를 수 있어요 · Enter 채팅", "Press Esc to free the mouse and use the buttons · Enter to chat")));
 
     this.input.maxLength = 120;
     this.input.placeholder = t("메시지 입력 후 Enter (Esc 취소)", "Type a message, Enter to send (Esc to cancel)");
@@ -158,11 +174,97 @@ export class ClassHud {
     document.exitPointerLock();
   }
 
+  /** A seating stands (or not): the tools offer to put it away. */
+  setSeated(seated: boolean): void {
+    if (this.unseat) this.unseat.hidden = !seated;
+  }
+
+  get toolsOpen(): boolean {
+    return this.tools !== null && !this.tools.hidden;
+  }
+
+  /** The F2 panel: what the teacher can do with the whole class, one click each. */
+  private buildTools(): HTMLDivElement {
+    const wrap = el("div", "class-tools");
+    wrap.hidden = true;
+    const card = el("div", "class-tools-card");
+    const head = el("div", "class-tools-head");
+    const close = el("button", "class-tools-x", "✕");
+    close.title = t("닫기 (F2 / Esc)", "Close (F2 / Esc)");
+    close.addEventListener("click", () => this.closeTools());
+    head.append(el("h2", "", t("수업 도구", "Class tools")), el("span", "class-tools-key", "F2"), close);
+    const option = (n: number, icon: string, title: string, desc: string, run: () => void) => {
+      const b = el("button", "class-tools-opt");
+      b.dataset.opt = String(n);
+      const text = el("span", "class-tools-text");
+      text.append(el("b", "", title), el("small", "", desc));
+      b.append(el("span", "class-tools-num", String(n)), el("span", "class-tools-icon", icon), text);
+      b.addEventListener("click", () => {
+        run();
+        this.closeTools();
+      });
+      return b;
+    };
+    const list = el("div", "class-tools-list");
+    list.append(
+      option(1, "🪑", t("자리 배치", "Seat the class"),
+        t("학생마다 가로 15 × 세로 20칸 땅을 나눠 주고, 칸막이와 이름 팻말을 세워요 (내 앞에 이름순)", "Give every student a 15 × 20 plot of their own, with fences and a name sign (in front of you, name order)"),
+        () => this.actions.arrange()),
+      option(2, "📣", t("모두 모이기", "Gather everyone"), t("학생들을 내 주변으로 불러요", "Call everyone over to you"), () => this.actions.gather()),
+    );
+    this.unseat = option(3, "🧹", t("자리 치우기", "Put the seating away"), t("칸막이와 이름 팻말을 걷어요", "Take the fences and name signs away"), () => this.actions.unarrange());
+    this.unseat.hidden = true;
+    list.append(this.unseat);
+    card.append(head, list, el("p", "class-tools-tip", t("숫자 키로 바로 골라요 · F2 / Esc 닫기", "Pick with a number key · F2 / Esc to close")));
+    wrap.append(card);
+    wrap.addEventListener("pointerdown", (e) => {
+      if (e.target === wrap) this.closeTools();
+    });
+    document.body.append(wrap);
+    return wrap;
+  }
+
+  private openTools(): void {
+    if (!this.tools || !this.tools.hidden || this.ended || this.actions.busy?.()) return;
+    this.closeInput();
+    this.tools.hidden = false;
+    this.actions.toolsOpen(true);
+  }
+
+  private closeTools(resume = true): void {
+    if (!this.tools || this.tools.hidden) return;
+    this.tools.hidden = true;
+    this.actions.toolsOpen(false, resume);
+  }
+
   get memberList(): ClassMember[] {
     return this.members;
   }
 
   private handleKey(e: KeyboardEvent): void {
+    // the teacher's class tools: F2 toggles, Esc closes, a number picks
+    if (this.tools && e.key === "F2") {
+      e.preventDefault();
+      e.stopPropagation();
+      if (this.toolsOpen) this.closeTools();
+      else this.openTools();
+      return;
+    }
+    if (this.toolsOpen) {
+      e.stopPropagation();
+      if (e.key === "Escape") {
+        // Esc is no user activation for pointer lock: close to the pause card, not to play
+        e.preventDefault();
+        this.closeTools(false);
+        return;
+      }
+      const pick = this.tools!.querySelector<HTMLButtonElement>(`[data-opt="${e.key}"]:not([hidden])`);
+      if (pick) {
+        e.preventDefault();
+        pick.click();
+      }
+      return;
+    }
     if (e.target === this.input) {
       if (e.key === "Enter") {
         const text = this.input.value.trim();
@@ -201,6 +303,7 @@ export class ClassHud {
 
   dispose(): void {
     document.removeEventListener("keydown", this.onKey, true);
+    this.tools?.remove();
     this.panel.remove();
     this.log.parentElement?.remove();
   }

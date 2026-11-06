@@ -1,5 +1,6 @@
 export * from "./constants.js";
 export * from "./daily.js";
+export * from "./classSeats.js";
 export * from "./math/index.js";
 export * from "./level/rng.js";
 export * from "./level/types.js";

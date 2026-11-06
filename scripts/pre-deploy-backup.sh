@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Snapshot the live SQLite DB (daily leaderboard + saved classrooms) right
 # before a deploy restarts the server — the rollback point if a release ever
-# mishandles saved data. Called by .github/workflows/deploy.yml after the pull
-# and BEFORE `docker compose up`; a failed backup aborts the deploy.
+# mishandles saved data. Called by scripts/zero-downtime-deploy.sh once the new
+# container is healthy and BEFORE the hand-over; a failed backup aborts the deploy.
 #
 # Hot and consistent (SQLite's own online backup, WAL included):
 #   - with the sqlite3 CLI on the host if it is installed,
@@ -10,6 +10,12 @@
 #     better-sqlite3 (its .backup() is the same online-backup API).
 # Keeps the newest KEEP snapshots in ${DB_DIR}/pre-deploy/.
 set -euo pipefail
+
+# zero-downtime deploys alternate two compose projects: talk to the live one
+if [[ -z "${COMPOSE_PROJECT_NAME:-}" && -s "${ACTIVE_FILE:-/srv/craftyap/active-project}" ]]; then
+  read -r COMPOSE_PROJECT_NAME _ < "${ACTIVE_FILE:-/srv/craftyap/active-project}"
+  export COMPOSE_PROJECT_NAME
+fi
 
 cd "$(dirname "$0")/.."
 

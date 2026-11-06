@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { BONK_COOLDOWN_MS, BONK_HOP, BONK_SPEED, BONK_TARGET_REST_MS, MAX_SOLID_ID, classSettingsSchema, decodeClassClient, decodeClassServer, type ClassFurniture, type ClassServerMessage } from "@robo/shared";
+import { BONK_COOLDOWN_MS, BONK_HOP, BONK_SPEED, BONK_TARGET_REST_MS, MAX_SOLID_ID, classSettingsSchema, decodeClassClient, decodeClassServer, seatLayout, type ClassFurniture, type ClassServerMessage } from "@robo/shared";
 import { ClassRoom, type ClassPeer } from "../src/classroom/classRoom.js";
 import { MemoryClassStore, hashPassword } from "../src/classroom/classStore.js";
 
@@ -198,6 +198,50 @@ describe("ClassRoom", () => {
     expect(room.closed).toBe(true);
     expect(a.last("s-k-closed")).toBeDefined();
     expect(a.closed).toBe("class ended");
+  });
+
+  it("gives every online student a 15 × 20 plot in name order, facing the teacher (teacher only)", () => {
+    const { room, teacher } = classWithTeacher();
+    const peers = ["Jun", "Ara", "Minji"].map((n) => {
+      const p = new Peer();
+      room.joinStudent(p, n);
+      return { n, p };
+    });
+    room.handle(teacher, { t: "k-move", pos: [500.4, 4, -30.2], yaw: 0, anim: "idle" });
+    // a student cannot seat the class
+    room.handle(peers[0]!.p, { t: "k-arrange" });
+    expect(peers[1]!.p.last("s-k-gather")).toBeUndefined();
+    room.handle(teacher, { t: "k-arrange", yaw: 0 });
+    const spots = seatLayout(3, [500.4, 4, -30.2], 0);
+    const byName = Object.fromEntries(peers.map(({ n, p }) => [n, p.last("s-k-gather")!]));
+    // name order: Ara, Jun, Minji take the spots front-row left to right
+    expect(byName.Ara!.pos).toEqual(spots[0]!.pos);
+    expect(byName.Jun!.pos).toEqual(spots[1]!.pos);
+    expect(byName.Minji!.pos).toEqual(spots[2]!.pos);
+    for (const m of Object.values(byName)) {
+      expect(Math.cos(m.yaw!)).toBeCloseTo(-1); // facing back at the teacher
+      expect(m.pos[2]).toBeGreaterThan(-30.2); // in front of the teacher (+z)
+    }
+    // everyone (teacher included) gets the seating to draw: who sits where
+    const seating = teacher.last("s-k-seats")!.seats;
+    expect(seating.map((s) => s.name)).toEqual(["Ara", "Jun", "Minji"]);
+    expect(peers[2]!.p.last("s-k-seats")!.seats).toEqual(seating);
+    // a late joiner is sent it too
+    const late = new Peer();
+    room.joinStudent(late, "Yuna");
+    expect(late.last("s-k-seats")!.seats).toEqual(seating);
+    // put away: an empty list for everyone, and nothing for the next joiner
+    room.handle(teacher, { t: "k-arrange", clear: true });
+    expect(peers[0]!.p.last("s-k-seats")!.seats).toEqual([]);
+    const later = new Peer();
+    room.joinStudent(later, "Hana");
+    expect(later.last("s-k-seats")!.seats).toEqual([]); // told "none", so stale fences come down
+    // a clear on a server that never set plots (they came from before a deploy) still reaches everyone
+    const fresh = classWithTeacher();
+    const kid = new Peer();
+    fresh.room.joinStudent(kid, "Ara");
+    fresh.room.handle(fresh.teacher, { t: "k-arrange", clear: true });
+    expect(kid.last("s-k-seats")!.seats).toEqual([]);
   });
 
   it("snapshots carry every connected player's position", () => {

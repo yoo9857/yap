@@ -13,6 +13,8 @@ const envSchema = z.object({
   STATIC_DIR: z.string().default("../../client/dist"),
   /** Daily-record SQLite path, resolved relative to the entry directory. */
   DB_PATH: z.string().default("../data/records.db"),
+  /** The deploy's hand-over lock (net/handoff.ts), beside the DB in the shared data directory. */
+  HANDOFF_FILE: z.string().default("../data/handoff.lock"),
   /** Tower-day timezone as minutes east of UTC (default KST +9h). */
   DAY_UTC_OFFSET_MIN: z.coerce.number().int().min(-720).max(840).default(540),
   /** Open WebSockets per client address (a whole school shares one public IP) and in total. */

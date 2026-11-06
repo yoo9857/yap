@@ -7,6 +7,7 @@ import type { RoomManager } from "../game/roomManager.js";
 import type { ClassManager } from "../classroom/classManager.js";
 import type { PartyManager } from "../party/partyManager.js";
 import { Session } from "./session.js";
+import { handoffPending } from "./handoff.js";
 
 const HEARTBEAT_INTERVAL_MS = 10_000;
 const HELLO_TIMEOUT_MS = 10_000;
@@ -154,6 +155,11 @@ export function attachWsServer(
 
   wss.on("connection", (ws, req) => {
     const address = clientAddress(req);
+    if (handoffPending()) {
+      // a deploy is handing the games over to the new container: come back in a moment
+      ws.close(1013, "busy");
+      return;
+    }
     if (!gate.admit(address)) {
       // 1013 "try again later": both clients reconnect with backoff
       log.warn({ from: address, open: gate.total }, "connection refused: too many sockets");

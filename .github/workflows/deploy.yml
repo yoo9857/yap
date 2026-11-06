@@ -29,6 +29,9 @@ jobs:
       - run: pnpm lint
       - run: pnpm notes:check
       - run: pnpm test
+      # the zero-downtime deploy's every path (switch, flip back, nginx refusing, a sick or stuck
+      # container) against stand-in docker/nginx — before it ever runs on the host
+      - run: bash tools/test-zero-downtime-deploy.sh
       - run: pnpm build
       - name: Verify built site, search metadata and game socket
         run: |
@@ -101,35 +104,14 @@ jobs:
             git fetch origin
             git reset --hard ${{ github.sha }}
 
-            # rebuild + restart the single-port container (static + WS + SQLite).
-            # The separate SQLite DB is bind-mounted from /srv/craftyap/data and
-            # is never touched by a rebuild.
+            # build the new image while the live container keeps serving, then hand over without
+            # downtime: the new container starts beside the old one on the other port, nginx
+            # switches, and the old one saves every classroom and closes — its players reconnect to
+            # the new one by themselves (scripts/zero-downtime-deploy.sh). The separate SQLite DB is
+            # bind-mounted from /srv/craftyap/data and shared by both; the script snapshots it from
+            # the live container first (the rollback point) and keeps the nginx vhost in sync.
             docker compose build
-            # Do not interrupt an active classroom while changing protocol.
-            bash scripts/wait-idle.sh </dev/null
-
-            # snapshot the live DB right before the restart — the rollback point
-            # for saved classrooms and the leaderboard, taken at cutover so the
-            # build and the idle wait lose nothing. Aborts the deploy if the
-            # snapshot cannot be taken. (/srv/craftyap/data/pre-deploy/)
-            bash scripts/pre-deploy-backup.sh </dev/null
-            docker compose up -d --no-build
-
-            # keep the nginx vhost in sync with the repo (validated before reload).
-            # NOTE: the TLS cert must already exist from the one-time bootstrap
-            # (see DEPLOY_KO.md §4) or nginx -t will fail here.
-            cp ops/nginx/craftyap.com.conf /etc/nginx/sites-available/craftyap.com.conf
-            nginx -t
-            systemctl reload nginx
-
-            # the app needs a few seconds after recreate — retry the health check
-            ok=""
-            for i in $(seq 1 20); do
-              if curl -fsS -o /dev/null http://127.0.0.1:8082/healthz; then ok=1; break; fi
-              sleep 3
-            done
-            [ -n "$ok" ] || { echo "health check failed"; docker compose logs --tail=40 app; exit 1; }
-            echo "deploy complete: $(git rev-parse --short HEAD)"
+            bash scripts/zero-downtime-deploy.sh </dev/null
           DEPLOY_SCRIPT
 
       - name: Verify the public site after deployment

@@ -7,6 +7,47 @@
   <updated>2026-11-06T00:00:00+09:00</updated>
   <author><name>크래프트얍(CraftYap)</name></author>
   <entry xml:base="https://craftyap.com/">
+    <title>11월 6일 패치 노트 (2) — 수업 도구(F2): 아이마다 15×20칸 자기 땅</title>
+    <link href="https://craftyap.com/note/patch-2026-11-06-2/" />
+    <id>https://craftyap.com/note/patch-2026-11-06-2/</id>
+    <published>2026-11-06T00:00:00+09:00</published>
+    <updated>2026-11-06T00:00:00+09:00</updated>
+    <summary>선생님이 교실에서 F2를 누르면 수업 도구가 열려요. &#39;자리 배치&#39;를 고르면 학생마다 가로 15 × 세로 20칸 땅을 나눠 주고, 칸막이와 이름 팻말을 세워요. 업데이트가 있어도 수업을 멈추지 않도록 무중단 업데이트로 바꿨어요.</summary>
+    <content type="html">&lt;h2&gt;한눈에 보기&lt;/h2&gt;
+&lt;p&gt;선생님이 교실에서 &lt;strong&gt;F2&lt;/strong&gt;를 누르면 &lt;strong&gt;수업 도구&lt;/strong&gt;가 열려요. &lt;strong&gt;자리 배치&lt;/strong&gt;를 고르면 접속한 학생마다 &lt;strong&gt;가로 15 × 세로 20칸 자기 땅&lt;/strong&gt;이 생기고, 땅 사이에 &lt;strong&gt;칸막이&lt;/strong&gt;, 땅 앞에 &lt;strong&gt;&amp;quot;민지의 자리&amp;quot; 같은 이름 팻말&lt;/strong&gt;이 서요. 그리고 이제 사이트를 업데이트할 때 수업이 끝날 때까지 기다리지 않고, 수업 중에도 바로 바뀌어요.&lt;/p&gt;
+&lt;h2&gt;BEFORE / AFTER&lt;/h2&gt;
+&lt;p&gt;&lt;strong&gt;선생님 앞에 학생 두 명이 있을 때&lt;/strong&gt; — 이전에는 &amp;#39;모두 모이기&amp;#39;로 불러도 아무 데나 흩어져 섰어요. 이제 자리 배치를 하면 학생마다 울타리로 나뉜 자기 땅이 생기고, 그 땅 앞에 이름 팻말이 서요.&lt;/p&gt;
+&lt;p&gt;&lt;img src=&quot;/note/assets/20261106-plots-ba.webp&quot; alt=&quot;자리 배치 비교: 왼쪽 이전 화면은 학생 두 명이 선생님 주변에 흩어져 서 있고, 오른쪽 새 화면은 울타리로 나뉜 땅 두 칸 앞쪽에 학생들이 서 있고 &#39;준의 자리&#39; 팻말이 보인다&quot;&gt;&lt;/p&gt;
+&lt;h2&gt;새로 추가&lt;/h2&gt;
+&lt;h3&gt;수업 도구 (선생님, F2)&lt;/h3&gt;
+&lt;p&gt;&lt;img src=&quot;/note/assets/20261106-class-tools.webp&quot; alt=&quot;수업 도구 창: 1 자리 배치, 2 모두 모이기 항목이 큰 버튼으로 보인다&quot;&gt;&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;F2&lt;/strong&gt;로 열고 닫아요. 숫자 키로 바로 고를 수 있고, Esc로도 닫혀요. 학생 화면에는 나오지 않아요.&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;1 자리 배치&lt;/strong&gt; — 접속한 학생마다 15×20칸 땅을 하나씩 줘요. 땅은 선생님 앞에 한 줄에 최대 6개씩, 이름 순서대로(선생님이 볼 때 왼쪽부터) 놓여요. 학생은 자기 땅 앞쪽에 서서 선생님을 바라봐요.&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;2 모두 모이기&lt;/strong&gt; — 학생들을 내 주변으로 불러요(전과 같아요).&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;3 자리 치우기&lt;/strong&gt; — 자리 배치를 한 뒤에 나와요. 칸막이와 팻말을 한 번에 걷어요.&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3&gt;칸막이와 이름 팻말&lt;/h3&gt;
+&lt;p&gt;&lt;img src=&quot;/note/assets/20261106-plots-air.webp&quot; alt=&quot;위에서 본 자리 배치: 학생 12명이 6칸씩 두 줄로, 울타리로 나뉜 땅마다 색이 조금씩 다르게 칠해져 있고 앞쪽에 이름 팻말과 학생이 서 있다&quot;&gt;&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;땅 경계에 울타리를 둘렀어요. 이웃한 땅은 울타리 하나를 같이 써요.&lt;/li&gt;
+&lt;li&gt;땅마다 바닥 색이 조금씩 달라서 어디까지가 내 땅인지 한눈에 보여요.&lt;/li&gt;
+&lt;li&gt;이름 팻말은 선생님 쪽에서도, 땅 안에서도 글씨가 바르게 읽혀요.&lt;/li&gt;
+&lt;li&gt;늦게 들어온 학생에게도 같은 칸막이와 팻말이 보여요.&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2&gt;개선&lt;/h2&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;무중단 업데이트&lt;/strong&gt; — 이전에는 접속한 사람이 있으면 업데이트가 끝날 때까지 기다렸어요. 이제는 새 버전을 옆에 먼저 띄운 뒤 넘겨줘서, 수업 중에도 바로 바뀌어요. 넘겨주는 몇 초 동안만 자동으로 다시 연결되고, 그동안 지은 것은 모두 저장돼요.&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;잠깐 붐빌 때 입장&lt;/strong&gt; — 서버가 &amp;quot;잠시 후 다시&amp;quot;라고 답하면, 교실에 처음 들어올 때도 &amp;#39;연결 실패&amp;#39; 대신 알아서 몇 번 다시 시도해요.&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2&gt;알려진 문제&lt;/h2&gt;
+&lt;ul&gt;
+&lt;li&gt;칸막이는 아직 눈에만 보여요. 몸은 통과하고, 남의 땅에도 블록을 놓을 수 있어요.&lt;/li&gt;
+&lt;li&gt;자리 배치는 그 수업 동안만 유지돼요. 수업을 다시 열거나 사이트가 업데이트되면 칸막이와 팻말이 사라지니, F2로 다시 배치해 주세요(지은 것은 그대로예요).&lt;/li&gt;
+&lt;/ul&gt;
+</content>
+  </entry>
+  <entry xml:base="https://craftyap.com/">
     <title>11월 6일 패치 노트 — 과학 모드: 풍력 발전기를 직접 지어요</title>
     <link href="https://craftyap.com/note/patch-2026-11-06-1/" />
     <id>https://craftyap.com/note/patch-2026-11-06-1/</id>
@@ -591,45 +632,6 @@
 &lt;ul&gt;
 &lt;li&gt;방은 서버가 업데이트되면 닫혀요.&lt;/li&gt;
 &lt;li&gt;아주 많은 사람(수백 명 이상)이 동시에 접속하려면 서버를 여러 대로 나누는 작업이 더 필요해요.&lt;/li&gt;
-&lt;/ul&gt;
-</content>
-  </entry>
-  <entry xml:base="https://craftyap.com/">
-    <title>11월 3일 패치 노트 (3) — 친구와 방에서 함께, 게임 로딩은 더 빠르게</title>
-    <link href="https://craftyap.com/note/patch-2026-11-03-3/" />
-    <id>https://craftyap.com/note/patch-2026-11-03-3/</id>
-    <published>2026-11-03T00:00:00+09:00</published>
-    <updated>2026-11-03T00:00:00+09:00</updated>
-    <summary>온라인 허브에서 방을 만들고, 방 목록이나 코드로 친구 방에 들어가 대기실에서 함께 시작할 수 있어요. 게임 중인 방에도 바로 들어갈 수 있어요. 게임을 불러오는 시간도 약 20% 줄였어요.</summary>
-    <content type="html">&lt;h2&gt;한눈에 보기&lt;/h2&gt;
-&lt;p&gt;이제 &lt;strong&gt;친구와 같은 방에 모여서&lt;/strong&gt; 게임을 시작할 수 있어요. 방을 만들거나, &lt;strong&gt;접속하기&lt;/strong&gt;로 방 목록을 열어 들어가거나, 친구에게 받은 &lt;strong&gt;6자리 방 코드&lt;/strong&gt;로 들어가요. 대기실에서 모두 준비하면 방장이 시작하고, 이미 게임 중인 방에 들어가도 바로 합류해요. 게임을 불러오는 시간도 줄였어요.&lt;/p&gt;
-&lt;h2&gt;BEFORE / AFTER&lt;/h2&gt;
-&lt;p&gt;&lt;strong&gt;온라인 허브&lt;/strong&gt; — 가운데가 게임 목록이던 자리에 &lt;strong&gt;방 만들기 · 접속하기&lt;/strong&gt;가 생겼어요. 혼자 하는 게임은 아래에 작은 버튼으로 남아 있어요.&lt;/p&gt;
-&lt;p&gt;&lt;img src=&quot;/note/assets/20261103-rooms-ba.webp&quot; alt=&quot;온라인 허브 비교: 왼쪽은 가운데에 게임 카드 네 장이 있는 이전 화면, 오른쪽은 방 만들기와 접속하기 버튼, 혼자 하기 버튼이 있는 새 화면&quot;&gt;&lt;/p&gt;
-&lt;p&gt;&lt;strong&gt;접속하기&lt;/strong&gt;를 누르면 오른쪽 패널이 옆으로 밀려나고 그 자리에 방 목록이 들어와요. 맨 위 칸에 방 코드를 넣어도 돼요.&lt;/p&gt;
-&lt;p&gt;&lt;img src=&quot;/note/assets/20261103-room-list.webp&quot; alt=&quot;방 목록: 오른쪽에 열린 방들이 게임, 인원, 대기 중 상태와 함께 보이고 맨 위에 방 코드 입력칸이 있는 화면&quot;&gt;&lt;/p&gt;
-&lt;p&gt;&lt;strong&gt;대기실&lt;/strong&gt; — 8개 자리, 준비 표시, 방 코드, 게임 고르기, 채팅이 한 화면에 있어요.&lt;/p&gt;
-&lt;p&gt;&lt;img src=&quot;/note/assets/20261103-waiting-room.webp&quot; alt=&quot;대기실: 왼쪽에 방장과 준비 완료한 친구가 앉은 8개 자리, 오른쪽에 게임 고르기와 채팅, 아래에 게임 시작 버튼&quot;&gt;&lt;/p&gt;
-&lt;h2&gt;새로 추가&lt;/h2&gt;
-&lt;ul&gt;
-&lt;li&gt;&lt;strong&gt;방 만들기&lt;/strong&gt; — 방 이름, 게임, 최대 인원(2~8명)을 정해요. &amp;quot;방 목록에 보이기&amp;quot;를 끄면 코드를 아는 친구만 들어와요.&lt;/li&gt;
-&lt;li&gt;&lt;strong&gt;접속하기 · 코드로 입장 · 빠른 입장&lt;/strong&gt; — 방 목록에서 고르거나, 6자리 코드를 넣거나, 큰 &lt;strong&gt;빠른 입장&lt;/strong&gt; 버튼으로 빈자리 있는 방에 바로 들어가요.&lt;/li&gt;
-&lt;li&gt;&lt;strong&gt;대기실&lt;/strong&gt; — 준비 / 준비 취소, 채팅, 방 코드 복사가 있어요. 방장은 게임을 고르고, 시작하고, 친구를 내보낼 수 있어요.&lt;/li&gt;
-&lt;li&gt;&lt;strong&gt;방에서 할 수 있는 게임&lt;/strong&gt; — &lt;strong&gt;함께 짓기&lt;/strong&gt;(같은 들판에서 함께 블록 쌓기)와 &lt;strong&gt;Daily Tower&lt;/strong&gt;(방 친구끼리만 같은 타워). Blast Royale과 Robo Builder는 준비 중이에요.&lt;/li&gt;
-&lt;li&gt;&lt;strong&gt;중간 입장&lt;/strong&gt; — 게임 중인 방에 들어가면 진행 중인 게임으로 바로 합류해요.&lt;/li&gt;
-&lt;li&gt;&lt;strong&gt;방으로 돌아오기&lt;/strong&gt; — 게임에서 &amp;quot;처음으로&amp;quot;를 누르면 같은 방 대기실로 돌아와요.&lt;/li&gt;
-&lt;/ul&gt;
-&lt;h2&gt;개선&lt;/h2&gt;
-&lt;ul&gt;
-&lt;li&gt;&lt;strong&gt;게임 불러오기가 빨라졌어요&lt;/strong&gt; — 블록 그림을 더 가벼운 형식으로 바꿔 10 MB가 2 MB가 됐어요. 두 번째 캐릭터 모델은 게임이 시작된 뒤에 받아요. 같은 인터넷(20 Mbps)에서 들판에 들어가는 시간이 &lt;strong&gt;10.6초에서 8.4초&lt;/strong&gt;로, 받는 양이 &lt;strong&gt;11.9 MB에서 약 6 MB&lt;/strong&gt;로 줄었어요.&lt;/li&gt;
-&lt;li&gt;&lt;strong&gt;메뉴 배경 영상&lt;/strong&gt; — 화질은 그대로 두고 크기를 6.8 MB에서 2.8 MB로 줄였어요.&lt;/li&gt;
-&lt;li&gt;&lt;strong&gt;로고 · 탭 아이콘&lt;/strong&gt; — 로고를 가벼운 형식으로 바꾸고, 브라우저 탭 아이콘은 작은 전용 그림으로 바꿨어요.&lt;/li&gt;
-&lt;/ul&gt;
-&lt;h2&gt;알려진 문제&lt;/h2&gt;
-&lt;ul&gt;
-&lt;li&gt;방은 서버가 업데이트되면 닫혀요. 그때 함께 짓던 들판도 처음부터 다시 시작해요.&lt;/li&gt;
-&lt;li&gt;방에서 내보낸 친구도 방 코드를 알면 함께 짓기 들판에 다시 들어올 수 있어요. 다음 업데이트에서 막을게요.&lt;/li&gt;
-&lt;li&gt;Daily Tower 방은 타워 시작 화면에서 [플레이]를 한 번 더 눌러야 해요.&lt;/li&gt;
 &lt;/ul&gt;
 </content>
   </entry>
