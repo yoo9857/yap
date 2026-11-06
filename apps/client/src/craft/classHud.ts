@@ -50,10 +50,6 @@ export class ClassHud {
   private readonly status = el("span", "class-status");
   private readonly count = el("span", "class-count");
   private readonly list = el("ul", "class-members");
-  private readonly controls = el("div", "class-controls");
-  private readonly chatLock = el("button", "class-btn");
-  private readonly buildLock = el("button", "class-btn");
-  private readonly tapsLock = el("button", "class-btn");
   private readonly log = el("div", "class-chat-log");
   private readonly input = el("input", "class-chat-input");
   private settings: ClassSettings = { chatLocked: false, buildLocked: false };
@@ -88,27 +84,7 @@ export class ClassHud {
     this.panel.append(head, sub, this.list);
 
     if (role === "teacher") {
-      const gather = el("button", "class-btn", t("📣 모두 모이기", "📣 Gather everyone"));
-      gather.addEventListener("click", () => this.actions.gather());
-      this.chatLock.addEventListener("click", () =>
-        this.actions.settings({ ...this.settings, chatLocked: !this.settings.chatLocked }),
-      );
-      this.buildLock.addEventListener("click", () =>
-        this.actions.settings({ ...this.settings, buildLocked: !this.settings.buildLocked }),
-      );
-      this.tapsLock.addEventListener("click", () =>
-        this.actions.settings({ ...this.settings, tapsLocked: !this.settings.tapsLocked }),
-      );
-      const end = el("button", "class-btn danger", t("수업 종료", "End class"));
-      end.addEventListener("click", () => {
-        if (confirm(t("수업을 끝낼까요? 모든 학생의 연결이 끊어져요.", "End the class? Every student will be disconnected."))) this.actions.end();
-      });
-      const reset = el("button", "class-btn", t("🧹 들판 비우기", "🧹 Clear the field"));
-      reset.addEventListener("click", () => {
-        if (confirm(t("반의 들판을 모두 비울까요? 지금까지 만든 것이 모두 사라져요.", "Clear the whole class field? Everything built so far will be gone."))) this.actions.resetWorld();
-      });
-      this.controls.append(gather, this.chatLock, this.buildLock, this.tapsLock, reset, end);
-      this.panel.append(this.controls);
+      // every teacher action lives in the F2 console now (the panel's buttons duplicated it)
       this.tools = new ClassTools(party ? `${t("방", "Room")} ${party}` : room, {
         arrange: () => this.actions.arrange(),
         gather: () => this.actions.gather(),
@@ -119,6 +95,9 @@ export class ClassHud {
         announce: (text) => this.actions.announce(text),
         visit: (m) => this.actions.visit(m),
         settings: (next) => this.actions.settings(next),
+        kick: (m) => this.actions.kick(m),
+        resetWorld: () => this.actions.resetWorld(),
+        end: () => this.actions.end(),
         toolsOpen: (open, resume) => {
           if (open) this.closeInput();
           this.actions.toolsOpen(open, resume);
@@ -127,8 +106,8 @@ export class ClassHud {
       });
     }
     this.panel.append(el("div", "class-tip", role === "teacher"
-      ? t("F2 수업 도구 · Esc로 마우스를 풀면 버튼을 누를 수 있어요 · Enter 채팅", "F2 class tools · Press Esc to free the mouse and use the buttons · Enter to chat")
-      : t("Esc로 마우스를 풀면 버튼을 누를 수 있어요 · Enter 채팅", "Press Esc to free the mouse and use the buttons · Enter to chat")));
+      ? t("F2 수업 도구 · Enter 채팅", "F2 class tools · Enter to chat")
+      : t("Enter 채팅", "Enter to chat")));
 
     this.input.maxLength = 120;
     this.input.placeholder = t("메시지 입력 후 Enter (Esc 취소)", "Type a message, Enter to send (Esc to cancel)");
@@ -151,18 +130,13 @@ export class ClassHud {
     this.tools?.setMembers(members, this.you);
     const students = members.filter((m) => m.role === "student");
     this.count.textContent = t(` · 학생 ${students.filter((m) => m.online).length}/${students.length}명 접속 중`, ` · ${students.filter((m) => m.online).length}/${students.length} students online`);
+    this.list.classList.toggle("many", members.length > 8);
+    // teacher, then whoever is online: the names worth seeing sit at the top of a long list
+    const shown = [...members].sort((a, b) => Number(b.role === "teacher") - Number(a.role === "teacher") || Number(b.online) - Number(a.online));
     this.list.replaceChildren(
-      ...members.map((m) => {
+      ...shown.map((m) => {
         const li = el("li", m.online ? "online" : "offline");
         li.append(el("span", "dot"), el("span", "name", `${m.role === "teacher" ? "👩‍🏫 " : ""}${m.name}${m.id === this.you ? t(" (나)", " (you)") : ""}`));
-        if (this.role === "teacher" && m.role === "student") {
-          const kick = el("button", "class-kick", "✕");
-          kick.title = t("내보내기", "Remove from class");
-          kick.addEventListener("click", () => {
-            if (confirm(t(`${m.name} 학생을 내보낼까요?`, `Remove ${m.name} from the class?`))) this.actions.kick(m);
-          });
-          li.append(kick);
-        }
         return li;
       }),
     );
@@ -171,12 +145,6 @@ export class ClassHud {
   setSettings(settings: ClassSettings): void {
     this.settings = settings;
     this.tools?.setSettings(settings);
-    this.chatLock.textContent = settings.chatLocked ? t("💬 채팅 잠금 해제", "💬 Unlock chat") : t("💬 채팅 잠그기", "💬 Lock chat");
-    this.buildLock.textContent = settings.buildLocked ? t("🧱 건축 잠금 해제", "🧱 Unlock building") : t("🧱 건축 잠그기", "🧱 Lock building");
-    this.chatLock.classList.toggle("on", settings.chatLocked);
-    this.buildLock.classList.toggle("on", settings.buildLocked);
-    this.tapsLock.textContent = settings.tapsLocked ? t("👋 친구 밀기 다시 허용", "👋 Allow friend taps") : t("👋 친구 밀기 끄기", "👋 Turn friend taps off");
-    this.tapsLock.classList.toggle("on", settings.tapsLocked === true);
     if (this.role === "student" && settings.chatLocked) this.closeInput();
   }
 

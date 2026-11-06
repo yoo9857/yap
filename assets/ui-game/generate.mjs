@@ -83,6 +83,7 @@ const ASSETS = [
   ["tool-announce", "1024x1024", `${ICON} Subject: a small rounded cream billboard sign on two wooden legs with a big coral red exclamation-shaped balloon floating above it (no letters).`],
   ["tool-lock-build", "1024x1024", `${ICON} Subject: a single cream toy brick with four studs and a chunky golden padlock hanging on its front.`],
   ["tool-lock-chat", "1024x1024", `${ICON} Subject: a white rounded speech bubble with a chunky golden padlock in front of its lower corner.`],
+  ["tool-lock-taps", "1024x1024", `${ICON} Subject: a chunky cream open hand giving a gentle little push (palm sideways) with three small soft sky-blue motion arcs, and a small chunky golden padlock on its lower corner.`],
   ["tool-teacher", "1024x1024", `${ICON} Subject: a soft green chalkboard with a small sunny-yellow star and a cream apple resting on its wooden ledge.`],
   // animated sheets
   ["fx-crack", "1536x1024", `${SHEET} Subject: cracks spreading over a square block face, drawn as deep recessed fissures (dark grey-brown inside with a pale lit edge on one side, NOT ink lines; no block, no fill): frame 1 a tiny chip at the centre, frame 6 cracks reaching all four edges, each frame a little more cracked.`],

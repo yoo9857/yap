@@ -17,6 +17,12 @@ export interface ClassToolsActions {
   /** Go and stand beside this student (the teacher's own teleport). */
   visit(member: ClassMember): void;
   settings(next: ClassSettings): void;
+  /** Take a student out of the class (asked first). */
+  kick(member: ClassMember): void;
+  /** Wipe the class field (asked first). */
+  resetWorld(): void;
+  /** End the lesson for everyone (asked first). */
+  end(): void;
   /** The panel opened / closed. `resume`: closed by a click or F2 (a user gesture → back to play). */
   toolsOpen(open: boolean, resume?: boolean): void;
   /** Another panel owns the screen: F2 waits. */
@@ -59,9 +65,10 @@ type View = "main" | "timer" | "announce";
 
 /**
  * The teacher's F2 class tools: a two-pane console over the dimmed field. Left, the tools as
- * big icon tiles in three groups (자리 · 수업 진행 · 잠금), each with its number key and a live state;
- * right, the class — who is online, on which plot, and a 찾아가기 button per student. The timer
- * and the announcement open a second step in the same card (Esc / ← goes back).
+ * compact icon rows in three groups (자리 · 수업 진행 · 잠금), each with its number key and a live
+ * state, and the class's two big switches (들판 비우기, 수업 종료) at the foot; right, the class —
+ * a dense, searchable list built for 30-40 students (online first; visit and remove per row).
+ * The timer and the announcement open a second step in the same card (Esc / ← goes back).
  * Pure DOM: every decision goes back through `actions`.
  */
 export class ClassTools {
@@ -70,6 +77,7 @@ export class ClassTools {
   private readonly chips = el("div", "ct-chips");
   private readonly roster = el("ul", "ct-roster");
   private readonly rosterCount = el("span", "ct-count");
+  private readonly search = el("input", "ct-search");
   private readonly main = el("div", "ct-main");
   private readonly timerView = el("div", "ct-sub");
   private readonly announceView = el("div", "ct-sub");
@@ -125,7 +133,8 @@ export class ClassTools {
         this.tile("announce", 7, "announce", () => this.show("announce"))),
       group(t("잠금", "Locks"),
         this.tile("build", 8, "lock-build", () => this.actions.settings({ ...this.settings, buildLocked: !this.settings.buildLocked }), true),
-        this.tile("chat", 9, "lock-chat", () => this.actions.settings({ ...this.settings, chatLocked: !this.settings.chatLocked }), true)),
+        this.tile("chat", 9, "lock-chat", () => this.actions.settings({ ...this.settings, chatLocked: !this.settings.chatLocked }), true),
+        this.tile("taps", 0, "lock-taps", () => this.actions.settings({ ...this.settings, tapsLocked: !this.settings.tapsLocked }), true)),
     );
     this.buildTimerView();
     this.buildAnnounceView();
@@ -136,21 +145,34 @@ export class ClassTools {
     const right = el("aside", "ct-right");
     const rhead = el("div", "ct-right-head");
     rhead.append(el("h3", "", t("우리 반", "Our class")), this.rosterCount);
-    right.append(rhead, this.roster);
+    this.search.type = "search";
+    this.search.placeholder = t("🔍 이름 찾기", "🔍 Find a name");
+    this.search.addEventListener("input", () => this.renderRoster());
+    right.append(rhead, this.search, this.roster);
 
     const body = el("div", "ct-body");
     body.append(left, right);
-    const foot = el("p", "ct-foot");
-    foot.append(
-      el("kbd", "", "1–9"), document.createTextNode(t(" 바로 고르기 · ", " pick · ")),
-      el("kbd", "", "Esc"), document.createTextNode(t(" 뒤로 / 닫기 · ", " back / close · ")),
-      el("kbd", "", "F2"), document.createTextNode(t(" 닫기", " close")),
+    const foot = el("div", "ct-foot");
+    const keys = el("p", "ct-keys");
+    keys.append(
+      el("kbd", "", "0–9"), document.createTextNode(t(" 바로 고르기 · ", " pick · ")),
+      el("kbd", "", "Esc"), document.createTextNode(t(" 뒤로 / 닫기", " back / close")),
     );
+    // the class's two big switches: no number key (never by accident), asked before they act
+    const reset = el("button", "ct-manage", t("🧹 들판 비우기", "🧹 Clear the field"));
+    reset.addEventListener("click", () => {
+      if (confirm(t("반의 들판을 모두 비울까요? 지금까지 만든 것이 모두 사라져요.", "Clear the whole class field? Everything built so far will be gone."))) this.run(() => this.actions.resetWorld());
+    });
+    const end = el("button", "ct-manage danger", t("수업 종료", "End class"));
+    end.addEventListener("click", () => {
+      if (confirm(t("수업을 끝낼까요? 모든 학생의 연결이 끊어져요.", "End the class? Every student will be disconnected."))) this.run(() => this.actions.end());
+    });
+    foot.append(reset, end, keys);
     this.card.append(head, body, foot);
     this.root.append(this.card);
     document.body.append(this.root);
     // the art is small: fetch it now, so the first F2 shows a finished panel, not icons popping in
-    for (const name of ["teacher", "seat", "gather", "clear", "roam", "home", "freeze", "timer", "announce", "lock-build", "lock-chat", "visit"]) {
+    for (const name of ["teacher", "seat", "gather", "clear", "roam", "home", "freeze", "timer", "announce", "lock-build", "lock-chat", "lock-taps", "visit"]) {
       const img = new Image();
       img.src = ICON(name);
     }
@@ -215,10 +237,19 @@ export class ClassTools {
     e.stopPropagation();
     if (e.key === "Escape") {
       e.preventDefault();
+      if (e.target === this.search && this.search.value) {
+        this.search.value = "";
+        this.renderRoster();
+        return true;
+      }
       // a step back first; Esc is no user activation for pointer lock, so close to the pause card
       if (this.view !== "main") this.show("main");
       else this.close(false);
       return true;
+    }
+    if (e.target === this.search) {
+      if (e.key === "Enter") this.search.blur();
+      return true; // typing a name: digits are letters here
     }
     if (e.target === this.announceInput) {
       if (e.key === "Enter") {
@@ -395,6 +426,9 @@ export class ClassTools {
     this.setTile("chat", t("채팅 잠금", "Lock chat"),
       this.settings.chatLocked ? t("지금 잠겨 있어요 — 학생은 채팅을 못 해요", "Locked — students can't chat") : t("켜면 학생이 채팅을 못 해요", "On: students can't chat"),
       { on: this.settings.chatLocked });
+    this.setTile("taps", t("친구 밀기 끄기", "Taps off"),
+      this.settings.tapsLocked ? t("지금 꺼져 있어요 — 친구를 밀 수 없어요", "Off — nobody can tap a classmate") : t("켜면 친구를 살짝 미는 장난을 못 해요", "On: nobody can tap a classmate"),
+      { on: this.settings.tapsLocked === true });
     this.renderChips();
     this.refreshClock();
   }
@@ -407,6 +441,7 @@ export class ClassTools {
     if (this.lesson.timerEnd !== null) chips.push(["timer", "⏱️ "]);
     if (this.settings.buildLocked) chips.push(["lock", t("🧱 건축 잠김", "🧱 Building locked")]);
     if (this.settings.chatLocked) chips.push(["lock", t("💬 채팅 잠김", "💬 Chat locked")]);
+    if (this.settings.tapsLocked) chips.push(["lock", t("👋 밀기 꺼짐", "👋 Taps off")]);
     if (chips.length === 0) chips.push(["calm", t("지금은 자유롭게 짓는 중이에요", "Free building right now")]);
     this.chips.replaceChildren(...chips.map(([kind, text]) => {
       const c = el("span", `ct-chip ct-chip-${kind}`, text);
@@ -430,7 +465,9 @@ export class ClassTools {
   private renderRoster(): void {
     const students = this.members.filter((m) => m.role === "student");
     const online = students.filter((m) => m.online);
-    this.rosterCount.textContent = t(`${online.length} / ${students.length}명`, `${online.length} / ${students.length}`);
+    this.rosterCount.textContent = t(`접속 ${online.length} / ${students.length}명`, `${online.length} / ${students.length} online`);
+    // a search box only once the list is long enough to need one
+    this.search.hidden = students.length <= 8;
     if (students.length === 0) {
       const empty = el("li", "ct-empty");
       empty.append(el("b", "", t("아직 학생이 없어요", "No students yet")),
@@ -438,29 +475,40 @@ export class ClassTools {
       this.roster.replaceChildren(empty);
       return;
     }
+    const query = this.search.hidden ? "" : this.search.value.trim().toLowerCase();
     const seated = new Set(this.plots.map((n) => n.trim().toLowerCase()));
     // online first, then by name — the order the teacher scans for a face
-    const sorted = [...students].sort((a, b) => Number(b.online) - Number(a.online) || a.name.localeCompare(b.name, "ko"));
+    const sorted = students
+      .filter((m) => !query || m.name.toLowerCase().includes(query))
+      .sort((a, b) => Number(b.online) - Number(a.online) || a.name.localeCompare(b.name, "ko"));
+    if (sorted.length === 0) {
+      this.roster.replaceChildren(el("li", "ct-empty", t("그런 이름이 없어요", "No one by that name")));
+      return;
+    }
     this.roster.replaceChildren(...sorted.map((m) => {
       const li = el("li", m.online ? "on" : "off");
       const avatar = el("span", "ct-avatar", [...m.name][0] ?? "?");
       avatar.style.setProperty("--hue", String(hue(m.name)));
-      const who = el("span", "ct-who");
-      who.append(el("b", "", m.name), el("small", "",
-        !m.online ? t("접속 안 함", "Offline")
-          : seated.has(m.name.trim().toLowerCase()) ? t("🪑 자기 자리", "🪑 Has a plot")
-          : t("● 접속 중", "● Online")));
-      li.append(avatar, who);
+      const name = el("b", "ct-who", m.name);
+      const tag = !m.online ? t("오프라인", "Offline") : seated.has(m.name.trim().toLowerCase()) ? "🪑" : "";
+      li.append(avatar, name);
+      if (tag) li.append(el("small", "ct-tag", tag));
       if (m.online && m.id !== this.you) {
-        const go = el("button", "ct-visit");
+        const go = el("button", "ct-icon-btn ct-visit");
         const img = el("img");
         img.src = ICON("visit");
-        img.alt = "";
-        go.append(img, el("span", "", t("찾아가기", "Visit")));
-        go.title = t(`${m.name} 옆으로 가요`, `Go to ${m.name}`);
+        img.alt = t("찾아가기", "Visit");
+        go.append(img);
+        go.title = t(`${m.name} 옆으로 가기`, `Go to ${m.name}`);
         go.addEventListener("click", () => this.run(() => this.actions.visit(m)));
         li.append(go);
       }
+      const kick = el("button", "ct-icon-btn ct-kick", "✕");
+      kick.title = t(`${m.name} 내보내기`, `Remove ${m.name}`);
+      kick.addEventListener("click", () => {
+        if (confirm(t(`${m.name} 학생을 내보낼까요?`, `Remove ${m.name} from the class?`))) this.actions.kick(m);
+      });
+      li.append(kick);
       return li;
     }));
   }

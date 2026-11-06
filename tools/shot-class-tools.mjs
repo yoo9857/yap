@@ -1,8 +1,17 @@
 // Screenshots of the teacher's F2 class tools at a classroom-PC size (1600 × 900): the main panel,
 // the timer step, the announcement step, and a student's screen while frozen / announced to.
-//   node tools/shot-class-tools.mjs <outdir>     (needs `pnpm dev`)
+//   node tools/shot-class-tools.mjs <outdir> [bots]     (needs `pnpm dev`; bots: extra students as
+//   plain sockets, default 30 — how the class list looks with a whole class in)
 import puppeteer from "puppeteer-core";
-import { mkdirSync } from "node:fs";
+import { mkdirSync, readFileSync } from "node:fs";
+import { createRequire } from "node:module";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
+
+const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
+const WebSocket = createRequire(join(ROOT, "apps/server/package.json"))("ws");
+const CLASS_V = Number(/CLASS_PROTOCOL_VERSION = (\d+)/.exec(readFileSync(join(ROOT, "packages/shared/src/protocol/classroom.ts"), "utf8"))[1]);
+const BOTS = Number(process.argv[3] ?? 30);
 
 const OUT = process.argv[2] ?? "shots-class-tools";
 const BASE = process.env.BASE ?? "http://localhost:5173";
@@ -29,6 +38,20 @@ const open = async (url) => {
 const teacher = await open(`${BASE}/?mode=field&room=${encodeURIComponent(ROOM)}&host=${encodeURIComponent("김선생")}&pass=1234`);
 const kids = [];
 for (const name of ["민지", "서준", "하린"]) kids.push(await open(`${BASE}/?mode=field&room=${encodeURIComponent(ROOM)}&student=${encodeURIComponent(name)}`));
+// a whole class: plain sockets that join and stay (the server keeps them company with keepalives)
+const NAMES = ["가은", "나연", "다인", "라희", "마루", "바다", "사랑", "아린", "자윤", "차미", "카이", "타오", "하늘", "건우", "도윤", "로운", "민준", "보람", "선우", "우진", "재희", "지호", "채원", "태윤", "하준", "현서", "예린", "윤서", "은우", "지안", "시우", "수아", "다온", "서아", "이안"];
+const bots = [];
+for (let i = 0; i < Math.min(BOTS, NAMES.length); i++) {
+  const ws = new WebSocket(`${BASE.replace(/^http/, "ws")}/ws?mode=class&room=${encodeURIComponent(ROOM)}`);
+  ws.on("open", () => ws.send(JSON.stringify({ t: "k-join", v: CLASS_V, room: ROOM, student: NAMES[i] })));
+  ws.on("error", () => {});
+  bots.push(ws);
+  await sleep(120); // the server paces new sockets per address
+}
+await sleep(2500);
+// a few left again: the list shows offline students too
+for (const ws of bots.slice(-4)) ws.close();
+await sleep(800);
 const t = teacher.page;
 await t.bringToFront();
 await t.keyboard.press("F2");
@@ -64,5 +87,6 @@ await kid.screenshot({ path: `${OUT}/student-frozen.png` });
 await t.bringToFront();
 await sleep(300);
 await t.screenshot({ path: `${OUT}/teacher-view.png` });
+for (const ws of bots) ws.close();
 for (const b of [teacher, ...kids]) await b.browser.close();
 console.log(`shots in ${OUT}`);

@@ -6,7 +6,14 @@
     <atom:link href="https://craftyap.com/feed.xml" rel="self" type="application/rss+xml" />
     <description>크래프트얍(CraftYap) 패치 노트와 개발 이야기</description>
     <language>ko</language>
-    <lastBuildDate>Thu, 05 Nov 2026 15:00:00 +0000</lastBuildDate>
+    <lastBuildDate>Fri, 06 Nov 2026 15:00:00 +0000</lastBuildDate>
+    <item>
+      <title>11월 7일 패치 노트 — 수업 도구(F2) 정리: 작게, 30명도 한눈에</title>
+      <link>https://craftyap.com/note/patch-2026-11-07-1/</link>
+      <guid isPermaLink="true">https://craftyap.com/note/patch-2026-11-07-1/</guid>
+      <pubDate>Fri, 06 Nov 2026 15:00:00 +0000</pubDate>
+      <description>F2 수업 도구의 버튼을 작게 줄이고, 학생이 30명 넘게 들어와도 명단이 한눈에 들어오게 바꿨어요. 왼쪽 반 패널의 버튼은 모두 F2로 옮겼어요.</description>
+    </item>
     <item>
       <title>11월 6일 패치 노트 (3) — 수업 도구(F2) 새 단장: 모두 멈춰, 타이머, 큰 글씨 공지, 찾아가기</title>
       <link>https://craftyap.com/note/patch-2026-11-06-3/</link>
@@ -139,13 +146,6 @@
       <guid isPermaLink="true">https://craftyap.com/note/patch-2026-11-03-6/</guid>
       <pubDate>Mon, 02 Nov 2026 15:00:00 +0000</pubDate>
       <description>벽이나 구석에 붙었을 때 카메라가 블록 안으로 들어가 블록이 잘리고 하늘이 뚫려 보이던 문제를 고쳤어요. 블록 사이 틈으로 빈 공간이 보이던 것도 막았어요.</description>
-    </item>
-    <item>
-      <title>11월 3일 패치 노트 (5) — 친구 움직임이 끊기거나 튀지 않아요</title>
-      <link>https://craftyap.com/note/patch-2026-11-03-5/</link>
-      <guid isPermaLink="true">https://craftyap.com/note/patch-2026-11-03-5/</guid>
-      <pubDate>Mon, 02 Nov 2026 15:00:00 +0000</pubDate>
-      <description>함께 짓기와 교실에서 친구 캐릭터가 멈췄다 순간이동하듯 튀던 문제와, 친구가 처음 들어올 때 화면이 순간 뚝 끊기던 문제를 고쳤어요. 와이파이가 불안정해도 부드럽게 움직여요.</description>
     </item>
   </channel>
 </rss>
