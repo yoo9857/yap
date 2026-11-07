@@ -2,6 +2,7 @@ import { t } from "./i18n.js";
 import { keyGlyphs } from "./inputGlyphs.js";
 import { FOV_RANGE, SENSITIVITY_RANGE, UI_SCALE_RANGE, savedLanguage, settings, updateSettings, type Lang } from "./settings.js";
 import "./gameMenu.css";
+import { isTouchPlay } from "../input/touchPlay.js";
 
 /** One row of key help: the keys (each its own <kbd>) and what they do. */
 export interface KeyHelp {
@@ -225,7 +226,7 @@ export class GameMenu {
     const title = this.el.querySelector('[data-id="gm-title"]');
     const play = this.el.querySelector('[data-id="gm-play"]');
     if (play && this.started) play.textContent = `▶ ${t("계속하기", "Resume")}`;
-    if (title) title.textContent = this.opts.selfManaged ? t("메뉴", "Menu") : this.started ? t("일시정지", "Paused") : (this.opts.startTitle ?? t("클릭해서 시작", "Click to start"));
+    if (title) title.textContent = this.opts.selfManaged ? t("메뉴", "Menu") : this.started ? t("일시정지", "Paused") : (this.opts.startTitle ?? (isTouchPlay() ? t("눌러서 시작", "Tap to start") : t("클릭해서 시작", "Click to start")));
   }
 
   /** Show the full control list, freeing the mouse if the player was in play. */
@@ -252,12 +253,12 @@ export class GameMenu {
   /** The game decides when the card may show (not in play, no other panel open). */
   setVisible(visible: boolean): void {
     if (visible === this.visible) {
-      if (!visible && document.pointerLockElement && this.view !== "main") this.setView("main");
+      if (!visible && inPlay() && this.view !== "main") this.setView("main");
       return;
     }
     this.visible = visible;
     this.el.classList.toggle("hidden", !visible);
-    if (!visible && document.pointerLockElement) {
+    if (!visible && inPlay()) {
       // back in play: the next pause opens on the main card, titled "paused"
       this.started = true;
       this.setView("main");
@@ -272,4 +273,9 @@ export class GameMenu {
     this.events.abort();
     this.el.remove();
   }
+}
+
+/** In play: the mouse is captured, or (touch) the game says so with body.in-play. */
+function inPlay(): boolean {
+  return !!document.pointerLockElement || document.body.classList.contains("in-play");
 }

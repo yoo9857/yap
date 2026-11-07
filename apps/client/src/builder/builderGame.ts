@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { browserStorage } from "../ui/storage.js";
 import { SIM_DT, StreamEventSchema, streamBoost, type StreamEvent } from "@robo/shared";
 import { GameLoop, RafScheduler } from "../app/loop.js";
 import { GameRenderer } from "../render/renderer.js";
@@ -105,9 +106,9 @@ export class BuilderGame {
 
     // ?reset=1 wipes all progress (upgrades, gold, tour) before loading
     if (new URLSearchParams(location.search).has("reset")) {
-      clearSave(localStorage);
+      clearSave(browserStorage());
     }
-    const { state, offline } = load(localStorage, Date.now());
+    const { state, offline } = load(browserStorage(), Date.now());
     this.state = state;
     if (offline) {
       this.paused = true; // let the player read the modal before time flows
@@ -123,7 +124,7 @@ export class BuilderGame {
     window.addEventListener("visibilitychange", () => {
       if (document.visibilityState === "hidden") {
         hiddenAt = Date.now();
-        save(this.state, localStorage, hiddenAt);
+        save(this.state, browserStorage(), hiddenAt);
         return;
       }
       if (hiddenAt === null) return;
@@ -630,7 +631,7 @@ export class BuilderGame {
     // a monotonic clock: a wall clock stepped backwards would stop autosaving
     if (performance.now() - this.lastSaveAt > SAVE_INTERVAL_MS) {
       this.lastSaveAt = performance.now();
-      save(this.state, localStorage, Date.now());
+      save(this.state, browserStorage(), Date.now());
     }
   }
 
@@ -879,7 +880,7 @@ export class BuilderGame {
         hasWrist: this.vrControllers?.hasWrist ?? false,
         toast: this.vrToast?.text ?? null,
       }),
-      saveNow: () => save(this.state, localStorage, Date.now()),
+      saveNow: () => save(this.state, browserStorage(), Date.now()),
       perf: () => this.perf.sample(),
       /** Wipe all progress (gold/workers/speed/…) back to a fresh game. */
       reset: () => {
@@ -887,7 +888,7 @@ export class BuilderGame {
         this.viewLandmarkIndex = 0;
         this.dwellStartSec = null;
         this.flights.clear();
-        save(this.state, localStorage, Date.now());
+        save(this.state, browserStorage(), Date.now());
       },
     };
   }

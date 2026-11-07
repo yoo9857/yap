@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>11월 7일 패치 노트 (2) — 휴대폰·태블릿에서도 블록 쌓기 | 크래프트얍 개발 노트</title>
+    <meta name="description" content="교육 모드 들판과 교실, 블록 섬을 휴대폰과 태블릿에서 화면 조이스틱과 버튼으로 할 수 있어요. 수업이 하나 멈춰도 다른 반은 계속 이어지게 서버를 단단히 했어요." />
+    <meta name="robots" content="index, follow, max-image-preview:large" />
+    <meta name="theme-color" content="#ffd21c" />
+    <meta name="generator" content="tools/build-notes.mjs" />
+    <link rel="canonical" href="https://craftyap.com/note/patch-2026-11-07-2/" />
+    <link rel="alternate" type="application/rss+xml" title="크래프트얍 개발 노트" href="/feed.xml" />
+    <link rel="alternate" type="application/atom+xml" title="크래프트얍 개발 노트 (Atom)" href="/note/feed.xml" />
+    <link rel="icon" type="image/png" sizes="48x48" href="/favicon-48.png" />
+    <link rel="stylesheet" href="/guide/guide.css?v=0f9762e0f8" />
+    <link rel="stylesheet" href="/note/note.css?v=e5352788b0" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Jua&family=Noto+Sans+KR:wght@400;700;900&display=swap" rel="stylesheet" />
+    <meta property="og:type" content="article" />
+    <meta property="og:locale" content="ko_KR" />
+    <meta property="og:site_name" content="크래프트얍(CraftYap)" />
+    <meta property="og:title" content="11월 7일 패치 노트 (2) — 휴대폰·태블릿에서도 블록 쌓기 | 크래프트얍 개발 노트" />
+    <meta property="og:description" content="교육 모드 들판과 교실, 블록 섬을 휴대폰과 태블릿에서 화면 조이스틱과 버튼으로 할 수 있어요. 수업이 하나 멈춰도 다른 반은 계속 이어지게 서버를 단단히 했어요." />
+    <meta property="og:url" content="https://craftyap.com/note/patch-2026-11-07-2/" />
+    <meta property="og:image" content="https://craftyap.com/craftyap-banner.jpg" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="675" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="11월 7일 패치 노트 (2) — 휴대폰·태블릿에서도 블록 쌓기 | 크래프트얍 개발 노트" />
+    <meta name="twitter:description" content="교육 모드 들판과 교실, 블록 섬을 휴대폰과 태블릿에서 화면 조이스틱과 버튼으로 할 수 있어요. 수업이 하나 멈춰도 다른 반은 계속 이어지게 서버를 단단히 했어요." />
+    <meta name="twitter:image" content="https://craftyap.com/craftyap-banner.jpg" />
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "BlogPosting",
+      "@id": "https://craftyap.com/note/patch-2026-11-07-2/#post",
+      "url": "https://craftyap.com/note/patch-2026-11-07-2/",
+      "headline": "11월 7일 패치 노트 (2) — 휴대폰·태블릿에서도 블록 쌓기",
+      "description": "교육 모드 들판과 교실, 블록 섬을 휴대폰과 태블릿에서 화면 조이스틱과 버튼으로 할 수 있어요. 수업이 하나 멈춰도 다른 반은 계속 이어지게 서버를 단단히 했어요.",
+      "datePublished": "2026-11-07",
+      "dateModified": "2026-11-07",
+      "inLanguage": "ko",
+      "keywords": "패치 노트, 새 기능, 모바일, 교실, 안정성",
+      "image": "https://craftyap.com/craftyap-banner.jpg",
+      "isPartOf": {
+        "@id": "https://craftyap.com/note/#blog"
+      },
+      "author": {
+        "@type": "Organization",
+        "name": "크래프트얍(CraftYap)",
+        "url": "https://craftyap.com/"
+      },
+      "about": {
+        "@id": "https://craftyap.com/#game"
+      }
+    },
+    {
+      "@type": "BreadcrumbList",
+      "itemListElement": [
+        {
+          "@type": "ListItem",
+          "position": 1,
+          "name": "크래프트얍",
+          "item": "https://craftyap.com/"
+        },
+        {
+          "@type": "ListItem",
+          "position": 2,
+          "name": "개발 노트",
+          "item": "https://craftyap.com/note/"
+        },
+        {
+          "@type": "ListItem",
+          "position": 3,
+          "name": "11월 7일 패치 노트 (2) — 휴대폰·태블릿에서도 블록 쌓기",
+          "item": "https://craftyap.com/note/patch-2026-11-07-2/"
+        }
+      ]
+    }
+  ]
+}
+    </script>
+    <script src="/guide/guide.js?v=b6f46abba1" defer></script>
+  </head>
+
+  <body>
+    <a class="skip-link" href="#content">본문으로 이동</a>
+    <header class="site-header"><div class="header-inner">
+      <a class="brand" href="/" aria-label="크래프트얍 게임 홈"><img src="/craftyap-logo.webp" width="64" height="64" alt="" /><span>크래프트얍<small>CRAFTYAP</small></span></a>
+      <nav class="header-nav" id="site-nav" aria-label="주요 메뉴"><a href="/note/">개발 노트</a><a href="/guide/">게임 안내</a><a href="/guide/#controls">조작법</a><a href="/guide/#faq">FAQ</a></nav>
+      <a class="button button-dark header-play" href="/">지금 플레이 <span aria-hidden="true">↗</span></a>
+      <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="site-nav" aria-label="메뉴 열기" hidden><span></span><span></span></button>
+    </div></header>
+    <main id="content" class="note-main section-shell">
+      <article class="note-article" aria-labelledby="post-title">
+        <nav class="note-crumb" aria-label="현재 위치"><a href="/note/">← 개발 노트</a></nav>
+        <header class="note-head">
+          <p class="note-date"><time datetime="2026-11-07">2026.11.07</time></p>
+          <h1 id="post-title">11월 7일 패치 노트 (2) — 휴대폰·태블릿에서도 블록 쌓기</h1>
+          <p class="note-summary">교육 모드 들판과 교실, 블록 섬을 휴대폰과 태블릿에서 화면 조이스틱과 버튼으로 할 수 있어요. 수업이 하나 멈춰도 다른 반은 계속 이어지게 서버를 단단히 했어요.</p>
+          <ul class="note-tags" aria-label="태그"><li>패치 노트</li><li>새 기능</li><li>모바일</li><li>교실</li><li>안정성</li></ul>
+          
+        </header>
+        <div class="note-body">
+<section class="note-sec note-sec--summary" id="s0" aria-labelledby="s0-h">
+<h2 id="s0-h"><span class="note-badge" aria-hidden="true">요약</span>한눈에 보기</h2>
+<div class="note-sec-body">
+<p>지금까지 블록 건축은 키보드와 마우스가 있는 PC에서만 할 수 있었어요. 이제 <strong>휴대폰과 태블릿</strong>에서도 화면을 손가락으로 만져서 걷고, 둘러보고, 캐고, 쌓을 수 있어요. 교실 수업에도 그대로 들어올 수 있어요.</p>
+</div>
+</section>
+<section class="note-sec">
+<h2>BEFORE / AFTER</h2>
+<p><img src="/note/assets/20261107-touch-ba.webp" alt="휴대폰 화면 비교: 이전에는 키보드 단축키 안내만 있고 움직일 방법이 없었고, 이제는 왼쪽 아래 조이스틱과 오른쪽 아래 캐기·놓기·점프 버튼, 위쪽 감정표현·가방·메뉴 버튼이 있다"></p>
+<p><img src="/note/assets/20261107-touch-class.webp" alt="교실에서: 학생 휴대폰은 채팅 버튼을 누르면 입력 칸이 열리고, 선생님 태블릿은 수업 도구 버튼으로 F2 수업 도구 창을 연다"></p>
+</section>
+<section class="note-sec">
+<h2>새 기능 — 터치 조작</h2>
+<p>휴대폰이나 태블릿으로 들어오면 자동으로 터치 조작이 켜져요. <strong>가로 화면</strong>을 추천해요.</p>
+<ul>
+<li><strong class="item-title">움직이기</strong>화면 왼쪽 아래를 엄지로 누르고 끌어요. 누른 자리가 조이스틱의 가운데가 돼요. 조금 밀면 천천히 걷고, 끝까지 밀면 달려요.</li>
+<li><strong class="item-title">둘러보기</strong>화면의 나머지 아무 곳이나 손가락으로 끌어요.</li>
+<li><strong class="item-title">⛏ 캐기</strong>누르고 있으면 가운데 + 표시가 가리키는 블록을 캐요. 친구를 가리키고 누르면 살짝 밀어요.</li>
+<li><strong class="item-title">🧱 놓기</strong>누르면 블록을 놓아요. 누르고 있으면 계속 쌓아요. 의자에 앉거나 문을 열 때도 이 버튼이에요.</li>
+<li><strong>⬆️ 점프</strong>, 아래 <strong>핫바</strong>는 눌러서 블록을 골라요.</li>
+<li>위쪽 버튼: <strong>😊 감정표현</strong>, <strong>🎒 가방</strong>, <strong>☰ 메뉴</strong>. 교실에서는 <strong>💬 채팅</strong>, 선생님에게는 <strong>🧑‍🏫 수업 도구</strong>(PC의 F2)도 생겨요.</li>
+<li>가방이나 다른 창을 열면 조작 버튼이 잠시 비켜 주고, 창을 닫으면 바로 이어서 놀 수 있어요.</li>
+<li>시작 화면은 휴대폰에 맞게 <strong>눌러서 시작</strong>과 큰 플레이 버튼만 보여 줘요.</li>
+<li>기계 조립(B)은 키보드로 운전하는 모드라서 아직 PC에서만 열려요.</li>
+</ul>
+</section>
+<section class="note-sec">
+<h2>개선 — 더 튼튼한 서버와 시작</h2>
+<ul>
+<li><strong class="item-title">한 반의 문제는 그 반에서 끝나요</strong>서버에서 반 하나에 오류가 나면, 같은 서버에 있던 다른 반까지 함께 연결이 끊길 수 있었어요. 이제 오류는 그 반 안에서만 기록되고 다른 반은 그대로 이어져요. 온라인 방도 마찬가지예요.</li>
+<li><strong class="item-title">저장이 막힌 컴퓨터에서도 시작돼요</strong>학교 PC나 개인정보 설정 때문에 브라우저가 저장을 막으면 블록 섬·들판·랜드마크 건설이 아예 시작되지 않았어요. 이제는 그대로 시작되고, 그 창을 닫기 전까지만 기억해요.</li>
+<li><strong class="item-title">3D를 못 그리는 컴퓨터에는 이유를 알려 줘요</strong>그래픽(WebGL)을 쓸 수 없는 브라우저에서 &quot;인터넷 연결을 확인하세요&quot;라고 잘못 안내했어요. 이제 하드웨어 가속을 켜거나 최신 Chrome·Edge로 열어 달라고 알려 줘요.</li>
+<li>휴대폰·태블릿에서는 처음 그래픽 설정을 조금 가볍게 시작해서 덜 뜨거워요.</li>
+</ul>
+</section>
+        </div>
+      </article>
+      <nav class="note-pager" aria-label="다른 노트"><a class="note-prev" href="/note/patch-2026-11-07-1/"><small>이전 노트</small>11월 7일 패치 노트 — 수업 도구(F2) 정리: 작게, 30명도 한눈에</a><span></span></nav>
+    </main>
+    <footer class="site-footer section-shell"><div><a class="footer-brand" href="/">크래프트얍 <span>CraftYap</span></a><p>블록 하나에서 시작되는, 네가 만드는 세상.</p></div><nav aria-label="하단 메뉴"><a href="/">게임 홈</a><a href="/note/">개발 노트</a><a href="/guide/">게임 안내</a><a href="/feed.xml">RSS</a><a href="#content">맨 위로 ↑</a></nav><small>크래프트얍 개발 노트 · <time datetime="2026-11-07">2026.11.07 업데이트</time></small></footer>
+  </body>
+</html>

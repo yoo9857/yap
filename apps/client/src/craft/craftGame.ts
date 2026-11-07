@@ -1,4 +1,6 @@
 import * as THREE from "three";
+import { browserStorage } from "../ui/storage.js";
+import { TouchControls, isTouchPlay } from "./touchControls.js";
 import { framelessTile } from "./kitSurface.js";
 import { GameLoop } from "../app/loop.js";
 import { GameRenderer } from "../render/renderer.js";
@@ -159,6 +161,10 @@ export class CraftGame {
   private yaw = Math.PI;
   private pitch = -0.25;
   private readonly keys = new Set<string>();
+  /** Phones and tablets: on-screen controls stand in for the captured mouse (null on a PC). */
+  private touch: TouchControls | null = null;
+  /** Touch play: the player chose to play (Play / a panel closed back to play); a panel or the menu still pauses it. */
+  private touchPlaying = false;
   private readonly emoteMenu: EmoteMenu;
   private character: CharacterId = "mascot";
   private emote: EmoteId = "none";
@@ -291,7 +297,7 @@ export class CraftGame {
         seed: 0,
         world: this.field.world,
         inventory: fieldStarterInventory(),
-        hotbar: readStoredHotbar(localStorage, CLASS_HOTBAR_KEY, fieldStarterHotbar),
+        hotbar: readStoredHotbar(browserStorage(), CLASS_HOTBAR_KEY, fieldStarterHotbar),
         // back where this seat last stood (a refresh, or the automatic reload after a deploy);
         // a first visit spreads arrivals out so a whole class doesn't land in one cell
         player: this.rememberedClassPos(opts.classroom.session.room, opts.classroom.session.you)
@@ -301,9 +307,9 @@ export class CraftGame {
       };
       this.buildFieldGround();
     } else if (opts.field) {
-      if (reset) clearFieldSave(localStorage);
+      if (reset) clearFieldSave(browserStorage());
       this.field = new FieldWindow();
-      const saved = this.field.load(localStorage);
+      const saved = this.field.load(browserStorage());
       this.state = {
         seed: 0,
         world: this.field.world,
@@ -317,9 +323,9 @@ export class CraftGame {
       this.savedPlants = saved?.plants;
       this.buildFieldGround();
     } else {
-      if (reset) clearCraftSave(localStorage);
+      if (reset) clearCraftSave(browserStorage());
       this.field = null;
-      this.state = loadCraft(localStorage, DEFAULT_SEED);
+      this.state = loadCraft(browserStorage(), DEFAULT_SEED);
     }
     this.state.inventory=withStarterTools(this.state.inventory);
     // Before the first unstick: the player must not spawn inside a sofa. The
@@ -497,6 +503,23 @@ export class CraftGame {
       });
 
     this.bindInput(mount);
+    if (isTouchPlay()) {
+      this.touch = new TouchControls(document.body, {
+        look: (dx, dy) => {
+          if (!this.locked) return;
+          const look = 0.0062 * settings.sensitivity;
+          this.yaw -= dx * look;
+          this.pitch = Math.min(1.35, Math.max(-1.25, this.pitch - dy * look * (settings.invertY ? -1 : 1)));
+        },
+        primary: (down) => { if (down) this.primaryDown(); else this.mining = false; },
+        secondary: (down) => { if (down) this.secondaryDown(); else this.placing = this.rightHeld = false; },
+        pause: () => { this.touchPlaying = false; this.syncLock(); },
+        bag: () => { if (!this.workshop.active) this.toggleBag("e"); },
+        emotes: () => this.openEmotes(),
+        chat: this.sync ? () => this.sync?.hud.openChat() : null,
+        tools: this.sync?.hud.hasTools ? () => this.sync?.hud.toggleTools() : null,
+      });
+    }
     document.addEventListener("visibilitychange", () => {
       if (document.visibilityState === "hidden") this.persist();
     }, { signal: this.events.signal });
@@ -768,6 +791,7 @@ export class CraftGame {
     this.persist();
     this.events.abort();
     this.emoteMenu.dispose();
+    this.touch?.dispose();
     if (document.pointerLockElement === this.renderer.renderer.domElement) document.exitPointerLock();
     const globals = window as unknown as Record<string, unknown>;
     if (globals.__roboCraft === this.debugHooks) delete globals.__roboCraft;
@@ -811,6 +835,7 @@ export class CraftGame {
     const on = <K extends keyof DocumentEventMap>(name: K, handler: (event: DocumentEventMap[K]) => void) =>
       document.addEventListener(name, handler, { signal: this.events.signal });
     mount.addEventListener("click", () => {
+      if (this.touch) return; // touch plays from the menu's Play button; a stray tap must not resume
       if (!this.locked && !this.hud.recipesOpen && !this.workshop.active && !this.emoteMenu.open) {
         void Promise.resolve(mount.querySelector("canvas")?.requestPointerLock()).catch(() => {}); // refused during the browser's re-lock cooldown: the next click retries
       }
@@ -821,6 +846,7 @@ export class CraftGame {
     // held a mouse it had lost — no menu, and a click on the scene did nothing.
     const letGo = () => {
       this.resumeUntil = 0;
+      this.touchPlaying = false;
       if (document.pointerLockElement) document.exitPointerLock();
       this.syncLock();
     };
@@ -840,13 +866,8 @@ export class CraftGame {
     });
     on("mousedown", (e) => {
       if (!this.locked) return;
-      if (e.button === 0) {
-        // a classmate under the crosshair is tapped, whatever is in hand; otherwise the pickaxe swings or the hand digs
-        if (this.tryBonk()) return;
-        if(!this.emptyHands&&toolByKey(this.heldKey())){const key=this.attackIdentity();if(key)this.itemAttack.request(key);}
-        this.mining = true;
-      }
-      if (e.button === 2) { this.placing = true; this.rightHeld = true; this.sciHold = 0; }
+      if (e.button === 0) this.primaryDown();
+      if (e.button === 2) this.secondaryDown();
       if (e.button === 1) {
         e.preventDefault(); // no autoscroll cursor
         const socketItem = this.science?.pickAimed();
@@ -872,9 +893,7 @@ export class CraftGame {
       const key = keyName(e);
       if (e.code === "KeyC" && !e.ctrlKey && !e.metaKey && !this.workshop.active) {
         e.preventDefault(); if (e.repeat) return;
-        this.hud.hideRecipes(); this.petShop.setOpen(false); this.furniture.closePanel();
-        this.keys.clear(); this.mining = this.placing = false;
-        this.emoteMenu.setOpen(true); document.exitPointerLock(); return;
+        this.openEmotes(); return;
       }
       if (key === "b" && !e.repeat && !e.ctrlKey && !e.metaKey && !e.altKey) { this.workshop.toggle(); return; }
       if (this.workshop.active) return;
@@ -983,6 +1002,36 @@ export class CraftGame {
     }, { signal: this.events.signal });
   }
 
+  /** Left mouse / ⛏: a classmate under the crosshair is tapped, whatever is in hand; otherwise the pickaxe swings or the hand digs. */
+  private primaryDown(): void {
+    if (this.tryBonk()) return;
+    if(!this.emptyHands&&toolByKey(this.heldKey())){const key=this.attackIdentity();if(key)this.itemAttack.request(key);}
+    this.mining = true;
+  }
+
+  /** Right mouse / 🧱: place (held: keep building), sit, open a door. */
+  private secondaryDown(): void {
+    this.placing = true; this.rightHeld = true; this.sciHold = 0;
+  }
+
+  /** C / 😊: the emote and character menu (it takes the screen like the bag). */
+  private openEmotes(): void {
+    if (this.workshop.active) return;
+    this.hud.hideRecipes(); this.petShop.setOpen(false); this.furniture.closePanel();
+    this.keys.clear(); this.mining = this.placing = false;
+    this.emoteMenu.setOpen(true); document.exitPointerLock();
+  }
+
+  /** Jump / stand up: Space, or the jump touch button. */
+  private jumpHeld(): boolean {
+    return this.keys.has("Space") || this.touch?.jump === true;
+  }
+
+  /** Any move input this tick: WASD, or the touch joystick off centre. */
+  private moveHeld(): boolean {
+    return ["KeyW","KeyA","KeyS","KeyD"].some((k) => this.keys.has(k)) || (this.touch !== null && (this.touch.moveX !== 0 || this.touch.moveZ !== 0));
+  }
+
   /** E (blocks) / I (recipes): open that bag tab, or close the bag. Opening it closes every other panel. */
   private toggleBag(key: "e" | "i"): void {
     const open = this.hud.toggleBag(key === "i" ? "craft" : "blocks", this.selected);
@@ -1012,9 +1061,9 @@ export class CraftGame {
     if(this.workLeft===0 && this.workAction!=="none")this.beginWork("none");
     if(this.isSwimming() && this.posture!=="stand")this.changePosture("stand",false);
     if (this.emoteLeft > 0) { this.emoteLeft -= dt; if (this.emoteLeft <= 0) this.clearEmote(); }
-    const movement = this.locked && ["KeyW","KeyA","KeyS","KeyD"].some(k=>this.keys.has(k));
+    const movement = this.locked && this.moveHeld();
     // standing can fail under a low ceiling: then moving still turns lying into crawling
-    const stood = this.locked && this.keys.has("Space") && this.posture !== "stand" && this.changePosture("stand",false);
+    const stood = this.locked && this.jumpHeld() && this.posture !== "stand" && this.changePosture("stand",false);
     if (stood) { /* up */ }
     else if (movement && this.posture === "lie") this.changePosture("crawl",false);
     else if (movement && this.posture === "sit") this.changePosture("stand",false);
@@ -1038,10 +1087,14 @@ export class CraftGame {
       if (this.keys.has("KeyS")) fwd -= 1;
       if (this.keys.has("KeyA")) strafe -= 1;
       if (this.keys.has("KeyD")) strafe += 1;
+      if (this.touch) { fwd += this.touch.moveZ; strafe += this.touch.moveX; }
     }
     // dev hook (`__roboCraft.debugWalk`): hold movement without a captured mouse, for headless checks
     if (this.debugWalkInput && !frozen) { fwd = this.debugWalkInput[1]; strafe = this.debugWalkInput[0]; }
-    const [rawX, rawZ] = wishFromInput(this.yaw, fwd, strafe);
+    // a joystick part-way out walks slower; keys (length >= 1) are full speed
+    const push = Math.min(1, Math.hypot(fwd, strafe));
+    const [unitX, unitZ] = wishFromInput(this.yaw, fwd, strafe);
+    const rawX = unitX * push, rawZ = unitZ * push;
     // the way the keys point (camera-relative), for the body to turn toward
     if (fwd || strafe) this.moveYaw = Math.atan2(rawX, rawZ);
     else this.moveYaw = null;
@@ -1053,7 +1106,8 @@ export class CraftGame {
     this.wishX += (rawX - this.wishX) * k;
     this.wishZ += (rawZ - this.wishZ) * k;
     if (Math.abs(this.wishX) < 1e-3 && Math.abs(this.wishZ) < 1e-3) this.wishX = this.wishZ = 0;
-    const sprint = this.posture === "stand" && (this.keys.has("ShiftLeft") || this.keys.has("ShiftRight"));
+    // touch: the joystick pushed to its rim runs (there is no Shift)
+    const sprint = this.posture === "stand" && (this.keys.has("ShiftLeft") || this.keys.has("ShiftRight") || (this.touch !== null && Math.hypot(this.touch.moveX, this.touch.moveZ) > 0.95));
     const targetRatio = moveScale(this.posture, sprint, this.isSwimming());
     // Crawl and swimming snap. On foot, Shift eases up into the run and back down into the walk.
     if (this.posture !== "stand" || this.isSwimming()) this.moveRatio = targetRatio;
@@ -1061,7 +1115,7 @@ export class CraftGame {
     const wishX = this.wishX * this.moveRatio;
     const wishZ = this.wishZ * this.moveRatio;
     this.prevVy = this.body.vy;
-    this.perf.time("physics", () => stepBody(this.state.world, this.body, dt, wishX, wishZ, !frozen && this.locked && this.posture === "stand" && this.postureDelay <= 0 && !this.rig.postureBusy && this.keys.has("Space"), this.knockX, this.knockZ));
+    this.perf.time("physics", () => stepBody(this.state.world, this.body, dt, wishX, wishZ, !frozen && this.locked && this.posture === "stand" && this.postureDelay <= 0 && !this.rig.postureBusy && this.jumpHeld(), this.knockX, this.knockZ));
     this.keepInPlot();
     const knockKeep = Math.exp(-BONK_DECAY * dt);
     this.knockX *= knockKeep;
@@ -1441,7 +1495,7 @@ export class CraftGame {
   private stepSeated(): boolean {
     const s = this.seated!;
     const wantsUp =
-      this.locked && ["KeyW", "KeyA", "KeyS", "KeyD", "Space"].some((k) => this.keys.has(k));
+      this.locked && (this.moveHeld() || this.jumpHeld());
     if (wantsUp || !this.furniture.has(s.item)) {
       this.standUp();
       return false;
@@ -1764,6 +1818,12 @@ export class CraftGame {
     // next Space (jump) or Enter "clicks" it and opens the panel again
     const focused = document.activeElement;
     if (focused instanceof HTMLElement && focused !== document.body) focused.blur();
+    if (this.touch) {
+      this.touchPlaying = true;
+      this.resumeUntil = 0;
+      this.syncLock();
+      return;
+    }
     const canvas = this.renderer.renderer.domElement;
     try {
       // newer browsers return a promise that rejects instead of throwing
@@ -1818,8 +1878,8 @@ export class CraftGame {
     let saved = false;
     try {
       saved = this.field
-        ? this.field.save(localStorage, this.state.inventory, this.state.player, this.state.pet, this.state.furniture.toJSON(), this.state.hotbar, this.science?.toJSON())
-        : saveCraft(this.state, localStorage, Date.now());
+        ? this.field.save(browserStorage(), this.state.inventory, this.state.player, this.state.pet, this.state.furniture.toJSON(), this.state.hotbar, this.science?.toJSON())
+        : saveCraft(this.state, browserStorage(), Date.now());
     } catch { /* access to localStorage itself can be disabled by the browser */ }
     if (saved) {
       this.lastSaveSignature = signature;
@@ -1937,14 +1997,15 @@ export class CraftGame {
    * late event can't leave the game thinking it holds (or lacks) the mouse.
    */
   private syncLock(): void {
-    const locked = document.pointerLockElement === this.renderer.renderer.domElement;
+    const locked = this.touch ? this.touchPlaying && !this.touchPaused() : document.pointerLockElement === this.renderer.renderer.domElement;
+    this.touch?.setPlaying(locked);
     if (locked === this.locked) return;
     this.locked = locked;
     if (locked) {
       this.resumeUntil = 0;
       this.lockedAt = performance.now();
     }
-    if (locked && this.workshop.active) {
+    if (locked && this.workshop.active && !this.touch) {
       // a capture that lands while the lab is open would hide the cursor over its UI
       document.exitPointerLock();
       return;
@@ -1961,6 +2022,17 @@ export class CraftGame {
       this.mining = false;
       this.placing = false;
     }
+  }
+
+  /**
+   * Touch play has no capture for a panel to release: whatever owns the screen (a panel, the
+   * machine lab, a text box, the class-over card) pauses play while it is up, and play goes on
+   * when it closes - the same moment a PC re-captures the mouse.
+   */
+  private touchPaused(): boolean {
+    const typing = document.activeElement instanceof HTMLInputElement || document.activeElement instanceof HTMLTextAreaElement;
+    return document.hidden || typing || this.workshop.active || this.hud.recipesOpen || this.furniture.panelOpen || this.petShop.open
+      || this.emoteMenu.open || this.science?.panelOpen === true || this.sync?.toolsOpen === true || document.querySelector(".class-ended") !== null;
   }
 
   private render(alpha: number, frameDt: number): void {

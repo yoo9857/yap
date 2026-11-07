@@ -439,3 +439,23 @@ describe("party field membership", () => {
     expect(member.last("s-k-welcome")?.room).toBe("party:ABCDEF");
   });
 });
+
+describe("one broken class", () => {
+  it("keeps its timer failure to itself: the other classes still tick, nothing reaches the process", () => {
+    vi.useFakeTimers();
+    const ticked: string[] = [];
+    vi.spyOn(ClassRoom.prototype, "snapshot").mockImplementation(function (this: ClassRoom) {
+      if (this.roomName === "Broken") throw new Error("bad state");
+      ticked.push(this.roomName);
+    });
+    vi.spyOn(ClassRoom.prototype, "stepFluids").mockImplementation(function (this: ClassRoom) {
+      if (this.roomName === "Broken") throw new Error("bad water");
+      return 0;
+    });
+    const { connect } = setup();
+    connect().say({ t: "k-host", v, room: "Broken", teacher: "TeacherA", password: "1234" });
+    connect().say({ t: "k-host", v, room: "Fine", teacher: "TeacherB", password: "1234" });
+    expect(() => vi.advanceTimersByTime(2000)).not.toThrow();
+    expect(ticked.filter((r) => r === "Fine").length).toBeGreaterThan(10);
+  });
+});

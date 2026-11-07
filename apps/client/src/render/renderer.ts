@@ -3,6 +3,8 @@ import { HULL_LAYER, InkOutline } from "./inkOutline.js";
 import { DynamicResolution, effectiveFov, pixelRatioFor, qualityProfile, type QualityProfile } from "./display.js";
 import { onSettings, settings } from "../ui/settings.js";
 
+import { isTouchPlay } from "../input/touchPlay.js";
+
 /**
  * Owns the WebGL renderer, scene, lighting and sky. The directional light's
  * shadow frustum follows the player up the tower so shadows stay sharp.
@@ -101,7 +103,7 @@ export class GameRenderer {
     this.offSettings = onSettings((s) => {
       if (s.graphics !== this.preset) {
         this.preset = s.graphics;
-        this.profile = qualityProfile(s.graphics);
+        this.profile = qualityProfile(s.graphics, isTouchPlay());
         this.dynres = new DynamicResolution(this.profile.minScale);
         this.applyQuality();
       }
@@ -111,7 +113,7 @@ export class GameRenderer {
 
   /** The graphics preset (settings) and the auto preset's resolution governor. */
   private preset = settings.graphics;
-  private profile: QualityProfile = qualityProfile(settings.graphics);
+  private profile: QualityProfile = qualityProfile(settings.graphics, isTouchPlay());
   private dynres = new DynamicResolution(this.profile.minScale);
   private lastFrame = 0;
   private offSettings: (() => void) | null = null;

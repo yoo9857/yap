@@ -219,7 +219,21 @@ async function boot(): Promise<void> {
   window.dispatchEvent(new Event("craftyap:playing")); // deferred downloads (the other character) may start
 }
 
+/** Can this browser draw 3D at all? (Hardware acceleration off, or a blocked old GPU, says no.) */
+function hasWebGl(): boolean {
+  try {
+    const canvas = document.createElement("canvas");
+    return !!(canvas.getContext("webgl2") ?? canvas.getContext("webgl"));
+  } catch {
+    return false;
+  }
+}
+
 boot().catch((err: unknown) => {
   console.error("boot failed", err);
-  showFatal(t("게임을 시작하지 못했어요. 인터넷 연결을 확인하고 다시 시도해 주세요.", "Couldn't start the game. Check your connection and try again."));
+  // "check your connection" sent people hunting a network problem on PCs that simply cannot draw 3D
+  showFatal(hasWebGl()
+    ? t("게임을 시작하지 못했어요. 인터넷 연결을 확인하고 다시 시도해 주세요.", "Couldn't start the game. Check your connection and try again.")
+    : t("이 컴퓨터의 브라우저에서 3D 그래픽(WebGL)을 쓸 수 없어요. 브라우저 설정에서 '하드웨어 가속'을 켜거나 최신 Chrome·Edge로 열어 주세요.",
+      "This browser can't draw 3D graphics (WebGL). Turn on hardware acceleration in the browser settings, or open the game in an up-to-date Chrome or Edge."));
 });

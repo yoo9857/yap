@@ -38,7 +38,7 @@ export interface QualityProfile {
   shadowMapSize: number;
 }
 
-export function qualityProfile(preset: GraphicsPreset): QualityProfile {
+export function qualityProfile(preset: GraphicsPreset, touch = false): QualityProfile {
   switch (preset) {
     case "low":
       return { maxPixelRatio: 0.85, minScale: 1, shadows: false, shadowMapSize: 1024 };
@@ -48,6 +48,9 @@ export function qualityProfile(preset: GraphicsPreset): QualityProfile {
       return { maxPixelRatio: 2, minScale: 1, shadows: true, shadowMapSize: 2048 };
     case "auto":
     default:
+      // a phone or tablet: a 3x screen at 1.5 with 2048 shadows ran hot and slow before the
+      // governor caught up, so a touch device starts at 1.25 with 1024 shadows
+      if (touch) return { maxPixelRatio: 1.25, minScale: 0.6, shadows: true, shadowMapSize: 1024 };
       // the long-standing default (1.5x, soft 2048 shadows), with the governor allowed to trade
       // resolution down to 60% before anything stutters
       return { maxPixelRatio: 1.5, minScale: 0.6, shadows: true, shadowMapSize: 2048 };

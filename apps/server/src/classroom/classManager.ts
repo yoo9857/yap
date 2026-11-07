@@ -227,6 +227,8 @@ export class ClassManager {
   partyMember: ((code: string, name: string) => boolean) | null = null;
   /** Does this process own the class under `key`? Set on a cluster shard; unset = owns everything. */
   owns: ((key: string) => boolean) | null = null;
+  /** When each (class, timer kind) last logged a failure — a broken class every 100 ms is one line a minute. */
+  private readonly faultLoggedAt = new Map<string, number>();
   private readonly passwordFails = new Map<string, { fails: number; lockedUntil: number; lockMs: number; lastFailAt: number }>();
 
   constructor(private readonly store: ClassStore) {
@@ -240,7 +242,8 @@ export class ClassManager {
       const rooms = [...this.classes.values()], start = performance.now();
       let visited = 0;
       for (; visited < rooms.length; visited++) {
-        rooms[(this.fluidCursor + visited) % rooms.length]!.stepFluids(4);
+        const room = rooms[(this.fluidCursor + visited) % rooms.length]!;
+        this.guard(room, "water", () => room.stepFluids(4));
         if (performance.now() - start >= 12) { visited++; break; }
       }
       // Busy rooms share the budget in turn; an early classroom cannot starve
@@ -501,7 +504,24 @@ export class ClassManager {
   }
 
   private snapshot(): void {
-    for (const room of this.classes.values()) room.snapshot();
+    for (const room of this.classes.values()) this.guard(room, "snapshot", () => room.snapshot());
+  }
+
+  /**
+   * One class's timer work: a throw is logged (once a minute per class and kind) and stays in
+   * that class. Uncaught it reached "uncaughtException", which shuts the process down and drops
+   * every other class on it with the one that broke.
+   */
+  private guard(room: ClassRoom, what: string, run: () => void): void {
+    try {
+      run();
+    } catch (err) {
+      const key = `${room.key}|${what}`, now = Date.now();
+      if (now - (this.faultLoggedAt.get(key) ?? 0) < 60_000) return;
+      this.faultLoggedAt.set(key, now);
+      if (this.faultLoggedAt.size > 1000) this.faultLoggedAt.clear();
+      log.error({ teacher: room.teacherName, what, err }, "class timer failed");
+    }
   }
 
   private heartbeat(): void {
@@ -521,12 +541,14 @@ export class ClassManager {
       // 4 guesses per gc go on forever without ever reaching the lock
       if (entry.lockedUntil < now && now - entry.lastFailAt > PASSWORD_LOCK_MAX_MS) this.passwordFails.delete(key);
     }
-    for (const room of this.classes.values()) {
+    for (const room of [...this.classes.values()]) {
       const ttl = room.ephemeral ? EMPTY_PARTY_TTL_MS : EMPTY_CLASS_TTL_MS;
       if (room.closed || (room.emptySince !== null && now - room.emptySince > ttl)) {
-        room.close();
-        this.retire(room);
-        log.info({ teacher: room.teacherName }, "class collected");
+        this.guard(room, "collect", () => {
+          room.close();
+          this.retire(room);
+          log.info({ teacher: room.teacherName }, "class collected");
+        });
       }
     }
   }

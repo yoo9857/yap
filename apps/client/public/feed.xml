@@ -8,6 +8,13 @@
     <language>ko</language>
     <lastBuildDate>Fri, 06 Nov 2026 15:00:00 +0000</lastBuildDate>
     <item>
+      <title>11월 7일 패치 노트 (2) — 휴대폰·태블릿에서도 블록 쌓기</title>
+      <link>https://craftyap.com/note/patch-2026-11-07-2/</link>
+      <guid isPermaLink="true">https://craftyap.com/note/patch-2026-11-07-2/</guid>
+      <pubDate>Fri, 06 Nov 2026 15:00:00 +0000</pubDate>
+      <description>교육 모드 들판과 교실, 블록 섬을 휴대폰과 태블릿에서 화면 조이스틱과 버튼으로 할 수 있어요. 수업이 하나 멈춰도 다른 반은 계속 이어지게 서버를 단단히 했어요.</description>
+    </item>
+    <item>
       <title>11월 7일 패치 노트 — 수업 도구(F2) 정리: 작게, 30명도 한눈에</title>
       <link>https://craftyap.com/note/patch-2026-11-07-1/</link>
       <guid isPermaLink="true">https://craftyap.com/note/patch-2026-11-07-1/</guid>
@@ -139,13 +146,6 @@
       <guid isPermaLink="true">https://craftyap.com/note/patch-2026-11-03-7/</guid>
       <pubDate>Mon, 02 Nov 2026 15:00:00 +0000</pubDate>
       <description>기계 작업실의 모든 부품을 새로 모델링한 블록 키트 2.0으로 바꿨어요. 조립한 부품을 하나씩 골라 색과 무게, 바퀴 크기, 접지력, 서스펜션, 힘 같은 성능을 바꾸고 시험 운전으로 차이를 비교할 수 있어요.</description>
-    </item>
-    <item>
-      <title>11월 3일 패치 노트 (6) — 벽에 붙어도 블록이 잘리거나 뚫려 보이지 않아요</title>
-      <link>https://craftyap.com/note/patch-2026-11-03-6/</link>
-      <guid isPermaLink="true">https://craftyap.com/note/patch-2026-11-03-6/</guid>
-      <pubDate>Mon, 02 Nov 2026 15:00:00 +0000</pubDate>
-      <description>벽이나 구석에 붙었을 때 카메라가 블록 안으로 들어가 블록이 잘리고 하늘이 뚫려 보이던 문제를 고쳤어요. 블록 사이 틈으로 빈 공간이 보이던 것도 막았어요.</description>
     </item>
   </channel>
 </rss>

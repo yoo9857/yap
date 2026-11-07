@@ -3,6 +3,7 @@ import "./classroom.css";
 import { t } from "../ui/i18n.js";
 import { ClassTools } from "./classTools.js";
 import type { ClassLesson } from "../net/classClient.js";
+import { isTouchPlay } from "../input/touchPlay.js";
 
 export interface ClassHudActions {
   chat(text: string): void;
@@ -107,7 +108,7 @@ export class ClassHud {
     }
     this.panel.append(el("div", "class-tip", role === "teacher"
       ? t("F2 수업 도구 · Enter 채팅", "F2 class tools · Enter to chat")
-      : t("Enter 채팅", "Enter to chat")));
+      : isTouchPlay() ? t("💬 버튼으로 채팅", "Chat with 💬") : t("Enter 채팅", "Enter to chat")));
 
     this.input.maxLength = 120;
     this.input.placeholder = t("메시지 입력 후 Enter (Esc 취소)", "Type a message, Enter to send (Esc to cancel)");
@@ -214,6 +215,24 @@ export class ClassHud {
     }
     if (e.key !== "Enter" || !this.input.hidden || this.ended) return;
     if (e.target instanceof HTMLElement && /INPUT|TEXTAREA|SELECT/.test(e.target.tagName)) return;
+    e.preventDefault();
+    this.openChat();
+  }
+
+  /** The teacher's class tools (F2, or the touch button); false when this seat has none. */
+  toggleTools(): boolean {
+    if (!this.tools || this.ended) return false;
+    this.tools.toggle();
+    return true;
+  }
+
+  get hasTools(): boolean {
+    return this.tools !== null;
+  }
+
+  /** Open the chat box (Enter, or the 💬 touch button) — unless the class is over, locked or frozen. */
+  openChat(): void {
+    if (!this.input.hidden || this.ended) return;
     if (this.role === "student" && this.settings.chatLocked) {
       this.chat("", "teacher", t("선생님이 채팅을 잠갔어요", "The teacher locked the chat"), true);
       return;
@@ -222,7 +241,6 @@ export class ClassHud {
       this.chat("", "teacher", t("✋ 지금은 선생님을 봐요 — 채팅은 잠시 후에", "✋ Eyes on the teacher — chat in a moment"), true);
       return;
     }
-    e.preventDefault();
     this.input.hidden = false;
     this.input.value = "";
     this.input.focus();

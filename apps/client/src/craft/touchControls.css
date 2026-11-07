@@ -1,0 +1,133 @@
+/* Phone / tablet controls (touchControls.ts): the look pad under the HUD, the joystick and the
+   buttons over it. Everything is touch-action: none so a drag never scrolls or zooms the page. */
+.tc-root[hidden] { display: none; }
+.tc-root {
+  --tc-ink: var(--brick-ink, #2b2b33);
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
+
+/* drag anywhere on the view to look: above the canvas, under the HUD (z 20) so the hotbar stays tappable */
+.tc-look {
+  position: fixed;
+  inset: 0;
+  z-index: 15;
+  touch-action: none;
+}
+
+/* bottom left, above the hotbar: wherever the thumb lands is the stick's centre */
+.tc-joy {
+  position: fixed;
+  left: 0;
+  bottom: 96px;
+  width: min(42vw, 360px);
+  height: min(52vh, 340px);
+  z-index: 26;
+  touch-action: none;
+}
+.tc-joy-base {
+  position: absolute;
+  left: 110px;
+  top: 62%;
+  width: 124px;
+  height: 124px;
+  margin: -62px 0 0 -62px;
+  border: 3px solid rgb(255 255 255 / 0.7);
+  border-radius: 50%;
+  background: rgb(43 43 51 / 0.18);
+  opacity: 0.55;
+  transition: opacity 0.15s;
+}
+.tc-joy-base.on { opacity: 1; transition: none; }
+.tc-joy-knob {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 58px;
+  height: 58px;
+  margin: -29px 0 0 -29px;
+  border: 3px solid var(--tc-ink);
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: inset 0 -5px 0 #e6e4d8, 0 3px 0 var(--tc-ink);
+}
+
+/* bottom right, above the hotbar: place · dig · jump (jump biggest, nearest the thumb) */
+.tc-pad {
+  position: fixed;
+  right: 18px;
+  bottom: 104px;
+  z-index: 26;
+  display: grid;
+  grid-template-columns: auto auto;
+  grid-template-areas: "place mine" ". jump";
+  gap: 10px 12px;
+  align-items: end;
+  justify-items: center;
+}
+.tc-place { grid-area: place; }
+.tc-mine { grid-area: mine; }
+.tc-jump { grid-area: jump; }
+
+.tc-btn, .tc-small {
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 1px;
+  padding: 0;
+  border: 3px solid var(--tc-ink);
+  border-radius: 50%;
+  background: rgb(255 255 255 / 0.9);
+  box-shadow: inset 0 -5px 0 rgb(0 0 0 / 0.1), 0 4px 0 var(--tc-ink);
+  color: var(--tc-ink);
+  font: 800 11px/1 system-ui, sans-serif;
+  touch-action: none;
+  -webkit-tap-highlight-color: transparent;
+}
+.tc-btn { width: 70px; height: 70px; }
+.tc-jump { width: 84px; height: 84px; background: #8fd16a; }
+.tc-mine { background: #ffd98a; }
+.tc-btn .tc-icon { font-size: 26px; line-height: 1; }
+.tc-jump .tc-icon { font-size: 30px; }
+.tc-btn.down { transform: translateY(3px); box-shadow: inset 0 -2px 0 rgb(0 0 0 / 0.1), 0 1px 0 var(--tc-ink); filter: brightness(0.95); }
+
+/* top, left of the corner chips (pet, furniture) that hold the right edge: emotes · bag · chat · menu */
+.tc-top {
+  position: fixed;
+  top: calc(10px + env(safe-area-inset-top, 0px));
+  right: calc(150px + env(safe-area-inset-right, 0px));
+  z-index: 26;
+  display: flex;
+  gap: 8px;
+}
+.tc-small { width: 50px; height: 50px; }
+.tc-small .tc-icon { font-size: 20px; line-height: 1; }
+.tc-small small { font-size: 9px; }
+.tc-small:active { transform: translateY(2px); box-shadow: 0 2px 0 var(--tc-ink); }
+
+/* keyboard-only help would only confuse a touch screen, and the machine lab is driven by keys */
+body.touch .craft-help.gm-keybar, body.touch .craft-piece-hint, body.touch .machine-launch { display: none; }
+/* the pause card: its key pictures and keyboard help mean nothing on a touch screen (and pushed
+   the Play button off a phone held sideways) */
+body.touch .gm-keys, body.touch [data-id="gm-help"], body.touch .gm-note { display: none; }
+body.touch .gm-body { grid-template-columns: 1fr; gap: 10px; }
+body.touch .gm-actions .gm-play { min-height: 58px; }
+body.touch .gm-actions .gm-row { grid-template-columns: repeat(2, 1fr); }
+/* the hotbar under the card is shorter than the PC's keyboard strip + hotbar */
+body.touch:has(.craft-hotbar) .craft-hint.game-menu { padding-top: 12px; padding-bottom: 104px; }
+/* iOS zooms the page into any text box under 16px */
+body.touch .class-chat-input { font-size: 16px; }
+
+/* a short phone in landscape: smaller buttons, still a thumb's size */
+@media (max-height: 460px) {
+  .tc-btn { width: 58px; height: 58px; }
+  .tc-jump { width: 68px; height: 68px; }
+  .tc-btn .tc-icon { font-size: 22px; }
+  .tc-btn small { display: none; }
+  .tc-pad { bottom: 84px; gap: 6px 8px; }
+  .tc-joy { bottom: 80px; }
+  .tc-small { width: 42px; height: 42px; }
+  .tc-small small { display: none; }
+}

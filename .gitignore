@@ -21,3 +21,8 @@ assets/powercard/ref-*.png
 assets/powercard/minigame/raw/
 assets/powercard/minigame/ref-*.png
 assets/items/**/previews/
+
+# never commit: personal documents and local generation logs that live in this checkout
+optimized_documents/
+tmp-sprites.log
+assets/powercard/minigame/rotor-gen.log

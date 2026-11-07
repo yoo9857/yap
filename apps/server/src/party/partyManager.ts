@@ -324,29 +324,39 @@ export class PartyManager {
   /** Rooms and seats nobody uses go; a playing room whose game emptied returns to waiting. */
   gc(now = Date.now()): void {
     for (const room of [...this.rooms.values()]) {
-      const inGame = room.state === "playing" ? this.games.players(room) : 0;
-      // seats of people inside the game are kept for as long as the game runs,
-      // and their away clock starts only once it has emptied
-      if (inGame > 0) room.touchAway(now);
-      else room.expire(now);
-      if (room.reassignAbsentHost(now)) room.sync();
-      if (room.size === 0) {
-        this.drop(room);
-        continue;
-      }
-      if (room.state === "playing" && inGame === 0) {
-        const since = this.idleSince.get(room.code) ?? now;
-        this.idleSince.set(room.code, since);
-        if (now - since >= IDLE_GAME_MS) {
-          room.stop();
-          this.idleSince.delete(room.code);
-          room.sync();
-        }
-      } else {
-        this.idleSince.delete(room.code);
+      try {
+        this.collect(room, now);
+      } catch (err) {
+        // one room's bad state stays in that room: this runs on the primary, where an uncaught
+        // throw ends every connection on the server
+        log.error({ room: room.code, err }, "party gc failed");
       }
     }
     this.listChanged();
+  }
+
+  private collect(room: PartyRoom, now: number): void {
+    const inGame = room.state === "playing" ? this.games.players(room) : 0;
+    // seats of people inside the game are kept for as long as the game runs,
+    // and their away clock starts only once it has emptied
+    if (inGame > 0) room.touchAway(now);
+    else room.expire(now);
+    if (room.reassignAbsentHost(now)) room.sync();
+    if (room.size === 0) {
+      this.drop(room);
+      return;
+    }
+    if (room.state === "playing" && inGame === 0) {
+      const since = this.idleSince.get(room.code) ?? now;
+      this.idleSince.set(room.code, since);
+      if (now - since >= IDLE_GAME_MS) {
+        room.stop();
+        this.idleSince.delete(room.code);
+        room.sync();
+      }
+    } else {
+      this.idleSince.delete(room.code);
+    }
   }
 
   private drop(room: PartyRoom): void {

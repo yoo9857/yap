@@ -27,7 +27,7 @@ describe("field of view across screen shapes", () => {
 
 describe("graphics presets", () => {
   it("spend more on higher presets", () => {
-    const [low, med, high] = (["low", "medium", "high"] as const).map(qualityProfile);
+    const [low, med, high] = (["low", "medium", "high"] as const).map((p) => qualityProfile(p));
     expect(low!.shadows).toBe(false);
     expect(low!.maxPixelRatio).toBeLessThan(med!.maxPixelRatio);
     expect(med!.maxPixelRatio).toBeLessThan(high!.maxPixelRatio);
@@ -69,5 +69,14 @@ describe("dynamic resolution (auto)", () => {
     for (let i = 0; i < 1000; i++) d.frame(i % 10 === 0 ? 5000 : 16);
     for (const ms of [Number.NaN, -1, 0, Number.POSITIVE_INFINITY]) d.frame(ms);
     expect(d.scale).toBe(1);
+  });
+});
+
+describe("touch devices", () => {
+  it("start the auto preset lighter, and leave the chosen presets alone", () => {
+    const touch = qualityProfile("auto", true), pc = qualityProfile("auto");
+    expect(touch.maxPixelRatio).toBeLessThan(pc.maxPixelRatio);
+    expect(touch.shadowMapSize).toBeLessThan(pc.shadowMapSize);
+    expect(qualityProfile("high", true)).toEqual(qualityProfile("high"));
   });
 });
