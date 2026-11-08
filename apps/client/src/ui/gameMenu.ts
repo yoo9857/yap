@@ -116,7 +116,7 @@ export class GameMenu {
           <label class="gm-slider"><span>${t("마우스 감도", "Mouse sensitivity")} <output data-out="sensitivity">${settings.sensitivity.toFixed(1)}</output></span>
             <input type="range" data-set="sensitivity" min="${SENSITIVITY_RANGE.min}" max="${SENSITIVITY_RANGE.max}" step="0.1" value="${settings.sensitivity}" /></label>
           <label class="gm-toggle"><input type="checkbox" data-toggle="invertY"${settings.invertY ? " checked" : ""} /><span>${t("마우스 위아래 반대로", "Invert mouse up/down")}</span></label>
-          <label class="gm-toggle"><input type="checkbox" data-toggle="hints"${settings.hints ? " checked" : ""} /><span>${t("조작 도움말 항상 보이기", "Always show control hints")}</span></label>
+          <label class="gm-toggle"><input type="checkbox" data-toggle="hideHints"${settings.hideHints ? " checked" : ""} /><span>${t("조작 도움말 숨기기", "Hide control hints")}</span></label>
           <h4 class="gm-sub">${t("화면", "Display")}</h4>
           <label class="gm-slider"><span>${t("시야각", "Field of view")} <output data-out="fov">${settings.fov}°</output></span>
             <input type="range" data-set="fov" min="${FOV_RANGE.min}" max="${FOV_RANGE.max}" step="1" value="${settings.fov}" /></label>
@@ -201,7 +201,7 @@ export class GameMenu {
       }, { signal });
     });
     this.el.querySelectorAll<HTMLInputElement>("input[data-toggle]").forEach((input) => {
-      input.addEventListener("change", () => updateSettings({ [input.dataset.toggle as "invertY" | "hints"]: input.checked }), { signal });
+      input.addEventListener("change", () => updateSettings({ [input.dataset.toggle as "invertY" | "hideHints"]: input.checked }), { signal });
     });
     document.addEventListener("keydown", (e) => {
       const tag = (e.target as HTMLElement | null)?.tagName;

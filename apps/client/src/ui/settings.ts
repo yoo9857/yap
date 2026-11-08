@@ -25,8 +25,8 @@ export interface Settings {
   uiScale: number;
   /** View distance preset: 0 short, 1 normal, 2 far (craft's O key cycles it). */
   view: number;
-  /** Keep the control hints (key strip, shape hint) after onboarding. */
-  hints: boolean;
+  /** Hide the always-on control hints (key strip, shape hint); H and the pause card keep them. */
+  hideHints: boolean;
   /** Graphics preset (render/display.ts qualityProfile); auto adapts the resolution to the frame rate. */
   graphics: "auto" | "low" | "medium" | "high";
 }
@@ -37,7 +37,7 @@ export const UI_SCALE_RANGE = { min: 0.8, max: 1.3 } as const;
 const KEY = "craftyap.settings";
 /** Before the view distance lived here, craft kept it under its own key: read once as a default. */
 const LEGACY_VIEW_KEY = "craftyap-view-distance";
-const DEFAULTS: Settings = { lang: "ko", sensitivity: 1, music: 1, sfx: 1, fov: 70, invertY: false, uiScale: 1, view: 1, hints: false, graphics: "auto" };
+const DEFAULTS: Settings = { lang: "ko", sensitivity: 1, music: 1, sfx: 1, fov: 70, invertY: false, uiScale: 1, view: 1, hideHints: false, graphics: "auto" };
 
 const clamp = (v: unknown, lo: number, hi: number, fallback: number): number =>
   typeof v === "number" && Number.isFinite(v) ? Math.min(hi, Math.max(lo, v)) : fallback;
@@ -60,7 +60,8 @@ export function parseSettings(raw: string | null): Settings {
     invertY: data.invertY === true,
     uiScale: Math.round(clamp(data.uiScale, UI_SCALE_RANGE.min, UI_SCALE_RANGE.max, DEFAULTS.uiScale) * 20) / 20,
     view: Math.round(clamp(data.view, 0, 2, DEFAULTS.view)),
-    hints: data.hints === true,
+    // the old "hints" key (an opt-IN after a 3-minute onboarding) is ignored: hints show by default
+    hideHints: data.hideHints === true,
     graphics: data.graphics === "low" || data.graphics === "medium" || data.graphics === "high" ? data.graphics : "auto",
   };
 }
@@ -99,7 +100,7 @@ export const settings: Settings = load();
 function applyToDocument(s: Settings): void {
   if (typeof document === "undefined") return;
   document.documentElement.style.setProperty("--ui-scale", String(s.uiScale));
-  document.body?.classList.toggle("hud-hints-always", s.hints);
+  document.body?.classList.toggle("hud-hints-hidden", s.hideHints);
 }
 if (typeof document !== "undefined") {
   if (document.body) applyToDocument(settings);

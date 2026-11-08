@@ -248,11 +248,12 @@ body:has(.craft-hotbar) .gm-card { max-height: 100%; overflow-y: auto; }
 .craft-hud .craft-slot.empty b { opacity: 0.55; }
 .craft-hud .craft-slot.empty { background: rgba(255, 255, 255, 0.55); }
 
-/* Onboarding over (ONBOARDING_S of play): the key strip and the shape hint step aside; H and
-   the pause card still list every control. */
-body.hud-hints-done:not(.hud-hints-always) .craft-help.gm-keybar,
-body.hud-hints-done:not(.hud-hints-always) .craft-piece-hint { display: none; }
-body.hud-hints-done:not(.hud-hints-always) .craft-slot-label { bottom: 104px; }
+/* Settings → "조작 도움말 숨기기": the key strip and the shape hint step aside; H and the pause
+   card still list every control. They show by default — an auto-hide after 3 minutes of play
+   left long-time players with no key guide at all. */
+body.hud-hints-hidden .craft-help.gm-keybar,
+body.hud-hints-hidden .craft-piece-hint { display: none; }
+body.hud-hints-hidden .craft-slot-label { bottom: 104px; }
 
 /* In play the corner chips cannot be clicked (the mouse is captured): icon + key only, quieter. */
 body.in-play .machine-launch .chip-label,
