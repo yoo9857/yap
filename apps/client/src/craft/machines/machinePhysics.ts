@@ -16,6 +16,7 @@ import {
 import {
   blueprintError,
   DIRECTIONS,
+  usesSkylarkModel,
   PARTS,
   type Blueprint,
 } from "./blueprint.js";
@@ -114,9 +115,10 @@ export class MachinePhysics {
     this.wheels = this.world.createVehicleController(this.body);
     this.wheels.indexUpAxis = 1;
     this.wheels.setIndexForwardAxis = 2;
+    const skylark = usesSkylarkModel(blueprint);
     blueprint.parts.forEach((part, partIndex) => {
       const [x, y, z] = part.cell;
-      const collider = rapier.ColliderDesc.cuboid(0.48, 0.48, 0.48)
+      const collider = rapier.ColliderDesc.cuboid(0.48, skylark && y === 0 ? 0.25 : 0.48, 0.48)
         .setTranslation(x, y, z)
         .setMass(partMass(part,PARTS[part.kind].mass))
         .setFriction(0.6)
@@ -141,6 +143,13 @@ export class MachinePhysics {
       this.wheels.setWheelFrictionSlip(i, wheelGrip(part));
       this.wheels.setWheelSideFrictionStiffness(i, 1);
     });
+    if (skylark) {
+      // Blender skid soles at y=.0165, with the visual offset by -.5 m.
+      for (const x of [-1.11, 1.11]) {
+        this.world.createCollider(rapier.ColliderDesc.cuboid(.09, .055, 1.60)
+          .setTranslation(x, -.4285, .20).setMass(0).setFriction(.6), this.body);
+      }
+    }
     this.gyro = blueprint.parts.some((p) => p.kind === "gyro");
     this.gyroStrength=Math.max(0,...blueprint.parts.filter(p=>p.kind==="gyro").map(gyroFactor));
     this.liftThrusters = blueprint.parts.filter(

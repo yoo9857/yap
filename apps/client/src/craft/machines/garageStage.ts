@@ -1,6 +1,6 @@
 import * as THREE from "three";
 import { wheelRadius } from "./customization.js";
-import type { Blueprint } from "./blueprint.js";
+import { usesSkylarkModel, type Blueprint } from "./blueprint.js";
 import { PHYSICS_RULES } from "./physicsRules.js";
 
 export const GARAGE_LAYER = 10;
@@ -47,7 +47,8 @@ export class GarageStage {
     this.rim.position.y = bottom - .012;
     this.floor.position.y = this.grid.position.y = bottom - .27;
     this.grid.position.y += .005;
-    this.backdrop.scale.setScalar(Math.max(12, radius * 1.8));
+    // The long rotor and tail require a wider camera fit than the block kit.
+    this.backdrop.scale.setScalar(Math.max(usesSkylarkModel(blueprint) ? 44 : 12, radius * 1.8));
   }
 
   dispose(): void {

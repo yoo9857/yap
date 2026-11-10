@@ -199,7 +199,7 @@ export class MachineStore {
  * machine fits in a line you can paste into a chat window.
  */
 export function encodeShare(blueprint: Blueprint): string {
-  if(blueprint.parts.some(p=>p.custom&&Object.keys(p.custom).length))return `CYM2.${encodeURIComponent(JSON.stringify(blueprint))}`;
+  if(blueprint.design||blueprint.parts.some(p=>p.custom&&Object.keys(p.custom).length))return `CYM2.${encodeURIComponent(JSON.stringify(blueprint))}`;
   const body = blueprint.parts
     .map((p) =>
       [

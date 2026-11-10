@@ -11,6 +11,7 @@ import {
   blueprintError,
   cloneBlueprint,
   DIRECTIONS,
+  usesSkylarkModel,
   machineStats,
   mirrorDirection,
   parseBlueprint,
@@ -25,6 +26,8 @@ import {
 } from "./blueprint.js";
 import { IDLE_INPUT, MachinePhysics } from "./machinePhysics.js";
 import { GhostPart, MachineAssets, MachineVisual, wheelMountSide } from "./machineVisual.js";
+import type { SkylarkPart } from "./skylarkParts.js";
+import { SkylarkVisual } from "./skylarkVisual.js";
 import { DustField, MachineAudio } from "./machineFx.js";
 import { MachineStore, decodeShare, encodeShare } from "./library.js";
 import { MISSIONS, MissionRun } from "./missions.js";
@@ -128,6 +131,11 @@ export class MachineWorkshop {
   private readonly turnTangent = new THREE.Vector3();
   private readonly assets = new MachineAssets();
   private readonly visual = new MachineVisual(this.assets);
+  private readonly skylark = new SkylarkVisual();
+  private detailedSkylark = false;
+  private skylarkPreviewRequested = false;
+  private skylarkExploded = false;
+  private skylarkSelected: SkylarkPart | null = null;
   private readonly ghost = new GhostPart(this.assets);
   private readonly dust = new DustField();
   private readonly audio = new MachineAudio();
@@ -149,6 +157,7 @@ export class MachineWorkshop {
   private readonly partMatrix = new THREE.Matrix4();
   private readonly previewBounds = new THREE.Box3();
   private readonly previewPartBounds = new THREE.Box3();
+  private readonly skylarkPreviewCorners: THREE.Vector3[] = [];
   private readonly previewFocus = new THREE.Vector3();
   private readonly faceNormal = new THREE.Vector3();
   private readonly toasts = new Toasts();
@@ -256,11 +265,17 @@ export class MachineWorkshop {
     this.panel = new BuildPanel(
       {
         navigate: (screen) => this.navigate(screen),
+        explodeSkylark: () => {
+          this.skylarkExploded = !this.skylarkExploded;
+          this.refresh();
+        },
+        selectSkylarkPart: (part) => this.selectSkylarkPart(part),
         preview: (view) => {
           if (this.physics || this.loading) return;
           if (view === "fit") this.frameCamera();
           else {
-            this.theta = view === "side" ? Math.PI / 2 : Math.PI;
+            this.theta = view === "side" ? Math.PI / 2
+              : view === "front" && this.skylark.root.visible ? 0 : Math.PI;
             this.frameCamera(view === "top" ? 1.4 : .2);
           }
         },
@@ -398,7 +413,15 @@ export class MachineWorkshop {
         this.drag = null;
         if (canvas.hasPointerCapture(e.pointerId))
           canvas.releasePointerCapture(e.pointerId);
-        if (!click || this.physics || this.loading || !this.panel.canEdit) return;
+        if (!click || this.physics || this.loading) return;
+        if (this.panel.showingModel && this.skylark.root.visible) {
+          if (e.button === 0) {
+            this.aimRay(e.clientX, e.clientY);
+            this.selectSkylarkPart(this.skylark.pick(this.ray));
+          }
+          return;
+        }
+        if (!this.panel.canEdit) return;
         this.aim(e.clientX, e.clientY);
         if (e.button === 2 || this.erase) this.removeHovered();
         else if (e.button === 0) {if(this.inspectMode)this.inspectPart(this.hovered);else this.placeHere();}
@@ -433,8 +456,14 @@ export class MachineWorkshop {
 
   // ------------------------------------------------------------- editing
 
+  private selectSkylarkPart(part: SkylarkPart | null): void {
+    if (!this.panel.showingModel || !this.skylark.loaded || this.physics || this.loading) return;
+    this.skylarkSelected = part;
+    this.refresh();
+  }
+
   private navigate(screen: BuildScreen): void {
-    if (this.physics || this.loading) return;
+    if (this.physics || this.loading || (screen === "model" && !this.detailedSkylark)) return;
     this.message = "";
     this.inspectMode = screen === "tune";
     if (this.inspectMode && this.inspectedIndex() < 0) {
@@ -580,7 +609,7 @@ export class MachineWorkshop {
   /** Skip the workbench entirely: load an example and drive it right away. */
   private async quickStart(kind: PresetKind): Promise<void> {
     if (this.physics || this.loading) return;
-    this.applyPreset(kind);
+    if (kind !== "skylark" || this.blueprint.design !== "skylark") this.applyPreset(kind, false);
     await this.runOrStop();
   }
 
@@ -599,11 +628,23 @@ export class MachineWorkshop {
     this.refresh();
   }
 
-  private applyPreset(kind: PresetKind): void {
+  private loadBlueprint(blueprint: Blueprint, showModel = true): void {
     this.remember();
-    this.blueprint = preset(kind);
+    this.blueprint = blueprint;
+    this.skylarkSelected = null;
+    this.skylarkExploded = false;
+    if (!this.skylark.loaded) this.skylarkPreviewRequested = false;
+    if (showModel && usesSkylarkModel(blueprint)) {
+      this.theta = .93;
+      this.inspectMode = false;
+      this.panel.showScreen("model");
+    } else if (this.panel.showingModel) this.panel.showScreen("parts");
     this.commit();
     this.frameCamera();
+  }
+
+  private applyPreset(kind: PresetKind, showModel = true): void {
+    this.loadBlueprint(preset(kind), showModel);
     this.say(t(`${this.blueprint.name} 예제를 불러왔습니다.`, `Loaded the ${this.blueprint.name} example.`), "good");
   }
 
@@ -645,10 +686,7 @@ export class MachineWorkshop {
   private loadSlot(id: string): void {
     const entry = this.entries.find((e) => e.id === id);
     if (!entry) return;
-    this.remember();
-    this.blueprint = cloneBlueprint(entry.blueprint);
-    this.commit();
-    this.frameCamera();
+    this.loadBlueprint(cloneBlueprint(entry.blueprint));
     this.say(t(`'${entry.blueprint.name}'을(를) 불러왔습니다.`, `Loaded '${entry.blueprint.name}'.`), "good");
   }
 
@@ -658,10 +696,7 @@ export class MachineWorkshop {
       this.say(t("공유 코드를 읽지 못했습니다. CYM으로 시작하는 코드 전체를 붙여넣어 주세요.", "Couldn't read that share code. Paste the whole code starting with CYM."), "bad");
       return false;
     }
-    this.remember();
-    this.blueprint = loaded;
-    this.commit();
-    this.frameCamera();
+    this.loadBlueprint(loaded);
     this.say(t(`'${loaded.name}'을(를) 코드에서 불러왔습니다.`, `Loaded '${loaded.name}' from the code.`), "good");
     return true;
   }
@@ -800,7 +835,9 @@ export class MachineWorkshop {
       this.showCenter = true;
       this.erase = false;
       this.ghost.setErasing(false);
-      this.panel.showScreen("parts");
+      const showModel = usesSkylarkModel(this.blueprint);
+      this.panel.showScreen(showModel ? "model" : "parts");
+      if (showModel) this.theta = .93;
       this.loadAssets();
       this.baseFov ||= this.camera.fov;
       this.entries = this.store.entries();
@@ -836,6 +873,7 @@ export class MachineWorkshop {
   }
 
   private maybeCoach(): void {
+    if (this.panel.showingModel) return;
     let seen = "1";
     try {
       seen = localStorage.getItem(COACH_KEY) ?? "";
@@ -990,17 +1028,11 @@ export class MachineWorkshop {
     this.group.clear();
     this.group.position.copy(this.origin);
     this.group.quaternion.identity();
+    this.detailedSkylark = usesSkylarkModel(this.blueprint);
     this.visual.rebuild(this.blueprint);
-    this.group.add(this.visual.root);
+    this.group.add(this.visual.root, this.skylark.root);
     this.group.traverse(object => object.layers.enable(GARAGE_LAYER));
-    this.group.updateMatrixWorld(true);
-    this.previewBounds.makeEmpty();
-    for (const mesh of this.visual.meshes) {
-      mesh.computeBoundingBox();
-      if (mesh.boundingBox) this.previewBounds.union(this.previewPartBounds.copy(mesh.boundingBox).applyMatrix4(mesh.matrixWorld));
-    }
-    if (this.previewBounds.isEmpty()) this.previewFocus.copy(this.origin);
-    else this.previewBounds.getCenter(this.previewFocus);
+    this.measurePreview();
     this.placeMarker(machineStats(this.blueprint).center);
     this.ghost.root.visible = false;
     this.hovered = -1;
@@ -1009,9 +1041,56 @@ export class MachineWorkshop {
     this.stage.fit(this.blueprint);
   }
 
+  private measurePreview(): void {
+    this.group.updateMatrixWorld(true);
+    this.previewBounds.makeEmpty();
+    this.skylarkPreviewCorners.length = 0;
+    if (this.detailedSkylark && this.skylark.root.visible) {
+      this.skylark.measure(this.previewBounds, this.skylarkPreviewCorners);
+    } else {
+      for (const mesh of this.visual.meshes) {
+        mesh.computeBoundingBox();
+        if (mesh.boundingBox) this.previewBounds.union(this.previewPartBounds.copy(mesh.boundingBox).applyMatrix4(mesh.matrixWorld));
+      }
+    }
+    if (this.previewBounds.isEmpty()) this.previewFocus.copy(this.origin);
+    else this.previewBounds.getCenter(this.previewFocus);
+  }
+
+  private refreshSkylark(): void {
+    const show = this.active && this.detailedSkylark && (!!this.physics || !this.panel.canEdit);
+    const visible = show && this.skylark.loaded;
+    const changed = this.skylark.root.visible !== visible;
+    this.skylark.root.visible = visible;
+    this.visual.root.visible = !show;
+    const inspect = !this.physics && this.panel.showingModel;
+    const layoutChanged = this.skylark.setMode(
+      !!this.physics,
+      inspect && this.skylarkExploded,
+      inspect ? this.skylarkSelected : null,
+    );
+    if ((changed || (visible && layoutChanged)) && !this.physics) {
+      this.measurePreview();
+      this.frameCamera(this.elevation);
+    }
+    if (!show || this.skylark.loaded || this.skylarkPreviewRequested) return;
+    this.skylarkPreviewRequested = true;
+    void this.skylark.ready.then(() => {
+      if (!this.disposed) this.refresh();
+    }).catch(() => {
+      if (!this.disposed && this.active && this.detailedSkylark) {
+        this.say(t("Skylark 외형을 불러오지 못했습니다. 시험 비행을 누르면 다시 시도합니다.",
+          "Skylark's model couldn't load. Try again with Test flight."), "bad");
+      }
+    });
+  }
+
   private refresh(): void {
+    if (this.panel.showingModel && !this.detailedSkylark) this.panel.showScreen("parts");
+    if (this.panel.showingModel) this.coach.element.hidden = true;
+    this.refreshSkylark();
     this.stage.root.visible = this.active && !this.physics;
-    this.marker.visible = this.active && !this.physics && this.showCenter;
+    this.marker.visible = this.active && !this.physics && this.showCenter && !this.skylark.root.visible;
     const view: BuildView = {
       blueprint: this.blueprint,
       stats: machineStats(this.blueprint),
@@ -1028,6 +1107,11 @@ export class MachineWorkshop {
       running: !!this.physics,
       loading: this.loading,
       assetsReady: this.assets.loaded,
+      skylark: this.detailedSkylark ? {
+        components: this.skylark.components,
+        selected: this.skylarkSelected,
+        exploded: this.skylarkExploded,
+      } : null,
       message: this.statusLine(),
       tone: this.statusTone(),
       entries: this.entries,
@@ -1069,14 +1153,7 @@ export class MachineWorkshop {
     this.selectionOutline.show(this.visual.meshes, customizationScope(this.blueprint, index, this.mirror).indices);
   }
 
-  private aim(x: number, y: number): void {
-    this.ghost.root.visible = false;
-    this.hovered = -1;
-    this.placement = null;
-    if (this.physics || this.loading || !this.panel.canEdit) {
-      this.visual.highlight(-1, HIGHLIGHT);
-      return;
-    }
+  private aimRay(x: number, y: number): void {
     const bounds = this.canvas.getBoundingClientRect();
     this.group.updateMatrixWorld(true);
     this.ray.setFromCamera(
@@ -1086,6 +1163,17 @@ export class MachineWorkshop {
       ),
       this.camera,
     );
+  }
+
+  private aim(x: number, y: number): void {
+    this.ghost.root.visible = false;
+    this.hovered = -1;
+    this.placement = null;
+    if (this.physics || this.loading || !this.panel.canEdit) {
+      this.visual.highlight(-1, HIGHLIGHT);
+      return;
+    }
+    this.aimRay(x, y);
     const hit = this.ray.intersectObjects(this.visual.meshes, false)[0];
     const index = hit ? this.visual.partIndex(hit) : undefined;
     if (!hit || index === undefined) {
@@ -1140,12 +1228,23 @@ export class MachineWorkshop {
     const horizontal = tangent * window.innerWidth / window.innerHeight * (this.panel.previewWidth || window.innerWidth) / window.innerWidth * .88 * widthScale;
     const point = new THREE.Vector3();
     let required = 1;
-    for (const x of [this.previewBounds.min.x, this.previewBounds.max.x])
-      for (const y of [this.previewBounds.min.y, this.previewBounds.max.y])
-        for (const z of [this.previewBounds.min.z, this.previewBounds.max.z]) {
-          point.set(x, y, z).sub(this.previewFocus);
-          required = Math.max(required, point.dot(out) + Math.abs(point.dot(right)) / horizontal, point.dot(out) + Math.abs(point.dot(up)) / vertical);
-        }
+    const fitPoint = () => {
+      point.sub(this.previewFocus);
+      required = Math.max(required, point.dot(out) + Math.abs(point.dot(right)) / horizontal, point.dot(out) + Math.abs(point.dot(up)) / vertical);
+    };
+    if (this.skylarkPreviewCorners.length) {
+      for (const corner of this.skylarkPreviewCorners) {
+        point.copy(corner);
+        fitPoint();
+      }
+    } else {
+      for (const x of [this.previewBounds.min.x, this.previewBounds.max.x])
+        for (const y of [this.previewBounds.min.y, this.previewBounds.max.y])
+          for (const z of [this.previewBounds.min.z, this.previewBounds.max.z]) {
+            point.set(x, y, z);
+            fitPoint();
+          }
+    }
     this.distance = Math.max(6, required / this.panel.previewZoom);
   }
 
@@ -1183,8 +1282,11 @@ export class MachineWorkshop {
     this.refresh();
     let failure = "";
     try {
-      await this.assets.ready;
-      const rapier = await loadPhysics();
+      const [rapier] = await Promise.all([
+        loadPhysics(),
+        this.assets.ready,
+        this.detailedSkylark ? this.skylark.ready : undefined,
+      ]);
       if (generation !== this.generation || !this.active) return;
       this.settleOrigin();
       this.physics = new MachinePhysics(
@@ -1214,7 +1316,7 @@ export class MachineWorkshop {
         this.loading = false;
         if (failure) {
           this.say(failure, "bad");
-          this.toasts.show(t("물리 엔진을 불러오지 못했습니다.", "Couldn't load the physics engine."), "bad");
+          this.toasts.show(failure, "bad");
         } else this.refresh();
       }
     }
@@ -1283,7 +1385,8 @@ export class MachineWorkshop {
         assist: this.assist,
         boost: this.keys.has("ShiftLeft") || this.keys.has("ShiftRight"),
         brake: this.keys.has("KeyX"),
-        pitch: axis("ArrowUp", "ArrowDown"),
+        pitch: axis("ArrowUp", "ArrowDown") ||
+          (this.detailedSkylark ? axis("KeyW", "KeyS") : 0),
         roll: axis("KeyQ", "KeyE"),
       });
     } catch (error) {
@@ -1375,7 +1478,8 @@ export class MachineWorkshop {
       physics.snapshot().hoverThrottle,
     );
     const boost = this.keys.has("ShiftLeft") || this.keys.has("ShiftRight");
-    this.visual.thrust(lift, boost, performance.now() / 1000);
+    if (this.detailedSkylark) this.skylark.step(dt, lift);
+    else this.visual.thrust(lift, boost, performance.now() / 1000);
 
     const state = physics.snapshot();
     this.spawnDust(physics, state.speed);
@@ -1447,11 +1551,9 @@ export class MachineWorkshop {
       // Sit just outside the canopy: anywhere inside the 1 m cockpit cell puts
       // the near plane through the machine's own hull and fills the screen.
       const seat = this.blueprint.parts.find((p) => p.kind === "cockpit");
-      this.scratch
-        .fromArray(seat?.cell ?? [0, 0, 0])
-        .add(this.desired.set(0, 0.45, 0.95))
-        .applyQuaternion(this.bodyQuaternion)
-        .add(this.group.position);
+      if (this.detailedSkylark) this.scratch.set(0, 1.55, 2.50);
+      else this.scratch.fromArray(seat?.cell ?? [0, 0, 0]).add(this.desired.set(0, .45, .95));
+      this.scratch.applyQuaternion(this.bodyQuaternion).add(this.group.position);
       this.camera.position.copy(this.scratch);
       this.camera.quaternion
         .copy(this.bodyQuaternion)
@@ -1546,6 +1648,12 @@ export class MachineWorkshop {
       assetsLoaded: this.assets.loaded,
       editor: {
         screen: this.panel.element.dataset.screen,
+        skylark: this.detailedSkylark ? {
+          visible: this.skylark.root.visible,
+          parts: this.skylark.components.length,
+          exploded: this.skylarkExploded && this.panel.showingModel && !this.physics,
+          selected: this.skylarkSelected,
+        } : null,
         inspectMode: this.inspectMode,
         inspected: this.inspectedIndex(),
         scope: customizationScope(this.blueprint, this.inspectedIndex(), this.mirror),
@@ -1590,6 +1698,7 @@ export class MachineWorkshop {
     );
     this.disposed = true;
     this.visual.dispose();
+    this.skylark.dispose();
     this.ghost.dispose();
     this.dust.dispose();
     this.assets.dispose();

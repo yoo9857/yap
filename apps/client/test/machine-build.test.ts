@@ -1,6 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
 import {
   blueprintError,
+  usesSkylarkModel,
+  PRESETS,
   machineStats,
   mirrorDirection,
   PARTS,
@@ -101,7 +103,7 @@ describe("part catalogue", () => {
 
 describe("presets", () => {
   it("every preset is a legal, launchable machine", () => {
-    for (const kind of ["rover", "ship", "plane"] as const) {
+    for (const { kind } of PRESETS) {
       const blueprint = preset(kind);
       expect(validateBlueprint(blueprint)).toEqual(blueprint);
       expect(blueprintError(blueprint)).toBeNull();
@@ -109,9 +111,26 @@ describe("presets", () => {
   });
 });
 
+it("restores the detailed Skylark when the stock parts return", () => {
+  const blueprint = preset("skylark");
+  const rotated = blueprint.parts.find(part => part.kind === "thruster")!;
+  expect(usesSkylarkModel(blueprint)).toBe(true);
+  rotated.direction = 1;
+  expect(usesSkylarkModel(blueprint)).toBe(false);
+  rotated.direction = 0;
+  rotated.custom = { power: "high" };
+  expect(usesSkylarkModel(blueprint)).toBe(true);
+  rotated.custom.color = "mint";
+  expect(usesSkylarkModel(blueprint)).toBe(false);
+  delete rotated.custom.color;
+  blueprint.parts.reverse();
+  blueprint.name = "My Skylark";
+  expect(usesSkylarkModel(blueprint)).toBe(true);
+});
+
 describe("share codes", () => {
   it("round-trip every preset, including the name", () => {
-    for (const kind of ["rover", "ship", "plane"] as const) {
+    for (const { kind } of PRESETS) {
       const blueprint = preset(kind);
       const decoded = decodeShare(encodeShare(blueprint));
       expect(decoded).toEqual(blueprint);

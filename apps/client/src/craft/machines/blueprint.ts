@@ -22,6 +22,7 @@ export interface Blueprint {
   version: 1;
   name: string;
   parts: MachinePart[];
+  design?: "skylark";
 }
 
 export type PartGroup = "구조" | "구동" | "비행";
@@ -247,14 +248,38 @@ export function machineStats(b: Blueprint): MachineStats {
   };
 }
 
-export type PresetKind = "rover" | "ship" | "plane";
+export type PresetKind = "rover" | "ship" | "plane" | "skylark";
+const SKYLARK_PARTS: readonly MachinePart[] = [
+  ...[-4, -3, -2, -1, 0, 1, 2].map((z): MachinePart => ({ kind: "frame", cell: [0, 0, z], direction: 0 })),
+  ...[-1, 1].flatMap((x): MachinePart[] => [
+    { kind: "frame", cell: [x, 0, 0], direction: 0 },
+    { kind: "thruster", cell: [x, 1, 0], direction: 0 },
+    { kind: "thruster", cell: [x, 1, -1], direction: 0 },
+  ]),
+  { kind: "cockpit", cell: [0, 1, 1], direction: 0 },
+  { kind: "gyro", cell: [0, 1, -1], direction: 0 },
+];
+
+/** Physics-only tuning keeps the Blender shell. Layout or paint edits use the block kit. */
+export function usesSkylarkModel(blueprint: Blueprint): boolean {
+  return blueprint.design === "skylark" && blueprint.parts.length === SKYLARK_PARTS.length &&
+    SKYLARK_PARTS.every(stock => blueprint.parts.some(part =>
+      stock.kind === part.kind && stock.direction === part.direction &&
+      stock.cell.every((coord, axis) => coord === part.cell[axis]) &&
+      part.custom?.color === undefined,
+    ));
+}
 export const PRESETS: readonly { kind: PresetKind; label: string }[] = [
   { kind: "rover", label: "탐사차" },
   { kind: "ship", label: "비행체" },
   { kind: "plane", label: "활공기" },
+  { kind: "skylark", label: "Skylark" },
 ];
 
 export function preset(kind: PresetKind): Blueprint {
+  if (kind === "skylark") {
+    return { version: 1, name: "Skylark", design: "skylark", parts: SKYLARK_PARTS.map(part => structuredClone(part)) };
+  }
   const parts: MachinePart[] = [];
   const put = (
     kind: PartKind,
@@ -311,6 +336,7 @@ function validBlueprintShape(value: unknown): value is Blueprint {
   const b = value as Blueprint;
   if (
     b.version !== 1 ||
+    (b.design !== undefined && b.design !== "skylark") ||
     typeof b.name !== "string" ||
     b.name.length > 48 ||
     !Array.isArray(b.parts) ||

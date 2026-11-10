@@ -6,12 +6,14 @@ import {
   PARTS,
   PART_ORDER,
   PRESETS,
+  usesSkylarkModel,
   type Blueprint,
   type MachineStats,
   type PartGroup,
   type PartKind,
   type PresetKind,
 } from "./blueprint.js";
+import { SKYLARK_PART_ORDER, SKYLARK_PARTS, type SkylarkInspection, type SkylarkPart } from "./skylarkParts.js";
 import { LIBRARY_SLOTS, type LibraryEntry, type MissionRecord } from "./library.js";
 import { MISSIONS, type MissionProgress } from "./missions.js";
 import { t } from "../../ui/i18n.js";
@@ -23,11 +25,12 @@ import { t } from "../../ui/i18n.js";
  */
 
 export type MessageTone = "info" | "bad" | "good";
-export type BuildScreen = "parts" | "tune" | "missions" | "library" | "help";
+export type BuildScreen = "model" | "parts" | "tune" | "missions" | "library" | "help";
 export type PreviewView = "front" | "side" | "top" | "fit";
 type TuneSection = "appearance" | "performance";
 
 const SCREEN_LABELS: Record<BuildScreen, string> = {
+  model: t("모델 부품", "Model components"),
   parts: t("블록 조립", "Build blocks"),
   tune: t("블록 커스텀", "Customize blocks"),
   missions: t("시험 운전", "Test drive"),
@@ -60,6 +63,7 @@ export interface BuildView {
   running: boolean;
   loading: boolean;
   assetsReady: boolean;
+  skylark: SkylarkInspection | null;
   message: string;
   tone: MessageTone;
   entries: LibraryEntry[];
@@ -69,6 +73,8 @@ export interface BuildView {
 
 export interface BuildHandlers {
   navigate(screen: BuildScreen): void;
+  explodeSkylark(): void;
+  selectSkylarkPart(part: SkylarkPart): void;
   preview(view: PreviewView): void;
   selectPart(kind: PartKind): void;
   inspectPart(index:number):void;
@@ -212,6 +218,10 @@ export class BuildPanel {
       on(button, "click", () => {
         handlers.navigate(button.dataset.screen as BuildScreen);
       }),
+    );
+    on(this.q('[data-id="skylark-explode"]'), "click", () => handlers.explodeSkylark());
+    this.element.querySelectorAll<HTMLButtonElement>("[data-skylark-part]").forEach(button =>
+      on(button, "click", () => handlers.selectSkylarkPart(button.dataset.skylarkPart as SkylarkPart)),
     );
     this.element.querySelectorAll<HTMLElement>("[data-preview]").forEach(button =>
       on(button, "click", () => handlers.preview(button.dataset.preview as PreviewView)),
@@ -418,7 +428,7 @@ ${part.detail}`)}">
     ]
       .map(([label, key]) => `<div><span>${label}</span><kbd>${key}</kbd></div>`)
       .join("");
-    const sections: BuildScreen[] = ["parts", "tune", "missions", "library", "help"];
+    const sections: BuildScreen[] = ["model", "parts", "tune", "missions", "library", "help"];
     return `
       <div class="mw-preview-stage" data-id="preview-stage" aria-hidden="true"></div>
       <header class="mw-head">
@@ -426,7 +436,7 @@ ${part.detail}`)}">
         <div class="mw-headtext"><div class="mw-eyebrow">${t("내 기계 · 이름 변경", "My machine · rename")}</div><input class="mw-name" data-id="name" maxlength="48" aria-label="${t("설계도 이름", "Blueprint name")}" /></div>
       </header>
       <nav class="mw-sections" aria-label="${t("작업실 메뉴", "Workshop menu")}">
-        ${sections.map(screen=>`<button class="mw-btn mw-section" data-screen="${screen}">${strokeIcon(ICONS[screen])}<span>${SCREEN_LABELS[screen]}</span></button>`).join("")}
+        ${sections.map(screen=>`<button class="mw-btn mw-section" data-screen="${screen}"${screen === "model" ? " hidden" : ""}>${strokeIcon(ICONS[screen === "model" ? "parts" : screen])}<span>${SCREEN_LABELS[screen]}</span></button>`).join("")}
         <button class="mw-btn mw-science-entry" data-id="science">${strokeIcon(ICONS.science)} ${t("과학 실험실", "Science lab")} ↗</button>
       </nav>
       <div class="mw-navigation">
@@ -447,7 +457,7 @@ ${part.detail}`)}">
       </div>
       <aside class="mw-overview" aria-label="${t("기계 정보", "Machine overview")}">
         <div class="mw-figures">
-          <div class="mw-figure"><span>${t("블록", "Blocks")}</span><b data-id="fig-parts">0</b></div>
+          <div class="mw-figure"><span data-id="fig-parts-label">${t("블록", "Blocks")}</span><b data-id="fig-parts">0</b></div>
           <div class="mw-figure"><b data-id="fig-mass">0</b><span>kg</span></div>
           <div class="mw-figure" data-screen-only="missions"><span>${t("바퀴", "Wheels")}</span><b data-id="fig-wheels">0</b></div>
           <div class="mw-figure mw-wing-figure" data-screen-only="missions"><span>${t("날개", "Wings")}</span><b data-id="fig-wing">0</b><span>m²</span></div>
@@ -480,13 +490,20 @@ ${part.detail}`)}">
           <div class="mw-block-description"><b data-id="selected-name"></b><p class="mw-detail" data-id="detail"></p></div>
         </section>
         <section class="mw-pane" data-pane="tune" hidden><div data-id="custom"></div></section>
+        <section class="mw-pane mw-model-parts" data-pane="model" hidden>
+          <div class="mw-model-head"><strong data-id="skylark-summary"></strong><button class="mw-btn" data-id="skylark-explode" aria-pressed="false">${t("분해 보기", "Explode model")}</button></div>
+          <div class="mw-model-list" role="group" aria-label="${t("Skylark 모델 부품", "Skylark model components")}">
+            ${SKYLARK_PART_ORDER.map(key => `<button class="mw-btn" data-skylark-part="${key}" aria-pressed="false">${t(SKYLARK_PARTS[key][0], SKYLARK_PARTS[key][1])}</button>`).join("")}
+          </div>
+          <p class="mw-screen-hint" data-id="skylark-connection" aria-live="polite"></p>
+        </section>
         <section class="mw-pane mw-library-layout" data-pane="library" hidden>
-          <section><div class="mw-group">${t("예제로 시작", "Start from an example")}</div><div class="mw-examples">${presets}</div></section>
+          <section><div class="mw-group">${t("예제로 시작", "Start from an example")}</div><div class="mw-examples">${presets}</div><p class="mw-screen-hint" data-id="skylark-note" hidden></p></section>
           <section><div class="mw-library-heading"><span class="mw-group">${t("내 설계도", "My blueprints")} <small data-id="slot-count">0 / ${LIBRARY_SLOTS}</small></span><button class="mw-btn" data-id="save">＋ ${t("새로 저장", "Save new")}</button></div><div class="mw-slots" data-id="slots"></div><details class="mw-recovery" data-id="recovery"><summary>${strokeIcon(ICONS.undo)} ${t("복구함", "Recovery")} <span data-id="recovery-count">0</span></summary><div class="mw-recovery-sheet"><h3>${t("설계도 복구함", "Blueprint recovery")}</h3><p>${t("최근 12개 삭제본과 교체 전 버전을 보관합니다. 복구하려면 보관함에 빈칸이 필요해요.", "Keeps the last 12 deleted or replaced blueprints. Restoring needs a free library slot.")}</p><div data-id="recovery-list"></div></div></details></section>
           <section class="mw-share-section"><div class="mw-group">${t("친구와 공유", "Share with friends")}</div><p class="mw-share-explain">${t("내 기계를 보내거나, 친구의 설계도를 가져오세요.", "Send your machine or load a friend's blueprint.")}</p><button class="mw-btn" data-id="copy">${t("코드 복사", "Copy code")}</button><details class="mw-share-import" data-id="share-import"><summary>${t("코드로 불러오기", "Load a share code")} ↗</summary><div class="mw-import-sheet"><label>${t("공유 코드를 붙여넣으세요", "Paste a share code")}<textarea class="mw-share" data-id="share" spellcheck="false" aria-label="${t("공유 코드", "Share code")}"></textarea></label><button class="mw-btn" data-id="import">${t("이 설계도 불러오기", "Load this blueprint")}</button></div></details></section>
         </section>
         <section class="mw-pane mw-drive-layout" data-pane="missions" hidden>
-          <div class="mw-drive-settings"><button class="mw-btn mw-assist" data-id="assist" aria-pressed="true"><span class="mw-dot"></span><b>${t("조작 보조", "Pilot assist")}</b><small data-id="assist-note"></small></button><p class="mw-drive-basics">${t("W S 주행 · A D 조향 · Space 상승", "W S drive · A D steer · Space climb")}</p><div class="mw-quickrow"><button class="mw-btn" data-quick="rover"><img src="/ui/machines/rover.webp" alt="" width="80" height="54"><b>${t("자동차 타기", "Drive a car")}</b></button><button class="mw-btn" data-quick="plane"><img src="/ui/machines/plane.webp" alt="" width="80" height="54"><b>${t("비행기 타기", "Fly a plane")}</b></button></div></div>
+          <div class="mw-drive-settings"><button class="mw-btn mw-assist" data-id="assist" aria-pressed="true"><span class="mw-dot"></span><b>${t("조작 보조", "Pilot assist")}</b><small data-id="assist-note"></small></button><p class="mw-drive-basics">${t("W S 주행 · A D 조향 · Space 상승", "W S drive · A D steer · Space climb")}</p><div class="mw-quickrow"><button class="mw-btn" data-quick="rover"><img src="/ui/machines/rover.webp" alt="" width="80" height="54"><b>${t("자동차 타기", "Drive a car")}</b></button><button class="mw-btn" data-quick="plane"><img src="/ui/machines/plane.webp" alt="" width="80" height="54"><b>${t("비행기 타기", "Fly a plane")}</b></button><button class="mw-btn" data-quick="skylark"><img src="/ui/machines/skylark.webp" alt="" width="80" height="54"><b data-id="skylark-quick-label">${t("Skylark 타기", "Fly Skylark")}</b></button></div></div>
           <div class="mw-missions-section"><div class="mw-pane-head"><div class="mw-group">${t("주행 목표", "Driving goals")}</div><div class="mw-records"><span>${t("나의 기록", "Personal best")}</span><div class="mw-figure"><b data-id="rec-speed">0</b><span>km/h</span></div><div class="mw-figure"><b data-id="rec-alt">0</b><span>${t("고도 m", "alt. m")}</span></div><div class="mw-figure"><b data-id="rec-dist">0</b><span>${t("거리 m", "dist. m")}</span></div></div>${railControls("missions")}</div><div class="mw-mission-list" data-rail="missions">${missions}</div></div>
         </section>
         <section class="mw-pane" data-pane="help" hidden><div class="mw-keys">${keys}</div></section>
@@ -532,6 +549,10 @@ ${part.detail}`)}">
     this.syncRails();
   }
 
+  get showingModel(): boolean {
+    return this.screen === "model";
+  }
+
   get canEdit(): boolean {
     return this.screen === "parts" || this.screen === "tune";
   }
@@ -549,7 +570,7 @@ ${part.detail}`)}">
 
   private syncBalanceLane(): void {
     this.balanceLane =
-      window.innerWidth > 720 && !this.element.classList.contains("driving") ? 272 : 0;
+      window.innerWidth > 720 && !this.showingModel && !this.element.classList.contains("driving") ? 272 : 0;
   }
 
   private syncRails(): void {
@@ -563,7 +584,7 @@ ${part.detail}`)}">
 
   private syncRunButton(): void {
     this.runButton.hidden = !this.element.classList.contains("driving") &&
-      !["parts", "tune", "missions"].includes(this.screen);
+      !["model", "parts", "tune", "missions"].includes(this.screen);
   }
 
   update(view: BuildView): void {
@@ -588,7 +609,17 @@ ${part.detail}`)}">
     this.syncRunButton();
     if (document.activeElement !== this.nameField)
       this.nameField.value = blueprint.name;
-    this.text("fig-parts", `${blueprint.parts.length}`);
+    const skylarkNote = this.q('[data-id="skylark-note"]');
+    skylarkNote.hidden = blueprint.design !== "skylark";
+    if (!skylarkNote.hidden) skylarkNote.textContent = usesSkylarkModel(blueprint)
+      ? t("Skylark를 열면 HOME이 탑승한 모델과 실제 결합 부품을 볼 수 있어요.", "Open Skylark to see HOME and the modeled components.")
+      : t("배치나 블록 색을 바꾼 Skylark 설계는 공용 블록으로 표시합니다.", "A Skylark layout or paint edit uses the standard blocks.");
+    this.updateSkylark(view.skylark, running);
+    const modelCount = this.canEdit ? undefined : view.skylark?.components.length;
+    this.text("fig-parts-label", modelCount !== undefined ? t("모델 부품", "Components") : t("블록", "Blocks"));
+    this.text("fig-parts", modelCount === undefined ? String(blueprint.parts.length) : String(modelCount || "–"));
+    this.text("skylark-quick-label", blueprint.design === "skylark"
+      ? t("현재 Skylark 타기", "Fly current Skylark") : t("Skylark 타기", "Fly Skylark"));
     this.text("fig-mass", `${Math.round(stats.mass*10)/10}`);
     const advice = balanceAdvice(blueprint);
     const thrust = thrustGuides(blueprint);
@@ -600,7 +631,9 @@ ${part.detail}`)}">
     this.syncBalanceLane();
     this.text("fig-wheels", `${stats.counts.wheel}`);
     this.text("fig-wing", stats.wingArea.toFixed(1));
-    this.text("preview-state", view.assetsReady ? t("기계 미리보기", "Machine preview") : t("블록 모델 준비 중…", "Loading blocks…"));
+    this.text("preview-state", view.skylark && !this.canEdit
+      ? view.skylark.components.length ? t("Skylark 모델 미리보기", "Skylark model preview") : t("Skylark 모델 준비 중…", "Loading Skylark…")
+      : view.assetsReady ? t("기계 미리보기", "Machine preview") : t("블록 모델 준비 중…", "Loading blocks…"));
     if (view.selected !== this.lastSelected) {
       this.lastSelected = view.selected;
       if (this.partFilter !== "all" && PARTS[view.selected].group !== this.partFilter) this.filterParts("all");
@@ -698,6 +731,31 @@ ${part.detail}`)}">
       this.shareField.placeholder = t("CYM으로 시작하는 공유 코드 전체", "The full share code starting with CYM");
   }
 
+  private updateSkylark(view: SkylarkInspection | null, busy: boolean): void {
+    this.q('.mw-section[data-screen="model"]').hidden = view === null;
+    if (!view || !this.showingModel) return;
+    const count = view.components.length;
+    const connected = view.components.filter(part => part.connection).length;
+    this.text("skylark-summary", count
+      ? t(`모델 부품 ${count}개 · 연결부 ${connected}개`, `${count} components · ${connected} connections`)
+      : t("Skylark 모델 준비 중…", "Loading Skylark…"));
+    const explode = this.q<HTMLButtonElement>('[data-id="skylark-explode"]');
+    explode.disabled = busy || !count;
+    explode.setAttribute("aria-pressed", String(view.exploded));
+    explode.textContent = view.exploded ? t("조립 보기", "Show assembled") : t("분해 보기", "Explode model");
+    this.element.querySelectorAll<HTMLButtonElement>("[data-skylark-part]").forEach(button => {
+      button.disabled = busy || !count;
+      button.setAttribute("aria-pressed", String(button.dataset.skylarkPart === view.selected));
+    });
+    const part = view.components.find(component => component.key === view.selected);
+    const connection = part?.connection;
+    this.text("skylark-connection", !part
+      ? t("목록이나 3D 모델에서 부품을 선택하면 연결 규격을 볼 수 있어요.", "Select a component in the list or model to see its connector.")
+      : connection
+        ? `${t(SKYLARK_PARTS[connection.host][0], SKYLARK_PARTS[connection.host][1])} → ${t(SKYLARK_PARTS[part.key][0], SKYLARK_PARTS[part.key][1])} · ${connection.profile} · ${connection.socket}`
+        : t("차체는 다른 모델 부품이 연결되는 기준 부품입니다.", "The airframe is the root of the model assembly."));
+  }
+
   private renderSlots(entries: LibraryEntry[], recovery: LibraryEntry[], thumbnailsReady: boolean): void {
     const signature = JSON.stringify([entries, recovery, thumbnailsReady]);
     if (signature === this.lastEntries) return;
@@ -713,7 +771,7 @@ ${part.detail}`)}">
       ? entries
           .map(
             (e) => `<div class="mw-slot">
-              <button class="mw-btn" data-slot="${escapeHtml(e.id)}" data-action="load">${thumbnailsReady ? `<img src="${this.handlers.thumbnail(e.blueprint) ?? "/ui/machines/frame.webp"}" alt="" width="64" height="48">` : ""}<span><b>${escapeHtml(e.blueprint.name)}</b><small>${e.blueprint.parts.length} ${t("블록", "blocks")}</small></span></button>
+              <button class="mw-btn" data-slot="${escapeHtml(e.id)}" data-action="load">${thumbnailsReady ? `<img src="${this.handlers.thumbnail(e.blueprint) ?? "/ui/machines/frame.webp"}" alt="" width="64" height="48">` : ""}<span><b>${escapeHtml(e.blueprint.name)}</b><small>${usesSkylarkModel(e.blueprint) ? t(`모델 부품 ${SKYLARK_PART_ORDER.length}개`, `${SKYLARK_PART_ORDER.length} components`) : `${e.blueprint.parts.length} ${t("블록", "blocks")}`}</small></span></button>
               <button class="mw-btn mw-slot-replace" data-slot="${escapeHtml(e.id)}" data-action="replace" aria-label="${escapeHtml(t(`${e.blueprint.name} 교체 저장`, `Replace ${e.blueprint.name}`))}">${t("교체…", "Replace…")}</button>
               <button class="mw-btn mw-icon" data-slot="${escapeHtml(e.id)}" data-action="delete" aria-label="${escapeHtml(t(`${e.blueprint.name} 복구함으로 이동`, `Move ${e.blueprint.name} to recovery`))}">${strokeIcon(ICONS.trash)}</button>
             </div>`,

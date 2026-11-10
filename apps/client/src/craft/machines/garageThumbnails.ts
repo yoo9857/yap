@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import type { Blueprint } from "./blueprint.js";
+import { usesSkylarkModel, type Blueprint } from "./blueprint.js";
 import { MachineAssets, MachineVisual } from "./machineVisual.js";
 
 /** Small, cached stills of the same geometry and customization as the live machine. */
@@ -21,6 +21,7 @@ export class GarageThumbnails {
   }
 
   render(blueprint: Blueprint, index?: number): string | null {
+    if (index === undefined && usesSkylarkModel(blueprint)) return "/ui/machines/skylark.webp";
     if (!this.assets.loaded || this.unavailable || !blueprint.parts.length) return null;
     const key = JSON.stringify([blueprint.parts, index]);
     const cached = this.cache.get(key);
