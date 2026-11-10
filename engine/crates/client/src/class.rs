@@ -126,6 +126,7 @@ pub struct ClassSession {
     /// Water held inside shaped blocks (s-k-wet), waiting for the field.
     pending_wet: Vec<Wet>,
     pub reset: bool,
+    pub water_drained: bool,
     pub remotes: HashMap<String, Remote>,
     pub chat: Vec<ChatLine>,
     pub ended: Option<Ended>,
@@ -162,6 +163,7 @@ impl ClassSession {
             pending: Vec::new(),
             pending_wet: Vec::new(),
             reset: false,
+            water_drained: false,
             remotes: HashMap::new(),
             chat: Vec::new(),
             ended: None,
@@ -237,6 +239,15 @@ impl ClassSession {
             ClassServer::WorldReset => {
                 self.pending.clear();
                 self.reset = true;
+            }
+            ClassServer::WaterDrained => {
+                // Keep the barrier's order relative to edits queued before and after it.
+                for e in &mut self.pending {
+                    if (19..=28).contains(&e.3) { e.3 = 0; e.4 = 0; }
+                }
+                self.pending_wet.clear();
+                self.water_drained = true;
+                self.notices.push("💧 반 전체의 물을 모두 뺐어요".into());
             }
             ClassServer::Edit { edits, .. } => self.pending.extend(edits),
             // our refused edits come back with the server's values: they are edits like any other

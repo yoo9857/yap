@@ -653,6 +653,10 @@ impl App {
                 field.reset();
                 reset = true;
             }
+            if std::mem::take(&mut c.water_drained) {
+                field.drain_water();
+                reset = true;
+            }
             let edits = c.take_edits();
             let wet = edits.iter().filter(|e| (19..=28).contains(&e.3)).count();
             if wet > 0 {

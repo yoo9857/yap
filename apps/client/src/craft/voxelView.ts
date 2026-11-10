@@ -423,6 +423,13 @@ export class VoxelView {
     this.dirty = true;
   }
 
+  /** Water cleanup is immediate: cancel stale worker results and drop water meshes only. */
+  drainWater(): void {
+    this.cancelWaterBatch();
+    this.waterQueue.clear();
+    for (const chunk of this.chunks.values()) this.installWater(chunk, null, WORLD_Y, -1);
+  }
+
   /**
    * Rebuild only the chunk holding this cell — plus the neighbouring chunk
    * when the cell sits on a chunk border, since its neighbours' exposure

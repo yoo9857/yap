@@ -3,7 +3,7 @@ import { surfaceStyle } from "./blockMaterials.js";
 import type { FurnitureLayout } from "./furniture/layout.js";
 import * as THREE from "three";
 import type { ClassEdit, ClassMember, ClassSettings, ClassAnim, ClassServerMessage, CharacterPresentation, BonkCandidate } from "@robo/shared";
-import { classKey, plotBounds } from "@robo/shared";
+import { classKey, isWater, plotBounds } from "@robo/shared";
 import { BonkFx } from "./bonkFx.js";
 import { CharacterRig, disposeRig } from "../player/rig.js";
 import type { ClassClient, ClassSession } from "../net/classClient.js";
@@ -245,6 +245,7 @@ export class ClassSync {
       settings: (next) => client.send({ t: "k-settings", ...next }),
       end: () => client.send({ t: "k-end" }),
       resetWorld: () => client.send({ t: "k-reset-world" }),
+      drainWater: () => client.send({ t: "k-drain-water" }),
       typing: () => hooks.clearKeys(),
     });
     this.hud.setMembers(this.members);
@@ -333,6 +334,16 @@ export class ClassSync {
       hooks.teleport(x + Math.cos(angle) * 2.5, y + 0.5, z + Math.sin(angle) * 2.5);
       hooks.toast(t("📣 선생님이 불렀어요!", "📣 The teacher called you over!"));
     });
+    client.onWaterDrained = () => {
+      field.drainWater();
+      // Unsent pours and old rollback values must not bring the drained water back.
+      for (let i = this.outbox.length - 1; i >= 0; i--) {
+        if (isWater(this.outbox[i]![3])) this.outbox.splice(i, 1);
+      }
+      for (const p of this.pending.values()) if (isWater(p.prev[0])) p.prev = [0, 0];
+      view.drainWater();
+      hooks.toast(t("💧 반 전체의 물을 모두 뺐어요", "💧 All water in the class field has been drained"));
+    };
     client.onWorldReset = () => {
       field.replaceAll([]);
       furniture.clear();

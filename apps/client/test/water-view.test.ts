@@ -17,6 +17,21 @@ const flush = (view: VoxelView, world: VoxelWorld, eye: THREE.Vector3) => {
 };
 
 describe("water mesh generations", () => {
+  it("removes water immediately and cancels pending mesh generations without rebuilding bricks", () => {
+    const field = new FieldWindow(), scene = new THREE.Scene(), view = new VoxelView(scene), eye = new THREE.Vector3(80, 5, 80);
+    field.applyRemote(0, 4, 0, WATER, 0); field.applyRemote(3, 4, 0, 3, 0);
+    view.update(field.world, eye); flush(view, field.world, eye);
+    expect(meshes(scene).length).toBeGreaterThan(0);
+    const bricks = scene.children.filter((o) => !meshes(scene).includes(o as THREE.Mesh));
+    view.markWaterDirty(80, 4, 80);
+    field.drainWater(); view.drainWater();
+    expect(meshes(scene)).toHaveLength(0);
+    expect(view.waterStats().queued + view.waterStats().pending).toBe(0);
+    view.update(field.world, eye);
+    expect(meshes(scene)).toHaveLength(0);
+    for (const brick of bricks) expect(scene.children).toContain(brick);
+    view.dispose();
+  });
   it("rebuilds a retained border when scrolling restores its saved neighbour", () => {
     const field = new FieldWindow(), scene = new THREE.Scene(), view = new VoxelView(scene), eye = new THREE.Vector3(80, 5, 80);
     field.applyRemote(79, 4, 0, WATER, 0); field.applyRemote(80, 4, 0, WATER, 0);

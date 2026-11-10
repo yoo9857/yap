@@ -334,7 +334,7 @@
 .ct-empty { display: grid !important; gap: 4px; padding: 14px 10px !important; text-align: center; background: transparent !important; color: var(--ct-sub); font-size: 12px; }
 .ct-empty b { color: var(--ct-ink); font-size: 13px; }
 
-/* ---- foot: the two big switches of the class, and the keys */
+/* ---- foot: water cleanup, class controls and keys */
 .ct-foot {
   display: flex;
   align-items: center;
@@ -353,11 +353,14 @@
   cursor: pointer;
 }
 .ct-manage:hover { background: #e2e8f2; }
+.ct-manage.ct-drain { background: #e1f3ff; color: #17618c; }
+.ct-manage.ct-drain:hover { background: #cbeaff; }
 .ct-manage.danger { background: #ffe6ea; color: #c22a43; }
 .ct-manage.danger:hover { background: #ffd3da; }
 .ct-keys { display: flex; align-items: center; gap: 4px; margin: 0 0 0 auto; color: var(--ct-sub); font-size: 11px; }
 
 @media (max-width: 760px) {
+  .ct-foot { flex-wrap: wrap; }
   .ct-body { grid-template-columns: 1fr; overflow: auto; }
   .ct-card { height: calc(100vh - 36px); }
   .ct-right { min-height: 220px; }

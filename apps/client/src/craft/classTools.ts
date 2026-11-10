@@ -21,6 +21,8 @@ export interface ClassToolsActions {
   kick(member: ClassMember): void;
   /** Wipe the class field (asked first). */
   resetWorld(): void;
+  /** Remove water throughout the class field, keeping buildings and furniture. */
+  drainWater(): void;
   /** End the lesson for everyone (asked first). */
   end(): void;
   /** The panel opened / closed. `resume`: closed by a click or F2 (a user gesture → back to play). */
@@ -66,7 +68,7 @@ type View = "main" | "timer" | "announce";
 /**
  * The teacher's F2 class tools: a two-pane console over the dimmed field. Left, the tools as
  * compact icon rows in three groups (자리 · 수업 진행 · 잠금), each with its number key and a live
- * state, and the class's two big switches (들판 비우기, 수업 종료) at the foot; right, the class —
+ * state, with water cleanup and class controls at the foot; right, the class —
  * a dense, searchable list built for 30-40 students (online first; visit and remove per row).
  * The timer and the announcement open a second step in the same card (Esc / ← goes back).
  * Pure DOM: every decision goes back through `actions`.
@@ -158,7 +160,10 @@ export class ClassTools {
       el("kbd", "", "0–9"), document.createTextNode(t(" 바로 고르기 · ", " pick · ")),
       el("kbd", "", "Esc"), document.createTextNode(t(" 뒤로 / 닫기", " back / close")),
     );
-    // the class's two big switches: no number key (never by accident), asked before they act
+    const drain = el("button", "ct-manage ct-drain", t("💧 빠르게 물 빼기", "💧 Drain all water"));
+    drain.title = t("반 전체의 물을 한 번에 없애요. 건물과 가구는 그대로예요.", "Remove water throughout the class field. Buildings and furniture stay.");
+    drain.addEventListener("click", () => this.run(() => this.actions.drainWater()));
+    // Destructive class actions have no number key and ask before they act.
     const reset = el("button", "ct-manage", t("🧹 들판 비우기", "🧹 Clear the field"));
     reset.addEventListener("click", () => {
       if (confirm(t("반의 들판을 모두 비울까요? 지금까지 만든 것이 모두 사라져요.", "Clear the whole class field? Everything built so far will be gone."))) this.run(() => this.actions.resetWorld());
@@ -167,7 +172,7 @@ export class ClassTools {
     end.addEventListener("click", () => {
       if (confirm(t("수업을 끝낼까요? 모든 학생의 연결이 끊어져요.", "End the class? Every student will be disconnected."))) this.run(() => this.actions.end());
     });
-    foot.append(reset, end, keys);
+    foot.append(drain, reset, end, keys);
     this.card.append(head, body, foot);
     this.root.append(this.card);
     document.body.append(this.root);

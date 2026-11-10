@@ -106,6 +106,17 @@ impl FieldWindow {
         self.fill();
     }
 
+    /// Remove only water, including banked regions and water held inside shaped blocks.
+    pub fn drain_water(&mut self) {
+        self.edits.retain(|&(_, y, _), value| {
+            if !(19..=28).contains(&value.0) { return true; }
+            *value = (0, 0);
+            self.column[y as usize] != 0
+        });
+        self.wet.clear();
+        self.fill();
+    }
+
     /// Scroll the window if the player (grid coordinates) drifted from its centre. Returns the
     /// grid shift applied — subtract it from every grid position held — or None.
     pub fn recenter(&mut self, x: f64, z: f64) -> Option<(i32, i32)> {
@@ -148,6 +159,20 @@ impl FieldWindow {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn draining_keeps_builds_and_holes_and_clears_banked_water() {
+        let mut f = FieldWindow::new();
+        f.apply(0, 4, 0, 19, 0); f.apply(0, 2, 0, 19, 0);
+        f.apply(1, 4, 0, 3, 1); f.apply_wet(1, 4, 0, 19);
+        f.apply(500, 4, 500, 19, 0); f.apply(500, 2, 500, 19, 0);
+        f.drain_water();
+        assert_eq!(f.world.get(80, 4, 80), 0);
+        assert_eq!(f.world.get(80, 2, 80), 0);
+        assert_eq!(f.world.get(81, 4, 80), 3);
+        assert!(f.wet.is_empty());
+        assert_eq!(f.edits.get(&(500, 2, 500)), Some(&(0, 0)));
+        assert!(!f.edits.contains_key(&(500, 4, 500)));
+    }
     use craftyap_core::world::{id, AIR, FIELD_TOP};
 
     #[test]

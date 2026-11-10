@@ -1,4 +1,4 @@
-import { MAX_BLOCK_SHAPE } from "@robo/shared";
+import { isWater, MAX_BLOCK_SHAPE } from "@robo/shared";
 import { z } from "zod";
 import { voxelCoordinates, voxelKey, type VoxelKey } from "@robo/shared";
 import { blockByKey, isKnownCell } from "./blocks.js";
@@ -235,6 +235,25 @@ export class FieldWindow {
 
   hasEdits(): boolean {
     return this.edits.size > 0 || this.world.version !== this.bankedVersion;
+  }
+
+  /** Teacher's water cleanup: remove sources, flow and waterlogs in view and in banked regions.
+   *  Water below ground becomes air: draining a flooded hole must not fill it with soil. */
+  drainWater(): void {
+    for (const [key, [block]] of this.edits) {
+      if (!isWater(block)) continue;
+      const [, y] = voxelCoordinates(key);
+      if (this.column[y]) this.edits.set(key, [0, 0]);
+      else this.edits.delete(key);
+    }
+    this.wet.clear();
+    const { cells, shapes, wet } = this.world;
+    for (let i = 0; i < cells.length; i++) if (isWater(cells[i]!)) {
+      cells[i] = 0;
+      shapes[i] = 0;
+    }
+    wet.fill(0);
+    this.world.version++;
   }
 
   /** Replace the whole field with the class's (join / reconnect). */

@@ -31,6 +31,22 @@ beforeEach(() => {
 afterEach(() => { for (const c of clients.splice(0)) c.close(); vi.useRealTimers(); vi.unstubAllGlobals(); vi.restoreAllMocks(); });
 
 describe("classroom client lifecycle", () => {
+  it("replays the water cleanup barrier in order during a streamed join", async () => {
+    const c = create(), connected = c.connect(), ws = Socket.instances[0]!; ws.open();
+    ws.receive(welcome("old", 2));
+    ws.receive({ t: "s-k-world", edits: [[0, 4, 0, 19, 0]] });
+    ws.receive({ t: "s-k-edit", by: "", edits: [[1, 4, 0, 20, 0]] });
+    ws.receive({ t: "s-k-water-drained" });
+    ws.receive({ t: "s-k-world", edits: [[2, 4, 0, 0, 0]] });
+    await connected;
+    ws.receive({ t: "s-k-edit", by: "other", edits: [[3, 4, 0, 19, 0]] });
+    const events: string[] = [];
+    c.onEdit = (edits) => events.push(`edit:${edits[0]![3]}`);
+    c.onWaterDrained = () => events.push("drain");
+    c.activate();
+    expect(events).toEqual(["edit:20", "drain", "edit:19"]);
+    c.close(); expect(c.onWaterDrained).toBeNull();
+  });
   it("replays edits, reset and settings received during streamed world and graphics setup", async () => {
     const c = create(), connected = c.connect(), ws = Socket.instances[0]!; ws.open();
     ws.receive(welcome("old", 2));

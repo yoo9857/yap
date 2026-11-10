@@ -9,6 +9,21 @@ const at = (x: number, y: number, z: number) => (y * WORLD_Z + z) * WORLD_X + x;
 const region = [{ x: 0, z: 0, minY: 0, maxY: 10 }];
 
 describe("water held inside shaped blocks (client)", () => {
+  it("drains visible and banked water, keeps shaped blocks and dug holes, and stays dry after scrolling", () => {
+    const f = new FieldWindow();
+    f.replaceAll([[0, 4, 0, WATER, 0], [1, 4, 0, 3, ROUND], [0, 2, 1, WATER, 0], [500, 4, 500, WATER, 0], [500, 2, 501, WATER, 0], [501, 4, 500, 3, ROUND]]);
+    f.applyWet(1, 4, 0, WATER); f.applyWet(501, 4, 500, WATER);
+    f.drainWater();
+    expect(f.cellAt(0, 4, 0)).toEqual([0, 0]); expect(f.cellAt(500, 4, 500)).toEqual([0, 0]);
+    expect(f.cellAt(0, 2, 1)).toEqual([0, 0]); expect(f.cellAt(500, 2, 501)).toEqual([0, 0]);
+    expect(f.cellAt(1, 4, 0)).toEqual([3, ROUND]); expect(f.cellAt(501, 4, 500)).toEqual([3, ROUND]);
+    expect(f.wetAt(1, 4, 0)).toBe(0); expect(f.wetAt(501, 4, 500)).toBe(0);
+    f.recenter({ x: 580, z: 580 });
+    expect(f.cellAt(500, 4, 500)).toEqual([0, 0]); expect(f.wetAt(501, 4, 500)).toBe(0);
+    f.recenter({ x: -420, z: -420 });
+    expect(f.cellAt(0, 4, 0)).toEqual([0, 0]); expect(f.cellAt(0, 2, 1)).toEqual([0, 0]);
+    expect(f.cellAt(1, 4, 0)).toEqual([3, ROUND]);
+  });
   it("the mesher's snapshot draws a shaped block's water as water; the world keeps the block", () => {
     const w = new VoxelWorld();
     w.setShaped(5, 3, 5, 3, slabShape(0, 0));

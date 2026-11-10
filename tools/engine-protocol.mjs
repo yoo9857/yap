@@ -71,6 +71,7 @@ const samples = {
     "k-settings": [{ t: "k-settings", chatLocked: true, buildLocked: false, tapsLocked: true }, { t: "k-settings", chatLocked: false, buildLocked: true }],
     "k-end": [{ t: "k-end" }],
     "k-reset-world": [{ t: "k-reset-world" }],
+    "k-drain-water": [{ t: "k-drain-water" }],
   },
   classServer: {
     "s-k-welcome": [
@@ -81,6 +82,7 @@ const samples = {
     "s-k-room": [{ t: "s-k-room", room: "햇살반", exists: true, open: true, teacher: "김선생" }, { t: "s-k-room", room: "없는반", exists: false, open: false }],
     "s-k-world": [{ t: "s-k-world", edits }],
     "s-k-world-reset": [{ t: "s-k-world-reset" }],
+    "s-k-water-drained": [{ t: "s-k-water-drained" }],
     "s-k-members": [{ t: "s-k-members", members }],
     "s-k-snap": [
       { t: "s-k-snap", ts: 99812.25, players: [{ id: "p2", pos: [1.25, 3, -8], yaw: -2, anim: "jump", at: 99800.5, ...look }, { id: "p3", pos: [0, 0, 0], yaw: 0, anim: "idle", heldItem: null }] },

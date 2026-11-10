@@ -1,7 +1,7 @@
 {
  "versions": {
   "party": 1,
-  "class": 12
+  "class": 14
  },
  "partyClient": [
   {
@@ -146,7 +146,7 @@
  "classClient": [
   {
    "t": "k-host",
-   "v": 12,
+   "v": 14,
    "room": "햇살반",
    "teacher": "김선생",
    "password": "1234",
@@ -154,26 +154,26 @@
   },
   {
    "t": "k-host",
-   "v": 12,
+   "v": 14,
    "room": "햇살반",
    "teacher": "김선생"
   },
   {
    "t": "k-join",
-   "v": 12,
+   "v": 14,
    "room": "햇살반",
    "student": "Mina",
    "seatKey": "sk"
   },
   {
    "t": "k-join",
-   "v": 12,
+   "v": 14,
    "room": "햇살반",
    "student": "Mina"
   },
   {
    "t": "k-peek",
-   "v": 12,
+   "v": 14,
    "room": "햇살반"
   },
   {
@@ -332,6 +332,9 @@
   },
   {
    "t": "k-reset-world"
+  },
+  {
+   "t": "k-drain-water"
   }
  ],
  "classServer": [
@@ -459,6 +462,9 @@
   },
   {
    "t": "s-k-world-reset"
+  },
+  {
+   "t": "s-k-water-drained"
   },
   {
    "t": "s-k-members",

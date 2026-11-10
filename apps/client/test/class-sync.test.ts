@@ -31,12 +31,27 @@ function setup() {
   const bonked = vi.fn();
   const impact = vi.fn();
   const sound = vi.fn();
-  const sync = new ClassSync(client, session, field, { markDirty() {}, markCellDirty() {}, markWaterDirty() {} } as unknown as VoxelView,
+  const sync = new ClassSync(client, session, field, { markDirty() {}, markCellDirty() {}, markWaterDirty() {}, drainWater() {} } as unknown as VoxelView,
     scene, { teleport() {}, toast() {}, clearKeys() {}, worldChanged: changed, bonked, impact, sound }, new FurnitureLayout());
   return { client, field, scene, session, sync, changed, bonked, impact, sound };
 }
 const robots = (scene: THREE.Scene) => scene.children.filter((child) => child.name !== "CraftYap bonk");
 describe("classroom player synchronisation", () => {
+  it("drains the field without losing a pending solid or reviving water through queued pours and rollbacks", () => {
+    const { client, field, sync } = setup();
+    const send = vi.fn(() => true); client.send = send;
+    field.applyRemote(0, 4, 0, 19, 0);
+    field.applyRemote(1, 4, 0, 3, 0);
+    sync.recordEdit(80, 4, 80, 0, 0, 19, 0); // unsent water
+    sync.recordEdit(81, 4, 80, 19, 0, 3, 0); // pending solid replacing water
+    client.onWaterDrained!(); sync.flushEdits();
+    expect(send).toHaveBeenCalledExactlyOnceWith({ t: "k-edit", edits: [[1, 4, 0, 3, 0]] });
+    expect(field.cellAt(0, 4, 0)).toEqual([0, 0]);
+    expect(field.cellAt(1, 4, 0)).toEqual([3, 0]);
+    client.onReject!([[1, 4, 0, 19, 0]], false);
+    expect(field.cellAt(1, 4, 0)).toEqual([0, 0]);
+    sync.dispose();
+  });
   it("replaces identity after server restore and never draws its own robot twice", () => {
     const { client, scene, session, sync, changed } = setup();
     client.onSnap!([{ id: "other", pos: [0, 4, 0], yaw: 0, anim: "idle" }]);

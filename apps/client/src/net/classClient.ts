@@ -220,6 +220,7 @@ export class ClassClient {
   onSettings: ((settings: ClassSettings) => void) | null = null;
   onResync: ((session: ClassSession) => void) | null = null;
   onWorldReset: (() => void) | null = null;
+  onWaterDrained: (() => void) | null = null;
   /** Kicked, class ended, seat lost for good, or this seat opened in another tab — the session is over. */
   onEnded: ((reason: "kicked" | "closed" | "replaced" | ClassErrorCode) => void) | null = null;
   onConnection: ((online: boolean) => void) | null = null;
@@ -311,7 +312,7 @@ export class ClassClient {
     if (ws) { ws.onopen = ws.onmessage = ws.onclose = ws.onerror = null; ws.close(1000, "left"); }
     this.onMembers = this.onSnap = this.onEdit = this.onWet = this.onFurniture = this.onReject = this.onChat = null;
     this.onLesson = this.onAnnounce = null;
-    this.onGather = this.onSeats = this.onBonk = this.onSettings = this.onResync = this.onWorldReset = this.onEnded = this.onConnection = null;
+    this.onGather = this.onSeats = this.onBonk = this.onSettings = this.onResync = this.onWorldReset = this.onWaterDrained = this.onEnded = this.onConnection = null;
   }
 
   /** Any message proves the link alive; silence past the server's promise means it is not. */
@@ -521,6 +522,9 @@ export class ClassClient {
         return;
       case "s-k-settings":
         this.onSettings?.(msg.settings);
+        return;
+      case "s-k-water-drained":
+        this.onWaterDrained?.();
         return;
       case "s-k-world-reset":
         this.onWorldReset?.();

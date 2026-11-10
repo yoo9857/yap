@@ -16,7 +16,7 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
 /// `PARTY_PROTOCOL_VERSION` (party.ts). The fixtures carry the TypeScript value; a test compares.
 pub const PARTY_PROTOCOL_VERSION: u32 = 1;
 /// `CLASS_PROTOCOL_VERSION` (classroom.ts).
-pub const CLASS_PROTOCOL_VERSION: u32 = 12;
+pub const CLASS_PROTOCOL_VERSION: u32 = 14;
 /// Largest message the server sends (decodeClassServer's limit: whole-world batches).
 pub const MAX_SERVER_MESSAGE: usize = 4 * 1024 * 1024;
 
@@ -372,6 +372,8 @@ pub enum ClassClient {
     End,
     #[serde(rename = "k-reset-world")]
     ResetWorld,
+    #[serde(rename = "k-drain-water")]
+    DrainWater,
 }
 
 /// One seat of a classroom seating: whose it is, where (absolute) and which way it faces.
@@ -421,6 +423,8 @@ pub enum ClassServer {
     World { edits: Vec<Edit> },
     #[serde(rename = "s-k-world-reset")]
     WorldReset,
+    #[serde(rename = "s-k-water-drained")]
+    WaterDrained,
     #[serde(rename = "s-k-members")]
     Members { members: Vec<ClassMember> },
     #[serde(rename = "s-k-snap")]

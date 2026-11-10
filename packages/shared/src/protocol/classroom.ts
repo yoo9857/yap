@@ -16,8 +16,8 @@ import { characterIdSchema, emoteIdSchema, characterActionSchema, heldItemSchema
  * selected with `?mode=class`.
  */
 
-/** 3: named classrooms. 4: water. 5: paced live-world streaming + reliable replay. 6: character emotes and low postures. 7: construction shapes through code 50. 8: light player taps. 9: half blocks and stairs. 10: water inside shaped blocks (s-k-wet). 11: plot nudges. 12: lesson tools (freeze, timer, announcements). */
-export const CLASS_PROTOCOL_VERSION = 12;
+/** 3: named classrooms. 4: water. 5: paced live-world streaming + reliable replay. 6: character emotes and low postures. 7: construction shapes through code 50. 8: light player taps. 9: half blocks and stairs. 10: water inside shaped blocks (s-k-wet). 11: plot nudges. 12: lesson tools (freeze, timer, announcements). 14: teacher water cleanup (k-drain-water / s-k-water-drained). */
+export const CLASS_PROTOCOL_VERSION = 14;
 /** Highest block layer of the field grid (WORLD_Y - 1). */
 export const CLASS_MAX_Y = 55;
 /** Field coordinates are bounded so a hostile client can't grow the store
@@ -151,6 +151,8 @@ export const classClientSchema = z.discriminatedUnion("t", [
   z.object({ t: z.literal("k-end") }),
   /** Teacher wipes the saved field back to empty grass. */
   z.object({ t: z.literal("k-reset-world") }),
+  /** Teacher removes all water while keeping buildings and furniture. */
+  z.object({ t: z.literal("k-drain-water") }),
 ]);
 export type ClassClientMessage = z.infer<typeof classClientSchema>;
 
@@ -215,6 +217,8 @@ export const classServerSchema = z.discriminatedUnion("t", [
   z.object({ t: z.literal("s-k-world"), edits: z.array(classEditSchema) }),
   /** The teacher wiped the field: drop every edit. */
   z.object({ t: z.literal("s-k-world-reset") }),
+  /** Ordered cleanup barrier, including water outside each client's window. */
+  z.object({ t: z.literal("s-k-water-drained") }),
   z.object({ t: z.literal("s-k-members"), members: z.array(classMemberSchema) }),
   z.object({
     t: z.literal("s-k-snap"),

@@ -885,6 +885,9 @@ export class ClassRoom {
       case "k-end":
         this.close();
         return;
+      case "k-drain-water":
+        this.drainWater();
+        return;
       case "k-reset-world":
         this.edits.clear();
         this.wet.clear();
@@ -898,6 +901,39 @@ export class ClassRoom {
         this.system("선생님이 들판을 새로 비웠어요");
         return;
     }
+  }
+
+  /** Clear water in one transaction and one small message, even for a flooded 300k-cell field.
+   *  Streamed joins replay this barrier after their world, so old chunks cannot restore water. */
+  private drainWater(): void {
+    for (const [key, [block]] of this.edits) {
+      if (!isWater(block)) continue;
+      const [, y] = voxelCoordinates(key);
+      if (pristine(y)) this.edits.set(key, [0, 0]);
+      else this.edits.delete(key);
+    }
+    this.wet.clear();
+    this.fluid.clear();
+    this.fluidAtCapacity = false;
+    this.fluidRescan = null;
+    this.fluidRescanLeft = 0;
+    if (this.rust) {
+      // Reset the mirror too: keeping its waterlogs/frontier would make the flood reappear.
+      const rust = this.rust;
+      try {
+        rust.water.reset();
+        const kept: ClassEdit[] = [];
+        for (const [key, [block, shape]] of this.edits) kept.push([...voxelCoordinates(key), block, shape]);
+        rust.load(kept);
+      } catch (err) {
+        this.onRustFailure?.(err);
+        try { rust.water.free(); } catch { /* the trapped module may not free */ }
+        this.rust = null;
+      }
+    }
+    this.dirty = true;
+    this.broadcast({ t: "s-k-water-drained" });
+    this.system("💧 선생님이 반 전체의 물을 모두 뺐어요");
   }
 
   private applyEdits(me: Member, peer: ClassPeer, edits: ClassEdit[]): void {
