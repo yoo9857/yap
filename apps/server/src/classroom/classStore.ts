@@ -2,7 +2,7 @@ import { mkdirSync } from "node:fs";
 import { createRequire } from "node:module";
 import { dirname } from "node:path";
 import { randomBytes, scryptSync, timingSafeEqual } from "node:crypto";
-import type { ClassEdit, ClassSettings, ClassFurniture } from "@robo/shared";
+import { CLASS_MAX_PLANTS, loadPlants, type ClassEdit, type ClassSettings, type ClassFurniture, type PlantSite } from "@robo/shared";
 import { log } from "../log.js";
 
 const nativeRequire = createRequire(import.meta.url);
@@ -28,6 +28,23 @@ export interface SavedClass {
   /** The lesson's state (F2): students frozen, and a running timer's end (epoch ms) and length.
    *  Optional like `seating`: a deploy mid-countdown keeps it; older rows and servers do without. */
   lesson?: SavedLesson;
+  /** The class's power plants (science mode): [kind, x, y, z, rot, filled, on, owner's name].
+   *  Optional like `seating`: older rows have none and an older server ignores it. */
+  plants?: SavedPlant[];
+}
+
+export type SavedPlant = [string, number, number, number, number, number, number, string];
+
+/** Saved plants, row by row through the shared rules (loadPlants): a bad row is dropped, never the rest. */
+export function readSavedPlants(raw: unknown): (PlantSite & { owner: string })[] | undefined {
+  if (!Array.isArray(raw)) return undefined;
+  const out: (PlantSite & { owner: string })[] = [];
+  for (const row of raw.slice(0, CLASS_MAX_PLANTS)) {
+    if (!Array.isArray(row) || row.length !== 8 || typeof row[7] !== "string" || row[7].length > 64) continue;
+    const site = loadPlants([row.slice(0, 7)])[0];
+    if (site) out.push({ ...site, owner: row[7] });
+  }
+  return out;
 }
 
 export interface SavedLesson {
@@ -105,6 +122,7 @@ export function readSaved(raw: unknown): SavedClass | null {
     furniture: Array.isArray(d.furniture) ? (d.furniture as ClassFurniture[]) : undefined,
     seating: readSeating(d.seating),
     lesson: readLesson(d.lesson),
+    plants: Array.isArray(d.plants) ? (d.plants as SavedPlant[]) : undefined,
   };
 }
 

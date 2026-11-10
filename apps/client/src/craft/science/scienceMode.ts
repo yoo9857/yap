@@ -12,8 +12,9 @@
  * Coordinates: sites are ABSOLUTE (like furniture and field edits); the scene is GRID. The host's
  * originX/Z (0 on the island) is the only conversion, and it happens here.
  */
+import type { ClassPlant, ClassPlantRefusal } from "@robo/shared";
 import * as THREE from "three";
-import { isWater } from "@robo/shared";
+import { CLASS_MAX_PLANTS, isWater } from "@robo/shared";
 import type { RayHit, VoxelWorld } from "../voxelWorld.js";
 import { t, isEnglish } from "../../ui/i18n.js";
 import {
@@ -26,6 +27,7 @@ import {
   plantProgress,
   plantStatus,
   savePlants,
+  PLANT_KINDS,
   siteProblem,
   siteSockets,
   socketOpen,
@@ -82,7 +84,48 @@ export interface ScienceHost {
   resumePlay(): void;
   /** Filled sockets became solid or stopped being solid: physics and rays must look again. */
   solidsChanged(): void;
+  /** In a classroom: the server judges every plant change (absent when playing alone). */
+  net?: PlantNet;
 }
+
+/** A plant change for the classroom server (k-plant). */
+export interface PlantOp {
+  op: "lay" | "fit" | "out" | "on" | "remove";
+  id?: number;
+  socket?: number;
+  kind?: string;
+  x?: number;
+  y?: number;
+  z?: number;
+  rot?: number;
+}
+
+/**
+ * Science mode in a classroom. Fits, take-outs, switching on and removing happen here at once and
+ * go to the server, which answers with the plant as it has it (a refusal puts ours back); a
+ * blueprint appears when the server has given it an id.
+ */
+export interface PlantNet {
+  send(op: PlantOp): void;
+  /** Why plants may not be built right now (building locked, class frozen), or null. */
+  blocked(): string | null;
+  /** May we change this ABSOLUTE cell (a student kept on their plot: only theirs)? */
+  canEditAt(x: number, z: number): boolean;
+  /** Is a plant owned by `owner` ours to change (our own, or we are the teacher)? */
+  mine(owner: string): boolean;
+  /** Is it our very own (its progress toasts are ours to see; a teacher is not told every child's)? */
+  own(owner: string): boolean;
+}
+
+/** What a refused change means, for the toast. */
+const REFUSED_TEXT: Record<ClassPlantRefusal, () => string> = {
+  locked: () => t("🔒 지금은 선생님이 짓기를 멈춰 뒀어요", "🔒 The teacher has building paused right now"),
+  plot: () => t("🪑 자기 자리 안에서만 지을 수 있어요", "🪑 You can only build on your own plot"),
+  owner: () => t("🙅 친구의 발전소예요 — 내 발전소만 바꿀 수 있어요", "🙅 That's a classmate's plant — you can change only your own"),
+  limit: () => t("📐 발전소를 더 펼칠 수 없어요 — X로 하나 걷어 주세요", "📐 No more blueprints — take one back with X"),
+  blocked: () => t("⛔ 그 자리는 막혀 있어요 — 다른 곳을 골라요", "⛔ That spot is blocked — pick another"),
+  rule: () => t("↩️ 서버가 그 변경을 되돌렸어요", "↩️ The server put that change back"),
+};
 
 const isEmptyId = (id: number): boolean => id === 0 || isWater(id);
 
@@ -131,6 +174,8 @@ function hologramTexture(): THREE.CanvasTexture {
 
 interface SiteRuntime {
   site: PlantSite;
+  /** Whose it is in a classroom (their name); "" alone. */
+  owner: string;
   progress: Progress;
   status: PlantStatus;
   /** performance.now() / 1000 when laid (drives the scan sweep); 0 = loaded, no sweep. */
@@ -170,6 +215,7 @@ const PROBLEM_TEXT = (p: Exclude<SiteProblem, null>): string =>
     ground: t("평평한 땅 위에 펼쳐요", "Lay it on flat ground"),
     overlap: t("다른 설계도와 겹쳐요", "It overlaps another blueprint"),
     player: t("로봇이나 가구가 설계도 안에 있어요 — 비켜 주세요", "You or a piece of furniture is inside it — clear the spot"),
+    plot: t("자기 자리(울타리) 안에 펼쳐요", "Lay it inside your own plot (the fence)"),
   })[p];
 
 /** An item's display name (frame piece or part). */
@@ -286,7 +332,7 @@ export class ScienceMode {
     const common = { map: this.texture, transparent: true, depthWrite: false, side: THREE.DoubleSide, toneMapped: false } as const;
     this.holoMat = new THREE.MeshBasicMaterial({ ...common, opacity: 0.4 });
     this.previewMat = new THREE.MeshBasicMaterial({ ...common, opacity: 0.75 });
-    this.holo = new THREE.InstancedMesh(this.box, this.holoMat, MAX_PLANTS * maxCells);
+    this.holo = new THREE.InstancedMesh(this.box, this.holoMat, this.siteLimit * maxCells);
     this.holo.count = 0;
     this.holo.frustumCulled = false;
     this.holo.renderOrder = 2;
@@ -416,7 +462,11 @@ export class ScienceMode {
       return true;
     }
     if (key === "x") {
-      if (!repeat && this.aimed) this.remove(this.aimed);
+      if (!repeat && this.aimed && this.mayChange(this.aimed)) {
+        const id = this.aimed.site.id;
+        this.remove(this.aimed);
+        this.host.net?.send({ op: "remove", id });
+      }
       return true;
     }
     return key === "f";
@@ -431,6 +481,7 @@ export class ScienceMode {
     const r = this.aimedSocket?.r ?? this.aimed ?? this.holdSite;
     if (!r || this.distanceTo(r) > 9) return false;
     if (r.status !== "building" && r.status !== "parts") return false;
+    if (this.host.net && (this.host.net.blocked() || !this.host.net.mine(r.owner))) return false; // the press already said why
     return this.fitNext(r);
   }
 
@@ -499,7 +550,23 @@ export class ScienceMode {
       this.host.toast(`📐 ${PROBLEM_TEXT(this.plan.problem)}`);
       return false;
     }
-    if (this.sites.length >= MAX_PLANTS) {
+    const net = this.host.net;
+    if (net) {
+      const why = net.blocked();
+      if (why) {
+        this.host.toast(why);
+        return false;
+      }
+      // the server lays it and gives it its id; it appears for everyone (us too) a moment later
+      const { kind, x, y, z, rot } = this.plan.site;
+      net.send({ op: "lay", kind, x, y, z, rot });
+      const bp = BLUEPRINTS[kind];
+      this.host.toast(t(`${bp.icon} ${bp.ko} 설계도를 펼쳤어요 — 맨 아래 기초부터 칸마다 뼈대를 끼워요`, `${bp.icon} ${bp.name} blueprint laid — fit the frame slot by slot, starting with the foundation`));
+      this.host.sound("place");
+      this.previewKey = "";
+      return true;
+    }
+    if (this.sites.length >= this.siteLimit) {
       this.host.toast(t("설계도가 너무 많아요 — X로 하나 걷어 주세요", "Too many blueprints — take one back with X"));
       return false;
     }
@@ -523,6 +590,7 @@ export class ScienceMode {
     const r = this.sites.find((x) => x.at.has(key));
     const socket = r?.at.get(key);
     if (!r || !socket) return false;
+    if (!this.mayChange(r)) return false;
     const out = takeOut(r.site, socket.index);
     if (out.result === "above") {
       this.host.toast(t("🏗️ 위층부터 빼요 — 위에 끼운 뼈대가 있어요", "🏗️ Take it apart from the top — something above rests on this"));
@@ -536,6 +604,7 @@ export class ScienceMode {
     if (out.result !== "ok") return false;
     r.site = out.site;
     this.ver++;
+    this.host.net?.send({ op: "out", id: r.site.id, socket: socket.index });
     this.host.giveItem(socket.item, 1);
     this.refresh(r);
     this.host.toast(t(`↩️ ${obj(socket.item)} 뺐어요 (뼈대 ${r.progress.pct}%)`, `↩️ Took the ${itemLabel(socket.item)} out (frame ${r.progress.pct}%)`));
@@ -559,6 +628,69 @@ export class ScienceMode {
     for (const site of loadPlants(raw)) this.add({ ...site, id: this.nextId++ }, 0);
   }
 
+  /**
+   * The classroom server's word on plants (s-k-plants): `full` replaces the list, otherwise rows are
+   * new or changed and `removed` are gone. A row that differs from ours (a refusal, the teacher, a
+   * reconnect) replaces our copy; a classmate's plant changes quietly.
+   */
+  applyNet(msg: { full?: boolean; plants: readonly ClassPlant[]; removed?: readonly number[]; refused?: ClassPlantRefusal }): void {
+    const net = this.host.net;
+    if (msg.full) {
+      const keep = new Set(msg.plants.map((p) => p[0]));
+      for (const r of [...this.sites]) if (!keep.has(r.site.id)) this.remove(r, true);
+    }
+    for (const id of msg.removed ?? []) {
+      const r = this.sites.find((x) => x.site.id === id);
+      if (r) this.remove(r, true);
+    }
+    for (const [id, kind, x, y, z, rot, filled, on, owner] of msg.plants) {
+      if (!(PLANT_KINDS as readonly string[]).includes(kind)) continue;
+      const site: PlantSite = { id, kind: kind as PlantKind, x, y, z, rot, filled, on: on === 1 };
+      let r = this.sites.find((s) => s.site.id === id);
+      // A restarted server renumbers saved sites. The same id can now mean
+      // another position or rotation; rebuild its sockets, models and solids.
+      if (r && (r.site.kind !== site.kind || r.site.x !== x || r.site.y !== y || r.site.z !== z || r.site.rot !== rot)) {
+        this.remove(r, true);
+        r = undefined;
+      }
+      if (!r) {
+        // a blueprint we just laid sweeps in; the list on joining is simply there
+        this.add(site, msg.full ? 0 : performance.now() / 1000, owner);
+        continue;
+      }
+      r.owner = owner;
+      if (r.site.filled === site.filled && r.site.on === site.on) continue; // our own change, confirmed
+      r.site = site;
+      this.ver++;
+      this.refresh(r, !(net?.own(owner) ?? true));
+    }
+    if (msg.refused) this.host.toast(REFUSED_TEXT[msg.refused]());
+  }
+
+  /** In a classroom: may we change this plant now? Says why not. Alone: always. */
+  private mayChange(r: SiteRuntime): boolean {
+    const net = this.host.net;
+    if (!net) return true;
+    const why = net.blocked();
+    if (why) {
+      this.host.toast(why);
+      return false;
+    }
+    if (!net.mine(r.owner)) {
+      this.host.toast(REFUSED_TEXT.owner());
+      return false;
+    }
+    if (r.sockets.some((s) => s.cells.some((c) => !net.canEditAt(c.x, c.z)))) {
+      this.host.toast(REFUSED_TEXT.plot());
+      return false;
+    }
+    return true;
+  }
+
+  private get siteLimit(): number {
+    return this.host.net ? CLASS_MAX_PLANTS : MAX_PLANTS;
+  }
+
   toJSON(): PlantTuple[] {
     return savePlants(this.sites.map((r) => r.site));
   }
@@ -567,7 +699,7 @@ export class ScienceMode {
   debug(): {
     active: boolean;
     rot: number;
-    sites: Array<PlantSite & { pct: number; state: string; status: PlantStatus; missingParts: PartKey[]; layer: number | null; spinning: boolean }>;
+    sites: Array<PlantSite & { owner: string; pct: number; state: string; status: PlantStatus; missingParts: PartKey[]; layer: number | null; spinning: boolean }>;
     plan: { site: PlantSite; problem: SiteProblem } | null;
     models: string[];
     aimedSlot: { site: number; part: SocketItem; index: number } | null;
@@ -578,6 +710,7 @@ export class ScienceMode {
       rot: this.rot,
       sites: this.sites.map((r) => ({
         ...r.site,
+        owner: r.owner,
         pct: r.progress.pct,
         state: r.progress.state,
         status: r.status,
@@ -594,10 +727,13 @@ export class ScienceMode {
 
   /** Lay a blueprint at an absolute anchor without aiming (dev hook). */
   debugLay(x: number, y: number, z: number, rot = 0): SiteProblem {
-    if (this.sites.length >= MAX_PLANTS) return "overlap";
+    if (this.sites.length >= this.siteLimit) return "overlap";
     const site: PlantSite = { id: 0, kind: this.kind, x, y, z, rot, filled: 0, on: false };
     const problem = this.problem(site);
-    if (!problem) this.add({ ...site, id: this.nextId++ }, performance.now() / 1000);
+    if (problem) return problem;
+    // in a classroom the server lays it (and gives it its id), as a right click would
+    if (this.host.net) this.host.net.send({ op: "lay", kind: this.kind, x, y, z, rot });
+    else this.add({ ...site, id: this.nextId++ }, performance.now() / 1000);
     return problem;
   }
 
@@ -739,6 +875,7 @@ export class ScienceMode {
     const need = socket.item;
     const ox = this.host.originX();
     const oz = this.host.originZ();
+    if (!this.mayChange(r)) return true;
     if (socket.cells.some((c) => this.host.playerIn(c.x - ox, c.y, c.z - oz))) {
       this.host.toast(t("🚶 로봇이 그 칸에 서 있어요 — 한 걸음 비켜서 끼워요", "🚶 You're standing in that slot — step aside first"));
       return true;
@@ -805,6 +942,7 @@ export class ScienceMode {
     this.holdSite = r;
     r.site = fit.site;
     this.ver++;
+    this.host.net?.send({ op: "fit", id: r.site.id, socket: socket.index });
     this.refresh(r);
     const p = r.progress;
     const note = itemNote(need);
@@ -831,8 +969,10 @@ export class ScienceMode {
   }
 
   private switchOn(r: SiteRuntime): boolean {
+    if (!this.mayChange(r)) return true;
     r.site = { ...r.site, on: true };
     this.ver++;
+    this.host.net?.send({ op: "on", id: r.site.id });
     this.refresh(r);
     const bp = BLUEPRINTS[r.site.kind];
     const chain = (isEnglish() ? bp.chainEn : bp.chain).join(" → ");
@@ -843,12 +983,13 @@ export class ScienceMode {
 
   // ------------------------------------------------------------ internals
 
-  private refresh(r: SiteRuntime): void {
+  private refresh(r: SiteRuntime, quiet = false): void {
     const before = r.status;
     r.progress = plantProgress(r.site);
     r.status = plantStatus(r.site);
     this.syncModels(r);
     this.holoDirty = true;
+    if (quiet) return; // a classmate's plant changing: no toasts on our screen
     if (r.status === "running" && before !== "running") this.lightUp();
     if (before === r.status) return;
     const bp = BLUEPRINTS[r.site.kind];
@@ -897,7 +1038,7 @@ export class ScienceMode {
     }));
   }
 
-  private add(site: PlantSite, born: number): void {
+  private add(site: PlantSite, born: number, owner = ""): void {
     const labelCanvas = document.createElement("canvas");
     labelCanvas.width = 512;
     labelCanvas.height = 176;
@@ -911,7 +1052,7 @@ export class ScienceMode {
     this.host.scene.add(label);
     const sockets = siteSockets(site);
     const at = new Map(sockets.flatMap((s) => s.cells.map((c) => [`${c.x},${c.y},${c.z}`, s] as const)));
-    const r: SiteRuntime = { site, progress: plantProgress(site), status: plantStatus(site), born, label, labelCanvas, labelKey: "", models: new Map(), sockets, at, ghosts: new Map() };
+    const r: SiteRuntime = { site, owner, progress: plantProgress(site), status: plantStatus(site), born, label, labelCanvas, labelKey: "", models: new Map(), sockets, at, ghosts: new Map() };
     this.sites.push(r);
     this.syncModels(r);
     this.holoDirty = true;
@@ -1024,6 +1165,8 @@ export class ScienceMode {
     const ox = this.host.originX();
     const oz = this.host.originZ();
     const w = this.host.world;
+    const net = this.host.net;
+    if (net && siteSockets(site).some((s) => s.cells.some((c) => !net.canEditAt(c.x, c.z)))) return "plot";
     return siteProblem(
       site,
       {
@@ -1203,7 +1346,7 @@ export class ScienceMode {
     r.label.position.set(site.x - ox + 0.5, site.y + 10.6, site.z - oz + 0.5);
     r.label.visible = camera.position.distanceTo(r.label.position) < LABEL_RANGE;
     const focus = this.aimed === r;
-    const key = `${progress.pct}/${r.status}/${site.filled}/${focus}`;
+    const key = `${progress.pct}/${r.status}/${site.filled}/${focus}/${r.owner}`;
     if (key === r.labelKey) return;
     r.labelKey = key;
     drawLabel(r.labelCanvas, r, focus);
@@ -1332,8 +1475,13 @@ function drawLabel(c: HTMLCanvasElement, r: SiteRuntime, focus: boolean): void {
   g.font = '700 34px "Jua", system-ui, sans-serif';
   g.textBaseline = "middle";
   g.fillStyle = "#24324a";
-  g.fillText(`${bp.icon} ${isEnglish() ? bp.name : bp.ko}`, 26, 40);
   const badge = STATUS_TEXT[status]();
+  // in a classroom, whose it is: a teacher tells thirty turbines apart by name
+  const title = r.owner ? t(`${r.owner}의 ${bp.ko}`, `${r.owner}'s ${bp.name}`) : isEnglish() ? bp.name : bp.ko;
+  g.font = '700 26px "Jua", system-ui, sans-serif';
+  const badgeW = g.measureText(badge).width + 32;
+  g.font = '700 34px "Jua", system-ui, sans-serif';
+  g.fillText(`${bp.icon} ${title}`, 26, 40, W - 26 - badgeW - 40);
   g.font = '700 26px "Jua", system-ui, sans-serif';
   const bw = g.measureText(badge).width + 32;
   g.fillStyle = STATUS_COLOR[status];

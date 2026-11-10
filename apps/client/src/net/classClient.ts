@@ -215,6 +215,8 @@ export class ClassClient {
   onLesson: ((lesson: ClassLesson) => void) | null = null;
   /** The teacher's announcement (big, mid-screen). */
   onAnnounce: ((text: string) => void) | null = null;
+  /** Power plants (science mode): the whole list on joining, then changed rows. */
+  onPlants: ((msg: Extract<ClassServerMessage, { t: "s-k-plants" }>) => void) | null = null;
   /** When each s-k-lesson arrived (it may be replayed seconds later, after the field loaded). */
   private readonly arrivedAt = new WeakMap<object, number>();
   onSettings: ((settings: ClassSettings) => void) | null = null;
@@ -311,7 +313,7 @@ export class ClassClient {
     const ws = this.ws; this.ws = null;
     if (ws) { ws.onopen = ws.onmessage = ws.onclose = ws.onerror = null; ws.close(1000, "left"); }
     this.onMembers = this.onSnap = this.onEdit = this.onWet = this.onFurniture = this.onReject = this.onChat = null;
-    this.onLesson = this.onAnnounce = null;
+    this.onLesson = this.onAnnounce = this.onPlants = null;
     this.onGather = this.onSeats = this.onBonk = this.onSettings = this.onResync = this.onWorldReset = this.onWaterDrained = this.onEnded = this.onConnection = null;
   }
 
@@ -516,6 +518,9 @@ export class ClassClient {
       }
       case "s-k-announce":
         this.onAnnounce?.(msg.text);
+        return;
+      case "s-k-plants":
+        this.onPlants?.(msg);
         return;
       case "s-k-bonk":
         this.onBonk?.(msg);

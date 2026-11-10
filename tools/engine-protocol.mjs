@@ -68,6 +68,11 @@ const samples = {
     "k-arrange": [{ t: "k-arrange" }, { t: "k-arrange", clear: true }, { t: "k-arrange", yaw: 1.5708 }, { t: "k-arrange", roam: true }],
     "k-lesson": [{ t: "k-lesson", freeze: true }, { t: "k-lesson", timer: 300 }, { t: "k-lesson", freeze: false, timer: 0 }],
     "k-announce": [{ t: "k-announce", text: "선생님을 봐 주세요" }],
+    "k-plant": [
+      { t: "k-plant", op: "lay", kind: "wind", x: -20, y: 4, z: 35, rot: 3 },
+      { t: "k-plant", op: "fit", id: 7, socket: 18 },
+      { t: "k-plant", op: "remove", id: 7 },
+    ],
     "k-settings": [{ t: "k-settings", chatLocked: true, buildLocked: false, tapsLocked: true }, { t: "k-settings", chatLocked: false, buildLocked: true }],
     "k-end": [{ t: "k-end" }],
     "k-reset-world": [{ t: "k-reset-world" }],
@@ -94,6 +99,11 @@ const samples = {
     "s-k-seats": [{ t: "s-k-seats", seats: [] }, { t: "s-k-seats", seats: [{ name: "민지", pos: [12.5, 5, -24.5], yaw: 3.14159 }] }, { t: "s-k-seats", seats: [], roam: true }],
     "s-k-lesson": [{ t: "s-k-lesson" }, { t: "s-k-lesson", frozen: true }, { t: "s-k-lesson", timerLeft: 179500, timerTotal: 180000 }],
     "s-k-announce": [{ t: "s-k-announce", text: "👏 모두 정말 잘했어요!" }],
+    "s-k-plants": [
+      { t: "s-k-plants", full: true, plants: [] },
+      { t: "s-k-plants", plants: [[3, "wind", -20, 4, 35, 3, 524287, 1, "민지"]], removed: [2] },
+      { t: "s-k-plants", plants: [], removed: [9], refused: "owner" },
+    ],
     "s-k-gather": [{ t: "s-k-gather", pos: [12, 5, -30.5] }, { t: "s-k-gather", pos: [14.5, 5, -24.5], yaw: 3.14159 }, { t: "s-k-gather", pos: [14.5, 5, -10.5], nudge: true }],
     "s-k-bonk": [{ t: "s-k-bonk", by: "p2", target: "p3", seq: 4, vx: 1.5, vz: -0.5, vy: 2, at: [1, 2.2, 3] }],
     "s-k-settings": [{ t: "s-k-settings", settings: { chatLocked: true, buildLocked: true, tapsLocked: false } }],

@@ -3,14 +3,8 @@
  * tower segments, nacelle — each an item fitted into its own socket of the blueprint, like the parts.
  * Pure data; the 3D models are Blender GLBs (assets/items/frames) with code-built stand-ins.
  */
-export type FrameKey =
-  | "frame-foundation"
-  | "frame-foundation-center"
-  | "frame-tower-base"
-  | "frame-tower"
-  | "frame-tower-top"
-  | "frame-nacelle-tail"
-  | "frame-hub";
+export type { FrameKey } from "@robo/shared";
+import type { FrameKey } from "@robo/shared";
 
 export interface FrameDef {
   key: FrameKey;

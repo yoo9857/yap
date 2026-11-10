@@ -2,7 +2,7 @@ import {pickaxeCycle,pickaxeImpacts,PICKAXE} from "./toolDefinitions.js";
 import { surfaceStyle } from "./blockMaterials.js";
 import type { FurnitureLayout } from "./furniture/layout.js";
 import * as THREE from "three";
-import type { ClassEdit, ClassMember, ClassSettings, ClassAnim, ClassServerMessage, CharacterPresentation, BonkCandidate } from "@robo/shared";
+import type { ClassEdit, ClassMember, ClassSettings, ClassAnim, ClassServerMessage, ClassClientMessage, CharacterPresentation, BonkCandidate } from "@robo/shared";
 import { classKey, isWater, plotBounds } from "@robo/shared";
 import { BonkFx } from "./bonkFx.js";
 import { CharacterRig, disposeRig } from "../player/rig.js";
@@ -96,6 +96,8 @@ export interface ClassSyncHooks {
   impact?(x?: number, y?: number, z?: number): void;
   /** A lesson cue: an announcement arrived, or the class timer ran out. */
   chime?(kind: "announce" | "time"): void;
+  /** Power plants from the server (science mode), in arrival order once the game runs. */
+  plants?(msg: Extract<ClassServerMessage, { t: "s-k-plants" }>): void;
   /** A classmate's sound at a grid position (their steps, digs, blows, bricks). */
   sound?: (kind: ClassmateSound, family: string, x: number, y: number, z: number, wet?: boolean) => void;
 }
@@ -310,6 +312,8 @@ export class ClassSync {
       this.hud.setLesson(lesson);
       if (lesson.frozen && !was && this.session.role === "student") this.whenStarted(() => hooks.clearKeys());
     };
+    // after the first frame, in order: science mode draws them over the world the game has built
+    client.onPlants = (msg) => this.whenStarted(() => hooks.plants?.(msg));
     client.onAnnounce = (text) => {
       this.lesson.announce(text);
       this.hud.chat("", "teacher", `📢 ${text}`, true);
@@ -441,6 +445,22 @@ export class ClassSync {
     if (!box) return true;
     const e = 1e-6;
     return x >= box[0] - e && x + 1 <= box[1] + e && z >= box[2] - e && z + 1 <= box[3] + e;
+  }
+
+  /** Our own name in the class (plants are owned by name). */
+  get myName(): string {
+    return this.members.find((m) => m.id === this.session.you)?.name ?? "";
+  }
+
+  /** A power-plant change for the server (science mode). */
+  sendPlant(op: Omit<Extract<ClassClientMessage, { t: "k-plant" }>, "t">): void {
+    this.client.send({ t: "k-plant", ...op });
+  }
+
+  /** May we change an ABSOLUTE cell (x, z)? `canEditAt` in absolute coordinates. */
+  canEditAbs(x: number, z: number): boolean {
+    const [gx, gz] = this.field.toGrid(x, z);
+    return this.canEditAt(gx, gz);
   }
 
   /** The teacher's F2 class-tools panel is up (it owns the screen like the bag). */

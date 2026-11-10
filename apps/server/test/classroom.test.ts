@@ -971,3 +971,147 @@ describe("a seat that comes back (new page = new clock)", () => {
     });
   });
 });
+
+describe("power plants (science mode)", () => {
+  // the field's ground tops out at y = 3, so a blueprint's foundation sits at y = 4
+  const lay = (x = 20, z = 20) => ({ t: "k-plant" as const, op: "lay" as const, kind: "wind", x, y: 4, z, rot: 0 });
+  const plantsOf = (p: Peer) => p.inbox.filter((m): m is Extract<ClassServerMessage, { t: "s-k-plants" }> => m.t === "s-k-plants");
+  const lastRows = (p: Peer) => plantsOf(p).at(-1)!;
+  function setup() {
+    const { room, teacher } = classWithTeacher();
+    const a = new Peer(), b = new Peer();
+    room.joinStudent(a, "Minji");
+    room.joinStudent(b, "Jun");
+    return { room, teacher, a, b };
+  }
+
+  it("sends every joiner the whole list, an empty one included", () => {
+    const { a } = setup();
+    expect(plantsOf(a)[0]).toEqual({ t: "s-k-plants", full: true, plants: [] });
+  });
+
+  it("lays a blueprint for everyone, owned by whoever laid it", () => {
+    const { room, teacher, a } = setup();
+    room.handle(a, lay());
+    const row = lastRows(teacher).plants[0]!;
+    expect(row).toEqual([1, "wind", 20, 4, 20, 0, 0, 0, "Minji"]);
+    expect(lastRows(a).plants[0]).toEqual(row); // the sender learns the id from the same broadcast
+  });
+
+  it("refuses a blueprint or fitted piece through another student's body", () => {
+    const {room,a,b} = setup();
+    room.handle(b, {t:"k-move",pos:[20.5,4,20.5],yaw:0,anim:"idle"});
+    room.handle(a, lay());
+    expect(lastRows(a).refused).toBe("blocked");
+    expect(room.toSaved().plants).toBeUndefined();
+    room.handle(b, {t:"k-move",pos:[50,4,50],yaw:0,anim:"idle"});
+    room.handle(a, lay());
+    room.handle(b, {t:"k-move",pos:[19.5,4,19.5],yaw:0,anim:"idle"});
+    room.handle(a, {t:"k-plant",op:"fit",id:1,socket:0});
+    expect(lastRows(a).refused).toBe("blocked");
+    expect(lastRows(a).plants[0]![6]).toBe(0);
+  });
+
+  it("fits bottom-up by the shared rules, and refuses out of order with the plant as it is", () => {
+    const { room, teacher, a } = setup();
+    room.handle(a, lay());
+    room.handle(a, { t: "k-plant", op: "fit", id: 1, socket: 9 }); // the tower before the foundation
+    expect(lastRows(a)).toMatchObject({ refused: "rule", plants: [[1, "wind", 20, 4, 20, 0, 0, 0, "Minji"]] });
+    room.handle(a, { t: "k-plant", op: "fit", id: 1, socket: 0 });
+    expect(lastRows(teacher).plants[0]![6]).toBe(1);
+  });
+
+  it("lets only the owner (or the teacher) change a plant", () => {
+    const { room, teacher, a, b } = setup();
+    room.handle(a, lay());
+    room.handle(b, { t: "k-plant", op: "fit", id: 1, socket: 0 });
+    expect(lastRows(b).refused).toBe("owner");
+    room.handle(b, { t: "k-plant", op: "remove", id: 1 });
+    expect(lastRows(b).refused).toBe("owner");
+    room.handle(teacher, { t: "k-plant", op: "fit", id: 1, socket: 0 });
+    expect(lastRows(a).plants[0]![6]).toBe(1);
+    room.handle(teacher, { t: "k-plant", op: "remove", id: 1 });
+    expect(lastRows(a).removed).toEqual([1]);
+  });
+
+  it("is refused while building is locked or the class is frozen", () => {
+    const { room, teacher, a } = setup();
+    room.handle(teacher, { t: "k-settings", buildLocked: true, chatLocked: false });
+    room.handle(a, lay());
+    expect(lastRows(a).refused).toBe("locked");
+    room.handle(teacher, { t: "k-settings", buildLocked: false, chatLocked: false });
+    room.handle(teacher, { t: "k-lesson", freeze: true });
+    room.handle(a, lay());
+    expect(lastRows(a).refused).toBe("locked");
+    expect(room.toSaved().plants).toBeUndefined();
+  });
+
+  it("keeps a seated student's plant on their own plot", () => {
+    const { room, teacher, a } = setup();
+    room.handle(teacher, { t: "k-move", pos: [0, 4, 0], yaw: 0, anim: "idle" });
+    room.handle(teacher, { t: "k-arrange", yaw: 0 });
+    room.handle(a, lay(500, 500));
+    expect(lastRows(a).refused).toBe("plot");
+    const seat = (teacher.last("s-k-seats")!.seats.find((s) => s.name === "Minji"))!;
+    const [x0, x1, z0, z1] = plotBounds(seat);
+    room.handle(a, lay(Math.floor((x0 + x1) / 2), Math.floor((z0 + z1) / 2)));
+    expect(lastRows(a).refused).toBeUndefined();
+    expect(lastRows(a).plants).toHaveLength(1);
+  });
+
+  it("refuses a blueprint on a block, on another plant, and past a student's limit", () => {
+    const { room, teacher, a } = setup();
+    room.handle(teacher, { t: "k-edit", edits: [[40, 4, 40, 3, 0]] });
+    room.handle(a, lay(40, 40));
+    expect(lastRows(a).refused).toBe("blocked");
+    room.handle(a, lay(20, 20));
+    room.handle(a, lay(21, 20)); // overlaps the first
+    expect(lastRows(a).refused).toBe("blocked");
+    for (let i = 1; i < 10; i++) room.handle(a, lay(20 + i * 10, 60));
+    expect(lastRows(a).refused).toBe("limit");
+    expect(room.toSaved().plants).toHaveLength(8);
+  });
+
+  it("switches on only when every socket is filled, and blocks bricks in a fitted cell", () => {
+    const { room, teacher, a } = setup();
+    room.handle(a, lay());
+    room.handle(a, { t: "k-plant", op: "on", id: 1 });
+    expect(lastRows(a).refused).toBe("rule");
+    for (let i = 0; i < 19; i++) room.handle(a, { t: "k-plant", op: "fit", id: 1, socket: i });
+    room.handle(a, { t: "k-plant", op: "on", id: 1 });
+    const row = lastRows(teacher).plants[0]!;
+    expect(row[7]).toBe(1);
+    // the foundation's corner cell (20-1, 4, 20-1) holds a fitted piece: no brick goes in
+    room.handle(teacher, { t: "k-edit", edits: [[19, 4, 19, 3, 0]] });
+    expect(teacher.last("s-k-reject")!.edits[0]).toEqual([19, 4, 19, 0, 0]);
+    // taking a frame piece out with parts in is refused; a part comes out and it stops for a check
+    room.handle(a, { t: "k-plant", op: "out", id: 1, socket: 0 });
+    expect(lastRows(a).refused).toBe("rule");
+    room.handle(a, { t: "k-plant", op: "out", id: 1, socket: 17 });
+    expect(lastRows(teacher).plants[0]![6]).toBe((1 << 19) - 1 - (1 << 17));
+  });
+
+  it("is saved with the class and comes back for a late joiner; a field reset clears it", () => {
+    const { room, a } = setup();
+    room.handle(a, lay());
+    room.handle(a, { t: "k-plant", op: "fit", id: 1, socket: 0 });
+    const saved = readSaved(JSON.parse(JSON.stringify(room.toSaved())))!;
+    expect(saved.plants).toEqual([["wind", 20, 4, 20, 0, 1, 0, "Minji"]]);
+    const restored = new ClassRoom("Ms Kim", AUTH, saved), teacher = new Peer(), late = new Peer();
+    restored.hostTeacher(teacher, { password: "1234" });
+    restored.joinStudent(late, "Late");
+    expect(plantsOf(late)[0]!.plants).toEqual([[1, "wind", 20, 4, 20, 0, 1, 0, "Minji"]]);
+    restored.handle(teacher, { t: "k-reset-world" });
+    expect(lastRows(late)).toEqual({ t: "s-k-plants", full: true, plants: [] });
+    expect(restored.toSaved().plants).toBeUndefined();
+  });
+
+  it("drops a malformed saved row and keeps the rest", () => {
+    const { room } = classWithTeacher();
+    const saved = room.toSaved() as unknown as Record<string, unknown>;
+    saved.plants = [["wind", 1, 4, 1, 0, 0, 0, "A"], ["laser", 1, 4, 1, 0, 0, 0, "B"], ["wind", 1, 4, 1, 9, 0, 0, "C"], "junk", ["wind", 50, 4, 50, 1, 0, 0, 7]];
+    const back = new ClassRoom("Ms Kim", AUTH, readSaved(saved)!), p = new Peer();
+    back.joinStudent(p, "Kid");
+    expect(plantsOf(p)[0]!.plants.map((r) => r[8])).toEqual(["A"]);
+  });
+});

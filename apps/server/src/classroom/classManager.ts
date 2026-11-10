@@ -92,10 +92,12 @@ const LIMITS: Record<string, { rate: number; burst: number }> = {
   // each accepted change sends the whole layout to the class, so furniture gets its own, slower
   // bucket than bricks (a held-click pickup is a few per second)
   furniture: { rate: 8, burst: 20 },
+  // power plants: a held right button fits about three pieces a second
+  plant: { rate: 6, burst: 12 },
   other: { rate: 5, burst: 10 },
 };
 const familyOf = (t: ClassClientMessage["t"]) =>
-  t === "k-move" ? "move" : t === "k-edit" ? "edit" : t === "k-furniture" ? "furniture" : t === "k-chat" ? "chat" : t === "k-bonk" ? "bonk" : "other";
+  t === "k-move" ? "move" : t === "k-edit" ? "edit" : t === "k-furniture" ? "furniture" : t === "k-chat" ? "chat" : t === "k-bonk" ? "bonk" : t === "k-plant" ? "plant" : "other";
 
 /** A WebSocket speaking the classroom protocol. */
 class ClassSocket implements ClassPeer {
@@ -277,6 +279,7 @@ export class ClassManager {
         // A furniture edit is optimistic: send the sender the authoritative layout back
         // rather than silently leaving a placement only this client sees.
         if (msg.t === "k-furniture") room?.rejectFurniture(socket);
+        if (msg.t === "k-plant") room?.rejectPlant(socket, msg.id);
         return;
       }
       // One bad message (or a store error) must cost one socket, never the whole server: an

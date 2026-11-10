@@ -42,7 +42,7 @@ import type { ClassClient, ClassSession } from "../net/classClient.js";
 import { SWIM_DEPTH, pointInWater, stepBody, unstick, overlapsShapedVoxel, overlapsVoxel, wishFromInput, type Body } from "./voxelBody.js";
 import {SandSim} from "./sandSim.js";
 import { WaterSim } from "./waterSim.js";
-import { seatLayout, WATER, WATER_SETTLED, isWater, emoteDef, lookDirection, pickBonk, bonkBlocked, tapBeatsDig, BONK_COOLDOWN_MS, BONK_DECAY, BONK_PUSH_CAP, type EmoteId, type CharacterId, type ClassAnim, type CharacterAction, type CharacterPresentation, postureTransition } from "@robo/shared";
+import { classKey, seatLayout, WATER, WATER_SETTLED, isWater, emoteDef, lookDirection, pickBonk, bonkBlocked, tapBeatsDig, BONK_COOLDOWN_MS, BONK_DECAY, BONK_PUSH_CAP, type EmoteId, type CharacterId, type ClassAnim, type CharacterAction, type CharacterPresentation, postureTransition } from "@robo/shared";
 import { EmoteMenu } from "./emoteMenu.js";
 import { adoptPosture, moveScale, POSTURE_EYE, type Posture } from "./posture.js";
 import { gaitBlend } from "../player/motionPolicy.js";
@@ -268,7 +268,7 @@ export class CraftGame {
     });
     this.hud = new CraftHud(document.body, (recipe, many) => this.handleCraft(recipe, many), {
       furniture: true,
-      science: opts.field === true && opts.classroom === undefined,
+      science: opts.field === true || opts.classroom !== undefined,
       creative: opts.field === true || opts.classroom !== undefined,
       mode: opts.classroom
         ? t(`교실 · ${opts.classroom.session.room}`, `Class · ${opts.classroom.session.room}`)
@@ -296,7 +296,7 @@ export class CraftGame {
       this.state = {
         seed: 0,
         world: this.field.world,
-        inventory: fieldStarterInventory(),
+        inventory: ensureFieldStacks(fieldStarterInventory(), true), // science mode's frames and parts too
         hotbar: readStoredHotbar(browserStorage(), CLASS_HOTBAR_KEY, fieldStarterHotbar),
         // back where this seat last stood (a refresh, or the automatic reload after a deploy);
         // a first visit spreads arrivals out so a whole class doesn't land in one cell
@@ -364,8 +364,9 @@ export class CraftGame {
     }, true);
     this.body = { ...this.state.player, vx: 0, vy: 0, vz: 0, grounded: false };
     unstick(this.state.world, this.body); // never spawn embedded in a block
-    if (this.field && !opts.classroom) {
+    if (this.field) {
       const field = this.field;
+      const classroom = opts.classroom !== undefined;
       this.science = new ScienceMode({
         scene: this.renderer.scene,
         world: this.state.world,
@@ -394,6 +395,16 @@ export class CraftGame {
         resumePlay: () => this.resumePlay(),
         // bodies and rays read propSolid live: nothing is cached to refresh
         solidsChanged: () => {},
+        // a classroom's server judges every plant change (ClassSync exists by the time anyone builds)
+        net: classroom ? {
+          send: (op) => this.sync?.sendPlant(op),
+          blocked: () => !this.sync || this.sync.canBuild() ? null
+            : this.sync.frozen ? t("✋ 지금은 선생님을 봐요 — 짓기는 잠시 후에", "✋ Eyes on the teacher — build in a moment")
+            : t("🔒 지금은 선생님이 짓기를 잠가 뒀어요", "🔒 The teacher has building locked right now"),
+          canEditAt: (x, z) => this.sync?.canEditAbs(x, z) ?? true,
+          mine: (owner) => this.sync?.role === "teacher" || classKey(owner) === classKey(this.sync?.myName ?? ""),
+          own: (owner) => classKey(owner) === classKey(this.sync?.myName ?? ""),
+        } : undefined,
       });
       // fitted plant items are solid: walls for bodies, targets for rays (furniture's hook stays first)
       const science = this.science;
@@ -469,6 +480,7 @@ export class CraftGame {
           },
           bonked: (push) => this.receiveBonk(push),
           chime: (kind) => this.sfx.play(kind === "time" ? "clear" : "checkpoint"),
+          plants: (msg) => this.science?.applyNet(msg),
           impact: (x, y, z) => x === undefined ? this.sfx.play("bonk") : this.sfx.at(x, y!, z!, () => this.sfx.play("bonk")),
           sound: (kind, family, x, y, z, wet) => this.sfx.at(x, y, z, () => {
             if (kind === "step") this.sfx.step(family, wet, 0.8);

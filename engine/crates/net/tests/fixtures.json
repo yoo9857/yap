@@ -1,7 +1,7 @@
 {
  "versions": {
   "party": 1,
-  "class": 14
+  "class": 15
  },
  "partyClient": [
   {
@@ -146,7 +146,7 @@
  "classClient": [
   {
    "t": "k-host",
-   "v": 14,
+   "v": 15,
    "room": "햇살반",
    "teacher": "김선생",
    "password": "1234",
@@ -154,26 +154,26 @@
   },
   {
    "t": "k-host",
-   "v": 14,
+   "v": 15,
    "room": "햇살반",
    "teacher": "김선생"
   },
   {
    "t": "k-join",
-   "v": 14,
+   "v": 15,
    "room": "햇살반",
    "student": "Mina",
    "seatKey": "sk"
   },
   {
    "t": "k-join",
-   "v": 14,
+   "v": 15,
    "room": "햇살반",
    "student": "Mina"
   },
   {
    "t": "k-peek",
-   "v": 14,
+   "v": 15,
    "room": "햇살반"
   },
   {
@@ -315,6 +315,26 @@
   {
    "t": "k-announce",
    "text": "선생님을 봐 주세요"
+  },
+  {
+   "t": "k-plant",
+   "op": "lay",
+   "kind": "wind",
+   "x": -20,
+   "y": 4,
+   "z": 35,
+   "rot": 3
+  },
+  {
+   "t": "k-plant",
+   "op": "fit",
+   "id": 7,
+   "socket": 18
+  },
+  {
+   "t": "k-plant",
+   "op": "remove",
+   "id": 7
   },
   {
    "t": "k-settings",
@@ -615,6 +635,38 @@
   {
    "t": "s-k-announce",
    "text": "👏 모두 정말 잘했어요!"
+  },
+  {
+   "t": "s-k-plants",
+   "full": true,
+   "plants": []
+  },
+  {
+   "t": "s-k-plants",
+   "plants": [
+    [
+     3,
+     "wind",
+     -20,
+     4,
+     35,
+     3,
+     524287,
+     1,
+     "민지"
+    ]
+   ],
+   "removed": [
+    2
+   ]
+  },
+  {
+   "t": "s-k-plants",
+   "plants": [],
+   "removed": [
+    9
+   ],
+   "refused": "owner"
   },
   {
    "t": "s-k-gather",

@@ -16,8 +16,8 @@ import { characterIdSchema, emoteIdSchema, characterActionSchema, heldItemSchema
  * selected with `?mode=class`.
  */
 
-/** 3: named classrooms. 4: water. 5: paced live-world streaming + reliable replay. 6: character emotes and low postures. 7: construction shapes through code 50. 8: light player taps. 9: half blocks and stairs. 10: water inside shaped blocks (s-k-wet). 11: plot nudges. 12: lesson tools (freeze, timer, announcements). 14: teacher water cleanup (k-drain-water / s-k-water-drained). */
-export const CLASS_PROTOCOL_VERSION = 14;
+/** 3: named classrooms. 4: water. 5: paced live-world streaming + reliable replay. 6: character emotes and low postures. 7: construction shapes through code 50. 8: light player taps. 9: half blocks and stairs. 10: water inside shaped blocks (s-k-wet). 11: plot nudges. 12: lesson tools (freeze, timer, announcements). 13: science-mode power plants (k-plant / s-k-plants). 14: teacher water cleanup (k-drain-water / s-k-water-drained). 15: classroom plant synchronization (live rollout). */
+export const CLASS_PROTOCOL_VERSION = 15;
 /** Highest block layer of the field grid (WORLD_Y - 1). */
 export const CLASS_MAX_Y = 55;
 /** Field coordinates are bounded so a hostile client can't grow the store
@@ -28,6 +28,27 @@ export const CLASS_MAX_STUDENTS = 40;
 export const CLASS_CHAT_MAX = 120;
 /** A big on-screen announcement (F2 → 공지), shorter than a chat line: it is read from across the room. */
 export const CLASS_ANNOUNCE_MAX = 60;
+/** Power plants (science mode) one class keeps, and one student may lay. */
+export const CLASS_MAX_PLANTS = 200;
+export const CLASS_PLANTS_PER_STUDENT = 8;
+
+/** One power plant on the wire: [id, kind, x, y, z, rot, filled, on (0/1), owner's name].
+ *  Absolute field coordinates; `filled` is the socket bitmask (plants.ts). */
+export const classPlantSchema = z.tuple([
+  z.number().int().min(1).max(1_000_000_000),
+  z.string().max(16),
+  z.number().int().min(-CLASS_MAX_COORD).max(CLASS_MAX_COORD),
+  z.number().int().min(0).max(CLASS_MAX_Y),
+  z.number().int().min(-CLASS_MAX_COORD).max(CLASS_MAX_COORD),
+  z.number().int().min(0).max(3),
+  z.number().int().min(0).max(0x7fffffff),
+  z.number().int().min(0).max(1),
+  z.string().max(64),
+]);
+export type ClassPlant = z.infer<typeof classPlantSchema>;
+/** Why the server turned a plant change down (the sender's toast). */
+export const classPlantRefusalSchema = z.enum(["locked", "plot", "owner", "limit", "blocked", "rule"]);
+export type ClassPlantRefusal = z.infer<typeof classPlantRefusalSchema>;
 /** The lesson timer's longest run (s): one class period and then some. */
 export const CLASS_TIMER_MAX_S = 60 * 60;
 export const CLASS_PASSWORD_MIN = 4;
@@ -147,6 +168,20 @@ export const classClientSchema = z.discriminatedUnion("t", [
   }),
   /** A big message in the middle of every screen for a few seconds (F2 → 공지). */
   z.object({ t: z.literal("k-announce"), text: z.string().trim().min(1).max(CLASS_ANNOUNCE_MAX) }),
+  /** A power-plant change (science mode): lay a blueprint (`kind`, anchor `x y z`, `rot`), fit or take
+   *  out socket `socket` of plant `id`, switch `id` on, or remove `id`. The server judges it by the
+   *  shared rules (plants.ts) and answers with s-k-plants. */
+  z.object({
+    t: z.literal("k-plant"),
+    op: z.enum(["lay", "fit", "out", "on", "remove"]),
+    id: z.number().int().min(1).max(1_000_000_000).optional(),
+    socket: z.number().int().min(0).max(30).optional(),
+    kind: z.string().max(16).optional(),
+    x: z.number().int().min(-CLASS_MAX_COORD).max(CLASS_MAX_COORD).optional(),
+    y: z.number().int().min(0).max(CLASS_MAX_Y).optional(),
+    z: z.number().int().min(-CLASS_MAX_COORD).max(CLASS_MAX_COORD).optional(),
+    rot: z.number().int().min(0).max(3).optional(),
+  }),
   z.object({ t: z.literal("k-settings"), chatLocked: z.boolean(), buildLocked: z.boolean(), tapsLocked: z.boolean().optional() }),
   z.object({ t: z.literal("k-end") }),
   /** Teacher wipes the saved field back to empty grass. */
@@ -268,6 +303,16 @@ export const classServerSchema = z.discriminatedUnion("t", [
   }),
   /** The teacher's announcement: shown big in the middle of the screen for a few seconds. */
   z.object({ t: z.literal("s-k-announce"), text: z.string().max(CLASS_ANNOUNCE_MAX) }),
+  /** Power plants. `full`: the class's whole list (on EVERY join, an empty one included) — replace
+   *  yours. Otherwise `plants` are new or changed rows and `removed` the ids that are gone.
+   *  `refused`: the sender's own change was turned down (the rows put it back). */
+  z.object({
+    t: z.literal("s-k-plants"),
+    full: z.boolean().optional(),
+    plants: z.array(classPlantSchema).max(CLASS_MAX_PLANTS),
+    removed: z.array(z.number().int().min(1).max(1_000_000_000)).max(CLASS_MAX_PLANTS).optional(),
+    refused: classPlantRefusalSchema.optional(),
+  }),
   /** A tap connected. `at` is the chest in absolute field coordinates. */
   z.object({
     t: z.literal("s-k-bonk"),

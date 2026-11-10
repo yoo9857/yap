@@ -16,7 +16,7 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
 /// `PARTY_PROTOCOL_VERSION` (party.ts). The fixtures carry the TypeScript value; a test compares.
 pub const PARTY_PROTOCOL_VERSION: u32 = 1;
 /// `CLASS_PROTOCOL_VERSION` (classroom.ts).
-pub const CLASS_PROTOCOL_VERSION: u32 = 14;
+pub const CLASS_PROTOCOL_VERSION: u32 = 15;
 /// Largest message the server sends (decodeClassServer's limit: whole-world batches).
 pub const MAX_SERVER_MESSAGE: usize = 4 * 1024 * 1024;
 
@@ -152,6 +152,11 @@ pub fn party_field_name(code: &str) -> String {
 /// One block write in ABSOLUTE field coordinates: x, y, z, block id (0 = air), brick shape.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Edit(pub i32, pub u8, pub i32, pub u8, pub u8);
+
+/// A power plant (science mode, web only for now): id, kind, x, y, z, rot, filled socket bits,
+/// on (0/1), owner's name. The app does not build plants; it keeps the list so nothing is lost.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Plant(pub u32, pub String, pub i32, pub u8, pub i32, pub u8, pub u32, pub u8, pub String);
 
 /// Water held by a shaped block: x, y, z, water id or 0 (dry).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -361,6 +366,25 @@ pub enum ClassClient {
     /// A big message in the middle of every screen for a few seconds.
     #[serde(rename = "k-announce")]
     Announce { text: String },
+    /// A power-plant change: `op` lay / fit / out / on / remove (science mode; web only for now).
+    #[serde(rename = "k-plant")]
+    Plant {
+        op: String,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        id: Option<u32>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        socket: Option<u8>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        kind: Option<String>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        x: Option<i32>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        y: Option<u8>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        z: Option<i32>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        rot: Option<u8>,
+    },
     #[serde(rename = "k-settings")]
     Settings {
         chat_locked: bool,
@@ -476,6 +500,17 @@ pub enum ClassServer {
     /// The teacher's announcement.
     #[serde(rename = "s-k-announce")]
     Announce { text: String },
+    /// Power plants: `full` replaces the list (every join); otherwise changed rows and removed ids.
+    #[serde(rename = "s-k-plants")]
+    Plants {
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        full: Option<bool>,
+        plants: Vec<Plant>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        removed: Option<Vec<u32>>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        refused: Option<String>,
+    },
     #[serde(rename = "s-k-bonk")]
     Bonk { by: String, target: String, seq: u32, vx: f64, vz: f64, vy: f64, at: [f64; 3] },
     #[serde(rename = "s-k-settings")]

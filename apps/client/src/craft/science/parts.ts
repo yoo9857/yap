@@ -3,7 +3,8 @@
  * blocks (no voxel id, never placed into a cell); a plant without every part never runs.
  * Pure data — the 3D models are in partModels.ts, the icons under /items/parts/.
  */
-export type PartKey = "part-blades" | "part-generator" | "part-wire-terminal";
+export type { PartKey } from "@robo/shared";
+import type { PartKey } from "@robo/shared";
 
 export interface PartDef {
   key: PartKey;

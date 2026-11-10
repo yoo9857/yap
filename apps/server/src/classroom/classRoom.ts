@@ -1,6 +1,6 @@
 import { FurnitureLayout, type PlacementWorld } from "@robo/shared/furniture/layout";
 import type { PlacedFurniture } from "@robo/shared/furniture/types";
-import { holdsFurniture, holdsWaterlog, nextPlot, plotBounds, seatLayout, shapeSeal, type ClassWet, type FluidChange } from "@robo/shared";
+import { holdsFurniture, holdsWaterlog, nextPlot, plotBounds, seatLayout, shapeSeal, type ClassWet, type FluidChange, CLASS_MAX_PLANTS, CLASS_PLANTS_PER_STUDENT, PLANT_KINDS, fitItem, isFilled, siteProblem, siteSockets, socketMask, takeOut, type ClassPlant, type ClassPlantRefusal, type PlantKind, type PlantSite, } from "@robo/shared";
 import type { RustModule } from "@robo/engine/node";
 import { randomBytes, randomUUID } from "node:crypto";
 import {
@@ -34,6 +34,7 @@ import {
   type EmoteId,
 } from "@robo/shared";
 import { checkPassword, sameKey, type SavedClass } from "./classStore.js";
+import { readSavedPlants, type SavedPlant } from "./classStore.js";
 
 /** Anything that can receive messages — a socket in production, a stub in tests. */
 export interface ClassPeer {
@@ -104,6 +105,11 @@ const JUMP_M = 8;
  *  report itself beside a classmate, tap, and report itself back. */
 const JUMP_BONK_HOLD_MS = 1500;
 
+/** A power plant in a class: the shared site plus whose it is (their name). */
+interface ClassPlantSite extends PlantSite {
+  owner: string;
+}
+
 interface Member {
   id: string;
   name: string;
@@ -165,6 +171,11 @@ export class ClassRoom {
    *  copy of every key. Periodic compaction bounds historical tombstones. */
   private editKeys: VoxelKey[] = [];
   private furniture = new FurnitureLayout();
+  /** Power plants (science mode), by id: absolute sites with their owner's name. */
+  private readonly plants = new Map<number, ClassPlantSite>();
+  private nextPlantId = 1;
+  /** Cells holding a fitted plant item: solid, so no block, furniture or water goes in. */
+  private readonly fitted = new Set<VoxelKey>();
   private settings: ClassSettings = { chatLocked: false, buildLocked: false };
   /** Wall-clock ms when the room last had nobody connected (null = occupied). */
   emptySince: number | null = null;
@@ -217,6 +228,8 @@ export class ClassRoom {
         this.timerTotal = saved.lesson.timerTotal;
       }
     }
+    for (const p of readSavedPlants(saved.plants) ?? []) this.plants.set(this.nextPlantId, { ...p, id: this.nextPlantId++ });
+    this.reindexPlants();
     this.addMember(saved.teacherName, "teacher", saved.teacherKey);
     for (const s of saved.students) this.addMember(s.name, "student", s.key);
     for (const [x, y, z, block, shape] of saved.edits) {
@@ -263,7 +276,7 @@ export class ClassRoom {
     },
     open: (x, y, z) =>
       Math.abs(x) <= CLASS_MAX_COORD && Math.abs(z) <= CLASS_MAX_COORD &&
-      y >= 1 && y <= CLASS_MAX_Y && !this.furniture.occupied(x, y, z) &&
+      y >= 1 && y <= CLASS_MAX_Y && !this.furniture.occupied(x, y, z) && !this.fitted.has(voxelKey(x, y, z)) &&
       // a full store takes no new cells — water included
       (this.edits.has(voxelKey(x, y, z)) || this.hasFluidCapacity()),
     set: (x, y, z, block) => {
@@ -395,6 +408,7 @@ export class ClassRoom {
       settings: this.settings,
       edits,
       furniture: this.furniture.toJSON(),
+      ...(this.plants.size > 0 ? { plants: [...this.plants.values()].map((p) => [p.kind, p.x, p.y, p.z, p.rot, p.filled, p.on ? 1 : 0, p.owner] as SavedPlant) } : {}),
       ...(this.seating && this.seatOrigin ? { seating: { seats: this.seating, origin: this.seatOrigin, roam: this.seatRoam } } : {}),
       ...(this.frozen || this.timerEnd !== null
         ? { lesson: { frozen: this.frozen, ...(this.timerEnd !== null ? { timerEnd: this.timerEnd, timerTotal: this.timerTotal } : {}) } }
@@ -612,6 +626,15 @@ export class ClassRoom {
     return cells.some(([x, , z]) => this.offPlot(member, x, z));
   }
 
+  /** Every cell a furniture row covers (its anchor alone for an unknown kind, refused later anyway). */
+  private furnitureCells(t: ClassFurniture): [number, number, number][] {
+    try {
+      return this.furniture.cellsOf({ kind: t[0], x: t[1], y: t[2], z: t[3], rot: t[4] });
+    } catch {
+      return [[t[1], t[2], t[3]]];
+    }
+  }
+
   /** A student kept on their plot changing a cell outside it (absolute x, z): refused. */
   private offPlot(member: Member, x: number, z: number): boolean {
     if (!this.seating || this.seatRoam || member.role !== "student") return false;
@@ -689,6 +712,7 @@ export class ClassRoom {
       // always (an empty list when none): a reconnect after a deploy must drop fences this server never set
       peer.send(this.seatsMessage());
       peer.send(this.lessonMessage()); // always: a page from before a restart must drop a stale freeze/timer
+      peer.send(this.plantsMessage()); // always, like the seats: a stale page's plants are replaced
       member.freezeAt = undefined;
       this.seatArrival(member);
       this.broadcastMembers();
@@ -708,6 +732,7 @@ export class ClassRoom {
     this.sendWet(peer);
     peer.send(this.seatsMessage());
     peer.send(this.lessonMessage());
+    peer.send(this.plantsMessage());
     member.freezeAt = undefined;
     this.seatArrival(member);
     this.broadcastMembers();
@@ -766,6 +791,9 @@ export class ClassRoom {
       case "k-bonk":
         if (this.held(me)) return;
         this.bonk(me, msg);
+        return;
+      case "k-plant":
+        this.applyPlant(me, peer, msg);
         return;
     }
     if (me.role !== "teacher") return; // everything below is the teacher's
@@ -896,8 +924,11 @@ export class ClassRoom {
         this.fluid.clear();
         this.rust?.water.reset();
         this.furniture.clear();
+        this.plants.clear();
+        this.reindexPlants();
         this.dirty = true;
         this.broadcast({ t: "s-k-world-reset" });
+        this.broadcast(this.plantsMessage());
         this.system("선생님이 들판을 새로 비웠어요");
         return;
     }
@@ -952,7 +983,7 @@ export class ClassRoom {
       // bedrock is unbreakable, and a full store takes no NEW cells
       // Solids are the shared catalog (ids past the water states included).
       // Flowing, falling and settled water stay simulation-owned.
-      if (y === 0 || this.offPlot(me, x, z) || !isPlayerBlock(block) || (isWater(block) && shape !== 0) || (block !== 0 && this.furniture.blocksBlock(x, y, z)) || (!this.edits.has(cell) && this.edits.size >= MAX_EDITS)) {
+      if (y === 0 || this.offPlot(me, x, z) || !isPlayerBlock(block) || (isWater(block) && shape !== 0) || (block !== 0 && (this.furniture.blocksBlock(x, y, z) || this.fitted.has(cell))) || (!this.edits.has(cell) && this.edits.size >= MAX_EDITS)) {
         refused.push(edit);
         continue;
       }
@@ -1035,6 +1066,8 @@ export class ClassRoom {
     if (msg.placed.length + msg.removed.length === 0) return;
     // a student kept on their plot places and takes furniture only on it
     if ([...msg.placed, ...msg.removed].some((t) => this.furnitureOffPlot(me, t))) return reject();
+    // a fitted plant item is solid: nothing is placed into it
+    if (this.fitted.size > 0 && msg.placed.some((t) => this.furnitureCells(t).some(([x, y, z]) => this.fitted.has(voxelKey(x, y, z))))) return reject();
     const next = new FurnitureLayout();
     next.load(this.furniture.toJSON());
     const same = (p: PlacedFurniture, t: ClassFurniture) => p.kind === t[0] && p.x === t[1] &&
@@ -1066,6 +1099,135 @@ export class ClassRoom {
   }
 
   /** A light tap. Positions already on the wire are the only ones trusted. */
+  // ------------------------------------------------------------ power plants (science mode)
+
+  private plantRow(p: ClassPlantSite): ClassPlant {
+    return [p.id, p.kind, p.x, p.y, p.z, p.rot, p.filled, p.on ? 1 : 0, p.owner];
+  }
+
+  /** The whole list (every join, a reset): clients replace theirs with it. */
+  private plantsMessage(): Extract<ClassServerMessage, { t: "s-k-plants" }> {
+    return { t: "s-k-plants", full: true, plants: [...this.plants.values()].map((p) => this.plantRow(p)) };
+  }
+
+  private reindexPlants(): void {
+    this.fitted.clear();
+    for (const p of this.plants.values()) {
+      for (const s of siteSockets(p)) {
+        if (!isFilled(p, s.index)) continue;
+        for (const c of s.cells) this.fitted.add(voxelKey(c.x, c.y, c.z));
+      }
+    }
+  }
+
+  /** The block at an absolute cell (the field's own grass/dirt where nothing was changed). */
+  private blockAt(x: number, y: number, z: number): number {
+    return this.edits.get(voxelKey(x, y, z))?.[0] ?? pristine(y);
+  }
+
+  /** The world as the shared plant rules see it: a socket wants air (or water) and no furniture. */
+  private readonly plantWorld = {
+    inBounds: (x: number, y: number, z: number) => Math.abs(x) <= CLASS_MAX_COORD && Math.abs(z) <= CLASS_MAX_COORD && y >= 1 && y <= CLASS_MAX_Y,
+    blockAt: (x: number, y: number, z: number) => this.blockAt(x, y, z),
+    isEmpty: (id: number) => id === 0 || isWater(id),
+    isGround: (x: number, y: number, z: number) => {
+      const id = this.blockAt(x, y, z);
+      return id !== 0 && !isWater(id);
+    },
+    occupied: (x: number, y: number, z: number) => this.furniture.occupied(x, y, z) || this.plantBodyAt(x, y, z),
+  };
+
+  private plantBodyAt(x: number, y: number, z: number): boolean {
+    for (const member of this.byPeer.values()) {
+      const pos = member.pos;
+      if (pos && pos[0] + .3 > x && pos[0] - .3 < x + 1 && pos[1] + 1.8 > y && pos[1] < y + 1 && pos[2] + .3 > z && pos[2] - .3 < z + 1) return true;
+    }
+    return false;
+  }
+
+  /** Any cell of a plant outside a kept-in student's plot. */
+  private plantOffPlot(member: Member, site: Pick<PlantSite, "kind" | "x" | "y" | "z" | "rot">): boolean {
+    return siteSockets(site).some((s) => s.cells.some((c) => this.offPlot(member, c.x, c.z)));
+  }
+
+  /** Rate-limited: the sender gets the plant back as the server has it. */
+  rejectPlant(peer: ClassPeer, id: number | undefined): void {
+    if (!this.byPeer.has(peer)) return;
+    const p = id !== undefined ? this.plants.get(id) : undefined;
+    peer.send({ t: "s-k-plants", plants: p ? [this.plantRow(p)] : [], ...(id !== undefined && !p ? { removed: [id] } : {}), refused: "rule" });
+  }
+
+  /**
+   * One plant change, judged by the shared rules (plants.ts) against this server's field. Students
+   * need building allowed (no lock, not frozen), stay on their own plot while kept in, and change
+   * only their own plants; the teacher may change any. A refusal sends the sender the plant as it
+   * is (their optimistic change rolls back) and why.
+   */
+  private applyPlant(me: Member, peer: ClassPeer, msg: Extract<ClassClientMessage, { t: "k-plant" }>): void {
+    const refuse = (why: ClassPlantRefusal) => {
+      const p = msg.id !== undefined ? this.plants.get(msg.id) : undefined;
+      peer.send({ t: "s-k-plants", plants: p ? [this.plantRow(p)] : [], ...(msg.id !== undefined && !p ? { removed: [msg.id] } : {}), refused: why });
+    };
+    if (me.role === "student" && (this.settings.buildLocked || this.frozen)) return refuse("locked");
+    if (msg.op === "lay") {
+      const { kind, x, y, z, rot } = msg;
+      if (kind === undefined || x === undefined || y === undefined || z === undefined || rot === undefined) return refuse("rule");
+      if (!(PLANT_KINDS as readonly string[]).includes(kind)) return refuse("rule");
+      if (this.plants.size >= CLASS_MAX_PLANTS) return refuse("limit");
+      const mine = [...this.plants.values()].filter((p) => classKey(p.owner) === classKey(me.name)).length;
+      if (me.role === "student" && mine >= CLASS_PLANTS_PER_STUDENT) return refuse("limit");
+      const site: ClassPlantSite = { id: this.nextPlantId, kind: kind as PlantKind, x, y, z, rot, filled: 0, on: false, owner: me.name };
+      if (this.plantOffPlot(me, site)) return refuse("plot");
+      if (siteProblem(site, this.plantWorld, [...this.plants.values()])) return refuse("blocked");
+      this.nextPlantId++;
+      this.plants.set(site.id, site);
+      this.plantsChanged([site], []);
+      return;
+    }
+    const p = msg.id !== undefined ? this.plants.get(msg.id) : undefined;
+    if (!p) return refuse("rule");
+    if (me.role === "student" && classKey(p.owner) !== classKey(me.name)) return refuse("owner");
+    if (this.plantOffPlot(me, p)) return refuse("plot");
+    let next: PlantSite;
+    switch (msg.op) {
+      case "fit": {
+        const socket = msg.socket === undefined ? undefined : siteSockets(p)[msg.socket];
+        if (!socket) return refuse("rule");
+        const empty = socket.cells.every((c) => this.plantWorld.isEmpty(this.blockAt(c.x, c.y, c.z)) && !this.plantWorld.occupied(c.x, c.y, c.z));
+        const fit = fitItem(p, socket.index, socket.item, empty);
+        if (fit.result !== "ok") return refuse(fit.result === "blocked" ? "blocked" : "rule");
+        next = fit.site;
+        break;
+      }
+      case "out": {
+        if (msg.socket === undefined) return refuse("rule");
+        const out = takeOut(p, msg.socket);
+        if (out.result !== "ok") return refuse("rule");
+        next = out.site;
+        break;
+      }
+      case "on":
+        if (p.filled !== socketMask(p.kind)) return refuse("rule");
+        next = { ...p, on: true };
+        break;
+      case "remove":
+        this.plants.delete(p.id);
+        this.plantsChanged([], [p.id]);
+        return;
+      default:
+        return refuse("rule");
+    }
+    const updated: ClassPlantSite = { ...next, owner: p.owner };
+    this.plants.set(p.id, updated);
+    this.plantsChanged([updated], []);
+  }
+
+  private plantsChanged(changed: ClassPlantSite[], removed: number[]): void {
+    this.reindexPlants();
+    this.dirty = true;
+    this.broadcast({ t: "s-k-plants", plants: changed.map((p) => this.plantRow(p)), ...(removed.length ? { removed } : {}) });
+  }
+
   private bonk(me: Member, msg: Extract<ClassClientMessage, { t: "k-bonk" }>): void {
     if (!me.pos || this.settings.tapsLocked) return;
     const now = Date.now();

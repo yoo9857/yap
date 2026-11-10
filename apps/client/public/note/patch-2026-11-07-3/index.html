@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>11월 7일 패치 노트 (3) — 교실에서도 풍력 발전소 짓기 | 크래프트얍 개발 노트</title>
+    <meta name="description" content="혼자 하는 들판에만 있던 과학 모드(T)를 교실 수업에서도 쓸 수 있어요. 학생마다 자기 발전소를 짓고, 반 친구와 선생님이 모두 같은 발전소를 봐요." />
+    <meta name="robots" content="index, follow, max-image-preview:large" />
+    <meta name="theme-color" content="#ffd21c" />
+    <meta name="generator" content="tools/build-notes.mjs" />
+    <link rel="canonical" href="https://craftyap.com/note/patch-2026-11-07-3/" />
+    <link rel="alternate" type="application/rss+xml" title="크래프트얍 개발 노트" href="/feed.xml" />
+    <link rel="alternate" type="application/atom+xml" title="크래프트얍 개발 노트 (Atom)" href="/note/feed.xml" />
+    <link rel="icon" type="image/png" sizes="48x48" href="/favicon-48.png" />
+    <link rel="stylesheet" href="/guide/guide.css?v=0f9762e0f8" />
+    <link rel="stylesheet" href="/note/note.css?v=e5352788b0" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Jua&family=Noto+Sans+KR:wght@400;700;900&display=swap" rel="stylesheet" />
+    <meta property="og:type" content="article" />
+    <meta property="og:locale" content="ko_KR" />
+    <meta property="og:site_name" content="크래프트얍(CraftYap)" />
+    <meta property="og:title" content="11월 7일 패치 노트 (3) — 교실에서도 풍력 발전소 짓기 | 크래프트얍 개발 노트" />
+    <meta property="og:description" content="혼자 하는 들판에만 있던 과학 모드(T)를 교실 수업에서도 쓸 수 있어요. 학생마다 자기 발전소를 짓고, 반 친구와 선생님이 모두 같은 발전소를 봐요." />
+    <meta property="og:url" content="https://craftyap.com/note/patch-2026-11-07-3/" />
+    <meta property="og:image" content="https://craftyap.com/craftyap-banner.jpg" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="675" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="11월 7일 패치 노트 (3) — 교실에서도 풍력 발전소 짓기 | 크래프트얍 개발 노트" />
+    <meta name="twitter:description" content="혼자 하는 들판에만 있던 과학 모드(T)를 교실 수업에서도 쓸 수 있어요. 학생마다 자기 발전소를 짓고, 반 친구와 선생님이 모두 같은 발전소를 봐요." />
+    <meta name="twitter:image" content="https://craftyap.com/craftyap-banner.jpg" />
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "BlogPosting",
+      "@id": "https://craftyap.com/note/patch-2026-11-07-3/#post",
+      "url": "https://craftyap.com/note/patch-2026-11-07-3/",
+      "headline": "11월 7일 패치 노트 (3) — 교실에서도 풍력 발전소 짓기",
+      "description": "혼자 하는 들판에만 있던 과학 모드(T)를 교실 수업에서도 쓸 수 있어요. 학생마다 자기 발전소를 짓고, 반 친구와 선생님이 모두 같은 발전소를 봐요.",
+      "datePublished": "2026-11-07",
+      "dateModified": "2026-11-07",
+      "inLanguage": "ko",
+      "keywords": "패치 노트, 새 기능, 교실, 과학 모드",
+      "image": "https://craftyap.com/craftyap-banner.jpg",
+      "isPartOf": {
+        "@id": "https://craftyap.com/note/#blog"
+      },
+      "author": {
+        "@type": "Organization",
+        "name": "크래프트얍(CraftYap)",
+        "url": "https://craftyap.com/"
+      },
+      "about": {
+        "@id": "https://craftyap.com/#game"
+      }
+    },
+    {
+      "@type": "BreadcrumbList",
+      "itemListElement": [
+        {
+          "@type": "ListItem",
+          "position": 1,
+          "name": "크래프트얍",
+          "item": "https://craftyap.com/"
+        },
+        {
+          "@type": "ListItem",
+          "position": 2,
+          "name": "개발 노트",
+          "item": "https://craftyap.com/note/"
+        },
+        {
+          "@type": "ListItem",
+          "position": 3,
+          "name": "11월 7일 패치 노트 (3) — 교실에서도 풍력 발전소 짓기",
+          "item": "https://craftyap.com/note/patch-2026-11-07-3/"
+        }
+      ]
+    }
+  ]
+}
+    </script>
+    <script src="/guide/guide.js?v=b6f46abba1" defer></script>
+  </head>
+
+  <body>
+    <a class="skip-link" href="#content">본문으로 이동</a>
+    <header class="site-header"><div class="header-inner">
+      <a class="brand" href="/" aria-label="크래프트얍 게임 홈"><img src="/craftyap-logo.webp" width="64" height="64" alt="" /><span>크래프트얍<small>CRAFTYAP</small></span></a>
+      <nav class="header-nav" id="site-nav" aria-label="주요 메뉴"><a href="/note/">개발 노트</a><a href="/guide/">게임 안내</a><a href="/guide/#controls">조작법</a><a href="/guide/#faq">FAQ</a></nav>
+      <a class="button button-dark header-play" href="/">지금 플레이 <span aria-hidden="true">↗</span></a>
+      <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="site-nav" aria-label="메뉴 열기" hidden><span></span><span></span></button>
+    </div></header>
+    <main id="content" class="note-main section-shell">
+      <article class="note-article" aria-labelledby="post-title">
+        <nav class="note-crumb" aria-label="현재 위치"><a href="/note/">← 개발 노트</a></nav>
+        <header class="note-head">
+          <p class="note-date"><time datetime="2026-11-07">2026.11.07</time></p>
+          <h1 id="post-title">11월 7일 패치 노트 (3) — 교실에서도 풍력 발전소 짓기</h1>
+          <p class="note-summary">혼자 하는 들판에만 있던 과학 모드(T)를 교실 수업에서도 쓸 수 있어요. 학생마다 자기 발전소를 짓고, 반 친구와 선생님이 모두 같은 발전소를 봐요.</p>
+          <ul class="note-tags" aria-label="태그"><li>패치 노트</li><li>새 기능</li><li>교실</li><li>과학 모드</li></ul>
+          
+        </header>
+        <div class="note-body">
+<section class="note-sec note-sec--summary" id="s0" aria-labelledby="s0-h">
+<h2 id="s0-h"><span class="note-badge" aria-hidden="true">요약</span>한눈에 보기</h2>
+<div class="note-sec-body">
+<p>풍력 발전소를 뼈대부터 부품까지 직접 끼워 짓는 **과학 모드(T)**가 이제 <strong>교실</strong>에서도 돼요. 학생이 지은 발전소는 반 모두의 화면에 똑같이 보이고, 수업이 끝나도 반에 그대로 저장돼요.</p>
+</div>
+</section>
+<section class="note-sec">
+<h2>BEFORE / AFTER</h2>
+<p><img src="/note/assets/20261107-class-plants-ba.webp" alt="교실 화면 비교: 이전에는 교실에서 T를 눌러도 블록만 기울어지고 발전소가 없었고, 이제는 선생님 화면에서 학생 민지가 지은 풍력 발전기가 돌아가고 머리 위에 '민지의 풍력 발전기 · 가동 중' 표시가 있다"></p>
+</section>
+<section class="note-sec">
+<h2>새 기능 — 교실 과학 모드</h2>
+<ul>
+<li><strong class="item-title">T로 과학 모드</strong>교실에서도 T를 누르면 설계도를 펼칠 수 있어요. (블록 기울이기는 혼자 하는 들판처럼 <strong>Shift+T</strong>예요.)</li>
+<li><strong class="item-title">모두 같이 봐요</strong>학생이 설계도를 펼치고 뼈대·부품을 끼우면 선생님과 반 친구들 화면에도 바로 보여요. 늦게 들어온 학생도 지금까지 지은 모습 그대로 봐요.</li>
+<li><strong class="item-title">내 발전소는 내가</strong>학생은 <strong>자기 발전소만</strong> 고치거나 걷을 수 있어요. 친구 발전소에 끼우려고 하면 &quot;친구의 발전소예요&quot;라고 알려 줘요. <strong>선생님은 어느 발전소든</strong> 도와줄 수 있어요.</li>
+<li><strong class="item-title">누구 발전소인지 한눈에</strong>발전소 위 표시에 &quot;민지의 풍력 발전기&quot;처럼 이름이 나와요.</li>
+<li><strong class="item-title">수업 규칙 그대로</strong>선생님이 <strong>건축 잠금</strong>이나 <strong>모두 멈춰</strong>를 켜면 발전소 짓기도 멈춰요. <strong>자리 배치</strong> 중에는 자기 자리(울타리) 안에만 지을 수 있어요.</li>
+<li><strong class="item-title">반에 저장</strong>지은 발전소는 반과 함께 저장돼서 다음 수업에도 그대로 있어요. <strong>들판 비우기</strong>를 하면 발전소도 함께 사라져요.</li>
+<li>학생 한 명은 발전소를 8개까지, 한 반은 200개까지 지을 수 있어요. 뼈대와 부품은 들판처럼 무한이에요.</li>
+<li>다른 학생의 발전소가 바뀔 때는 내 화면에 알림이 뜨지 않아요(선생님 화면도요). 내 발전소 소식만 알려 줘요.</li>
+</ul>
+</section>
+<section class="note-sec">
+<h2>알아 두기</h2>
+<ul>
+<li>이번 업데이트로 교실 통신 규약이 바뀌어서, 열려 있던 교실 화면은 한 번 자동으로 다시 열려요(반 이름과 내 이름 그대로).</li>
+<li>안드로이드 앱은 아직 발전소를 보여 주지 않아요.</li>
+</ul>
+</section>
+        </div>
+      </article>
+      <nav class="note-pager" aria-label="다른 노트"><a class="note-prev" href="/note/patch-2026-11-07-2/"><small>이전 노트</small>11월 7일 패치 노트 (2) — 휴대폰·태블릿에서도 블록 쌓기</a><a class="note-next" href="/note/patch-2026-11-10/"><small>다음 노트</small>11월 10일 패치 노트 — F2에서 반 전체 물 한 번에 빼기</a></nav>
+    </main>
+    <footer class="site-footer section-shell"><div><a class="footer-brand" href="/">크래프트얍 <span>CraftYap</span></a><p>블록 하나에서 시작되는, 네가 만드는 세상.</p></div><nav aria-label="하단 메뉴"><a href="/">게임 홈</a><a href="/note/">개발 노트</a><a href="/guide/">게임 안내</a><a href="/feed.xml">RSS</a><a href="#content">맨 위로 ↑</a></nav><small>크래프트얍 개발 노트 · <time datetime="2026-11-10">2026.11.10 업데이트</time></small></footer>
+  </body>
+</html>

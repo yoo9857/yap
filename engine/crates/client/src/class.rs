@@ -311,7 +311,8 @@ impl ClassSession {
             }
             ClassServer::Wet { cells } => self.pending_wet.extend(cells),
             // taps arrive later
-            ClassServer::Bonk { .. } | ClassServer::Room { .. } | ClassServer::Seats { .. } => {}
+            // power plants are web-only for now: the app neither draws nor builds them
+            ClassServer::Bonk { .. } | ClassServer::Room { .. } | ClassServer::Seats { .. } | ClassServer::Plants { .. } => {}
         }
     }
 
