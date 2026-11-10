@@ -1,0 +1,34 @@
+{
+  "version": 1,
+  "generator": "ChatGPT built-in image_gen",
+  "assets": [
+    {
+      "file": "button-gold.webp",
+      "width": 1024,
+      "height": 171,
+      "source_sha256": "bfd69ad46dac04104900aa1f5cc5cf32989f57e5b144a7bfc261e51146bed6ef",
+      "bytes": 23102
+    },
+    {
+      "file": "button-navy.webp",
+      "width": 1024,
+      "height": 202,
+      "source_sha256": "817486013994dac365d2935ee24308e9ceacfec885b44890e036cd7a8a8bcda7",
+      "bytes": 20750
+    },
+    {
+      "file": "workbench-frame.webp",
+      "width": 640,
+      "height": 640,
+      "source_sha256": "2ab2ad456889a423df294139c525d45fa90596b0153d0c8ff0ab0e98bb4903fa",
+      "bytes": 22346
+    },
+    {
+      "file": "selection-cradle.webp",
+      "width": 512,
+      "height": 51,
+      "source_sha256": "523a9b53b693ccd588fc53769255dfc4a0bc80180b254c18ff801c6935ccfab6",
+      "bytes": 6890
+    }
+  ]
+}

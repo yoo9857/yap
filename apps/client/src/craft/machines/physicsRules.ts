@@ -36,8 +36,21 @@ export const ASSIST = Object.freeze({
   levelTorque: 900,
   /** Extra damping on the tilt axes while levelling. */
   levelDamping: 200,
-  /** Tilt beyond this (rad) is treated as deliberate and left alone. */
+  /** Tilt beyond this (rad) is treated as deliberate and left alone
+   * once the stick is released. A held stick still aims back at stickAngle. */
   levelLimit: 1.45,
+  /** Pitch/roll stick, with assist on, holds this attitude (rad) instead of
+   * winding the gyro until the machine tumbles. */
+  stickAngle: 0.4,
+  /** Nose-down eases once the machine is sinking this fast (m/s). */
+  pitchEase: 0.6,
+  /** Extra sink (m/s) over which that nose-down command fades to level. */
+  pitchEaseSpan: 2.2,
+  /** Forward speed (m/s) up to which a held nose-down keeps its full angle.
+   * Past this, the angle fades so the wings' flat-plate downforce cannot
+   * outrun the hover. Full fade is this plus pitchSpeedSpan. */
+  pitchSpeed: 3,
+  pitchSpeedSpan: 9,
   /** Lift-thruster throttle per m/s of unwanted vertical speed. */
   hoverGain: 0.5,
   /** Target climb rate while the descend key is held, m/s. */

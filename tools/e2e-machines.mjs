@@ -14,11 +14,14 @@ const browser = await puppeteer.launch({
 });
 try {
   await mkdir("tmp", { recursive: true });
+  await mkdir("output/garage-ui-refined", { recursive: true });
   const page = await browser.newPage();
   await page.setViewport({ width: 1600, height: 1000 });
   const errors = [];
   page.on("pageerror", (error) => errors.push(error.message));
   const machine = () => page.evaluate(() => window.__roboCraft.machine());
+  const screen = (name) => page.click(`.mw-section[data-screen="${name}"]`);
+  const visiblePanes = () => page.$$eval('[data-pane]', panes => panes.filter(pane => !pane.hidden).map(pane => pane.dataset.pane));
   await page.goto(
     `${process.env.BASE_URL ?? "http://localhost:5173"}/?mode=craft`,
     { waitUntil: "networkidle2", timeout: 60000 },
@@ -32,12 +35,61 @@ try {
     () => document.querySelector(".machine-coach").hidden,
   );
   await wait(600);
+  await page.waitForFunction(() => window.__roboCraft.machine().assetsLoaded);
+  await page.waitForFunction(() => [...document.querySelectorAll('.machine-panel img')].every(image => image.complete && image.naturalWidth > 0));
   await page.screenshot({ path: "tmp/machine-editor.png" });
   let state = await machine();
   assert.equal(state.blueprint.parts.length, 21);
+  assert.deepEqual(await visiblePanes(), ['parts'], 'B opens the horizontal block workbench');
+  assert.equal(state.mirror, true, 'symmetry is the default editing workflow');
+  assert.equal(await page.$eval('[data-id="toolrow"]', el => el.hidden), false);
+  assert.equal(await page.$eval('[data-id="run"]', el => el.hidden), false);
+  assert.equal(await page.$eval('[data-id="advanced"]', el => el.open), false, 'less-used tools stay out of the main toolbar');
+
+  // Navigation uses native button activation; Enter must not start a drive.
+  await page.focus('.mw-section[data-screen="help"]');
+  await page.keyboard.press('Enter');
+  assert.deepEqual(await visiblePanes(), ['help']);
+  assert.equal((await machine()).simulation, null);
+  const beforeBrowse = JSON.stringify((await machine()).blueprint);
+  await page.mouse.click(930, 480);
+  await page.mouse.click(930, 480, {button:'right'});
+  assert.equal(JSON.stringify((await machine()).blueprint), beforeBrowse, 'browsing cannot place or erase parts');
+  await screen('parts');
+  assert.deepEqual(await visiblePanes(), ['parts']);
+
+  // Colour swatches and performance controls edit the actual selected part.
+  await screen('tune');
+  const wheelIndex = (await machine()).blueprint.parts.findIndex(part => part.kind === 'wheel');
+  await page.select('[data-inspect-index]', String(wheelIndex));
+  assert.equal((await machine()).editor.scope.mode, 'paired');
+  assert.equal((await machine()).editor.scope.indices.length, 2);
+  assert.equal(await page.$eval('.mw-mirror-note', element => element.dataset.scope), 'paired');
+  const originalThumbnail = await page.$eval('.mw-inspected-heading img', element => element.src);
+  assert.ok(originalThumbnail.startsWith('data:image/'), 'the selected block uses a real rendered thumbnail');
+  await page.click('[data-custom-option="color"][data-value="coral"]');
+  const paintedThumbnail = await page.$eval('.mw-inspected-heading img', element => element.src);
+  assert.notEqual(paintedThumbnail, originalThumbnail, 'the thumbnail follows the paint colour');
+  assert.equal((await machine()).blueprint.parts.filter(part => part.custom?.color === 'coral').length, 2, 'mirror applies the selected colour to the opposite wheel');
+  assert.equal(await page.evaluate(() => document.activeElement.dataset.customOption), 'color', 'tuning preserves keyboard focus after rendering');
+  await page.click('[data-tune-section="performance"]');
+  assert.equal(await page.$('[data-custom-option="color"]'), null, 'colour and performance have separate editing sections');
+  await page.click('[data-custom-option="radius"][data-value="large"]');
+  assert.equal((await machine()).blueprint.parts[wheelIndex].custom.radius, 'large');
+  assert.notEqual(await page.$eval('.mw-inspected-heading img', element => element.src), paintedThumbnail, 'the thumbnail follows the wheel size');
+  await screen('library');
+  await screen('tune');
+  assert.equal(await page.$eval('[data-inspect-index]', el => Number(el.value)), wheelIndex, 'screen switches retain the selected part');
+  await page.click('[data-custom-reset]');
+  assert.equal((await machine()).blueprint.parts[wheelIndex].custom, undefined);
+  console.log('PASS garage screens, keyboard navigation and live tuning');
 
   // ---- build ergonomics: hotkeys, rotation, mirror, undo/redo -------------
+  await screen('parts');
+  await page.click('[data-filter="구동"]');
+  assert.equal(await page.$$eval('[data-part]', buttons => buttons.filter(button => !button.hidden).length), 1, 'block categories filter the actual palette');
   await page.keyboard.press("Digit5");
+  assert.equal(await page.$$eval('[data-part]', buttons => buttons.filter(button => !button.hidden).length), 8, 'a shortcut reveals a block outside the current category');
   state = await machine();
   assert.equal(state.selected, "thruster", "number keys pick a part");
   await page.keyboard.press("KeyR");
@@ -56,15 +108,93 @@ try {
     selected: state.selected,
     mirror: state.mirror,
   });
+  const beforePlacement = (await machine()).blueprint;
+  let attachmentPoint;
+  const preview = await page.$eval('[data-id="preview-stage"]', element => {
+    const bounds = element.getBoundingClientRect();
+    return {x:bounds.x,y:bounds.y,width:bounds.width,height:bounds.height};
+  });
+  for (const [u, v] of [[.5,.5], [.54,.54], [.46,.5], [.57,.6], [.5,.65], [.42,.6]]) {
+    const x = preview.x + preview.width * u, y = preview.y + preview.height * v;
+    await page.mouse.move(x, y);
+    const state = await machine();
+    if (state.editor.placement && !state.blueprint.parts.some(part => part.cell.every((value, axis) => value === state.editor.placement[axis]))) {
+      attachmentPoint = [x,y];
+      break;
+    }
+  }
+  assert.ok(attachmentPoint, 'the live preview offers an exposed block face');
+  await page.mouse.click(...attachmentPoint);
+  assert.ok((await machine()).blueprint.parts.length > beforePlacement.parts.length, 'clicking the live studio preview attaches a block');
+  await page.click('[data-id="undo"]');
+  assert.deepEqual((await machine()).blueprint, beforePlacement, 'undo restores the live preview placement');
+  for (const view of ['front', 'side', 'top', 'fit']) await page.click(`[data-preview="${view}"]`);
+  assert.deepEqual((await machine()).blueprint, beforePlacement, 'preview cameras never modify the machine');
 
   // ---- blueprint library + share codes ------------------------------------
-  await page.click('.machine-panel [data-tab="library"]');
+  await screen('library');
   await page.click('.machine-panel [data-id="save"]');
   assert.ok((await machine()).library.length >= 1, "design goes to the shelf");
-  const share = await page.$eval('[data-id="share"]', (el) => el.value);
+  const firstSave = (await machine()).library[0];
+  const originalDesign = (await machine()).blueprint;
+  await page.click('[data-id="save"]');
+  assert.equal((await machine()).library.length, 2, 'saving the same name creates an independent copy');
+  const names = await page.$$eval('[data-action="load"] > span', elements => elements.map(element => element.textContent));
+  assert.equal(new Set(names).size, 2, 'duplicate names are numbered');
+  for (let count = 2; count < 12; count++) await page.click('[data-id="save"]');
+  const fullLibrary = (await machine()).library;
+  await page.click('[data-id="save"]');
+  assert.deepEqual((await machine()).library, fullLibrary, 'the thirteenth save never evicts another machine');
+  assert.match(await page.$eval('[data-id="message"]', element => element.textContent), /12/);
+  assert.equal(await page.$eval('[data-id="slot-count"]', element => element.textContent), '12 / 12');
+
+  await page.$eval(`[data-action="replace"][data-slot="${firstSave}"]`, element => element.click());
+  assert.equal(await page.$eval('[data-id="replace-dialog"]', element => element.open), true);
+  assert.equal(await page.$eval('[data-id="replace-target"]', element => element.textContent), originalDesign.name);
+  await page.keyboard.press('b');
+  assert.equal((await machine()).active, true, 'game shortcuts stay inactive inside the save dialog');
+  await page.keyboard.press('Escape');
+  assert.equal(await page.$eval('[data-id="replace-dialog"]', element => element.open), false);
+  assert.deepEqual((await machine()).library, fullLibrary, 'cancelling replacement leaves the library intact');
+  await page.click('[data-preset="plane"]');
+  await page.$eval(`[data-action="replace"][data-slot="${firstSave}"]`, element => element.click());
+  await page.click('[data-id="replace-confirm"]');
+  const previousVersion = (await machine()).recovery[0];
+  assert.ok(previousVersion, 'the replaced version is recoverable');
+  assert.equal((await machine()).library.length, 12);
+  await page.click('[data-id="recovery"] > summary');
+  await page.click(`[data-restore="${previousVersion}"]`);
+  assert.equal((await machine()).recovery.length, 1, 'a full library keeps the recovery copy intact');
+  await page.click('[data-id="recovery"] > summary');
+  await page.$eval(`[data-action="delete"][data-slot="${firstSave}"]`, element => element.click());
+  assert.equal((await machine()).library.length, 11);
+  assert.equal((await machine()).recovery.length, 2, 'deletion moves the design into recovery');
+  await page.click('[data-id="recovery"] > summary');
+  await page.click(`[data-restore="${previousVersion}"]`);
+  assert.equal((await machine()).library.length, 12);
+  await page.click('[data-id="recovery"] > summary');
+  await page.$eval(`[data-action="load"][data-slot="${previousVersion}"]`, element => element.click());
+  assert.deepEqual((await machine()).blueprint, originalDesign, 'restoring brings back the exact previous design');
+  await page.screenshot({ path: 'output/garage-ui-refined/library-protected.png' });
+  console.log('PASS save copies, full-library protection, explicit replacement and recovery');
+  await page.evaluate(() => {
+    window.__garageCopiedCode = null;
+    Object.defineProperty(navigator, 'clipboard', {configurable:true,value:{writeText:async code => {window.__garageCopiedCode=code;}}});
+  });
+  await page.click('[data-id="copy"]');
+  const share = await page.evaluate(() => window.__garageCopiedCode);
   assert.ok(share.startsWith("CYM1."), "share code is exported");
+  assert.equal(share, (await machine()).share, 'copy exports the current machine independently of the import draft');
+  assert.equal(await page.$eval('[data-id="share-import"]', el => el.open), false, 'raw share codes stay behind the import action');
   await page.click('.machine-panel [data-preset="plane"]');
   assert.notEqual((await machine()).blueprint.name, "초원 탐사차");
+  await page.click('[data-id="share-import"] > summary');
+  await page.$eval('[data-id="share"]', element => {element.value='broken-code';});
+  const beforeBadImport = (await machine()).blueprint;
+  await page.click('[data-id="import"]');
+  assert.equal(await page.$eval('[data-id="share-import"]', el => el.open), true, 'an invalid code keeps the import sheet open');
+  assert.equal(await page.$eval('[data-id="share"]', el => el.value), 'broken-code', 'an invalid import preserves the draft');
+  assert.deepEqual((await machine()).blueprint, beforeBadImport, 'an invalid code leaves the machine intact');
   await page.$eval(
     '[data-id="share"]',
     (el, code) => {
@@ -73,6 +203,7 @@ try {
     share,
   );
   await page.click('.machine-panel [data-id="import"]');
+  assert.equal(await page.$eval('[data-id="share-import"]', el => el.open), false, 'a successful import closes the sheet');
   assert.equal(
     (await machine()).blueprint.parts.length,
     21,
@@ -98,6 +229,7 @@ try {
   assert.equal((await machine()).active, true);
 
   // ---- test drive ----------------------------------------------------------
+  await screen('missions');
   await page.click('.machine-panel [data-id="run"]');
   await page.waitForFunction(() => !!window.__roboCraft.machine().simulation, {
     timeout: 60000,
@@ -158,8 +290,9 @@ try {
   );
 
   // ---- powered flight ------------------------------------------------------
-  await page.click('.machine-panel [data-tab="library"]');
+  await screen('library');
   await page.click('.machine-panel [data-preset="ship"]');
+  await screen('missions');
   await page.click('.machine-panel [data-id="run"]');
   await page.waitForFunction(() => !!window.__roboCraft.machine().simulation);
   const beforeLift = (await machine()).simulation.position.y;
@@ -176,8 +309,9 @@ try {
   await page.click('.machine-panel [data-id="run"]');
 
   // ---- gliding wings -------------------------------------------------------
-  await page.click('.machine-panel [data-tab="library"]');
+  await screen('library');
   await page.click('.machine-panel [data-preset="plane"]');
+  await screen('missions');
   state = await machine();
   assert.ok(
     state.blueprint.parts.some((p) => p.kind === "wing"),
@@ -218,6 +352,7 @@ try {
   await page.click('.machine-panel [data-id="run"]');
 
   // ---- beginner path: one click to fly, assist does the hard part ---------
+  await screen('missions');
   await page.click('[data-quick="plane"]');
   await page.waitForFunction(() => !!window.__roboCraft.machine().simulation, {
     timeout: 60000,
@@ -273,6 +408,7 @@ try {
   assert.equal(state.blueprint.name, "날개 활공기");
   assert.ok(state.record.runs >= 3, "every run is counted");
   assert.ok(state.library.length >= 1, "the shelf survives a reload");
+  assert.ok(state.recovery.length >= 1, "recovery versions survive a reload too");
   assert.deepEqual(errors, []);
   console.log("PASS stop, exit, storage round-trip, no browser errors");
 } finally {

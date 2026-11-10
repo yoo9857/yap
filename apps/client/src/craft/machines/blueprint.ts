@@ -271,7 +271,9 @@ export function preset(kind: PresetKind): Blueprint {
     // Thrusters sit a cell ABOVE the mass centre (the gyro hangs below it),
     // which is what makes it hang upright instead of balancing on its exhaust.
     // Fly it like a quadcopter: Space to climb, ↑/↓ to tip and translate, and
-    // the wings turn that forward speed into a long flat glide.
+    // the wings turn that forward speed into a long flat glide. Pilot assist
+    // holds that tip at a small angle, so keeping ↑ held translates instead
+    // of looping. Assist off (G) leaves the raw gyro spin.
     for (let z = -2; z <= 2; z++) put("frame", 0, 0, z);
     for (const x of [-1, 1]) {
       put("frame", x, 0, 0);

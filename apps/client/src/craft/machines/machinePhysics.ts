@@ -300,23 +300,33 @@ export class MachinePhysics {
     this.applyAerodynamics();
     if (this.gyro) {
       const angular = this.body.angvel();
+      // Assist aims the gyro at an attitude. Open-loop pitch torque never
+      // stops while the key is held, and that is what loops the plane.
+      const hold = this.attitudeHold(input);
       this.force
         .set(
-          input.pitch * RULES.gyroPitchTorque,
+          hold ? 0 : input.pitch * RULES.gyroPitchTorque,
           input.steer * RULES.gyroYawTorque,
-          input.roll * RULES.gyroRollTorque,
+          hold ? 0 : input.roll * RULES.gyroRollTorque,
         )
         .applyQuaternion(this.rotation);
       this.force.multiplyScalar(this.gyroStrength);
       this.force.x -= angular.x * RULES.gyroDamping*this.gyroStrength;
       this.force.y -= angular.y * RULES.gyroDamping*this.gyroStrength;
       this.force.z -= angular.z * RULES.gyroDamping*this.gyroStrength;
-      if (this.levelling(input)) {
-        // Rotating the body's own up-vector back onto world up: the cross
-        // product is the axis and its length is sin(tilt), so the correction
-        // fades out exactly as the machine comes level.
+      if (hold) {
+        // body up × target up. Length is sin(error), so it fades out as the
+        // machine arrives. Target is world up when the stick is free.
         this.up.set(0, 1, 0).applyQuaternion(this.rotation);
-        this.level.set(0, 1, 0).cross(this.up).multiplyScalar(-1);
+        // Nose-up still gets the full stick: that angle makes lift, and
+        // easing it while sinking would throw the save away. Nose-down
+        // eases off once the sink says the wings are pushing down.
+        const pitch =
+          input.pitch > 0
+            ? input.pitch * this.pitchAuthority(speed.y, this.forwardSpeed(speed))
+            : input.pitch;
+        this.desiredUp(pitch, input.roll, this.scratch);
+        this.level.crossVectors(this.up, this.scratch);
         this.force.addScaledVector(this.level, ASSIST.levelTorque*this.gyroStrength);
         this.force.x -= angular.x * ASSIST.levelDamping*this.gyroStrength;
         this.force.z -= angular.z * ASSIST.levelDamping*this.gyroStrength;
@@ -394,16 +404,65 @@ export class MachinePhysics {
   }
 
   /**
-   * Assist only levels a machine that is off the ground, not being steered by
-   * hand, and not already upside down on purpose - a car on a slope must sit
-   * on the slope, and a deliberate barrel roll must be allowed to finish.
+   * Assist flies pitch and roll as a limited attitude, using the gyro the
+   * machine already has. Off the wheels only: a car must sit on its slope.
+   * Past levelLimit with the stick released, a finished roll is left alone.
+   * While the stick is held, keep aiming at the target even past that limit,
+   * or a bump turns the hold back into the tumble it exists to prevent.
    */
-  private levelling(input: MachineInput): boolean {
-    if (!input.assist || this.grounded) return false;
-    if (Math.abs(input.pitch) > 0.01 || Math.abs(input.roll) > 0.01)
-      return false;
+  private attitudeHold(input: MachineInput): boolean {
+    if (!input.assist || this.grounded || !this.gyro) return false;
+    const commanded =
+      Math.abs(input.pitch) > 0.01 || Math.abs(input.roll) > 0.01;
     this.up.set(0, 1, 0).applyQuaternion(this.rotation);
-    return Math.acos(Math.max(-1, Math.min(1, this.up.y))) < ASSIST.levelLimit;
+    const tilt = Math.acos(Math.max(-1, Math.min(1, this.up.y)));
+    return commanded || tilt < ASSIST.levelLimit;
+  }
+
+  /** How much of a nose-down stick the gyro should still chase.
+   * 1 at a hover. Fades as forward speed climbs or the machine starts to
+   * sink, because a steep nose turns the glider's wings into downforce. */
+  private pitchAuthority(verticalSpeed: number, forward: number): number {
+    const drop = -verticalSpeed - ASSIST.pitchEase;
+    const sink =
+      drop <= 0 || ASSIST.pitchEaseSpan <= 0
+        ? 1
+        : Math.max(0, 1 - drop / ASSIST.pitchEaseSpan);
+    const fast =
+      ASSIST.pitchSpeedSpan <= 0
+        ? 1
+        : Math.max(0, 1 - Math.max(0, forward - ASSIST.pitchSpeed) / ASSIST.pitchSpeedSpan);
+    return Math.min(sink, fast);
+  }
+
+  /** Speed along the level nose. Negative when the machine is backing up. */
+  private forwardSpeed(velocity: { x: number; y: number; z: number }): number {
+    const nose = this.flow.set(0, 0, 1).applyQuaternion(this.rotation);
+    nose.y = 0;
+    const span = Math.hypot(nose.x, nose.z);
+    if (span < 1e-6) return 0;
+    return (velocity.x * nose.x + velocity.z * nose.z) / span;
+  }
+
+  /**
+   * Where the top of the machine should point, in the world.
+   * The axes are the LEVEL nose and right — the body's yaw only. Building
+   * them from the tilted body makes the target chase the tilt and loop.
+   * +pitch (ArrowUp) tips the top toward the nose, so lift leans forward.
+   * +roll (Q) tips the top toward the body's left, matching raw +Z torque.
+   */
+  private desiredUp(pitch: number, roll: number, out: Vector3): Vector3 {
+    const nose = this.point.set(0, 0, 1).applyQuaternion(this.rotation);
+    nose.y = 0;
+    if (nose.lengthSq() < 1e-6) nose.set(0, 0, 1);
+    else nose.normalize();
+    // right = world up × nose. A nose of +Z gives right +X.
+    const right = this.arm.set(nose.z, 0, -nose.x);
+    const x = -Math.sin(roll * ASSIST.stickAngle);
+    const z = Math.sin(pitch * ASSIST.stickAngle);
+    const rest = 1 - x * x - z * z;
+    const y = rest > 0 ? Math.sqrt(rest) : 0;
+    return out.set(0, y, 0).addScaledVector(right, x).addScaledVector(nose, z);
   }
 
   /**

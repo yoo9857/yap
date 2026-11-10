@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   blueprintError,
   machineStats,
@@ -232,23 +232,100 @@ describe("test-drive missions", () => {
 });
 
 describe("blueprint library storage", () => {
-  it("keeps the newest designs, replaces by name and survives hostile entries", () => {
+  it("protects a full library and replaces only an explicit slot", () => {
     const store = new MachineStore();
     localStorage.clear();
     for (let i = 0; i < LIBRARY_SLOTS + 4; i++)
       store.put(`machine ${i}`, preset("rover"), i);
     const entries = store.entries();
     expect(entries.length).toBe(LIBRARY_SLOTS);
-    expect(entries[0]!.id).toBe(`machine ${LIBRARY_SLOTS + 3}`);
+    expect(entries[0]!.id).toBe(`machine ${LIBRARY_SLOTS - 1}`);
+    expect(store.failed).toBe(true);
+    expect(store.failure).toBe("full");
     store.put("machine 0", preset("ship"), 99);
+    expect(store.failed).toBe(false);
     expect(store.entries()[0]!.blueprint.parts.length).toBe(
       preset("ship").parts.length,
     );
+    expect(store.recovery()[0]!.blueprint).toEqual(preset("rover"));
+    expect(store.recovery()[0]!.id).not.toBe("machine 0");
+  });
+
+  it("migrates original saves without modifying them and ignores hostile entries", () => {
+    localStorage.clear();
+    const original = JSON.stringify([{id:"legacy",blueprint:preset("rover"),updated:5}]);
+    localStorage.setItem("craftyap-machine-library-v1", original);
+    const store = new MachineStore();
+    expect(store.entries()[0]!.id).toBe("legacy");
+    store.create(preset("ship"), 10);
+    expect(new MachineStore().entries()).toHaveLength(2);
+    expect(localStorage.getItem("craftyap-machine-library-v1")).toBe(original);
+    localStorage.clear();
     localStorage.setItem(
       "craftyap-machine-library-v1",
       JSON.stringify([{ id: "x", blueprint: { version: 9 } }, 7, null]),
     );
     expect(store.entries()).toEqual([]);
+  });
+
+  it("gives identically named saves independent identities and readable names", () => {
+    localStorage.clear();
+    const store = new MachineStore(), original = preset("rover");
+    store.create(original, 1);
+    store.create(original, 1);
+    const entries = store.entries();
+    expect(new Set(entries.map(entry => entry.id)).size).toBe(2);
+    expect(entries.map(entry => entry.blueprint.name)).toEqual([`${original.name} (2)`, original.name]);
+    expect(original.name).not.toMatch(/\(2\)/);
+  });
+
+  it("recovers deletions and replaced versions after reopening the store", () => {
+    localStorage.clear();
+    const store = new MachineStore();
+    store.put("original", preset("rover"), 1);
+    store.put("original", preset("ship"), 2);
+    store.remove("original");
+    const reopened = new MachineStore();
+    expect(reopened.entries()).toEqual([]);
+    expect(reopened.recovery()).toHaveLength(2);
+    reopened.restore("original");
+    const previous = reopened.recovery()[0]!;
+    reopened.restore(previous.id);
+    expect(reopened.entries().map(entry => entry.blueprint)).toEqual([preset("rover"), preset("ship")]);
+    expect(reopened.recovery()).toEqual([]);
+  });
+
+  it("preserves the recovery copy when restoring into a full library", () => {
+    localStorage.clear();
+    const store = new MachineStore();
+    store.put("deleted", preset("ship"), 0);
+    store.remove("deleted");
+    for (let i = 0; i < LIBRARY_SLOTS; i++) store.put(`slot ${i}`, preset("rover"), i);
+    const before = store.entries();
+    expect(store.restore("deleted")).toEqual(before);
+    expect(store.failure).toBe("full");
+    expect(store.recovery()[0]!.id).toBe("deleted");
+  });
+
+  it("keeps the visible saved state truthful when storage rejects a mutation", () => {
+    localStorage.clear();
+    const store = new MachineStore();
+    const before = store.put("saved", preset("rover"), 1);
+    const deny = vi.spyOn(localStorage, "setItem").mockImplementation(() => { throw new Error("quota"); });
+    try {
+      expect(store.create(preset("ship"), 2)).toEqual(before);
+      expect(store.put("saved", preset("ship"), 2)).toEqual(before);
+      expect(store.remove("saved")).toEqual(before);
+      expect(store.recovery()).toEqual([]);
+      expect(store.failure).toBe("storage");
+    } finally { deny.mockRestore(); }
+    store.remove("saved");
+    const denyRestore = vi.spyOn(localStorage, "setItem").mockImplementation(() => { throw new Error("quota"); });
+    try {
+      expect(store.restore("saved")).toEqual([]);
+      expect(store.recovery()).toHaveLength(1);
+      expect(store.failed).toBe(true);
+    } finally { denyRestore.mockRestore(); }
   });
 
   it("merges records by maximum and counts runs", () => {

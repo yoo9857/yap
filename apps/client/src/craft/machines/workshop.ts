@@ -1,7 +1,10 @@
 import {changePartCustom} from "./customization.js";
+import { customizationScope } from "./editScope.js";
 import * as THREE from "three";
 import type { RapierModule } from "../../physics/physics.js";
 import { surfaceY, type VoxelWorld } from "../voxelWorld.js";
+import { PartSelection } from "./partSelection.js";
+import { GarageThumbnails } from "./garageThumbnails.js";
 import {
   addPart,
   BLUEPRINT_KEY,
@@ -26,6 +29,19 @@ import { DustField, MachineAudio } from "./machineFx.js";
 import { MachineStore, decodeShare, encodeShare } from "./library.js";
 import { MISSIONS, MissionRun } from "./missions.js";
 import { ScienceLab } from "./scienceLab.js";
+import { GARAGE_LAYER, GarageStage } from "./garageStage.js";
+import {
+  guideAim,
+  guideReach,
+  SHAFT_TURN,
+  thrustGuides,
+  thrustMisses,
+  turnAxisId,
+  turnBasis,
+  turnSweep,
+  type ThrustAxisId,
+  type ThrustGuide,
+} from "./balance.js";
 import { t } from "../../ui/i18n.js";
 import {
   BuildPanel,
@@ -33,11 +49,13 @@ import {
   Coach,
   DriveHud,
   Toasts,
+  type BuildScreen,
   type BuildView,
   type CameraMode,
   type MessageTone,
 } from "./workshopUi.js";
 import "./workshop.css";
+import "./garage.css";
 
 let physicsModule: Promise<RapierModule> | undefined;
 const loadPhysics = () =>
@@ -55,6 +73,17 @@ const COACH_KEY = "craftyap-machine-coach-v1";
 const ASSIST_KEY = "craftyap-machine-assist-v1";
 const CAMERA_ORDER: readonly CameraMode[] = ["chase", "orbit", "cockpit"];
 const HIGHLIGHT = new THREE.Color(0xff6b84);
+const GUIDE_COLOR: Record<ThrustAxisId, number> = {
+  vertical: 0xffd21c,
+  side: 0xff7a90,
+  fore: 0x7ec8ff,
+};
+
+interface GuideAxis {
+  shaft: THREE.Mesh;
+  cones: [THREE.Mesh, THREE.Mesh];
+  material: THREE.MeshBasicMaterial;
+}
 /** Test-drive bounds. Leaving them respawns rather than ending the run. */
 const BOUNDS = { minX: -20, maxX: 180, minZ: -20, maxZ: 180, minY: -15, maxY: 250 };
 
@@ -66,6 +95,7 @@ export class MachineWorkshop {
   private selected: PartKind = "frame";
   private direction = 0;
   private mirror = true;
+  private showCenter = true;
   private erase = false;
   private inspectMode=false;
   private inspectedCell:Cell|null=null;
@@ -77,16 +107,25 @@ export class MachineWorkshop {
     new THREE.SphereGeometry(0.15, 14, 10),
     new THREE.MeshBasicMaterial({ color: 0xffd21c, depthTest: false }),
   );
-  private readonly markerRing = new THREE.Mesh(
-    new THREE.RingGeometry(0.42, 0.56, 24),
-    new THREE.MeshBasicMaterial({
-      color: 0xffd21c,
-      transparent: true,
-      opacity: 0.75,
-      side: THREE.DoubleSide,
-      depthTest: false,
-    }),
-  );
+  /** Three cell-axis shafts through the centre of mass, plus a link from each off-axis push. */
+  private readonly guideShaft = new THREE.CylinderGeometry(0.03, 0.03, 1, 8);
+  private readonly guideCone = new THREE.ConeGeometry(0.13, 0.3, 8);
+  private readonly guide = new THREE.Group();
+  private guideAxes!: Record<ThrustAxisId, GuideAxis>;
+  private readonly missGeo = new THREE.CylinderGeometry(0.022, 0.022, 1, 6);
+  private missMaterial!: Record<ThrustAxisId, THREE.MeshBasicMaterial>;
+  private readonly missPool: THREE.Mesh[] = [];
+  /** Arc around the centre of mass. Same basis as the round guide, so both curl the same way. */
+  private turnArc!: THREE.Mesh;
+  private turnHead!: THREE.Mesh;
+  private turnMaterial!: THREE.MeshBasicMaterial;
+  private turnShown = 0;
+  private readonly turnMatrix = new THREE.Matrix4();
+  private readonly turnX = new THREE.Vector3();
+  private readonly turnY = new THREE.Vector3();
+  private readonly turnZ = new THREE.Vector3();
+  private readonly turnUp = new THREE.Vector3(0, 1, 0);
+  private readonly turnTangent = new THREE.Vector3();
   private readonly assets = new MachineAssets();
   private readonly visual = new MachineVisual(this.assets);
   private readonly ghost = new GhostPart(this.assets);
@@ -104,6 +143,14 @@ export class MachineWorkshop {
   private readonly launch: HTMLButtonElement;
   private readonly panel: BuildPanel;
   private readonly hud = new DriveHud();
+  private readonly stage = new GarageStage();
+  private readonly selectionOutline = new PartSelection();
+  private readonly thumbnails = new GarageThumbnails(this.assets);
+  private readonly partMatrix = new THREE.Matrix4();
+  private readonly previewBounds = new THREE.Box3();
+  private readonly previewPartBounds = new THREE.Box3();
+  private readonly previewFocus = new THREE.Vector3();
+  private readonly faceNormal = new THREE.Vector3();
   private readonly toasts = new Toasts();
   private readonly coach: Coach;
   private readonly keys = new Set<string>();
@@ -126,10 +173,12 @@ export class MachineWorkshop {
   // is the backdrop, not the castle wall immediately behind the workbench.
   private theta = 2.34;
   private elevation = 0.5;
-  private distance = 13;
+  private distance = 10.5;
+  private previewViewport = "";
   private camera3rd: CameraMode = "chase";
   private chaseReady = false;
   private baseFov = 0;
+  private baseCameraLayers = 1;
   private shake = 0;
   private lastVerticalSpeed = 0;
 
@@ -147,6 +196,7 @@ export class MachineWorkshop {
   private loading = false;
   private generation = 0;
   private message = "";
+  private messageTimeout: number | undefined;
   private tone: MessageTone = "info";
   private saveFailed = false;
 
@@ -171,12 +221,32 @@ export class MachineWorkshop {
     this.origin.set(79.5, this.groundY() + 4, 18.5);
     this.group.visible = false;
     this.marker.visible = false;
-    this.marker.renderOrder = 11;
-    this.markerRing.renderOrder = 11;
-    this.markerRing.rotation.x = -Math.PI / 2;
-    this.marker.add(this.markerRing);
+    this.marker.renderOrder = 13;
+    this.guideAxes = {
+      vertical: this.makeGuide("vertical", null),
+      side: this.makeGuide("side", SHAFT_TURN.side),
+      fore: this.makeGuide("fore", SHAFT_TURN.fore),
+    };
+    this.missMaterial = {
+      vertical: this.guideMaterial(GUIDE_COLOR.vertical, 0.95),
+      side: this.guideMaterial(GUIDE_COLOR.side, 0.95),
+      fore: this.guideMaterial(GUIDE_COLOR.fore, 0.95),
+    };
+    this.turnMaterial = this.guideMaterial(GUIDE_COLOR.vertical, 1);
+    this.turnArc = new THREE.Mesh(new THREE.TorusGeometry(0.82, 0.028, 6, 20, 1), this.turnMaterial);
+    this.turnHead = new THREE.Mesh(new THREE.ConeGeometry(0.075, 0.2, 8), this.turnMaterial);
+    this.turnArc.add(this.turnHead);
+    this.turnArc.visible = false;
+    this.turnArc.renderOrder = 12;
+    this.turnHead.renderOrder = 13;
+    this.turnArc.frustumCulled = false;
+    this.turnHead.frustumCulled = false;
+    this.guide.add(this.turnArc);
+    this.marker.add(this.guide);
+    this.marker.traverse(object => object.layers.enable(GARAGE_LAYER));
+    this.selectionOutline.object.traverse(object => object.layers.enable(GARAGE_LAYER));
     this.ghost.root.visible = false;
-    scene.add(this.group, this.marker, this.ghost.root, this.dust.points);
+    scene.add(this.group, this.marker, this.ghost.root, this.dust.points, this.stage.root, this.selectionOutline.object);
 
     const signal = this.events.signal;
     this.launch = document.createElement("button");
@@ -185,8 +255,16 @@ export class MachineWorkshop {
     this.launch.title = t("기계 작업실 (B)", "Machine lab (B)");
     this.panel = new BuildPanel(
       {
+        navigate: (screen) => this.navigate(screen),
+        preview: (view) => {
+          if (this.physics || this.loading) return;
+          if (view === "fit") this.frameCamera();
+          else {
+            this.theta = view === "side" ? Math.PI / 2 : Math.PI;
+            this.frameCamera(view === "top" ? 1.4 : .2);
+          }
+        },
         selectPart: (kind) => this.pickPart(kind),
-        toggleInspect:()=>this.toggleInspect(),
         inspectPart:index=>this.inspectPart(index),
         customizePart:(index,key,value)=>this.customizePart(index,key,value),
         setDirection: (direction) => {
@@ -211,6 +289,10 @@ export class MachineWorkshop {
             "info",
           );
         },
+        toggleCenter: () => {
+          this.showCenter = !this.showCenter;
+          this.refresh();
+        },
         toggleErase: () => {
           this.inspectMode=false;
           this.erase = !this.erase;
@@ -223,10 +305,18 @@ export class MachineWorkshop {
         close: () => this.toggle(),
         science: () => void this.openScience(),
         saveSlot: () => this.saveSlot(),
+        thumbnail: (blueprint, index) => this.thumbnails.render(blueprint, index),
+        replaceSlot: (id) => this.replaceSlot(id),
         loadSlot: (id) => this.loadSlot(id),
         deleteSlot: (id) => {
           this.entries = this.store.remove(id);
-          this.refresh();
+          this.say(this.store.failed
+            ? t("삭제하지 못했습니다. 설계도는 그대로 보관됩니다.", "Couldn't delete. Your blueprint is still saved.")
+            : t("설계도를 복구함으로 옮겼습니다. 복구함에서 다시 꺼낼 수 있어요.", "Moved to recovery. You can restore it from there."), this.store.failed ? "bad" : "good");
+        },
+        restoreSlot: (id) => {
+          this.entries = this.store.restore(id);
+          this.libraryResult(t("설계도를 보관함으로 복구했습니다.", "Blueprint restored to the library."));
         },
         importShare: (code) => this.importShare(code),
       },
@@ -308,7 +398,7 @@ export class MachineWorkshop {
         this.drag = null;
         if (canvas.hasPointerCapture(e.pointerId))
           canvas.releasePointerCapture(e.pointerId);
-        if (!click || this.physics || this.loading) return;
+        if (!click || this.physics || this.loading || !this.panel.canEdit) return;
         this.aim(e.clientX, e.clientY);
         if (e.button === 2 || this.erase) this.removeHovered();
         else if (e.button === 0) {if(this.inspectMode)this.inspectPart(this.hovered);else this.placeHere();}
@@ -343,11 +433,28 @@ export class MachineWorkshop {
 
   // ------------------------------------------------------------- editing
 
+  private navigate(screen: BuildScreen): void {
+    if (this.physics || this.loading) return;
+    this.message = "";
+    this.inspectMode = screen === "tune";
+    if (this.inspectMode && this.inspectedIndex() < 0) {
+      const part = this.blueprint.parts.find(part => part.kind === this.selected) ?? this.blueprint.parts[0];
+      this.inspectedCell = part ? [...part.cell] : null;
+    }
+    this.erase = false;
+    this.ghost.root.visible = false;
+    this.ghost.setErasing(false);
+    this.visual.highlight(-1, HIGHLIGHT);
+    this.panel.showScreen(screen, true);
+    this.refresh();
+  }
+
   private pickPart(kind: PartKind): void {
     this.inspectMode=false;this.inspectedCell=null;
     this.selected = kind;
     this.erase = false;
     this.ghost.setErasing(false);
+    this.panel.showScreen("parts");
     if (!PARTS[kind].directional) this.direction = 0;
     this.refresh();
   }
@@ -379,15 +486,14 @@ export class MachineWorkshop {
   private inspectedIndex():number {return this.inspectedCell?this.blueprint.parts.findIndex(p=>p.cell.every((v,i)=>v===this.inspectedCell![i])):-1;}
   private toggleInspect():void {
     if(this.physics||this.loading)return;
-    this.inspectMode=!this.inspectMode;this.erase=false;this.ghost.root.visible=false;this.ghost.setErasing(false);
-    this.visual.highlight(-1,HIGHLIGHT);this.refresh();
+    this.navigate(this.inspectMode ? "parts" : "tune");
   }
   private inspectPart(index:number):void {
     if(this.physics||this.loading)return;
     if(index===-1){this.inspectedCell=null;this.visual.highlight(-1,HIGHLIGHT);this.refresh();return;}
     const part=this.blueprint.parts[index];if(!part)return;
     this.inspectMode=true;this.inspectedCell=[...part.cell];
-    this.visual.highlight(index,HIGHLIGHT);this.refresh();
+    this.refresh();
   }
   private customizePart(index:number,key:string,value:string):void {
     if(this.physics||this.loading)return;
@@ -397,7 +503,11 @@ export class MachineWorkshop {
       if(!PARTS[part.kind].directional||!Number.isInteger(direction)||direction<0||direction>=DIRECTIONS.length||direction===part.direction)return;
       next.parts[index]!.direction=direction;
     }else if(!changePartCustom(next.parts[index]!,key,value))return;
-    if(this.mirror&&part.cell[0]!==0){const twin=next.parts.find(p=>p.kind===part.kind&&p.cell[0]===-part.cell[0]&&p.cell[1]===part.cell[1]&&p.cell[2]===part.cell[2]);if(twin){if(key==="direction")twin.direction=mirrorDirection(direction);else changePartCustom(twin,key,value);}}
+    for (const twinIndex of customizationScope(this.blueprint, index, this.mirror).indices.slice(1)) {
+      const twin = next.parts[twinIndex]!;
+      if(key==="direction") twin.direction=mirrorDirection(direction);
+      else changePartCustom(twin,key,value);
+    }
     this.remember();this.blueprint=next;this.commit();
   }
 
@@ -513,18 +623,23 @@ export class MachineWorkshop {
   }
 
   private saveSlot(): void {
-    this.entries = this.store.put(
-      this.blueprint.name || t("이름 없는 기계", "Unnamed machine"),
-      this.blueprint,
-      Date.now(),
-    );
-    this.say(
-      this.store.failed
-        ? t("저장 공간에 접근할 수 없어 보관하지 못했습니다.", "Couldn't save: browser storage is unavailable.")
-        : t(`'${this.blueprint.name}'을(를) 보관함에 넣었습니다.`, `Saved '${this.blueprint.name}' to your blueprints.`),
-      this.store.failed ? "bad" : "good",
-    );
-    this.refresh();
+    this.entries = this.store.create(this.blueprint, Date.now());
+    this.libraryResult(t(`'${this.entries[0]?.blueprint.name}'을(를) 새 설계도로 저장했습니다.`, `Saved '${this.entries[0]?.blueprint.name}' as a new blueprint.`));
+  }
+
+  private replaceSlot(id: string): boolean {
+    if (!this.entries.some(entry => entry.id === id)) return false;
+    this.entries = this.store.put(id, this.blueprint, Date.now());
+    this.libraryResult(t("현재 기계로 교체했습니다. 교체 전 설계도는 복구함에 보관됩니다.", "Replaced with this machine. The previous version is in recovery."));
+    return !this.store.failed;
+  }
+
+  private libraryResult(success: string): void {
+    this.say(this.store.failure === "full"
+      ? t("보관함 12칸이 찼습니다. 기존 설계도를 교체하거나 복구함으로 옮겨 자리를 비워 주세요.", "All 12 slots are full. Replace a saved blueprint or move one to recovery first.")
+      : this.store.failed
+        ? t("브라우저 저장 공간에 접근할 수 없습니다. 기존 설계도는 그대로 보관됩니다.", "Browser storage is unavailable. Existing blueprints are unchanged.")
+        : success, this.store.failed ? "bad" : "good");
   }
 
   private loadSlot(id: string): void {
@@ -537,22 +652,28 @@ export class MachineWorkshop {
     this.say(t(`'${entry.blueprint.name}'을(를) 불러왔습니다.`, `Loaded '${entry.blueprint.name}'.`), "good");
   }
 
-  private importShare(code: string): void {
+  private importShare(code: string): boolean {
     const loaded = decodeShare(code);
     if (!loaded) {
-      this.say(t("공유 코드를 읽지 못했습니다. CYM1… 전체를 붙여넣어 주세요.", "Couldn't read that share code. Paste the whole CYM1… code."), "bad");
-      return;
+      this.say(t("공유 코드를 읽지 못했습니다. CYM으로 시작하는 코드 전체를 붙여넣어 주세요.", "Couldn't read that share code. Paste the whole code starting with CYM."), "bad");
+      return false;
     }
     this.remember();
     this.blueprint = loaded;
     this.commit();
     this.frameCamera();
     this.say(t(`'${loaded.name}'을(를) 코드에서 불러왔습니다.`, `Loaded '${loaded.name}' from the code.`), "good");
+    return true;
   }
 
   private say(text: string, tone: MessageTone = "info"): void {
+    window.clearTimeout(this.messageTimeout);
     this.message = text;
     this.tone = tone;
+    if (tone !== "bad") this.messageTimeout = window.setTimeout(() => {
+      this.message = "";
+      if (!this.disposed) this.refresh();
+    }, 4500);
     this.refresh();
   }
 
@@ -566,7 +687,9 @@ export class MachineWorkshop {
   }
 
   private onKeyDown(event: KeyboardEvent): void {
-    if (!this.active || this.science?.active || this.typing(event.target))
+    if (!this.active || this.science?.active || this.panel.hasModal || this.typing(event.target) ||
+      (!this.physics && !this.loading && ["Enter", "Space"].includes(event.code) &&
+        event.target instanceof Element && event.target.closest("button")))
       return;
     if (
       ["Space", "ArrowUp", "ArrowDown", "KeyW", "KeyS", "KeyA", "KeyD"].includes(
@@ -625,6 +748,7 @@ export class MachineWorkshop {
         this.toggleInspect();
         break;
       case "KeyX":
+        this.panel.showScreen("parts");
         this.inspectMode=false;
         this.erase = !this.erase;
         this.ghost.setErasing(this.erase);
@@ -653,10 +777,13 @@ export class MachineWorkshop {
       return;
     }
     if (this.active) {
+      this.panel.dismissOverlays();
       this.stop();
       this.save();
     }
     this.active = !this.active;
+    this.stage.root.visible = this.active;
+    this.selectionOutline.object.visible = false;
     this.keys.clear();
     this.drag = null;
     this.launch.hidden = this.active;
@@ -667,11 +794,19 @@ export class MachineWorkshop {
     this.hud.setVisible(false);
     if (this.active) {
       document.exitPointerLock();
+      this.baseCameraLayers = this.camera.layers.mask;
+      this.inspectMode = false;
+      this.mirror = true;
+      this.showCenter = true;
+      this.erase = false;
+      this.ghost.setErasing(false);
+      this.panel.showScreen("parts");
       this.loadAssets();
       this.baseFov ||= this.camera.fov;
       this.entries = this.store.entries();
       this.record = this.store.record();
       this.rebuild();
+      this.frameCamera();
       this.refresh();
       this.maybeCoach();
     } else {
@@ -689,6 +824,7 @@ export class MachineWorkshop {
       .then(() => {
         if (this.disposed) return;
         this.rebuild();
+        this.frameCamera();
         this.ghost.set(this.selected, this.direction);
         this.refresh();
       })
@@ -710,10 +846,144 @@ export class MachineWorkshop {
   }
 
   private restoreCamera(): void {
+    this.camera.layers.mask = this.baseCameraLayers;
     if (this.baseFov && this.camera.fov !== this.baseFov) {
       this.camera.fov = this.baseFov;
       this.camera.updateProjectionMatrix();
     }
+  }
+
+  private guideMaterial(color: number, opacity: number): THREE.MeshBasicMaterial {
+    return new THREE.MeshBasicMaterial({
+      color,
+      transparent: true,
+      opacity,
+      depthTest: false,
+      depthWrite: false,
+    });
+  }
+
+  /** CylinderGeometry points +Y. The turn puts that shaft on a cell axis (see SHAFT_TURN). */
+  private makeGuide(id: ThrustAxisId, turn: { x: number; y: number; z: number } | null): GuideAxis {
+    const material = this.guideMaterial(GUIDE_COLOR[id], 0.85);
+    const shaft = new THREE.Mesh(this.guideShaft, material);
+    const positive = new THREE.Mesh(this.guideCone, material);
+    const negative = new THREE.Mesh(this.guideCone, material);
+    negative.rotation.x = Math.PI;
+    const root = new THREE.Group();
+    if (turn) root.rotation.set(turn.x, turn.y, turn.z);
+    root.add(shaft, positive, negative);
+    shaft.renderOrder = 11;
+    positive.renderOrder = 12;
+    negative.renderOrder = 12;
+    shaft.frustumCulled = false;
+    positive.frustumCulled = false;
+    negative.frustumCulled = false;
+    this.guide.add(root);
+    return { shaft, cones: [positive, negative], material };
+  }
+
+  private layoutGuide(axis: GuideAxis, half: number): void {
+    axis.shaft.scale.y = half * 2;
+    const tip = half + 0.15;
+    axis.cones[0].position.y = tip;
+    axis.cones[1].position.y = -tip;
+  }
+
+  /** The axis in hand stays bright, and its arrowhead points the way that part will push. */
+  private emphasizeGuide(): void {
+    const aim = guideAim(this.selected, this.direction);
+    const report = thrustGuides(this.blueprint);
+    for (const id of ["vertical", "side", "fore"] as const) {
+      const axis = this.guideAxes[id];
+      const guide = report[id];
+      const hot = aim.id === id;
+      const show = hot || guide.present;
+      axis.shaft.visible = show;
+      for (const cone of axis.cones) cone.visible = show;
+      const push = guide.present && !guide.cancel ? guide.sign : 0;
+      const sign = hot ? aim.sign : push;
+      axis.material.opacity = hot ? 1 : aim.id !== null && !hot ? 0.28 : 0.85;
+      const thick = hot ? 1.6 : 1;
+      axis.shaft.scale.x = thick;
+      axis.shaft.scale.z = thick;
+      const pos = sign > 0 ? 1.55 : sign < 0 ? 0.45 : 1;
+      const neg = sign < 0 ? 1.55 : sign > 0 ? 0.45 : 1;
+      axis.cones[0].scale.set(thick * pos, sign > 0 ? 1.3 : 1, thick * pos);
+      axis.cones[1].scale.set(thick * neg, sign < 0 ? 1.3 : 1, thick * neg);
+    }
+    this.layoutTurn(aim.id, report);
+  }
+
+  /** One arc at the centre of mass, curling the way that push will turn the machine. */
+  private layoutTurn(focus: ThrustAxisId | null, report: ReturnType<typeof thrustGuides>): void {
+    let chosen: ThrustGuide | null = null;
+    if (focus && turnSweep(report[focus].miss, report[focus].spin) > 0) chosen = report[focus];
+    if (!chosen) {
+      for (const id of ["vertical", "side", "fore"] as const) {
+        const guide = report[id];
+        if (turnSweep(guide.miss, guide.spin) <= 0) continue;
+        if (!chosen || (guide.spin && !chosen.spin) || (guide.spin === chosen.spin && guide.miss > chosen.miss))
+          chosen = guide;
+      }
+    }
+    const sweep = chosen ? turnSweep(chosen.miss, chosen.spin) : 0;
+    const basis = chosen && sweep > 0.05 ? turnBasis(chosen.turnX, chosen.turnY, chosen.turnZ) : null;
+    this.turnArc.visible = !!basis;
+    if (!basis || !chosen) return;
+    if (Math.abs(sweep - this.turnShown) > 0.03) {
+      this.turnShown = sweep;
+      this.turnArc.geometry.dispose();
+      this.turnArc.geometry = new THREE.TorusGeometry(0.82, 0.028, 6, Math.max(10, Math.round(18 * sweep)), sweep);
+    }
+    this.turnX.fromArray(basis.x);
+    this.turnY.fromArray(basis.y);
+    this.turnZ.fromArray(basis.z);
+    this.turnArc.quaternion.setFromRotationMatrix(this.turnMatrix.makeBasis(this.turnX, this.turnY, this.turnZ));
+    this.turnMaterial.color.setHex(GUIDE_COLOR[turnAxisId(chosen.turnX, chosen.turnY, chosen.turnZ)]);
+    this.turnHead.position.set(Math.cos(sweep) * 0.82, Math.sin(sweep) * 0.82, 0);
+    this.turnTangent.set(-Math.sin(sweep), Math.cos(sweep), 0);
+    this.turnHead.quaternion.setFromUnitVectors(this.turnUp, this.turnTangent);
+  }
+
+  /** A bar from an off-axis thruster or balloon to the line its push should follow. */
+  private layoutMisses(): void {
+    const misses = thrustMisses(this.blueprint);
+    const up = new THREE.Vector3(0, 1, 0);
+    for (let i = 0; i < misses.length; i++) {
+      const miss = misses[i]!;
+      let mesh = this.missPool[i];
+      if (!mesh) {
+        mesh = new THREE.Mesh(this.missGeo, this.missMaterial[miss.axis]);
+        mesh.frustumCulled = false;
+        mesh.renderOrder = 12;
+        mesh.layers.enable(GARAGE_LAYER);
+        this.guide.add(mesh);
+        this.missPool.push(mesh);
+      }
+      const from = new THREE.Vector3().fromArray(miss.from);
+      const to = new THREE.Vector3().fromArray(miss.to);
+      const dir = to.clone().sub(from);
+      const length = dir.length();
+      mesh.visible = length > 1e-4;
+      if (!mesh.visible) continue;
+      mesh.material = this.missMaterial[miss.axis];
+      mesh.position.copy(from).add(to).multiplyScalar(0.5);
+      mesh.quaternion.setFromUnitVectors(up, dir.multiplyScalar(1 / length));
+      mesh.scale.set(1, length, 1);
+    }
+    for (let i = misses.length; i < this.missPool.length; i++) this.missPool[i]!.visible = false;
+  }
+
+  /** Yellow dot at the centre of mass. The cross is the three ways a push can go straight. */
+  private placeMarker(center: Cell): void {
+    this.marker.position.fromArray(center).add(this.origin);
+    const reach = guideReach(this.blueprint);
+    this.layoutGuide(this.guideAxes.vertical, reach.vertical);
+    this.layoutGuide(this.guideAxes.side, reach.side);
+    this.layoutGuide(this.guideAxes.fore, reach.fore);
+    this.layoutMisses();
+    this.emphasizeGuide();
   }
 
   private rebuild(): void {
@@ -722,21 +992,33 @@ export class MachineWorkshop {
     this.group.quaternion.identity();
     this.visual.rebuild(this.blueprint);
     this.group.add(this.visual.root);
-    this.marker.position
-      .fromArray(machineStats(this.blueprint).center)
-      .add(this.origin);
+    this.group.traverse(object => object.layers.enable(GARAGE_LAYER));
+    this.group.updateMatrixWorld(true);
+    this.previewBounds.makeEmpty();
+    for (const mesh of this.visual.meshes) {
+      mesh.computeBoundingBox();
+      if (mesh.boundingBox) this.previewBounds.union(this.previewPartBounds.copy(mesh.boundingBox).applyMatrix4(mesh.matrixWorld));
+    }
+    if (this.previewBounds.isEmpty()) this.previewFocus.copy(this.origin);
+    else this.previewBounds.getCenter(this.previewFocus);
+    this.placeMarker(machineStats(this.blueprint).center);
     this.ghost.root.visible = false;
     this.hovered = -1;
     this.placement = null;
+    this.stage.root.position.copy(this.origin);
+    this.stage.fit(this.blueprint);
   }
 
   private refresh(): void {
+    this.stage.root.visible = this.active && !this.physics;
+    this.marker.visible = this.active && !this.physics && this.showCenter;
     const view: BuildView = {
       blueprint: this.blueprint,
       stats: machineStats(this.blueprint),
       selected: this.selected,
       direction: this.direction,
       mirror: this.mirror,
+      centerVisible: this.showCenter,
       erase: this.erase,
       assist: this.assist,
       inspectMode:this.inspectMode,
@@ -745,15 +1027,19 @@ export class MachineWorkshop {
       canRedo: this.redoStack.length > 0,
       running: !!this.physics,
       loading: this.loading,
+      assetsReady: this.assets.loaded,
       message: this.statusLine(),
       tone: this.statusTone(),
       entries: this.entries,
+      recovery: this.store.recovery(),
       record: this.record,
     };
-    if(this.inspectMode&&this.inspectedIndex()>=0)this.visual.highlight(this.inspectedIndex(),HIGHLIGHT);
+    this.showInspection(this.inspectMode ? this.inspectedIndex() : -1);
     this.panel.update(view);
     this.panel.setShare(encodeShare(this.blueprint));
+    this.emphasizeGuide();
     this.ghost.set(this.selected, this.direction);
+    this.ghost.root.traverse(object => object.layers.enable(GARAGE_LAYER));
   }
 
   private statusLine(): string {
@@ -773,11 +1059,21 @@ export class MachineWorkshop {
 
   // ---------------------------------------------------------- 3D picking
 
+  /** Follow the actual block edges while preserving the selected paint colour. */
+  private showInspection(index: number): void {
+    this.visual.highlight(-1, HIGHLIGHT);
+    const outline = this.selectionOutline.object;
+    outline.visible = this.active && !this.physics && index >= 0;
+    if (!outline.visible) return;
+    this.group.updateMatrixWorld(true);
+    this.selectionOutline.show(this.visual.meshes, customizationScope(this.blueprint, index, this.mirror).indices);
+  }
+
   private aim(x: number, y: number): void {
     this.ghost.root.visible = false;
     this.hovered = -1;
     this.placement = null;
-    if (this.physics || this.loading) {
+    if (this.physics || this.loading || !this.panel.canEdit) {
       this.visual.highlight(-1, HIGHLIGHT);
       return;
     }
@@ -794,11 +1090,12 @@ export class MachineWorkshop {
     const index = hit ? this.visual.partIndex(hit) : undefined;
     if (!hit || index === undefined) {
       this.visual.highlight(-1, HIGHLIGHT);
+      if (this.inspectMode) this.showInspection(this.inspectedIndex());
       return;
     }
     const part = this.blueprint.parts[index]!;
     this.hovered = index;
-    if(this.inspectMode){this.visual.highlight(index,HIGHLIGHT);return;}
+    if(this.inspectMode){this.showInspection(this.inspectedIndex());return;}
     this.visual.highlight(this.erase ? index : -1, HIGHLIGHT);
     if (this.erase) return;
     const offset = this.scratch
@@ -807,23 +1104,49 @@ export class MachineWorkshop {
       .sub(this.desired.fromArray(part.cell));
     if(part.kind==="wheel"&&["body","wheel-hub"].includes(String(hit.object.userData.machineRole??"body")))offset.y+=0.65;
     const axes = [Math.abs(offset.x), Math.abs(offset.y), Math.abs(offset.z)];
+    // Use the actual hit face, including the instance's rotation. Picking by
+    // distance from a hollow cockpit's centre could aim at an occupied cell.
+    if (hit.face && hit.instanceId !== undefined && hit.object instanceof THREE.InstancedMesh) {
+      hit.object.getMatrixAt(hit.instanceId, this.partMatrix);
+      this.partMatrix.premultiply(hit.object.matrixWorld);
+      this.faceNormal.copy(hit.face.normal).transformDirection(this.partMatrix);
+      axes[0] = Math.abs(this.faceNormal.x);
+      axes[1] = Math.abs(this.faceNormal.y);
+      axes[2] = Math.abs(this.faceNormal.z);
+      offset.copy(this.faceNormal);
+    }
     const axis = axes.indexOf(Math.max(...axes)) as 0 | 1 | 2;
     const cell: Cell = [...part.cell];
     cell[axis] += Math.sign(offset.getComponent(axis)) || 1;
     this.placement = cell;
     this.ghost.set(this.selected,this.direction,wheelMountSide(this.blueprint,cell));
+    this.ghost.root.traverse(object => object.layers.enable(GARAGE_LAYER));
+    this.ghost.setErasing(this.blueprint.parts.some(part => part.cell.every((value, axis) => value === cell[axis])));
     this.ghost.root.position.fromArray(cell).add(this.origin);
     this.ghost.root.visible = true;
   }
 
-  private frameCamera(): void {
-    const cells = this.blueprint.parts.map((p) => p.cell);
-    const span = Math.max(
-      3,
-      ...cells.map((c) => Math.max(Math.abs(c[0]), Math.abs(c[1]), Math.abs(c[2]))),
-    );
-    this.distance = THREE.MathUtils.clamp(span * 2.6 + 5, 6, 38);
-    this.elevation = 0.42;
+  private frameCamera(elevation = .42): void {
+    this.elevation = elevation;
+    if (this.previewBounds.isEmpty()) { this.distance = 10.5; return; }
+    // Fit the real geometry into the clear stage above the workbench.
+    const out = new THREE.Vector3(Math.sin(this.theta) * Math.cos(this.elevation), Math.sin(this.elevation), Math.cos(this.theta) * Math.cos(this.elevation));
+    const right = new THREE.Vector3(out.z, 0, -out.x).normalize();
+    const up = new THREE.Vector3().crossVectors(out, right);
+    const tangent = Math.tan(THREE.MathUtils.degToRad(this.camera.fov / 2));
+    const vertical = tangent * (this.panel.previewHeight || window.innerHeight * .48) / window.innerHeight * .8;
+    const lane = this.panel.balanceLane;
+    const widthScale = lane > 0 ? Math.max(0.62, (window.innerWidth - lane) / window.innerWidth) : 1;
+    const horizontal = tangent * window.innerWidth / window.innerHeight * (this.panel.previewWidth || window.innerWidth) / window.innerWidth * .88 * widthScale;
+    const point = new THREE.Vector3();
+    let required = 1;
+    for (const x of [this.previewBounds.min.x, this.previewBounds.max.x])
+      for (const y of [this.previewBounds.min.y, this.previewBounds.max.y])
+        for (const z of [this.previewBounds.min.z, this.previewBounds.max.z]) {
+          point.set(x, y, z).sub(this.previewFocus);
+          required = Math.max(required, point.dot(out) + Math.abs(point.dot(right)) / horizontal, point.dot(out) + Math.abs(point.dot(up)) / vertical);
+        }
+    this.distance = Math.max(6, required / this.panel.previewZoom);
   }
 
   // ------------------------------------------------------------ test run
@@ -1011,20 +1334,27 @@ export class MachineWorkshop {
   }
 
   private renderBuilding(): void {
-    this.target.copy(this.group.position).add(this.scratch.set(0, 0.5, 0));
-    this.orbitCamera();
+    this.camera.layers.set(GARAGE_LAYER);
+    const viewport = `${window.innerWidth}:${window.innerHeight}:${this.panel.previewWidth}:${this.panel.previewHeight}:${this.panel.balanceLane}`;
+    if (viewport !== this.previewViewport) {
+      this.previewViewport = viewport;
+      this.frameCamera(this.elevation);
+    }
+    this.target.copy(this.previewFocus);
+    this.orbitCamera(this.distance * this.panel.previewZoom);
     // Leave space for the tool palette without skewing the machine itself.
     this.camera.setViewOffset(
       window.innerWidth,
       window.innerHeight,
-      -Math.min(170, window.innerWidth * 0.17),
-      0,
+      this.panel.balanceLane / 2,
+      this.panel.previewOffsetY,
       window.innerWidth,
       window.innerHeight,
     );
   }
 
   private renderDriving(dt: number): void {
+    this.camera.layers.mask = this.baseCameraLayers;
     const physics = this.physics!;
     const p = physics.body.translation(),
       q = physics.body.rotation();
@@ -1176,7 +1506,7 @@ export class MachineWorkshop {
     }
   }
 
-  private orbitCamera(): void {
+  private orbitCamera(distance = this.distance): void {
     const offset = this.scratch.set(
       Math.sin(this.theta) * Math.cos(this.elevation),
       Math.sin(this.elevation),
@@ -1184,11 +1514,28 @@ export class MachineWorkshop {
     );
     this.camera.position
       .copy(this.target)
-      .addScaledVector(offset, this.distance);
+      .addScaledVector(offset, distance);
     this.camera.lookAt(this.target);
   }
 
   // ------------------------------------------------------------- exposed
+
+  private previewFootprint(): { left: number; top: number; right: number; bottom: number } | null {
+    if (!this.active || this.physics || this.previewBounds.isEmpty()) return null;
+    const rect = { left: Infinity, top: Infinity, right: -Infinity, bottom: -Infinity };
+    for (const x of [this.previewBounds.min.x, this.previewBounds.max.x]) {
+      for (const y of [this.previewBounds.min.y, this.previewBounds.max.y]) {
+        for (const z of [this.previewBounds.min.z, this.previewBounds.max.z]) {
+          this.scratch.set(x, y, z).project(this.camera);
+          const px = (this.scratch.x + 1) * window.innerWidth / 2;
+          const py = (1 - this.scratch.y) * window.innerHeight / 2;
+          rect.left = Math.min(rect.left, px); rect.right = Math.max(rect.right, px);
+          rect.top = Math.min(rect.top, py); rect.bottom = Math.max(rect.bottom, py);
+        }
+      }
+    }
+    return rect;
+  }
 
   snapshot() {
     return {
@@ -1197,6 +1544,15 @@ export class MachineWorkshop {
       blueprint: cloneBlueprint(this.blueprint),
       simulation: this.physics?.snapshot() ?? null,
       assetsLoaded: this.assets.loaded,
+      editor: {
+        screen: this.panel.element.dataset.screen,
+        inspectMode: this.inspectMode,
+        inspected: this.inspectedIndex(),
+        scope: customizationScope(this.blueprint, this.inspectedIndex(), this.mirror),
+        hovered: this.hovered,
+        placement: this.placement ? [...this.placement] : null,
+        preview: this.previewFootprint(),
+      },
       science: this.science?.snapshot() ?? null,
       mirror: this.mirror,
       erase: this.erase,
@@ -1207,11 +1563,18 @@ export class MachineWorkshop {
       missions: this.run?.progress() ?? null,
       record: this.record,
       library: this.entries.map((e) => e.id),
+      recovery: this.store.recovery().map(entry => entry.id),
       share: encodeShare(this.blueprint),
     };
   }
 
   dispose(): void {
+    window.clearTimeout(this.messageTimeout);
+    this.restoreCamera();
+    this.stage.dispose();
+    this.selectionOutline.dispose();
+    this.thumbnails.dispose();
+    this.selectionOutline.object.removeFromParent();
     this.generation++;
     this.events.abort();
     this.physics?.dispose();
@@ -1232,8 +1595,14 @@ export class MachineWorkshop {
     this.assets.dispose();
     this.marker.geometry.dispose();
     (this.marker.material as THREE.Material).dispose();
-    this.markerRing.geometry.dispose();
-    (this.markerRing.material as THREE.Material).dispose();
+    this.guideShaft.dispose();
+    this.guideCone.dispose();
+    this.missGeo.dispose();
+    this.turnArc.geometry.dispose();
+    this.turnHead.geometry.dispose();
+    this.turnMaterial.dispose();
+    for (const axis of Object.values(this.guideAxes)) axis.material.dispose();
+    for (const material of Object.values(this.missMaterial)) material.dispose();
     this.launch.remove();
     this.panel.element.remove();
     this.hud.element.remove();

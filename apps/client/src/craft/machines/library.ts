@@ -15,6 +15,7 @@ import {
  * keeps playing, it just stops remembering.
  */
 const LIBRARY_KEY = "craftyap-machine-library-v1";
+const SAFE_LIBRARY_KEY = "craftyap-machine-library-v2";
 const MISSION_KEY = "craftyap-machine-missions-v1";
 export const LIBRARY_SLOTS = 12;
 const SHARE_PREFIX = "CYM1.";
@@ -43,7 +44,7 @@ const EMPTY_RECORD: MissionRecord = {
 function read(key: string): unknown {
   try {
     const raw = localStorage.getItem(key);
-    return raw && raw.length < 400_000 ? JSON.parse(raw) : null;
+    return raw && raw.length < (key === SAFE_LIBRARY_KEY ? 1_600_000 : 400_000) ? JSON.parse(raw) : null;
   } catch {
     return null;
   }
@@ -57,41 +58,109 @@ function write(key: string, value: unknown): boolean {
   }
 }
 
+interface LibrarySnapshot {
+  entries: LibraryEntry[];
+  recovery: LibraryEntry[];
+}
+
+function validEntries(raw: unknown): LibraryEntry[] {
+  if (!Array.isArray(raw)) return [];
+  const entries: LibraryEntry[] = [];
+  const seen = new Set<string>();
+  for (const item of raw.slice(0, LIBRARY_SLOTS)) {
+    if (!item || typeof item !== "object") continue;
+    const { id, blueprint, updated } = item as LibraryEntry;
+    const valid = validateBlueprint(blueprint);
+    if (!valid || typeof id !== "string" || !id || id.length > 48 || seen.has(id)) continue;
+    seen.add(id);
+    entries.push({ id, blueprint: valid, updated: Number.isFinite(updated) ? updated : 0 });
+  }
+  return entries;
+}
+
+function librarySnapshot(): LibrarySnapshot {
+  const raw = read(SAFE_LIBRARY_KEY) as Partial<LibrarySnapshot> | null;
+  if (raw && Array.isArray(raw.entries) && Array.isArray(raw.recovery))
+    return { entries: validEntries(raw.entries), recovery: validEntries(raw.recovery) };
+  // Keep the original saves intact; migrate only after a successful write.
+  return { entries: validEntries(read(LIBRARY_KEY)), recovery: [] };
+}
+
+function entryId(): string {
+  return globalThis.crypto?.randomUUID?.() ?? `machine-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+}
+
 export class MachineStore {
   /** True when the last write was rejected, so the UI can say so once. */
   failed = false;
+  failure: "full" | "storage" | null = null;
 
   entries(): LibraryEntry[] {
-    const raw = read(LIBRARY_KEY);
-    if (!Array.isArray(raw)) return [];
-    const entries: LibraryEntry[] = [];
-    for (const item of raw.slice(0, LIBRARY_SLOTS)) {
-      if (!item || typeof item !== "object") continue;
-      const { id, blueprint, updated } = item as LibraryEntry;
-      const valid = validateBlueprint(blueprint);
-      if (!valid || typeof id !== "string" || id.length > 48) continue;
-      entries.push({
-        id,
-        blueprint: valid,
-        updated: Number.isFinite(updated) ? updated : 0,
-      });
-    }
-    return entries;
+    return librarySnapshot().entries;
   }
 
-  /** Insert or replace by id; returns the stored list so callers can re-render. */
+  recovery(): LibraryEntry[] {
+    return librarySnapshot().recovery;
+  }
+
+  /** A save always gets its own identity, even when its name is unchanged. */
+  create(blueprint: Blueprint, now: number): LibraryEntry[] {
+    const entries = this.entries();
+    const copy = structuredClone(blueprint);
+    const base = copy.name || "My machine";
+    let name = base, version = 2;
+    while (entries.some(entry => entry.blueprint.name === name)) {
+      const suffix = ` (${version++})`;
+      name = `${base.slice(0, 48 - suffix.length)}${suffix}`;
+    }
+    copy.name = name;
+    return this.put(entryId(), copy, now);
+  }
+
+  /** Replacement is explicit; the previous version remains recoverable. */
   put(id: string, blueprint: Blueprint, now: number): LibraryEntry[] {
-    const entries = this.entries().filter((e) => e.id !== id);
+    const current = librarySnapshot();
+    const previous = current.entries.find(entry => entry.id === id);
+    if (!previous && current.entries.length >= LIBRARY_SLOTS) return this.full(current);
+    const entries = current.entries.filter(entry => entry.id !== id);
     entries.unshift({ id, blueprint: structuredClone(blueprint), updated: now });
-    const kept = entries.slice(0, LIBRARY_SLOTS);
-    this.failed = !write(LIBRARY_KEY, kept);
-    return kept;
+    const recovery = previous
+      ? [{ ...previous, id: entryId() }, ...current.recovery].slice(0, LIBRARY_SLOTS)
+      : current.recovery;
+    return this.persist({ entries, recovery }) ? entries : current.entries;
   }
 
   remove(id: string): LibraryEntry[] {
-    const kept = this.entries().filter((e) => e.id !== id);
-    this.failed = !write(LIBRARY_KEY, kept);
-    return kept;
+    const current = librarySnapshot();
+    const entry = current.entries.find(entry => entry.id === id);
+    if (!entry) return current.entries;
+    const entries = current.entries.filter(entry => entry.id !== id);
+    const recovery = [entry, ...current.recovery.filter(item => item.id !== id)].slice(0, LIBRARY_SLOTS);
+    // Removal and recovery are one atomic storage write.
+    return this.persist({ entries, recovery }) ? entries : current.entries;
+  }
+
+  restore(id: string): LibraryEntry[] {
+    const current = librarySnapshot();
+    const entry = current.recovery.find(entry => entry.id === id);
+    if (!entry) return current.entries;
+    if (current.entries.length >= LIBRARY_SLOTS) return this.full(current);
+    const restored = { ...entry, id: current.entries.some(item => item.id === id) ? entryId() : id };
+    const entries = [restored, ...current.entries];
+    const recovery = current.recovery.filter(entry => entry.id !== id);
+    return this.persist({ entries, recovery }) ? entries : current.entries;
+  }
+
+  private full(current: LibrarySnapshot): LibraryEntry[] {
+    this.failed = true;
+    this.failure = "full";
+    return current.entries;
+  }
+
+  private persist(snapshot: LibrarySnapshot): boolean {
+    this.failed = !write(SAFE_LIBRARY_KEY, snapshot);
+    this.failure = this.failed ? "storage" : null;
+    return !this.failed;
   }
 
   record(): MissionRecord {

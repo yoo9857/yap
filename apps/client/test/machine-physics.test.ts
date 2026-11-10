@@ -341,7 +341,7 @@ describe("pilot assist (uses the machine's own gyro and thrusters, never new for
     expect(raw).toBeGreaterThan(assisted * 3);
   });
 
-  it("hands control straight back the moment the pilot touches the stick", () => {
+  it("banks toward the stick and stays flat with hands off", () => {
     const rolled = (roll: number): number => {
       let tilt = 0;
       simulate(
@@ -359,9 +359,11 @@ describe("pilot assist (uses the machine's own gyro and thrusters, never new for
       );
       return tilt;
     };
-    // Assist holds it flat with hands off, and gets out of the way on input.
+    // Hands off stays flat. On the stick, assist banks toward a small angle
+    // instead of spinning the machine over.
     expect(rolled(0)).toBeLessThan(0.02);
     expect(rolled(1)).toBeGreaterThan(0.08);
+    expect(rolled(1)).toBeLessThan(0.7);
   });
 
   it("holds altitude on its own thrusters, and still falls when the build cannot lift itself", () => {
@@ -406,5 +408,71 @@ describe("pilot assist (uses the machine's own gyro and thrusters, never new for
       expect(s.hoverThrottle).toBe(0);
       expect(s.speed).toBeLessThan(0.5);
     }));
+
+  it("flies forward on a held pitch instead of tumbling", () => {
+    const pose = (sim: MachinePhysics) => {
+      const q = sim.snapshot().rotation;
+      const rot = new Quaternion(q.x, q.y, q.z, q.w);
+      const up = new Vector3(0, 1, 0).applyQuaternion(rot);
+      const nose = new Vector3(0, 0, 1).applyQuaternion(rot);
+      const s = sim.snapshot();
+      return {
+        tilt: Math.acos(Math.max(-1, Math.min(1, up.y))),
+        uy: up.y,
+        noseY: nose.y,
+        z: s.position.z,
+        y: s.position.y,
+        vz: s.velocity.z,
+      };
+    };
+    let held = { tilt: 0, uy: 1, noseY: 0, z: 80, y: 60, vz: 0 };
+    let settled = held;
+    simulate(
+      preset("plane"),
+      (sim) => {
+        sim.body.setTranslation({ x: 80, y: 60, z: 80 }, true);
+        let worst = pose(sim);
+        for (let i = 0; i < 480; i++) {
+          sim.step({ ...ASSISTED, pitch: 1 });
+          const now = pose(sim);
+          if (now.tilt > worst.tilt) worst = now;
+        }
+        held = worst;
+        const end = pose(sim);
+        // 8 s of ArrowUp: well forward, still flying, nowhere near inverted.
+        // The old gyro torque was past 90° and falling by 6 s.
+        expect(end.z).toBeGreaterThan(110);
+        expect(end.vz).toBeGreaterThan(2);
+        expect(end.y).toBeGreaterThan(54);
+        expect(end.noseY).toBeLessThan(0);
+        for (let i = 0; i < 180; i++) sim.step(ASSISTED);
+        settled = pose(sim);
+      },
+      new VoxelWorld(),
+    );
+    // ~23° target. The old open-loop torque was past 90° and falling by 6 s.
+    expect(held.tilt).toBeLessThan(0.65);
+    expect(held.uy).toBeGreaterThan(0.75);
+    expect(settled.tilt).toBeLessThan(0.2);
+    expect(settled.uy).toBeGreaterThan(0.97);
+  });
+
+  it("still tumbles on a held pitch when assist is off", () => {
+    let worst = 0;
+    simulate(
+      preset("plane"),
+      (sim) => {
+        sim.body.setTranslation({ x: 80, y: 80, z: 80 }, true);
+        for (let i = 0; i < 480; i++) {
+          sim.step({ ...IDLE_INPUT, pitch: 1 });
+          const q = sim.snapshot().rotation;
+          const uy = 1 - 2 * (q.x * q.x + q.z * q.z);
+          worst = Math.max(worst, Math.acos(Math.max(-1, Math.min(1, uy))));
+        }
+      },
+      new VoxelWorld(),
+    );
+    expect(worst).toBeGreaterThan(1.2);
+  });
 });
 
