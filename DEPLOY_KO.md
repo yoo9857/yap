@@ -134,7 +134,7 @@ health·정적 MIME·캐시 헤더·OG 태그·`/ws` 핸드셰이크까지 한 �
 # 수동 실행
 bash scripts/backup-db.sh
 # 매일 04:30 자동 (crontab -e)
-30 4 * * * /srv/craftyap/app/scripts/backup-db.sh >> /srv/craftyap/logs/backup.log 2>&1
+30 4 * * * /bin/bash /srv/craftyap/app/scripts/backup-db.sh >> /srv/craftyap/logs/backup.log 2>&1
 ```
 `/srv/craftyap/backups/`에 gz로 14일 보관. poke 백업과 완전히 별개입니다.
 

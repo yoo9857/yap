@@ -3,7 +3,7 @@
 # (independent of poke).
 # Safe hot backup via sqlite3 .backup (handles the WAL). Keeps 14 days.
 # Cron example (daily 04:30):
-#   30 4 * * * /srv/craftyap/app/scripts/backup-db.sh >> /srv/craftyap/logs/backup.log 2>&1
+#   30 4 * * * /bin/bash /srv/craftyap/app/scripts/backup-db.sh >> /srv/craftyap/logs/backup.log 2>&1
 set -euo pipefail
 
 # zero-downtime deploys alternate two compose projects: talk to the live one
