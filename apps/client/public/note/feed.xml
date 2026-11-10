@@ -4,8 +4,39 @@
   <link href="https://craftyap.com/note/" />
   <link rel="self" href="https://craftyap.com/note/feed.xml" />
   <id>https://craftyap.com/note/</id>
-  <updated>2026-11-07T00:00:00+09:00</updated>
+  <updated>2026-11-10T00:00:00+09:00</updated>
   <author><name>크래프트얍(CraftYap)</name></author>
+  <entry xml:base="https://craftyap.com/">
+    <title>11월 10일 패치 노트 — F2에서 반 전체 물 한 번에 빼기</title>
+    <link href="https://craftyap.com/note/patch-2026-11-10/" />
+    <id>https://craftyap.com/note/patch-2026-11-10/</id>
+    <published>2026-11-10T00:00:00+09:00</published>
+    <updated>2026-11-10T00:00:00+09:00</updated>
+    <summary>선생님 수업 도구에 빠르게 물 빼기를 추가했어요. 학생들이 설치한 물과 퍼진 물을 반 전체에서 한 번에 정리하고, 건물과 가구는 그대로 남겨요.</summary>
+    <content type="html">&lt;h2&gt;한눈에 보기&lt;/h2&gt;
+&lt;p&gt;학생들이 물을 많이 설치해 들판이 잠겼을 때, 선생님이 &lt;strong&gt;F2 → 💧 빠르게 물 빼기&lt;/strong&gt;를 누르면 반 전체의 물을 한 번에 없앨 수 있어요. &lt;strong&gt;학생들이 만든 건물과 가구는 그대로&lt;/strong&gt; 남고, 정리된 모습은 선생님과 학생 화면에 함께 반영돼요.&lt;/p&gt;
+&lt;h2&gt;BEFORE / AFTER&lt;/h2&gt;
+&lt;p&gt;&lt;img src=&quot;/note/assets/20261110-class-water-drain-ba.webp&quot; alt=&quot;선생님 F2 수업 도구 비교: 이전 화면에는 들판 비우기와 수업 종료만 있고, 업데이트 후에는 아래쪽에 파란색 빠르게 물 빼기 버튼이 추가됐다&quot;&gt;&lt;/p&gt;
+&lt;h2&gt;새로 추가&lt;/h2&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;F2 → 빠르게 물 빼기&lt;/strong&gt; — 수업 도구 아래쪽의 파란 버튼을 누르면 바로 실행돼요. 휴대폰·태블릿에서는 선생님의 수업 도구 버튼으로 같은 메뉴를 열 수 있어요.&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;반 전체의 물을 정리해요&lt;/strong&gt; — 어느 학생이 설치했든 물의 근원, 퍼지는 물, 고인 물, 모양 블록 안에 들어간 물까지 제거해요. 지금 화면 밖에 있는 물도 함께 정리돼요.&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;선생님만 실행할 수 있어요&lt;/strong&gt; — 학생 화면에는 이 버튼이 없어요.&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2&gt;개선&lt;/h2&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;만든 것은 유지해요&lt;/strong&gt; — 건물·가구와 수업 설정을 유지하면서 물만 제거해요. 들판을 통째로 비우지 않아도 돼요.&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;반 모두 같은 화면으로&lt;/strong&gt; — 물이 많아도 정리 명령을 한 번에 전달해요. 학생들이 수업에서 나가거나 새로 들어올 필요가 없어요.&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;다시 들어와도 정리된 들판&lt;/strong&gt; — 물을 뺀 결과도 반에 저장돼요. 멀리 갔다 돌아오거나 새로고침해도 제거한 물이 다시 나타나지 않아요.&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2&gt;알아 두기&lt;/h2&gt;
+&lt;ul&gt;
+&lt;li&gt;이 버튼은 &lt;strong&gt;반 전체&lt;/strong&gt;를 정리해요. 특정 학생의 물만 골라 제거하는 기능은 아니에요.&lt;/li&gt;
+&lt;li&gt;정리 후에도 학생들은 새로 물을 설치할 수 있어요. 물을 정리하는 동안 건축을 잠시 멈추려면 F2의 &lt;strong&gt;건축 잠금&lt;/strong&gt;을 함께 사용할 수 있어요.&lt;/li&gt;
+&lt;li&gt;업데이트 후 열려 있던 교실 화면은 같은 반으로 자동 재접속해요. 버튼이 보이지 않으면 한 번 새로고침해 주세요.&lt;/li&gt;
+&lt;/ul&gt;
+</content>
+  </entry>
   <entry xml:base="https://craftyap.com/">
     <title>11월 7일 패치 노트 (2) — 휴대폰·태블릿에서도 블록 쌓기</title>
     <link href="https://craftyap.com/note/patch-2026-11-07-2/" />
@@ -620,37 +651,6 @@
 &lt;h2&gt;버그 수정&lt;/h2&gt;
 &lt;ul&gt;
 &lt;li&gt;&lt;strong&gt;교실 로비 · 반 만들기 · 반 참여하기 · 반 확인 · 로딩창&lt;/strong&gt; — 흰 카드가 블록 테두리 밑까지 채워지고 모서리 둥글기도 테두리 그림에 맞췄어요. 휴대폰 화면도 같아요.&lt;/li&gt;
-&lt;/ul&gt;
-</content>
-  </entry>
-  <entry xml:base="https://craftyap.com/">
-    <title>11월 3일 패치 노트 (7) — 새로 만든 자동차 부품, 부품마다 색과 성능을 바꿔요</title>
-    <link href="https://craftyap.com/note/patch-2026-11-03-7/" />
-    <id>https://craftyap.com/note/patch-2026-11-03-7/</id>
-    <published>2026-11-03T00:00:00+09:00</published>
-    <updated>2026-11-03T00:00:00+09:00</updated>
-    <summary>기계 작업실의 모든 부품을 새로 모델링한 블록 키트 2.0으로 바꿨어요. 조립한 부품을 하나씩 골라 색과 무게, 바퀴 크기, 접지력, 서스펜션, 힘 같은 성능을 바꾸고 시험 운전으로 차이를 비교할 수 있어요.</summary>
-    <content type="html">&lt;h2&gt;한눈에 보기&lt;/h2&gt;
-&lt;p&gt;기계 작업실(&lt;strong&gt;B&lt;/strong&gt;)의 자동차·비행기 부품을 &lt;strong&gt;새로 모델링한 블록 키트 2.0&lt;/strong&gt;으로 바꿨어요. 장난감 블록처럼 둥글고 따뜻한 색이 됐어요. 이제 조립한 부품을 &lt;strong&gt;하나씩 골라 색과 성능을 바꾸고&lt;/strong&gt;, 시험 운전으로 무엇이 달라지는지 직접 비교할 수 있어요.&lt;/p&gt;
-&lt;h2&gt;BEFORE / AFTER&lt;/h2&gt;
-&lt;p&gt;&lt;strong&gt;기계 작업실의 초원 탐사차&lt;/strong&gt; — 회색 판과 검은 뼈대였던 부품이, 둥근 블록과 새 바퀴, 민트색 조종석으로 바뀌었어요.&lt;/p&gt;
-&lt;p&gt;&lt;img src=&quot;/note/assets/20261103-machine-kit-ba.webp&quot; alt=&quot;기계 작업실 비교: 왼쪽은 회색 판과 검은 뼈대의 이전 탐사차, 오른쪽은 크림색 블록과 둥근 바퀴, 민트색 조종석의 새 탐사차&quot;&gt;&lt;/p&gt;
-&lt;h2&gt;새로 추가&lt;/h2&gt;
-&lt;ul&gt;
-&lt;li&gt;&lt;strong&gt;부품 키트 2.0&lt;/strong&gt; — 프레임, 조종석, 무게추, 구동 바퀴, 추진기, 자이로, 날개, 기구 8종을 모두 새로 만들었어요. 바퀴는 회전, 조향, 서스펜션이 연결된 구조가 그대로 보여요.&lt;/li&gt;
-&lt;li&gt;&lt;strong&gt;조립한 부품 조정 (V)&lt;/strong&gt; — 조립한 부품을 고르고 아래를 바꿀 수 있어요. 바꾼 뒤 &lt;strong&gt;Enter&lt;/strong&gt;로 시험 운전해서 차이를 확인해 보세요.&lt;ul&gt;
-&lt;li&gt;&lt;strong&gt;블록 색&lt;/strong&gt;: 크림, 민트, 꿀빛, 살구, 하늘, 연보라, 돌빛&lt;/li&gt;
-&lt;li&gt;&lt;strong&gt;재료의 무게&lt;/strong&gt;(프레임·조종석·무게추): 가볍게 / 기본 / 무겁게&lt;/li&gt;
-&lt;li&gt;&lt;strong&gt;바퀴&lt;/strong&gt;: 크기, 타이어 접지력, 서스펜션&lt;/li&gt;
-&lt;li&gt;&lt;strong&gt;추진기·자이로&lt;/strong&gt;: 힘의 세기 · &lt;strong&gt;날개&lt;/strong&gt;: 면적 · &lt;strong&gt;기구&lt;/strong&gt;: 부력&lt;/li&gt;
-&lt;/ul&gt;
-&lt;/li&gt;
-&lt;li&gt;바꾼 설정은 설계도와 함께 저장되고, 공유 코드에도 들어가요.&lt;/li&gt;
-&lt;/ul&gt;
-&lt;p&gt;&lt;img src=&quot;/note/assets/20261103-machine-parts.webp&quot; alt=&quot;부품 학습 작업대: 탐사차의 구동 바퀴를 고르고 블록 색, 바퀴 크기, 타이어 접지력, 서스펜션을 바꾸는 화면&quot;&gt;&lt;/p&gt;
-&lt;h2&gt;개선&lt;/h2&gt;
-&lt;ul&gt;
-&lt;li&gt;부품 모델은 지금처럼 &lt;strong&gt;기계 작업실을 처음 열 때만&lt;/strong&gt; 받아요. 섬을 그냥 돌아다닐 때는 로딩이 늘지 않아요. 휴대폰처럼 작은 화면에서는 더 가벼운 모델을 받아요.&lt;/li&gt;
 &lt;/ul&gt;
 </content>
   </entry>

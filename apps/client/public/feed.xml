@@ -6,7 +6,14 @@
     <atom:link href="https://craftyap.com/feed.xml" rel="self" type="application/rss+xml" />
     <description>크래프트얍(CraftYap) 패치 노트와 개발 이야기</description>
     <language>ko</language>
-    <lastBuildDate>Fri, 06 Nov 2026 15:00:00 +0000</lastBuildDate>
+    <lastBuildDate>Mon, 09 Nov 2026 15:00:00 +0000</lastBuildDate>
+    <item>
+      <title>11월 10일 패치 노트 — F2에서 반 전체 물 한 번에 빼기</title>
+      <link>https://craftyap.com/note/patch-2026-11-10/</link>
+      <guid isPermaLink="true">https://craftyap.com/note/patch-2026-11-10/</guid>
+      <pubDate>Mon, 09 Nov 2026 15:00:00 +0000</pubDate>
+      <description>선생님 수업 도구에 빠르게 물 빼기를 추가했어요. 학생들이 설치한 물과 퍼진 물을 반 전체에서 한 번에 정리하고, 건물과 가구는 그대로 남겨요.</description>
+    </item>
     <item>
       <title>11월 7일 패치 노트 (2) — 휴대폰·태블릿에서도 블록 쌓기</title>
       <link>https://craftyap.com/note/patch-2026-11-07-2/</link>
@@ -139,13 +146,6 @@
       <guid isPermaLink="true">https://craftyap.com/note/patch-2026-11-03-8/</guid>
       <pubDate>Mon, 02 Nov 2026 15:00:00 +0000</pubDate>
       <description>교육 모드 로비와 로딩창에서 블록 테두리와 안쪽 흰 카드가 어긋나 사이로 배경 그림이 비치던 문제를 고쳤어요.</description>
-    </item>
-    <item>
-      <title>11월 3일 패치 노트 (7) — 새로 만든 자동차 부품, 부품마다 색과 성능을 바꿔요</title>
-      <link>https://craftyap.com/note/patch-2026-11-03-7/</link>
-      <guid isPermaLink="true">https://craftyap.com/note/patch-2026-11-03-7/</guid>
-      <pubDate>Mon, 02 Nov 2026 15:00:00 +0000</pubDate>
-      <description>기계 작업실의 모든 부품을 새로 모델링한 블록 키트 2.0으로 바꿨어요. 조립한 부품을 하나씩 골라 색과 무게, 바퀴 크기, 접지력, 서스펜션, 힘 같은 성능을 바꾸고 시험 운전으로 차이를 비교할 수 있어요.</description>
     </item>
   </channel>
 </rss>
