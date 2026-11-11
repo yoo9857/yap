@@ -4,8 +4,111 @@
   <link href="https://craftyap.com/note/" />
   <link rel="self" href="https://craftyap.com/note/feed.xml" />
   <id>https://craftyap.com/note/</id>
-  <updated>2026-11-10T00:00:00+09:00</updated>
+  <updated>2026-11-11T00:00:00+09:00</updated>
   <author><name>크래프트얍(CraftYap)</name></author>
+  <entry xml:base="https://craftyap.com/">
+    <title>11월 11일 패치 노트 — 자동차·헬리콥터 모델과 기계 작업실 개편</title>
+    <link href="https://craftyap.com/note/patch-2026-11-11/" />
+    <id>https://craftyap.com/note/patch-2026-11-11/</id>
+    <published>2026-11-11T00:00:00+09:00</published>
+    <updated>2026-11-11T00:00:00+09:00</updated>
+    <summary>자동차·헬리콥터 모델링과 기계 작업실 UI/UX, 블록별 커스텀을 개선했어요. 로딩·멀티플레이 추가 최적화의 검증 상황도 함께 안내해요.</summary>
+    <content type="html">&lt;blockquote&gt;
+&lt;p&gt;자동차·헬리콥터 모델과 기계 작업실 개편 내용을 먼저 안내해요. 아래 &amp;#39;추가 최적화 · 배포 전 검증&amp;#39;에 있는 로딩·멀티플레이 개선은 로컬 검증 단계이며, 운영 반영 시 후속 패치노트로 알려 드릴게요.&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;h2&gt;한눈에 보기&lt;/h2&gt;
+&lt;p&gt;&lt;strong&gt;자동차·헬리콥터 모델링, 기계 작업실 UI/UX, 블록 커스텀을 함께 개선했어요.&lt;/strong&gt; 기계를 크게 살펴보면서 조립하고, 선택한 블록의 색과 성능을 바꾼 뒤 시험 운전까지 이어갈 수 있도록 화면 구성을 정리했어요.&lt;/p&gt;
+&lt;h2&gt;BEFORE / AFTER&lt;/h2&gt;
+&lt;p&gt;&lt;img src=&quot;/note/assets/20261111-machine-workshop-ba.webp&quot; alt=&quot;왼쪽은 긴 세로 패널에 기능이 모여 있던 이전 작업실이고, 오른쪽은 상단 작업 탭과 하단 블록 팔레트, 중앙 기계 미리보기로 개편한 작업실이에요.&quot;&gt;&lt;/p&gt;
+&lt;p&gt;이전에 보관한 작업실 화면과 현재 로컬 검증 화면을 비교했어요.&lt;/p&gt;
+&lt;h2&gt;새로 추가&lt;/h2&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;Skylark 헬리콥터 모델&lt;/strong&gt; — 전용 헬리콥터 모델과 예제를 기계 작업실에 연결했어요. 조종석, 엔진 팩, 메인 로터, 꼬리 로터, 스키드 등 실제 모델의 구성 부품을 살펴볼 수 있어요.&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;헬리콥터 부품 살펴보기&lt;/strong&gt; — 모델 부품을 선택하고 분해 보기로 각 부품의 배치와 연결 관계를 확인할 수 있어요.&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2&gt;개선&lt;/h2&gt;
+&lt;h3&gt;자동차·헬리콥터 모델링&lt;/h3&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;자동차와 기계 블록 표현&lt;/strong&gt; — 차체, 조종석, 바퀴, 추진기 등의 입체 표현과 부품 이미지를 다듬었어요. 화면에서 고르는 부품과 조립된 기계의 형태를 알아보기 쉬워졌어요.&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;헬리콥터 표현&lt;/strong&gt; — 로터와 조종석 문 등 모델의 움직임을 작업실과 시험 운전 상태에 맞게 연결했어요.&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;기계를 크게 살펴보기&lt;/strong&gt; — 중앙 미리보기 공간을 확보하고 정면·측면·위·전체 보기와 회전·확대 조작을 정리했어요.&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3&gt;기계 작업실 UI/UX&lt;/h3&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;작업별 화면 구성&lt;/strong&gt; — 블록 조립, 블록 커스텀, 시험 운전, 설계도 보관함, 조작법을 각각의 화면으로 나눴어요.&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;가로형 블록 팔레트&lt;/strong&gt; — 조립 화면 아래에서 구조·구동·비행 부품을 골라 붙일 수 있어요. 부품은 실제 블록 이미지로 표시해요.&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;버튼과 작업 순서 정리&lt;/strong&gt; — 실행 취소·다시 실행·지우개와 시험 운전 버튼의 위치를 정리하고, 추가 도구와 복구 기능은 펼쳐서 사용할 수 있게 했어요.&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;화면 크기 대응&lt;/strong&gt; — 작은 화면에서도 주요 버튼과 미리보기 영역이 겹치지 않도록 배치와 간격을 다듬었어요.&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3&gt;블록 커스텀과 설계&lt;/h3&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;선택한 블록을 직접 커스텀&lt;/strong&gt; — 조립된 기계에서 블록을 선택하고 외형과 성능을 바꿀 수 있도록 편집 흐름을 개선했어요.&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;외형과 성능 설정 정리&lt;/strong&gt; — 블록 색과 재료 무게, 바퀴 크기·접지력·서스펜션, 추진력, 날개 면적, 기구 부력 등 부품별 설정을 확인하기 쉽게 정리했어요.&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;좌우 함께 편집&lt;/strong&gt; — 대칭 편집을 기본으로 시작하고, 선택한 블록과 짝을 이루는 반대편 블록에도 설정을 적용할 수 있어요.&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;균형과 추진 방향 안내&lt;/strong&gt; — 무게중심과 기울기, 추진 방향을 눈으로 확인하면서 부품의 위치와 방향을 조정할 수 있어요.&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;설계도 보관함&lt;/strong&gt; — 저장한 기계의 미리보기와 불러오기·교체·삭제·복구 흐름을 정리했어요.&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3&gt;시험 운전&lt;/h3&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;조작 보조와 시점&lt;/strong&gt; — 주행·비행 조작 보조를 다듬고, 추적·자유·조종석 시점과 속도·고도·기울기 표시를 함께 사용할 수 있게 했어요.&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2&gt;추가 최적화 · 배포 전 검증&lt;/h2&gt;
+&lt;p&gt;다음 항목은 개발 환경에서 수정하고 확인한 내용이에요. 운영 서버 반영을 준비하고 있어요.&lt;/p&gt;
+&lt;h3&gt;작업실 성능&lt;/h3&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;작업실 대기 중 연산 감소&lt;/strong&gt; — 미리보기가 바뀔 때 화면을 갱신하고, 작업실에서 필요한 지형 준비와 효과 갱신을 조정했어요.&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;미리보기 자원 관리&lt;/strong&gt; — 설계도 썸네일이 게임의 그래픽 자원을 재사용하도록 바꾸고, 작업실을 닫을 때 대기 작업과 임시 자원을 정리하도록 개선했어요.&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;모델 로딩과 표시 비용 조정&lt;/strong&gt; — 필요한 모델의 로딩 시점을 조정하고, Skylark의 메시와 반복 효과 처리를 최적화했어요.&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3&gt;멀티플레이 동작 수정&lt;/h3&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;시험 주행 중 친구가 멈춰 보이던 문제&lt;/strong&gt; — 기계 시험 주행 중에도 다른 플레이어의 위치와 애니메이션을 계속 갱신하도록 수정했어요.&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;지연이 오래 남던 위치 표시&lt;/strong&gt; — 같은 오래된 위치를 반복해서 받았을 때 이동 표시의 대기 시간이 계속 늘어나던 문제를 수정했어요.&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;여러 명이 한꺼번에 나타날 때의 순간 부하&lt;/strong&gt; — 화면에 들어온 아바타부터 프레임당 하나씩 생성하도록 바꿨어요.&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;연결이 밀릴 때 쌓이는 위치 전송&lt;/strong&gt; — 다음 갱신으로 대체할 수 있는 위치 전송을 건너뛰어 오래된 움직임이 쌓이는 상황을 줄였어요.&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;재접속 중 전송 순서&lt;/strong&gt; — 교실 데이터를 다시 받는 동안의 게임 동작 전송을 제어하고, 복구 시 위치 보간 기준을 초기화하도록 수정했어요.&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;작업실 안에서 계속 달리는 모습&lt;/strong&gt; — 작업실을 연 상태에서는 다른 참가자에게 기본 대기 자세를 전달하도록 수정했어요.&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3&gt;최적화 검증 결과&lt;/h3&gt;
+&lt;ul&gt;
+&lt;li&gt;브라우저 두 대에서 위치 갱신에 40~180ms 지연을 넣고, 시험 주행 중 상대 캐릭터가 움직이는 것을 확인했어요.&lt;/li&gt;
+&lt;li&gt;서버 재시작 후 교실과 저장된 블록이 복구되는 것을 확인했어요. 이후 네 번 재접속하는 동안 아바타가 중복 생성되지 않았고, 텍스처와 지오메트리 수가 일정했어요.&lt;/li&gt;
+&lt;li&gt;관련 테스트 169개와 빌드·타입 검사를 통과했어요.&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;격리 서버에서 8개 방, 총 200명이 이동하고 블록을 편집하는 일반 부하를 약 16초씩 비교했어요. 아래 p99는 전체 측정의 99%가 해당 시간 이내였다는 뜻이에요.&lt;/p&gt;
+&lt;table&gt;
+&lt;thead&gt;
+&lt;tr&gt;
+&lt;th&gt;측정 항목&lt;/th&gt;
+&lt;th&gt;개선 전&lt;/th&gt;
+&lt;th&gt;개선 후&lt;/th&gt;
+&lt;/tr&gt;
+&lt;/thead&gt;
+&lt;tbody&gt;&lt;tr&gt;
+&lt;td&gt;이동 갱신 간격 p99&lt;/td&gt;
+&lt;td&gt;177ms&lt;/td&gt;
+&lt;td&gt;143ms&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;블록 편집 응답 p99&lt;/td&gt;
+&lt;td&gt;93ms&lt;/td&gt;
+&lt;td&gt;37ms&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;연결 끊김&lt;/td&gt;
+&lt;td&gt;0건&lt;/td&gt;
+&lt;td&gt;0건&lt;/td&gt;
+&lt;/tr&gt;
+&lt;/tbody&gt;&lt;/table&gt;
+&lt;p&gt;이 수치는 같은 개발 PC에서 수행한 두 실행의 관측값이에요. 참가자의 기기와 네트워크, 동시에 실행하는 작업에 따라 결과가 달라질 수 있어요.&lt;/p&gt;
+&lt;h2&gt;알려진 문제&lt;/h2&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;물 흐름이 많은 동시 작업&lt;/strong&gt; — 물 흐름과 블록 편집을 함께 켠 200명·30초 검증에서는 연결을 모두 유지했지만, 이동 갱신 공백이 최대 1.84초 발생했어요. 이 지연의 원인 확인과 추가 개선이 남아 있어요.&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;저사양 PC 검증&lt;/strong&gt; — 다양한 사양의 실제 PC에서 프레임 시간과 초기 로딩 속도를 추가로 확인해야 해요.&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;배포 상태&lt;/strong&gt; — 성능·멀티플레이 최적화 항목은 운영 배포 전 검증 단계예요.&lt;/li&gt;
+&lt;/ul&gt;
+</content>
+  </entry>
   <entry xml:base="https://craftyap.com/">
     <title>11월 10일 패치 노트 — F2에서 반 전체 물 한 번에 빼기</title>
     <link href="https://craftyap.com/note/patch-2026-11-10/" />
@@ -633,33 +736,6 @@
 &lt;ul&gt;
 &lt;li&gt;이미 열려 있던 교실 탭은 업데이트 뒤 &lt;strong&gt;한 번 자동으로 새로고침&lt;/strong&gt;될 수 있어요. 새로고침하면 같은 반, 같은 자리로 돌아와요.&lt;/li&gt;
 &lt;li&gt;오늘 운영 서버는 코어가 하나라 아직 &lt;strong&gt;하나로 돌아가요&lt;/strong&gt;. 서버 사양을 올리면 다시 켜는 것만으로 나뉘어요.&lt;/li&gt;
-&lt;/ul&gt;
-</content>
-  </entry>
-  <entry xml:base="https://craftyap.com/">
-    <title>11월 3일 패치 노트 (9) — 보는 곳에서 파고, 다시 들어와도 그 자리에</title>
-    <link href="https://craftyap.com/note/patch-2026-11-03-9/" />
-    <id>https://craftyap.com/note/patch-2026-11-03-9/</id>
-    <published>2026-11-03T00:00:00+09:00</published>
-    <updated>2026-11-03T00:00:00+09:00</updated>
-    <summary>화면에 보이는 곳과 실제로 블록을 파는 곳이 달라지던 문제를 고쳤어요. 교실에서 새로고침하거나 다시 들어오면 서 있던 자리로 돌아오고, 나갔다 온 친구도 다른 사람 화면에 제대로 보여요.</summary>
-    <content type="html">&lt;h2&gt;한눈에 보기&lt;/h2&gt;
-&lt;p&gt;블록 틈에 끼거나 턱을 오를 때 &lt;strong&gt;화면이 옆으로 밀려서, 보이는 곳과 다른 곳을 파던 문제&lt;/strong&gt;를 고쳤어요. 교실(교육 모드)에서는 &lt;strong&gt;새로고침하거나 다시 들어와도 서 있던 자리로 돌아오고&lt;/strong&gt;, 나갔다 들어온 친구가 &lt;strong&gt;사라지거나 멈춰 보이던 문제&lt;/strong&gt;도 고쳤어요.&lt;/p&gt;
-&lt;h2&gt;BEFORE / AFTER&lt;/h2&gt;
-&lt;p&gt;&lt;strong&gt;교실에서 새로고침했을 때&lt;/strong&gt; — 모이는 곳에서 30 m쯤 떨어진 곳에 금 블록 기둥을 세우고 새로고침했어요. 이전에는 선생님 옆, 처음 자리로 돌아가 버렸어요. 이제는 기둥 사이, 서 있던 그 자리로 돌아와요.&lt;/p&gt;
-&lt;p&gt;&lt;img src=&quot;/note/assets/20261103-class-rejoin-ba.webp&quot; alt=&quot;교실 새로고침 비교: 왼쪽은 새로고침 뒤 선생님 옆 빈 들판으로 돌아간 이전 화면, 오른쪽은 세워 둔 금 블록 기둥 사이에 그대로 서 있는 새 화면&quot;&gt;&lt;/p&gt;
-&lt;h2&gt;버그 수정&lt;/h2&gt;
-&lt;ul&gt;
-&lt;li&gt;&lt;strong&gt;보이는 곳과 파는 곳이 달랐던 문제&lt;/strong&gt; — 지난 패치(6)에서 머리가 블록에 걸리면 카메라를 가장 가까운 빈 곳으로 옮기게 했는데, 그 빈 곳이 옆일 때 화면만 옆으로 밀리고 조준은 원래 자리에 남았어요. 이제 카메라는 &lt;strong&gt;위아래로만&lt;/strong&gt; 빈 곳을 찾고, 먼저 캐릭터의 실제 눈높이를 써요. 보이는 곳과 조준이 늘 한 줄에 있어요.&lt;/li&gt;
-&lt;li&gt;&lt;strong&gt;교실에서 새로고침하면 처음 자리로 돌아가던 문제&lt;/strong&gt; — 이제 반과 이름마다 마지막으로 서 있던 자리를 기억해서, 새로고침이나 업데이트 뒤 자동으로 다시 들어올 때 &lt;strong&gt;그 자리에서 이어서&lt;/strong&gt; 해요. 처음 들어오는 반에서는 지금처럼 모이는 곳 근처에서 시작해요.&lt;/li&gt;
-&lt;li&gt;&lt;strong&gt;나갔다 들어온 친구가 다른 사람 화면에서 사라지던 문제&lt;/strong&gt; — 다시 들어온 친구의 움직임이 서버에서 &amp;quot;예전 소식&amp;quot;으로 잘못 걸러져서, 다른 사람 화면에는 나간 자리에 멈춰 있거나 아예 안 보였어요. 이제 다시 들어오면 바로 다시 보이고 움직여요.&lt;/li&gt;
-&lt;li&gt;&lt;strong&gt;서버가 다시 켜진 뒤 친구들이 멈춰 보이던 문제&lt;/strong&gt; — 업데이트로 서버가 다시 켜지면 친구들 위치가 옛 시각에 묶여 멈춰 있었어요. 이제 새 서버의 시각에 맞춰 바로 다시 따라가요.&lt;/li&gt;
-&lt;li&gt;&lt;strong&gt;기계 작업실에서 선생님이 &amp;quot;모이기&amp;quot;를 하면 생기던 문제&lt;/strong&gt; — 시험 운전 중에 불려 가면 기계가 보이지 않는 옛 땅 위에 남았어요. 이제 작업실을 먼저 닫고 모여요. 앉아 있다가 불려 갈 때 몸이 의자 쪽으로 미끄러지던 것도 고쳤어요.&lt;/li&gt;
-&lt;li&gt;&lt;strong&gt;들판이 넓어지는 순간 조준 표시가 다른 블록에 잠깐 찍히던 문제&lt;/strong&gt;도 고쳤어요.&lt;/li&gt;
-&lt;/ul&gt;
-&lt;h2&gt;알려진 문제&lt;/h2&gt;
-&lt;ul&gt;
-&lt;li&gt;이미 열려 있던 탭은 &lt;strong&gt;새로고침&lt;/strong&gt;해야 고친 내용이 적용돼요.&lt;/li&gt;
 &lt;/ul&gt;
 </content>
   </entry>

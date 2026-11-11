@@ -6,7 +6,14 @@
     <atom:link href="https://craftyap.com/feed.xml" rel="self" type="application/rss+xml" />
     <description>크래프트얍(CraftYap) 패치 노트와 개발 이야기</description>
     <language>ko</language>
-    <lastBuildDate>Mon, 09 Nov 2026 15:00:00 +0000</lastBuildDate>
+    <lastBuildDate>Tue, 10 Nov 2026 15:00:00 +0000</lastBuildDate>
+    <item>
+      <title>11월 11일 패치 노트 — 자동차·헬리콥터 모델과 기계 작업실 개편</title>
+      <link>https://craftyap.com/note/patch-2026-11-11/</link>
+      <guid isPermaLink="true">https://craftyap.com/note/patch-2026-11-11/</guid>
+      <pubDate>Tue, 10 Nov 2026 15:00:00 +0000</pubDate>
+      <description>자동차·헬리콥터 모델링과 기계 작업실 UI/UX, 블록별 커스텀을 개선했어요. 로딩·멀티플레이 추가 최적화의 검증 상황도 함께 안내해요.</description>
+    </item>
     <item>
       <title>11월 10일 패치 노트 — F2에서 반 전체 물 한 번에 빼기</title>
       <link>https://craftyap.com/note/patch-2026-11-10/</link>
@@ -139,13 +146,6 @@
       <guid isPermaLink="true">https://craftyap.com/note/patch-2026-11-04-1/</guid>
       <pubDate>Tue, 03 Nov 2026 15:00:00 +0000</pubDate>
       <description>게임 서버가 컴퓨터의 코어 수에 맞춰 스스로 여러 프로세스로 나뉘도록 바꿨어요. 테스트 환경에서 1,040명이 동시에 지을 때 블록이 친구 화면에 뜨기까지 4.2초 걸리던 것이 0.2초로 줄었어요.</description>
-    </item>
-    <item>
-      <title>11월 3일 패치 노트 (9) — 보는 곳에서 파고, 다시 들어와도 그 자리에</title>
-      <link>https://craftyap.com/note/patch-2026-11-03-9/</link>
-      <guid isPermaLink="true">https://craftyap.com/note/patch-2026-11-03-9/</guid>
-      <pubDate>Mon, 02 Nov 2026 15:00:00 +0000</pubDate>
-      <description>화면에 보이는 곳과 실제로 블록을 파는 곳이 달라지던 문제를 고쳤어요. 교실에서 새로고침하거나 다시 들어오면 서 있던 자리로 돌아오고, 나갔다 온 친구도 다른 사람 화면에 제대로 보여요.</description>
     </item>
   </channel>
 </rss>
