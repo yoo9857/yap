@@ -189,6 +189,75 @@ describe("continuous water boundary", () => {
     g.dispose();
   });
 
+  it("draws a falling column straight: as wide halfway up a block as at its joints", () => {
+    const w = new VoxelWorld();
+    for (let y = 2; y <= 12; y++) w.set(8, y, 8, WATER_FALLING);
+    const g = buildWaterGeometry(w, allWater(w))!, p = g.getAttribute("position");
+    // the widest point at each height, well away from the column's two ends
+    const reach = new Map<number, number>();
+    for (let i = 0; i < p.count; i++) {
+      const y = Math.round(p.getY(i) * 4) / 4;
+      if (y < 5 || y > 10) continue;
+      reach.set(y, Math.max(reach.get(y) ?? 0, Math.hypot(p.getX(i) - 8.5, p.getZ(i) - 8.5)));
+    }
+    const widths = [...reach.values()];
+    expect(widths.length).toBeGreaterThan(8); // joints AND the faces between them
+    // the face centres used to sit 10 cm inside the edges: a column pinched once per block
+    expect(Math.max(...widths) - Math.min(...widths)).toBeLessThan(0.02);
+    expect(Math.min(...widths)).toBeGreaterThan(0.3);
+    g.dispose();
+  });
+
+  it("draws a fall beside a wall as a sheet on that wall, and a free fall as a whole column", () => {
+    const w = new VoxelWorld();
+    for (let y = 2; y <= 12; y++) { w.set(8, y, 8, WATER_FALLING); w.set(7, y, 8, STONE); w.set(20, y, 8, WATER_FALLING); }
+    const reach = (x0: number) => {
+      const g = buildWaterGeometry(w, Array.from({ length: 11 }, (_, i) => [x0, i + 2, 8]).flat())!, p = g.getAttribute("position");
+      let far = 0;
+      for (let i = 0; i < p.count; i++) if (p.getY(i) > 5 && p.getY(i) < 10) far = Math.max(far, p.getX(i) - x0);
+      g.dispose();
+      return far;
+    };
+    expect(reach(8)).toBeLessThan(0.56);    // on the wall at x = 8: a third of the cell, rounded out to half at most
+    expect(reach(8)).toBeGreaterThan(0.25);
+    expect(reach(20)).toBeGreaterThan(0.8); // nothing to run down: the column keeps its width
+  });
+
+  it("runs water that fell onto a ramp down it as a film, not as a cell of water around it", () => {
+    const w = new VoxelWorld();
+    w.set(8, 3, 8, WATER_FALLING);
+    for (let x = 6; x <= 10; x++) for (let z = 6; z <= 10; z++) w.set(x, 2, z, STONE);
+    // the ramp's top: the cell's full height at z = 8, the floor at z = 9 (shapeProfile's form)
+    const ramp = 3 | 3 << 2 | 1 << 4 | 1 << 6;
+    const top = (profile: number) => {
+      const g = buildWaterGeometry({ get: (x, y, z) => w.get(x, y, z), profile: (x, y, z) => (x === 8 && y === 3 && z === 8 ? profile : 0) }, [8, 3, 8])!;
+      const p = g.getAttribute("position");
+      let back = 0, front = 0;
+      for (let i = 0; i < p.count; i++) {
+        if (p.getZ(i) < 8.3) back = Math.max(back, p.getY(i));
+        if (p.getZ(i) > 8.7) front = Math.max(front, p.getY(i));
+      }
+      g.dispose();
+      return { back, front };
+    };
+    expect(top(ramp).front).toBeLessThan(3.4);                      // over the ramp: a film at its foot…
+    expect(top(ramp).back).toBeGreaterThan(top(ramp).front + 0.4);  // …rising to its top edge
+    expect(top(0).front).toBeGreaterThan(top(ramp).front + 0.3);    // plain falling water: the whole cell
+  });
+
+  it("a fall meets the water below it in a line, not in a skirt half a cell high and a cell wide", () => {
+    const w = new VoxelWorld();
+    for (let y = 3; y <= 8; y++) w.set(8, y, 8, WATER_FALLING);
+    for (let x = 5; x <= 11; x++) for (let z = 5; z <= 11; z++) w.set(x, 2, z, WATER);
+    const g = buildWaterGeometry(w, allWater(w))!, p = g.getAttribute("position");
+    // just above the pool's surface (2.875), how far the fall's foot spreads from its axis
+    let spread = 0;
+    for (let i = 0; i < p.count; i++) if (p.getY(i) > 3.0 && p.getY(i) < 3.4)
+      spread = Math.max(spread, Math.abs(p.getX(i) - 8.5), Math.abs(p.getZ(i) - 8.5));
+    expect(spread).toBeLessThan(0.62); // was 0.75: the foot reached half way into the next cell, 0.3 m up
+    g.dispose();
+  });
+
   it("keeps diagonal disconnected streams separate and closed", () => {
     const w = new VoxelWorld(); w.set(8, 4, 8, WATER); w.set(9, 5, 9, WATER);
     const g = buildWaterGeometry(w, allWater(w))!;

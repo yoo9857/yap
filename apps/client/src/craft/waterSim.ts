@@ -77,7 +77,7 @@ class TsWaterBackend implements WaterBackend {
     },
     open: (ax, y, az) => {
       const { world } = this.w, x = ax - ox(this.w), z = az - oz(this.w);
-      return world.inBounds(x, y, z) && !(world.propSolid?.(x, y, z) ?? false);
+      return world.inBounds(x, y, z) && !(world.propDry?.(x, y, z) ?? false);
     },
     set: (ax, y, az, id) => {
       const x = ax - ox(this.w), z = az - oz(this.w);
@@ -141,7 +141,7 @@ class RustWaterBackend implements WaterBackend {
     const v = this.furniture.version();
     if (v === this.propsVersion) return;
     this.propsVersion = v;
-    this.water.props(Int32Array.from(this.furniture.solidCells()));
+    this.water.props(Int32Array.from(this.furniture.dryCells()));
   }
 
   touch(ax: number, y: number, az: number): void { this.water.touch(ax, y, az); }
@@ -168,11 +168,12 @@ class RustWaterBackend implements WaterBackend {
   }
 }
 
-/** Solid furniture for the Rust mirror (absolute cells), and a version to skip unchanged layouts. */
+/** Furniture that keeps water out (closed doors: `FurnitureLayout.waterCells`) for the Rust mirror
+ *  (absolute cells), and a version to skip unchanged layouts. */
 export interface FurnitureSource {
   version(): number;
   /** Flat [ax, y, az]*. */
-  solidCells(): number[];
+  dryCells(): number[];
 }
 
 /** The field's cells in the ring right outside the window that differ from the flat field:
@@ -298,7 +299,7 @@ export class WaterSim {
         isWater(cells[i - 1]!) && isWater(cells[i + 1]!) &&
         isWater(cells[i - WORLD_X]!) && isWater(cells[i + WORLD_X]!) &&
         isWater(cells[i - WORLD_X * WORLD_Z]!) && isWater(cells[i + WORLD_X * WORLD_Z]!) &&
-        !(this.world.propSolid?.(x, y, z) ?? false)) continue;
+        !(this.world.propDry?.(x, y, z) ?? false)) continue;
       this.touch(x, y, z);
       activated++;
     }

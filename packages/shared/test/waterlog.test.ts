@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { FACE_NY, FACE_NZ, FACE_PY, FACE_PZ, FluidSim, WATER, WATER_FALLING, flowingWater, isWater, type FluidWorld } from "../src/fluid.js";
-import { SHAPE_SEALS, computeShapeSeal, holdsWaterlog, shapeSeal } from "../src/waterlog.js";
+import { SHAPE_SEALS, computeShapeSeal, holdsWaterlog, shapeProfile, shapeSeal } from "../src/waterlog.js";
 import { MAX_BLOCK_SHAPE } from "../src/blockShapes.js";
 import { ROUND, cornerShape, kitSlopeShape, slabShape, stairsShape, KIT_CUBE } from "../src/blockShapes.js";
 
@@ -54,6 +54,19 @@ describe("water inside shaped blocks (waterlog)", () => {
     for (let shape = 0; shape <= MAX_BLOCK_SHAPE; shape++) expect(SHAPE_SEALS[shape], `shape ${shape}`).toBe(computeShapeSeal(shape));
   });
 
+  it("gives the top of each standing shape per corner, for the film drawn over it", () => {
+    const corners = (shape: number) => [0, 1, 2, 3].map((c) => (shapeProfile(shape) >> (c * 2) & 3) - 1).sort();
+    expect(shapeProfile(KIT_CUBE)).toBe(0);            // holds no water
+    expect(shapeProfile(ROUND)).toBe(0);               // a closed top: water never falls into it
+    for (let rot = 0; rot < 4; rot++) {
+      expect(corners(kitSlopeShape(rot, 0))).toEqual([0, 0, 2, 2]); // floor at its foot, full at its back
+      expect(corners(stairsShape(rot, 0))).toEqual([1, 1, 2, 2]);   // a half step, then the full one
+    }
+    expect(corners(slabShape(0, 0))).toEqual([1, 1, 1, 1]);
+    // not standing on the cell's floor (no sealed floor): no film
+    for (let s = 0; s <= MAX_BLOCK_SHAPE; s++) if ((shapeSeal(s) & FACE_NY) === 0) expect(shapeProfile(s)).toBe(0);
+  });
+
   it("seals exactly the faces a shape covers", () => {
     expect(shapeSeal(slabShape(0, 0))).toBe(FACE_NY); // a floor; its half-height sides are open
     expect(shapeSeal(slabShape(0, 2))).toBe(FACE_PY); // upside down: a roof
@@ -87,6 +100,25 @@ describe("water inside shaped blocks (waterlog)", () => {
     expect(w.water(2, 1, 0)).toBe(flowingWater(2));
     // past them the stream carries on, one level weaker per cell, as on open ground
     expect(w.water(5, 1, 0)).not.toBe(0);
+  });
+
+  it("water that fell onto a ramp or a step runs down it, never sideways off it", () => {
+    for (const shape of [kitSlopeShape(0, 0), stairsShape(0, 0)]) { // back = −z, low side = +z
+      const w = makeWorld();
+      w.put(0, 1, 0, STONE, shape);
+      settle(w, [0, 3, 0]);
+      expect(w.water(0, 1, 0)).toBe(WATER_FALLING);
+      expect(w.water(0, 1, 1)).toBe(flowingWater(1)); // out of its low side
+      expect(w.water(0, 1, 2)).toBe(flowingWater(2));
+      // its open sides: the only water there came round from the front (two cells on), not off the slope
+      expect(w.water(1, 1, 0)).toBe(flowingWater(3));
+      expect(w.water(-1, 1, 0)).toBe(flowingWater(3));
+    }
+    // a half block has no back: it spills every way, as before
+    const h = makeWorld();
+    h.put(0, 1, 0, STONE, slabShape(0, 0));
+    settle(h, [0, 3, 0]);
+    for (const [x, z] of [[1, 0], [-1, 0], [0, 1], [0, -1]] as const) expect(h.water(x, 1, z)).toBe(flowingWater(1));
   });
 
   it("a ramp's back and a stairs' back stop the water; their open side lets it in", () => {

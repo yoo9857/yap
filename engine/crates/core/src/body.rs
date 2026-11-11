@@ -63,7 +63,13 @@ pub fn water_height(id: u8, covered: bool) -> f64 {
     if covered || id == WATER_FALLING {
         return 1.0;
     }
-    0.875 - water_level(id) as f64 * 0.11
+    // standing water fills most of its cell; running water is a shallow stream (fluid.ts)
+    let level = water_level(id);
+    if level == 0 {
+        0.875
+    } else {
+        0.64 - level as f64 * 0.077
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]

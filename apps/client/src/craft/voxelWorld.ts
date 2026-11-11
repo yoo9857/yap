@@ -62,6 +62,9 @@ export class VoxelWorld {
    *  because the renderer culls faces against it and a chair beside a wall
    *  must not punch a hole in the wall. Grid coordinates. */
   propSolid: ((x: number, y: number, z: number) => boolean) | null = null;
+  /** Cells water may not enter although they are air: a closed door, a fitted plant item. NOT every
+   *  `propSolid` cell — a chair or a table stands in the water (FurnitureLayout.holdsBackWater). */
+  propDry: ((x: number, y: number, z: number) => boolean) | null = null;
   /** Called with the cell index after every set/setShaped/setWet (the Rust engine's mirror of this
    *  window, docs/ENGINE.md). Bulk refills (a field scroll, a loaded save) do not call it. */
   onWrite: ((i: number) => void) | null = null;

@@ -56,7 +56,11 @@ export function waterLevel(id: number): number {
 export function waterHeight(id: number, covered = false): number {
   if (!isWater(id)) return 0;
   if (covered || id === WATER_FALLING) return 1;
-  return 0.875 - waterLevel(id) * 0.11;
+  // Standing water (a source, a retained basin) fills most of its cell. Water RUNNING over the
+  // ground is a shallow stream that thins as it spreads: 0.56 m beside its source down to 0.10 m
+  // at its seventh cell. (It used to be 0.77 m beside the source — a slab of water on open ground.)
+  const level = waterLevel(id);
+  return level === 0 ? 0.875 : 0.64 - level * 0.077;
 }
 
 export interface FluidWorld {
@@ -171,6 +175,19 @@ function spreadsSideways(world: FluidWorld, x: number, y: number, z: number): bo
   return pool || !falls(world, x, y, z);
 }
 
+/**
+ * Water that FELL onto a ramp or a step runs down it: it leaves only by the face opposite the
+ * block's back, never sideways off the slope. Such a block is one whose shape seals its floor and
+ * exactly one side (waterlog.ts: ramps and stairs standing on their floor; a half block seals no
+ * side, so it spills every way). Water that reached the block from the side (not falling) still
+ * passes through it as before. `(dx, dz)` points from the cell being fed to this neighbour.
+ */
+function runsAway(world: FluidWorld, x: number, y: number, z: number, id: number, dx: number, dz: number): boolean {
+  if (id !== WATER_FALLING || !world.seal) return false;
+  const seal = world.seal(x, y, z), back = seal & (FACE_PX | FACE_NX | FACE_PZ | FACE_NZ);
+  return (seal & (FACE_PY | FACE_NY)) === FACE_NY && back !== 0 && (back & (back - 1)) === 0 && back !== faceBit(dx, 0, dz);
+}
+
 /** A fed depression with a closed rim and no lower outlet can retain water.
  *  The traversal is bounded: large lakes/open ground keep the normal flow rule. */
 function settledBasin(world: FluidWorld, x: number, y: number, z: number, memo: Map<VoxelKey, boolean>): boolean {
@@ -206,7 +223,7 @@ export function nextState(world: FluidWorld, x: number, y: number, z: number, no
     const id = world.get(x + dx, y, z + dz);
     if (!isWater(id) || !passes(world, x, y, z, dx, 0, dz)) continue;
     if (id === WATER) sources++;
-    if (!spreadsSideways(world, x + dx, y, z + dz)) continue;
+    if (!spreadsSideways(world, x + dx, y, z + dz) || runsAway(world, x + dx, y, z + dz, id, dx, dz)) continue;
     best = Math.min(best, waterLevel(id));
   }
   const fall = falls(world, x, y, z), pool = onReservoir(world, x, y, z);

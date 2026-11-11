@@ -12,10 +12,14 @@ scope.onmessage = (event) => {
   if (request.t === "cancel") return;
   void (async () => {
     const start = performance.now(), results: WaterWorkerResult[] = [], transfers: Transferable[] = [];
+    const marks = new Map<number, number>();
+    for (let i = 0; i < request.profile.length; i += 2) marks.set(request.profile[i]!, request.profile[i + 1]!);
     const world = { get: (x: number, y: number, z: number) =>
       x >= 0 && x < WORLD_X && z >= 0 && z < WORLD_Z && y >= 0 && y < WORLD_Y
         ? request.cells[(y * WORLD_Z + z) * WORLD_X + x]!
-        : y >= 0 && y < WORLD_Y ? request.outside?.[y] ?? 0 : 0 };
+        : y >= 0 && y < WORLD_Y ? request.outside?.[y] ?? 0 : 0,
+      profile: (x: number, y: number, z: number) =>
+        marks.size > 0 && x >= 0 && x < WORLD_X && z >= 0 && z < WORLD_Z && y >= 0 && y < WORLD_Y ? marks.get((y * WORLD_Z + z) * WORLD_X + x) ?? 0 : 0 };
     try {
       for (let j = 0; j < request.jobs.length; j++) {
         if (latest !== request.id) return;

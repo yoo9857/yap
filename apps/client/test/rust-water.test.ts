@@ -28,8 +28,8 @@ function side(field: boolean, rust: RustEngine | null) {
   const props = new Set<string>();
   let propsVersion = 0;
   const ox = () => fw?.absOriginX ?? 0, oz = () => fw?.absOriginZ ?? 0;
-  world.propSolid = (x, y, z) => props.has(`${x + ox()},${y},${z + oz()}`);
-  const furniture: FurnitureSource = { version: () => propsVersion, solidCells: () => [...props].flatMap((k) => k.split(",").map(Number)) };
+  world.propDry = (x, y, z) => props.has(`${x + ox()},${y},${z + oz()}`);
+  const furniture: FurnitureSource = { version: () => propsVersion, dryCells: () => [...props].flatMap((k) => k.split(",").map(Number)) };
   const sim = new WaterSim(world, view, fw, { rust, furniture, maxStepMs: Infinity });
   return {
     world, fw, sim,

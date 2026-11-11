@@ -21,7 +21,7 @@ try {
     const rust = /engine=rust/.test(location.search) ? await (await import("/src/engine/rustEngine.ts")).loadRustEngine() : null;
     const field = new FieldWindow(), sim = new WaterSim(field.world, { markWaterDirty() {} }, field, { rust });
     const furniture = new Set(["60,12,60"]);
-    field.world.propSolid = (x, y, z) => furniture.has(`${x},${y},${z}`);
+    field.world.propDry = (x, y, z) => furniture.has(`${x},${y},${z}`);
     for (let y = 4; y < 24; y++) for (let z = 16; z < 116; z++) for (let x = 16; x < 116; x++) field.world.set(x, y, z, 19);
     const start = performance.now(); sim.wakeAll(); const requestMs = performance.now() - start;
     const times = []; let pendingPeak = 0;

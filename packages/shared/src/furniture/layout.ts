@@ -128,12 +128,23 @@ export class FurnitureLayout {
     return this.layers[layer].get(cellKey(x, y, z));
   }
 
-  /** Every cell solid furniture fills right now (closed, as `occupied` judges): flat [x, y, z]*,
-   *  absolute. For mirrors that cannot call `occupied` per cell (the Rust engine's water). */
-  solidCells(): number[] {
+  /**
+   * Does furniture keep water OUT of this cell? Only a piece that shuts — a closed door or gate
+   * (`openParts`). Every other piece stands IN the water: a chair, a table or a sofa fills a
+   * fraction of its cells, and a whole dry cell around it was a pit in every flooded room.
+   */
+  holdsBackWater(x: number, y: number, z: number): boolean {
+    if (this.items.length === 0) return false;
+    const item = this.layers.solid.get(cellKey(x, y, z));
+    return item !== undefined && item.state !== 1 && furnitureDef(item.kind).openParts !== undefined;
+  }
+
+  /** Every cell `holdsBackWater` is true for: flat [x, y, z]*, absolute. For mirrors that cannot
+   *  ask per cell (the Rust engine's water). */
+  waterCells(): number[] {
     const out: number[] = [];
     for (const [key, item] of this.layers.solid) {
-      if (item.state === 1) continue;
+      if (item.state === 1 || furnitureDef(item.kind).openParts === undefined) continue;
       const y = key % 64, column = Math.floor(key / 64);
       out.push(Math.floor(column / (2 * OFF)) - OFF, y, (column % (2 * OFF)) - OFF);
     }

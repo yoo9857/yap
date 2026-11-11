@@ -232,6 +232,7 @@ export class FurnitureController {
   private installCollision(): void {
     const { layout, world } = this.host;
     world.propSolid = (x, y, z) => layout.occupied(x + this.host.originX(), y, z + this.host.originZ());
+    world.propDry = (x, y, z) => layout.holdsBackWater(x + this.host.originX(), y, z + this.host.originZ());
   }
 
   /** The layout's view of the world, in absolute cells. */
@@ -619,6 +620,7 @@ export class FurnitureController {
 
   dispose(): void {
     this.host.world.propSolid = null;
+    this.host.world.propDry = null;
     this.view.dispose();
     this.shop.dispose();
   }

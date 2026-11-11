@@ -7,7 +7,14 @@
 
 use crate::blocks_gen::SOLID;
 use crate::body::water_height;
-use crate::fluid::{is_water, water_level, WATER_FALLING};
+use crate::fluid::{is_water, water_level, WATER, WATER_FALLING};
+
+/// How far a sheet of running water reaches from the face it runs down (m).
+const SHEET: f64 = 0.34;
+/// How far a fall's foot is pulled from the rounded average to the line where it meets the water below.
+const JOIN: f64 = 0.8;
+/// How deep water lies over a shaped block it runs across (m).
+const FILM: f64 = 0.22;
 use crate::kit::{js_hypot, js_hypot_n};
 use rustc_hash::FxHashMap;
 
@@ -114,12 +121,15 @@ struct Sample {
 
 struct Builder<'a, G: Fn(i32, i32, i32) -> u8> {
     get: &'a G,
+    /// The top of a shaped block holding water, per corner (waterlog.ts `shapeProfile`); 0 = none.
+    profile: &'a dyn Fn(i32, i32, i32) -> u8,
     nodes: Vec<Node>,
     sequence: i64,
     /// cube key → 64 slots of node indices
     cache: FxHashMap<i64, Box<[Option<usize>; 64]>>,
     edge_cache: FxHashMap<i64, Option<usize>>,
     depth_cache: FxHashMap<i64, f64>,
+    sheet_cache: FxHashMap<i64, u8>,
     sample_cache: FxHashMap<i64, Sample>,
     vertex: FxHashMap<usize, u32>,
     out: WaterMesh,
@@ -135,6 +145,44 @@ impl<G: Fn(i32, i32, i32) -> u8> Builder<'_, G> {
     fn deeply_inside_solid(&self, p: V3) -> bool {
         let (x, y, z) = (p[0].floor(), p[1].floor(), p[2].floor());
         self.solid(x as i32, y as i32, z as i32) && p[0] - x > 0.002 && p[1] - y > 0.002 && p[2] - z > 0.002 && p[0] - x < 0.998 && p[1] - y < 0.998 && p[2] - z < 0.998
+    }
+    /// Water running off something is a sheet on the face it runs down: see waterGeometry.ts
+    /// `sheet`. 0 = the whole cell; 1/2 = on the cell's -x/+x face, 3/4 = on its -z/+z face.
+    fn sheet(&mut self, x: i32, y: i32, z: i32, id: u8) -> u8 {
+        let key = cell_key(x, y, z);
+        if let Some(&v) = self.sheet_cache.get(&key) {
+            return v;
+        }
+        let mut found = 0u8;
+        let below = self.get(x, y - 1, z);
+        let loose = id == WATER_FALLING || id > WATER && id < WATER_FALLING && (below == 0 || below == WATER_FALLING);
+        if loose {
+            for (i, [sx, _, sz]) in HORIZONTAL.into_iter().enumerate() {
+                if self.get(x + sx, y, z + sz) != 0 {
+                    continue;
+                }
+                let back = self.get(x - sx, y, z - sz);
+                // a shaped block holding water (any profile mark) is something to run off, like a solid
+                let mut hug = SOLID[back as usize] || is_water(back) && (self.profile)(x - sx, y, z - sz) != 0;
+                if !hug && is_water(back) && back != WATER_FALLING {
+                    let under = self.get(x - sx, y - 1, z - sz);
+                    hug = under != 0 && under != WATER_FALLING;
+                }
+                if !hug {
+                    continue;
+                }
+                if found != 0 {
+                    found = 0;
+                    break;
+                }
+                found = i as u8 + 1;
+            }
+        }
+        if loose {
+            found |= 8; // running water, whether or not it lies on a face
+        }
+        self.sheet_cache.insert(key, found);
+        found
     }
     fn depth(&mut self, x: i32, y: i32, z: i32) -> f64 {
         let key = cell_key(x, y, z);
@@ -216,8 +264,12 @@ impl<G: Fn(i32, i32, i32) -> u8> Builder<'_, G> {
                 links[crossed[0]].push(crossed[1]);
                 links[crossed[1]].push(crossed[0]);
             } else if crossed.len() == 4 {
+                // two wet cells corner to corner: two streams in the open, ONE sheet round a
+                // block's corner (one solid, one air): see waterGeometry.ts
+                let solids = (0..4).filter(|&j| water_mask & 1 << corners[j] == 0 && SOLID[ids[corners[j]] as usize]).count();
+                let wrap = solids == 1;
                 for j in 0..4 {
-                    if water_mask & 1 << corners[j] != 0 {
+                    if (water_mask & 1 << corners[j] != 0) != wrap {
                         let (a, b) = (fe[(j + 3) % 4], fe[j]);
                         links[a].push(b);
                         links[b].push(a);
@@ -249,6 +301,9 @@ impl<G: Fn(i32, i32, i32) -> u8> Builder<'_, G> {
             let mut points: Vec<V3> = Vec::new();
             let mut normal: V3 = [0.0; 3];
             let mut surface_heights: Vec<f64> = Vec::new();
+            let (mut side_sum, mut side_count) = ([0.0f64; 3], [0.0f64; 3]);
+            let (mut axis_sum, mut axis_count) = ([0.0f64; 3], [0.0f64; 3]);
+            let mut running = false;
             let mut constraints: [Option<f64>; 3] = [None; 3];
             for (e, &(ia, ib, axis)) in t.edges.iter().enumerate() {
                 if edge_mask & 1 << e == 0 {
@@ -258,17 +313,54 @@ impl<G: Fn(i32, i32, i32) -> u8> Builder<'_, G> {
                 let (wi, ai) = if wa { (ia, ib) } else { (ib, ia) };
                 let (a, b) = (CORNERS[wi], CORNERS[ai]);
                 let (x, y, z) = (cx + a[0], cy + a[1], cz + a[2]);
-                let h = water_height(ids[wi], is_water(self.get(x, y + 1, z)));
+                // over a shaped block the surface follows the block's top at this corner of its cell
+                let profile = (self.profile)(x, y, z);
+                let h = if profile & 3 == 0 {
+                    water_height(ids[wi], is_water(self.get(x, y + 1, z)))
+                } else {
+                    ((((profile >> (((1 - a[0]) + 2 * (1 - a[2])) * 2)) & 3) as f64 - 1.0) * 0.5 + FILM).min(1.0)
+                };
                 let mut p: V3 = [x as f64 + 0.5, y as f64 + h * 0.5, z as f64 + 0.5];
                 let sign = (b[axis] - a[axis]) as f64;
+                let code = self.sheet(x, y, z, ids[wi]);
+                let thin = code & 7;
+                if code != 0 {
+                    running = true;
+                }
+                let thin_axis = if thin == 0 { usize::MAX } else if thin < 3 { 0 } else { 2 };
+                let near = thin & 1 == 1; // the sheet lies on the cell's low face
+                if thin_axis != usize::MAX {
+                    p[thin_axis] = (if thin_axis == 0 { x } else { z }) as f64 + if near { SHEET * 0.5 } else { 1.0 - SHEET * 0.5 };
+                }
                 if axis == 1 {
                     p[1] = y as f64 + if sign > 0.0 { h } else { 0.0 };
+                } else if axis == thin_axis {
+                    let edge = if sign > 0.0 {
+                        if near { SHEET } else { 1.0 }
+                    } else if near {
+                        0.0
+                    } else {
+                        1.0 - SHEET
+                    };
+                    p[axis] = (if axis == 0 { x } else { z }) as f64 + edge;
+                } else if thin_axis != usize::MAX && {
+                    let (wall, s) = (if near { -1 } else { 1 }, sign as i32);
+                    SOLID[(if thin_axis == 0 { self.get(x + wall, y, z) } else { self.get(x, y, z + wall) }) as usize]
+                        && is_water(if thin_axis == 0 { self.get(x + wall, y, z + s) } else { self.get(x + s, y, z + wall) })
+                } {
+                    // the sheet goes on round the block's corner, where the next face's sheet meets it
+                    p[axis] += sign * (0.5 + SHEET);
                 } else {
                     p[axis] += sign * 0.5;
                 }
                 points.push(p);
+                axis_sum[axis] += p[axis];
+                axis_count[axis] += 1.0;
                 if axis == 1 && sign > 0.0 {
                     surface_heights.push(p[1]);
+                } else if axis != 1 && a[1] == 1 {
+                    side_sum[axis] += p[axis];
+                    side_count[axis] += 1.0;
                 }
                 if ids[ai] == 0 || axis == 1 && sign > 0.0 && h < 0.999 {
                     normal[axis] += sign;
@@ -284,6 +376,22 @@ impl<G: Fn(i32, i32, i32) -> u8> Builder<'_, G> {
             for point in &points {
                 for axis in 0..3 {
                     p[axis] += point[axis] / points.len() as f64;
+                }
+            }
+            // water coming down into water meets it in a line, not a half-cell skirt (waterGeometry.ts JOIN)
+            // running water takes each coordinate from the faces that cross that axis (waterGeometry.ts)
+            if running {
+                for axis in 0..3 {
+                    if axis_count[axis] > 0.0 {
+                        p[axis] += (axis_sum[axis] / axis_count[axis] - p[axis]) * JOIN;
+                    }
+                }
+            } else if !surface_heights.is_empty() && (side_count[0] > 0.0 || side_count[2] > 0.0) {
+                p[1] += (surface_heights.iter().fold(0.0, |sum, h| sum + h) / surface_heights.len() as f64 - p[1]) * JOIN;
+                for axis in [0usize, 2] {
+                    if side_count[axis] > 0.0 {
+                        p[axis] += (side_sum[axis] / side_count[axis] - p[axis]) * JOIN;
+                    }
                 }
             }
             for axis in 0..3 {
@@ -462,6 +570,20 @@ impl<G: Fn(i32, i32, i32) -> u8> Builder<'_, G> {
                 c.grid[axis] += vg[axis] / 4.0;
             }
         }
+        // The centre lies ON the curved edges (a Coons patch): see waterGeometry.ts `face`.
+        let flat = self.nodes[center].p;
+        for i in 0..4 {
+            if let Some(e) = edges[i] {
+                let (ep, a, b) = (self.nodes[e].p, self.nodes[nodes[i]].p, self.nodes[nodes[(i + 1) % 4]].p);
+                let c = &mut self.nodes[center];
+                for axis in 0..3 {
+                    c.p[axis] += (ep[axis] - (a[axis] + (b[axis] - a[axis]) * 0.5)) * 0.5;
+                }
+            }
+        }
+        if self.deeply_inside_solid(self.nodes[center].p) {
+            self.nodes[center].p = flat;
+        }
         let mut perimeter = Vec::with_capacity(8);
         for i in 0..4 {
             perimeter.push(nodes[i]);
@@ -482,14 +604,26 @@ impl<G: Fn(i32, i32, i32) -> u8> Builder<'_, G> {
 /// handed over AS its water, like voxelView's snapshot); `cells` lists (x, y, z) to mesh. Ok(None) when
 /// there is nothing to draw; Err where the TypeScript throws (a missing surface component).
 pub fn build_water_mesh<G: Fn(i32, i32, i32) -> u8>(get: &G, cells: &[[i32; 3]]) -> Result<Option<WaterMesh>, MissingComponent> {
+    build_water_mesh_shaped(get, &|_, _, _| 0, cells)
+}
+
+/// `build_water_mesh` with the shaped blocks' tops (`profile`, waterlog.ts `shapeProfile` per cell):
+/// their water is drawn as a film over the block.
+pub fn build_water_mesh_shaped<G: Fn(i32, i32, i32) -> u8>(
+    get: &G,
+    profile: &dyn Fn(i32, i32, i32) -> u8,
+    cells: &[[i32; 3]],
+) -> Result<Option<WaterMesh>, MissingComponent> {
     let mut b = Builder {
         get,
+        profile,
         nodes: Vec::new(),
         sequence: 0,
         cache: FxHashMap::default(),
         edge_cache: FxHashMap::default(),
         depth_cache: FxHashMap::default(),
         sample_cache: FxHashMap::default(),
+        sheet_cache: FxHashMap::default(),
         vertex: FxHashMap::default(),
         out: WaterMesh::default(),
     };

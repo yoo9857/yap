@@ -424,10 +424,11 @@ pub fn surface_style(key: &str) -> Vec<f64> {
 /// their water) and the column beyond it (`outside`, empty = air). Returns one Float32Array:
 /// [vertex count, index count, position (3n), normal (3n), wave, wet, foam, depth (n each),
 /// flow (3n), impact (3n), grid (4n), indices]; [0, 0] when nothing is drawn, [-1, 0] when the
-/// TypeScript would throw.
+/// TypeScript would throw. `profile` (same layout as `cells`, or empty): the top of each shaped
+/// block holding water (waterlog.ts `shapeProfile`).
 #[wasm_bindgen]
-pub fn water_mesh(cells: &[u8], outside: &[u8], list: &[i32]) -> Vec<f32> {
-    use craftyap_core::water_mesh::build_water_mesh;
+pub fn water_mesh(cells: &[u8], outside: &[u8], list: &[i32], profile: &[u8]) -> Vec<f32> {
+    use craftyap_core::water_mesh::build_water_mesh_shaped;
     use craftyap_core::world::{WORLD_X, WORLD_Y, WORLD_Z};
     let get = |x: i32, y: i32, z: i32| -> u8 {
         if !(0..WORLD_Y).contains(&y) {
@@ -439,7 +440,13 @@ pub fn water_mesh(cells: &[u8], outside: &[u8], list: &[i32]) -> Vec<f32> {
         outside.get(y as usize).copied().unwrap_or(0)
     };
     let points: Vec<[i32; 3]> = list.as_chunks::<3>().0.to_vec();
-    match build_water_mesh(&get, &points) {
+    let top = |x: i32, y: i32, z: i32| -> u8 {
+        if (0..WORLD_Y).contains(&y) && (0..WORLD_X).contains(&x) && (0..WORLD_Z).contains(&z) {
+            return profile.get(((y * WORLD_Z + z) * WORLD_X + x) as usize).copied().unwrap_or(0);
+        }
+        0
+    };
+    match build_water_mesh_shaped(&get, &top, &points) {
         Err(_) => vec![-1.0, 0.0],
         Ok(None) => vec![0.0, 0.0],
         Ok(Some(m)) => {

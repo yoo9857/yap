@@ -13,6 +13,7 @@ import { animateWater, buildWaterGeometry, makeWaterMaterial, prepareWaterTransi
 import type { WaterWorkerRequest, WaterWorkerResponse } from "./waterWorkerTypes.js";
 import { loadTexture } from "../render/textures.js";
 import { WORLD_X, WORLD_Y, WORLD_Z, type VoxelWorld } from "./voxelWorld.js";
+import { WATER_FALLING, WATER_HELD, shapeProfile } from "@robo/shared";
 import { ROUND, KIT_CUBE, isOrientedShape, shapeYaw, shapeTilt, isFullCubeShape, blockShapeFamily, shapeBoxes } from "./shapes.js";
 import {
   brickOrientation,
@@ -90,7 +91,7 @@ interface Staging {
 interface WaterBatch {
   id: number;
   waiting: boolean;
-  world: Pick<VoxelWorld, "get">;
+  world: Pick<VoxelWorld, "get"> & { profile(x: number, y: number, z: number): number };
   jobs: [number, [number, number]][];
   cursor: number;
   results: { id: number; geometry: THREE.BufferGeometry | null; minY: number; maxY: number }[];
@@ -140,7 +141,8 @@ const FACE_CORNERS: readonly (readonly [number, number])[] = [
  * surface runs on through the open part of a ramp, round, half block or stairs and meets its face.
  * Only the chunks being rebuilt (plus a one-cell rim) are touched. Returns how many cells it filled.
  */
-export function waterlogSnapshot(cells: Uint8Array, wet: Uint8Array, regions: readonly { x: number; z: number; minY: number; maxY: number }[]): number {
+export function waterlogSnapshot(cells: Uint8Array, wet: Uint8Array, regions: readonly { x: number; z: number; minY: number; maxY: number }[],
+  shapes?: Uint8Array, profile?: Uint8Array, live: Uint8Array = cells, marks?: number[]): number {
   let filled = 0;
   for (const r of regions) {
     for (let y = Math.max(0, r.minY - 1); y <= Math.min(WORLD_Y - 1, r.maxY + 1); y++)
@@ -148,6 +150,24 @@ export function waterlogSnapshot(cells: Uint8Array, wet: Uint8Array, regions: re
         let i = (y * WORLD_Z + z) * WORLD_X + Math.max(0, r.x - 1);
         for (let x = Math.max(0, r.x - 1); x < Math.min(WORLD_X, r.x + CHUNK + 1); x++, i++) {
           const w = wet[i]!;
+          // Water that came down ONTO the block (falling: fed from above) runs over it as a film, so
+          // the mesher gets the block's top at each corner (shapeProfile). Water that reached it
+          // from the side stands at its own level around the block, as before.
+          // Every other shaped block holding water is marked WATER_HELD: what spills out of it runs
+          // down as a sheet instead of standing round it as a cell-wide collar.
+          if (profile) {
+            profile[i] = w === 0 || !shapes ? 0 : (w === WATER_FALLING ? shapeProfile(shapes[i]!) : 0) || WATER_HELD;
+            if (marks && profile[i] !== 0) marks.push(i, profile[i]!); // the worker gets only these
+          }
+          // Water running over the block from the cell above (a lip hanging in the open: flowing,
+          // with air beside it) is that same film, not a second body of water on top of it —
+          // down a slide of ramps it stacked a cell of water on every step. Judged on the LIVE
+          // cells, so hiding one lip never decides its neighbour (chunks must agree).
+          if (profile && (profile[i]! & 3) !== 0 && y + 1 < WORLD_Y) {
+            const j = i + WORLD_X * WORLD_Z, above = live[j]!;
+            if (above > 19 && above < 27 && (x > 0 && live[j - 1] === 0 || x < WORLD_X - 1 && live[j + 1] === 0 ||
+              z > 0 && live[j - WORLD_X] === 0 || z < WORLD_Z - 1 && live[j + WORLD_X] === 0)) cells[j] = 0;
+          }
           if (w !== 0 && cells[i] !== w) { cells[i] = w; filled++; }
         }
       }
@@ -475,6 +495,7 @@ export class VoxelView {
   private readonly waterQueue = new Map<number, [number, number]>();
   private waterBatch: WaterBatch | null = null;
   private waterSnapshot: Uint8Array | null = null;
+  private waterProfile: Uint8Array | null = null;
   private waterBuildPeak = 0;
   private waterCommits = 0;
   private waterSerial = 0;
@@ -532,21 +553,30 @@ export class VoxelView {
       if (jobs.length === 0) return;
       const snapshot = this.waterSnapshot ??= new Uint8Array(world.cells.length);
       snapshot.set(world.cells);
-      this.lastWaterlog = waterlogSnapshot(snapshot, world.wet, jobs.map(([id, range]) => ({ x: chunkX(id) * CHUNK, z: chunkZ(id) * CHUNK, minY: range[0], maxY: range[1] })));
+      const profile = this.waterProfile ??= new Uint8Array(world.cells.length);
+      // The whole height each chunk is re-meshed over, not just the layers that changed: the mesher
+      // reads the chunk's every water cell, so a shaped block holding water BELOW or ABOVE the
+      // change must be handed over too (limited to the changed layers, its water vanished from the
+      // new mesh whenever something else in its chunk moved).
+      const spans = jobs.map(([id, range]) => {
+        const c = this.chunks.get(id)!;
+        return { id, x: chunkX(id) * CHUNK, z: chunkZ(id) * CHUNK,
+          minY: Math.max(0, Math.min(c.waterMinY, range[0])), maxY: Math.min(WORLD_Y - 1, Math.max(c.waterMaxY, range[1])) };
+      });
+      const marks: number[] = [];
+      this.lastWaterlog = waterlogSnapshot(snapshot, world.wet, spans, world.shapes, profile, world.cells, marks);
       const outside = world.outsideColumn?.slice();
       const frozen = { get: (x: number, y: number, z: number) =>
         x >= 0 && x < WORLD_X && z >= 0 && z < WORLD_Z && y >= 0 && y < WORLD_Y
           ? snapshot[(y * WORLD_Z + z) * WORLD_X + x]!
-          : y >= 0 && y < WORLD_Y ? outside?.[y] ?? 0 : 0 };
+          : y >= 0 && y < WORLD_Y ? outside?.[y] ?? 0 : 0,
+        profile: (x: number, y: number, z: number) =>
+          x >= 0 && x < WORLD_X && z >= 0 && z < WORLD_Z && y >= 0 && y < WORLD_Y ? profile[(y * WORLD_Z + z) * WORLD_X + x]! : 0 };
       this.waterBatch = { id: ++this.waterSerial, waiting: false, world: frozen, jobs, cursor: 0, results: [] };
       const worker = this.ensureWaterWorker();
       if (worker) {
-        const request: WaterWorkerRequest = { t: "build", id: this.waterBatch.id, cells: snapshot,
-          outside: outside ?? null, jobs: jobs.map(([id, range]) => {
-            const c = this.chunks.get(id)!;
-            return { id, x: chunkX(id) * CHUNK, z: chunkZ(id) * CHUNK,
-              minY: Math.max(0, Math.min(c.waterMinY, range[0])), maxY: Math.min(WORLD_Y - 1, Math.max(c.waterMaxY, range[1])) };
-          }) };
+        const request: WaterWorkerRequest = { t: "build", id: this.waterBatch.id, cells: snapshot, profile: Int32Array.from(marks),
+          outside: outside ?? null, jobs: spans };
         // Keep the immutable snapshot for bounded main-thread fallback if a
         // worker is unavailable; all result buffers return by transfer.
         this.waterBatch.waiting = true;
@@ -1520,7 +1550,7 @@ export class VoxelView {
     this.waterQueue.clear();
     this.waterWorker?.terminate(); this.waterWorker = null;
     for (const chunk of this.chunks.values()) this.dropChunk(chunk);
-    this.chunks.clear(); this.queue.clear(); this.waterSnapshot = null;
+    this.chunks.clear(); this.queue.clear(); this.waterSnapshot = null; this.waterProfile = null;
     this.setWarm(false);
     this.waterMaterial.dispose();
     for (const mesh of this.studMeshes.values()) {

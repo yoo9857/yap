@@ -17,7 +17,7 @@ function rng(seed: number) {
   return () => ((s = (Math.imul(s, 1664525) + 1013904223) >>> 0) / 4294967296);
 }
 
-interface Case { world: VoxelWorld; cells: number[]; outside: Uint8Array | null }
+interface Case { world: VoxelWorld; cells: number[]; outside: Uint8Array | null; profile: Uint8Array }
 
 function makeCase(seed: number): Case {
   const r = rng(seed), w = new VoxelWorld();
@@ -49,15 +49,27 @@ function makeCase(seed: number): Case {
     const b = w.get(x, y, z);
     if (b !== 0) cells.push(x, y, z);
   }
-  return { world: w, cells, outside };
+  // shaped blocks holding water: a random top per corner on some water cells (shapeProfile's form)
+  const profile = new Uint8Array(w.cells.length);
+  for (let i = 0; i < cells.length; i += 3) {
+    const b = w.get(cells[i]!, cells[i + 1]!, cells[i + 2]!);
+    if (b < 19 || b > 28 || r() > 0.2) continue;
+    let p = 0;
+    for (let c = 0; c < 4; c++) p |= (1 + Math.floor(r() * 3)) << (c * 2);
+    if (r() < 0.4) p = 4; // WATER_HELD: holds water, no film
+    profile[(cells[i + 1]! * WORLD_Z + cells[i + 2]!) * WORLD_X + cells[i]!] = p;
+  }
+  return { world: w, cells, outside, profile };
 }
 
 const ATTRS: [string, number][] = [["position", 3], ["normal", 3], ["aWave", 1], ["aWet", 1], ["aFoam", 1], ["aDepth", 1], ["aFlow", 3], ["aImpact", 3], ["aGrid", 4]];
 
 function compare(c: Case): { vertices: number; same: boolean } {
   let ts: ReturnType<typeof buildWaterGeometry> | "threw";
-  try { ts = buildWaterGeometry(c.world, c.cells); } catch { ts = "threw"; }
-  const rust = engine.water_mesh(c.world.cells, c.outside ?? new Uint8Array(0), Int32Array.from(c.cells));
+  const world = { get: (x: number, y: number, z: number) => c.world.get(x, y, z),
+    profile: (x: number, y: number, z: number) => c.world.inBounds(x, y, z) ? c.profile[(y * WORLD_Z + z) * WORLD_X + x] ?? 0 : 0 };
+  try { ts = buildWaterGeometry(world, c.cells); } catch { ts = "threw"; }
+  const rust = engine.water_mesh(c.world.cells, c.outside ?? new Uint8Array(0), Int32Array.from(c.cells), c.profile);
   if (ts === "threw") { expect(rust[0]).toBe(-1); return { vertices: 0, same: true }; }
   if (!ts) { expect(rust[0]).toBe(0); return { vertices: 0, same: true }; }
   const n = ts.getAttribute("position").count, index = ts.index!;
@@ -87,12 +99,12 @@ describe("water surface: Rust = TypeScript", () => {
   it("a lone source, an empty list and a sealed tank", () => {
     const w = new VoxelWorld();
     w.set(80, 5, 80, 19);
-    compare({ world: w, cells: [80, 5, 80], outside: null });
-    compare({ world: w, cells: [], outside: null });
+    compare({ world: w, cells: [80, 5, 80], outside: null, profile: new Uint8Array(0) });
+    compare({ world: w, cells: [], outside: null, profile: new Uint8Array(0) });
     const t = new VoxelWorld(), stone = id("stone");
     for (let x = 9; x <= 11; x++) for (let y = 4; y <= 6; y++) for (let z = 9; z <= 11; z++) t.set(x, y, z, stone);
     t.set(10, 5, 10, 19);
-    compare({ world: t, cells: [10, 5, 10], outside: null });
+    compare({ world: t, cells: [10, 5, 10], outside: null, profile: new Uint8Array(0) });
   });
 
   it("the grid's size is the same on both sides", () => {

@@ -244,6 +244,20 @@ describe("furniture layout: rugs, surfaces and walls share cells", () => {
 });
 
 describe("doors, gates and curtains", () => {
+  it("only a piece that shuts keeps water out; everything else stands in it", () => {
+    const layout = new FurnitureLayout();
+    layout.add(piece("sofa", 4, 1, 0));
+    layout.add(piece("door", 0, 1, 0));
+    expect(layout.occupied(4, 1, 0)).toBe(true); // bodies still collide with the sofa
+    expect(layout.holdsBackWater(4, 1, 0)).toBe(false);
+    expect(layout.holdsBackWater(0, 1, 0)).toBe(true);
+    expect(layout.holdsBackWater(0, 2, 0)).toBe(true);
+    expect(layout.waterCells()).toEqual([0, 1, 0, 0, 2, 0]);
+    expect(layout.toggle(layout.at("solid", 0, 1, 0)!, blocks())).toBe("ok");
+    expect(layout.holdsBackWater(0, 1, 0)).toBe(false); // an open door lets it through
+    expect(layout.waterCells()).toEqual([]);
+  });
+
   it("opens to let you through and closes solid again", () => {
     const layout = new FurnitureLayout();
     const door = piece("door", 0, 1, 0);

@@ -1,5 +1,8 @@
 export type WaterWorkerRequest = { t: "cancel"; id: number } | {
   t: "build"; id: number; cells: Uint8Array; outside: Uint8Array | null;
+  /** Shaped blocks holding water in the chunks being built: flat [cell index, profile mark]*
+   *  (shapeProfile / WATER_HELD). Sparse: a second whole-grid copy per build was 1.4 MB of garbage. */
+  profile: Int32Array;
   jobs: { id: number; x: number; z: number; minY: number; maxY: number }[];
 };
 export interface WaterWorkerResult {

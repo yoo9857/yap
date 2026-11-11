@@ -7,6 +7,42 @@
   <updated>2026-11-11T00:00:00+09:00</updated>
   <author><name>크래프트얍(CraftYap)</name></author>
   <entry xml:base="https://craftyap.com/">
+    <title>11월 11일 패치 노트 ② — 물이 블록을 타고 흐르게 고쳤어요</title>
+    <link href="https://craftyap.com/note/patch-2026-11-11-2/" />
+    <id>https://craftyap.com/note/patch-2026-11-11-2/</id>
+    <published>2026-11-11T00:00:00+09:00</published>
+    <updated>2026-11-11T00:00:00+09:00</updated>
+    <summary>물이 블록·경사·가구를 만날 때 덩어리로 감싸거나 끊기던 문제를 고쳤어요. 물이 벽과 경사면을 타고 얇게 흐르고, 블록 모서리에서 하나로 이어지고, 가구 주변에 마른 구멍이 생기지 않아요.</summary>
+    <content type="html">&lt;h2&gt;한눈에 보기&lt;/h2&gt;
+&lt;p&gt;물이 흘러내리다가 블록 모서리, 경사 블록, 가구를 만나면 &lt;strong&gt;큰 물 덩어리로 감싸거나, 끊기거나, 빈 공간이 생기던 문제&lt;/strong&gt;를 고쳤어요. 이제 물은 &lt;strong&gt;타고 내려오는 면에 붙은 얇은 물막&lt;/strong&gt;으로 흐르고, 경사 블록에서는 &lt;strong&gt;내리막으로만&lt;/strong&gt; 흘러요.&lt;/p&gt;
+&lt;h2&gt;BEFORE / AFTER&lt;/h2&gt;
+&lt;p&gt;&lt;img src=&quot;/note/assets/20261111-water-slide-ba.webp&quot; alt=&quot;경사 블록 미끄럼틀 비교: 이전에는 물이 경사 블록을 두껍게 덮고 양옆으로 커튼처럼 흘렀고, 업데이트 후에는 경사면을 따라 얇게 흘러 블록이 그대로 보인다&quot;&gt;&lt;/p&gt;
+&lt;p&gt;&lt;img src=&quot;/note/assets/20261111-water-furniture-ba.webp&quot; alt=&quot;가구 비교: 이전에는 탁자와 소파 주변 한 칸이 말라 구덩이처럼 보였고, 업데이트 후에는 가구가 물속에 서 있다&quot;&gt;&lt;/p&gt;
+&lt;p&gt;&lt;img src=&quot;/note/assets/20261111-water-tower-ba.webp&quot; alt=&quot;기둥 비교: 이전에는 기둥 꼭대기의 물이 기둥을 큰 덩어리로 감쌌고, 업데이트 후에는 기둥 면에 붙어 흘러내린다&quot;&gt;&lt;/p&gt;
+&lt;h2&gt;개선&lt;/h2&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;물이 면을 타고 흘러요&lt;/strong&gt; — 벽이나 블록 옆으로 떨어지는 물, 가장자리에서 넘치는 물을 한 칸짜리 덩어리 대신 그 면에 붙은 얇은 물막으로 그려요.&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;경사·반블록·계단 위의 물&lt;/strong&gt; — 위에서 떨어진 물이 블록을 통째로 감싸지 않고 윗면을 따라 얇게 흘러요.&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;경사에서는 내리막으로만&lt;/strong&gt; — 삼각형·계단 위로 떨어진 물이 옆면으로 새지 않고 낮은 쪽으로만 흘러요.&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;흐르는 물이 얕아졌어요&lt;/strong&gt; — 평지에서 흐르는 물이 두꺼운 판처럼 보이지 않도록 깊이를 줄였어요. 고인 물과 물 근원의 높이는 그대로예요.&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;폭포가 곧게 떨어져요&lt;/strong&gt; — 폭포 기둥이 블록마다 잘록해지던 모양을 바로잡았고, 폭포가 아래 물과 만나는 자리가 치맛자락처럼 퍼지지 않아요.&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2&gt;버그 수정&lt;/h2&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;블록 모서리에서 물이 갈라지던 문제&lt;/strong&gt; — 네모난 블록의 두 면을 타고 내려온 물이 모서리에서 따로 놀지 않고 하나로 이어져요.&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;가구 주변의 마른 구멍&lt;/strong&gt; — 의자·탁자·소파가 있는 칸에도 물이 차요. 닫힌 문과 대문만 물을 막아요.&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;공중에 뜬 블록 아래로 비스듬한 물판이 생기던 문제&lt;/strong&gt; — 블록 아랫모서리에서 땅까지 천막처럼 늘어지던 면을 없앴어요.&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;모양 블록 안의 물이 사라지던 문제&lt;/strong&gt; — 같은 구역의 다른 높이에서 물이 움직이면 경사·반블록 안에 있던 물이 화면에서 사라지던 문제를 고쳤어요.&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2&gt;알려진 문제&lt;/h2&gt;
+&lt;ul&gt;
+&lt;li&gt;높이가 다른 블록이 여러 개 겹친 곳에서는 물 표면이 아직 각져 보일 수 있어요.&lt;/li&gt;
+&lt;li&gt;기둥 꼭대기에 놓은 물 근원은 네 면 모두로 흘러내려요.&lt;/li&gt;
+&lt;li&gt;물은 근원에서 7칸까지만 퍼져요.&lt;/li&gt;
+&lt;/ul&gt;
+</content>
+  </entry>
+  <entry xml:base="https://craftyap.com/">
     <title>11월 11일 패치 노트 — 자동차·헬리콥터 모델과 기계 작업실 개편</title>
     <link href="https://craftyap.com/note/patch-2026-11-11/" />
     <id>https://craftyap.com/note/patch-2026-11-11/</id>
@@ -707,47 +743,6 @@
 &lt;li&gt;블록 화면 만들기(메시)와 캐릭터 물리를 차례로 옮기기&lt;/li&gt;
 &lt;li&gt;같은 엔진으로 안드로이드 앱 만들기 (터치 조작, 저사양~최신 폰 그래픽 단계)&lt;/li&gt;
 &lt;/ol&gt;
-</content>
-  </entry>
-  <entry xml:base="https://craftyap.com/">
-    <title>11월 4일 패치 노트 — 서버가 커지는 만큼 자동으로 나뉘어요</title>
-    <link href="https://craftyap.com/note/patch-2026-11-04-1/" />
-    <id>https://craftyap.com/note/patch-2026-11-04-1/</id>
-    <published>2026-11-04T00:00:00+09:00</published>
-    <updated>2026-11-04T00:00:00+09:00</updated>
-    <summary>게임 서버가 컴퓨터의 코어 수에 맞춰 스스로 여러 프로세스로 나뉘도록 바꿨어요. 테스트 환경에서 1,040명이 동시에 지을 때 블록이 친구 화면에 뜨기까지 4.2초 걸리던 것이 0.2초로 줄었어요.</summary>
-    <content type="html">&lt;h2&gt;한눈에 보기&lt;/h2&gt;
-&lt;p&gt;지금까지 게임 서버는 &lt;strong&gt;프로세스 하나&lt;/strong&gt;로 모든 반과 방을 돌렸고, 그 프로세스는 컴퓨터 코어를 하나만 쓸 수 있었어요. 측정해 보니 동시 접속 &lt;strong&gt;약 500명&lt;/strong&gt;에서 그 코어가 꽉 찼어요. 이제 서버는 &lt;strong&gt;코어 수에 맞춰 스스로 여러 프로세스로 나뉘고&lt;/strong&gt;, 반마다 가장 한가한 곳에서 돌아가요. 오늘 운영 서버에서는 걸려 있던 &lt;strong&gt;CPU 한도(0.5코어)를 풀어 쓸 수 있는 CPU가 두 배&lt;/strong&gt;가 됐고, 서버 사양을 올리면 설정을 고치지 않아도 자동으로 나뉘어요.&lt;/p&gt;
-&lt;h2&gt;BEFORE / AFTER&lt;/h2&gt;
-&lt;p&gt;&lt;strong&gt;반 40개 × 학생 25명 = 1,040명이 동시에 걷고 블록을 놓을 때&lt;/strong&gt; (테스트 환경, 8코어 PC) — 프로세스 하나일 때는 CPU가 100%로 포화돼서 친구 움직임이 0.7초마다 끊겨 도착하고, 블록은 4초 넘게 늦게 떴어요. 4개로 나누니 각 프로세스가 절반만 쓰면서 블록을 0.2초 안에 전해요. 1,560명에서도 마찬가지였어요.&lt;/p&gt;
-&lt;p&gt;&lt;img src=&quot;/note/assets/20261104-server-shards-ba.webp&quot; alt=&quot;서버 부하 비교: 테스트 환경 1,040명 기준 친구 움직임 간격 p99가 702 ms에서 196 ms로, 블록이 친구 화면에 뜨기까지 p99가 4.2초에서 201 ms로 줄어든 막대 그래프&quot;&gt;&lt;/p&gt;
-&lt;h2&gt;새로 추가&lt;/h2&gt;
-&lt;ul&gt;
-&lt;li&gt;&lt;strong&gt;서버가 스스로 몇 개로 나뉠지 정해요&lt;/strong&gt; — 켜질 때 쓸 수 있는 코어, CPU 한도, 메모리를 읽어서 정해요. 코어가 하나면 예전처럼 하나로, 두 개 이상이면 코어마다 하나씩 나뉘어요. 메모리가 모자라면 그만큼 덜 나눠요.&lt;/li&gt;
-&lt;li&gt;&lt;strong&gt;반을 가장 한가한 곳에 배정해요&lt;/strong&gt; — 새 반은 그 순간 가장 여유 있는 프로세스에서 열리고, 그 반의 선생님과 학생은 언제나 같은 곳에서 만나요. 같은 반이 두 곳에서 동시에 열리는 일은 생기지 않게 막아 뒀어요.&lt;/li&gt;
-&lt;li&gt;&lt;strong&gt;부하 측정 도구&lt;/strong&gt; — 실제와 똑같이 걷고 블록을 놓는 가상 학생 수천 명으로 서버를 시험할 수 있게 됐어요. 이번 숫자도 모두 이 도구로 쟀어요.&lt;/li&gt;
-&lt;/ul&gt;
-&lt;h2&gt;개선&lt;/h2&gt;
-&lt;ul&gt;
-&lt;li&gt;&lt;strong&gt;CPU 한도를 풀었어요&lt;/strong&gt; — 운영 서버가 CPU를 0.5코어만 쓰도록 묶여 있던 것을 풀어, 지금 서버의 코어 하나를 다 써요.&lt;/li&gt;
-&lt;li&gt;&lt;strong&gt;하나가 멈춰도 다른 반은 계속돼요&lt;/strong&gt; — 나뉜 프로세스 중 하나에 문제가 생기면 그것만 1초 안에 다시 켜지고, 그 반은 저장된 상태에서 이어져요.&lt;/li&gt;
-&lt;li&gt;&lt;strong&gt;업데이트할 때 반이 저장돼요&lt;/strong&gt; — 서버가 다시 켜질 때 모든 프로세스가 각자 반을 저장한 뒤 꺼져요. 다시 켜지는 동안 들어온 접속은 끊지 않고 잠깐 기다렸다가 이어 줘요.&lt;/li&gt;
-&lt;li&gt;&lt;strong&gt;비밀번호 잠금, 접속 수 제한&lt;/strong&gt;은 나뉜 뒤에도 서버 전체에서 하나로 지켜져요.&lt;/li&gt;
-&lt;/ul&gt;
-&lt;h2&gt;기술 스택&lt;/h2&gt;
-&lt;ul&gt;
-&lt;li&gt;&lt;strong&gt;언어는 그대로&lt;/strong&gt; TypeScript(Node.js 22)예요. 클라이언트와 서버가 같은 코드(레벨 생성, 물 흐름, 통신 규약)를 그대로 함께 써요.&lt;/li&gt;
-&lt;li&gt;&lt;strong&gt;멀티프로세스&lt;/strong&gt;: Node &lt;code&gt;cluster&lt;/code&gt; — 앞문 프로세스 하나가 웹소켓 연결을 받아, TCP 소켓 자체를 IPC로 게임 프로세스에 넘겨요. 넘긴 뒤 게임 데이터는 앞문을 거치지 않아요.&lt;/li&gt;
-&lt;li&gt;&lt;strong&gt;방 디렉토리&lt;/strong&gt;: 방 → 프로세스 배정을 기억하는 할당기(부하 기준 배정, 소켓 인계 수 비교로 안전하게 반납). 나중에 서버를 여러 대로 늘릴 때 Redis로 바꿔 끼울 수 있게 경계를 나눠 뒀어요.&lt;/li&gt;
-&lt;li&gt;&lt;strong&gt;자동 용량 판단&lt;/strong&gt;: cgroup v1/v2(&lt;code&gt;cpu.max&lt;/code&gt;, CFS)와 &lt;code&gt;process.constrainedMemory()&lt;/code&gt;로 컨테이너 한도를 읽어요.&lt;/li&gt;
-&lt;li&gt;&lt;strong&gt;저장&lt;/strong&gt;: SQLite(better-sqlite3, WAL) 한 파일을 모든 프로세스가 같이 써요. 한 반은 한 프로세스만 쓰기 때문에 서로 덮어쓰지 않아요.&lt;/li&gt;
-&lt;li&gt;&lt;strong&gt;배포&lt;/strong&gt;: Docker Compose + nginx, GitHub Actions(테스트를 통과해야 배포). 운영 지표는 서버 안에서만 보이는 &lt;code&gt;/metrics&lt;/code&gt;(CPU, 이벤트 루프 부하, 지연, 메모리)로 봐요.&lt;/li&gt;
-&lt;/ul&gt;
-&lt;h2&gt;알려진 문제&lt;/h2&gt;
-&lt;ul&gt;
-&lt;li&gt;이미 열려 있던 교실 탭은 업데이트 뒤 &lt;strong&gt;한 번 자동으로 새로고침&lt;/strong&gt;될 수 있어요. 새로고침하면 같은 반, 같은 자리로 돌아와요.&lt;/li&gt;
-&lt;li&gt;오늘 운영 서버는 코어가 하나라 아직 &lt;strong&gt;하나로 돌아가요&lt;/strong&gt;. 서버 사양을 올리면 다시 켜는 것만으로 나뉘어요.&lt;/li&gt;
-&lt;/ul&gt;
 </content>
   </entry>
 </feed>

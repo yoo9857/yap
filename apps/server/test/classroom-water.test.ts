@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { ROUND, WATER, WATER_SETTLED, CLASS_MAX_COORD, decodeClassServer, flowingWater, kitSlopeShape, type ClassServerMessage } from "@robo/shared";
+import { loadRustEngineSync } from "@robo/engine/node";
 import { ClassRoom, type ClassPeer } from "../src/classroom/classRoom.js";
 import { hashPassword } from "../src/classroom/classStore.js";
 
@@ -153,6 +154,27 @@ describe("classroom water", () => {
     expect(restored.hostTeacher(late, { password: "1234" })).toBe("ok");
     const world = late.inbox.filter((m) => m.t === "s-k-world").flatMap((m) => (m.t === "s-k-world" ? m.edits : []));
     expect(world.some(([x, y, z, b]) => x === 7 && y === Y && z === 0 && b === flowingWater(7))).toBe(true);
+  });
+
+  for (const engine of ["ts", "rust"] as const) it(`${engine}: water fills the cells furniture stands in; only a closed door holds it back`, () => {
+    const room = new ClassRoom("Ms Kim", AUTH, undefined, "Flood", { rust: engine === "rust" ? loadRustEngineSync() : null });
+    const teacher = new Peer();
+    room.hostTeacher(teacher);
+    // a chair right beside the source, a closed door on the other side
+    room.handle(teacher, { t: "k-furniture", placed: [["chair", 1, Y, 0, 0, 0], ["door", -1, Y, 0, 0, 0]], removed: [] });
+    room.handle(teacher, { t: "k-edit", edits: [[0, Y, 0, WATER, 0]] });
+    settle(room);
+    const water = teacher.water();
+    expect(water.get(`1,${Y},0`)).toBe(flowingWater(1)); // the chair stands in the stream
+    expect(water.get(`2,${Y},0`)).toBe(flowingWater(2)); // ...and the stream goes on through it
+    expect(water.get(`-1,${Y},0`) ?? 0).toBe(0);         // the closed door stays dry
+    // opening the door lets the water in; shutting it again pushes it out
+    room.handle(teacher, { t: "k-furniture", removed: [["door", -1, Y, 0, 0, 0]], placed: [["door", -1, Y, 0, 0, 0, 1]] });
+    settle(room);
+    expect(teacher.water().get(`-1,${Y},0`)).toBe(flowingWater(1));
+    room.handle(teacher, { t: "k-furniture", removed: [["door", -1, Y, 0, 0, 0, 1]], placed: [["door", -1, Y, 0, 0, 0]] });
+    settle(room);
+    expect(teacher.water().get(`-1,${Y},0`)).toBe(0);
   });
 
   it("water is not a floor for furniture", () => {

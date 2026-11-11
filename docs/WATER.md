@@ -224,3 +224,62 @@ Checked by `packages/shared/test/waterlog.test.ts`, `apps/client/test/water-shap
 the classroom water test and `node tools/shot-water-mixed.mjs` (triangle + round pairs,
 clusters, against a wall, at the surface, in the rim, and a stream on open ground;
 fails if any shaped cell the water reaches stays dry).
+
+## Running water: sheets, films, corners, furniture (2026-11-11)
+
+Players' screenshots showed water standing round blocks as cell-sized bodies: a box of water round
+a ramp, a dome round shapes hanging in the air, two separate strips down two faces of a block, a
+dry pit round every chair. The rules stay Minecraft-style cells; what changed is what is DRAWN for
+water that is running off something, and where furniture keeps water out.
+
+- **Furniture stands in the water.** Only a piece that shuts (a closed door or gate: `openParts`)
+  keeps water out of its cells (`FurnitureLayout.holdsBackWater` / `waterCells`, client hook
+  `VoxelWorld.propDry`, server `ClassRoom.fluidWorld.open`, the Rust mirrors' `props`). A chair, table
+  or sofa used to hold a whole dry cell. Bodies still collide with them (`propSolid`, unchanged).
+- **A sheet on the face it runs down** (`waterGeometry.ts` `sheet`, `SHEET` = 0.34 m): a falling
+  cell, or a flowing cell hanging over an edge, that has open air on one side and something to run
+  off on the other (a solid, standing water, or a shaped block holding water) reaches only `SHEET`
+  from that side. A fall with nothing beside it keeps its whole column; an inside corner keeps the cell.
+- **One sheet round a block's corner.** Two wet cells meeting corner to corner are two streams in
+  the open, but ONE surface when the other two cells are a solid and air (the contour joins round the
+  dry corners), and each sheet reaches `SHEET` past the block's edge so the join has thickness.
+- **A film over a shaped block.** Water that FELL onto a ramp, half block or stairs (the cell's water
+  is falling water) is drawn `FILM` (0.22 m) above the block's top at each corner of its cell
+  (`shapeProfile` in waterlog.ts, handed to the mesher per cell as `profile`), and the flowing lip
+  directly above it is not drawn a second time (`waterlogSnapshot`). Water that reached a shape from
+  the side stands at its own level as before; such cells are marked `WATER_HELD` so what spills out of
+  them still runs down as a sheet.
+- **Straight columns.** A face's centre vertex lies on its curved edges (a Coons patch); at the flat
+  average a falling column was 10 cm narrower halfway up every block.
+
+- **Running water is placed per axis** (`JOIN` = 0.8): a vertex of a fall, sheet or lip takes each
+  coordinate from the crossings ALONG that axis (its side stays upright, its top level, a sheet as
+  thick at a corner as on its face) instead of the average of every crossing, which tilted them into
+  slanted panels between blocks hanging at different heights. Where a higher stream or a fall meets
+  water below, the foot is pulled to the line where they meet (no half-cell skirt). Standing water and
+  ground streams keep the rounded average.
+- **The snapshot hands over a chunk's whole re-meshed height**, not just the changed layers: a shaped
+  block's water above or below a change used to vanish from the new mesh. The worker gets the
+  profile marks as a sparse list (a second whole-grid copy per build was 1.4 MB of garbage).
+
+All of it is in both meshers (`engine/crates/core/src/water_mesh.rs`, bit-identical:
+`test/rust-water-mesh.test.ts` now feeds random profiles). `water_mesh` (wasm) takes the profile
+array as a 4th argument; `build_water_mesh` (the native app's call) passes none, so the app draws
+sheets and joined corners but not films yet. Swimming still counts the whole cell.
+
+Two rules of the simulation changed with it (same day, `fluid.ts` + the Rust twins, parity-tested):
+
+- **Water that fell onto a ramp or a step runs down it** (`runsAway`): a falling-water cell in a
+  block whose shape seals its floor and exactly one side (ramps and stairs standing on their floor)
+  feeds only the cell opposite that back. It used to spill through the open triangular sides too,
+  so every slide grew a curtain of water down each flank. Water that reached the block from the side
+  still passes through it; a half block (no back) still spills every way.
+- **Running water is shallower** (`waterHeight`, and `body.rs`): standing water (source, retained
+  basin) is still 0.875 of its cell; flowing water is `0.64 − level × 0.077` (0.56 m beside the
+  source, 0.10 m at the seventh cell) instead of `0.875 − level × 0.11` (0.77 m beside the source).
+  Wading and swimming read the same function, so a stream is waded, not swum.
+
+Not changed: a source on a pillar still runs down all four faces, and the seven-cell reach.
+`node tools/shot-water-flow.mjs [outdir]` builds every case above (walls, falls,
+furniture, steps, shapes, a slide, hanging shapes, a pillar's corners), prints the cells and shoots
+them; `ONLY=shape,corner` picks scenes.

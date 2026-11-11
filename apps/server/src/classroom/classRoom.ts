@@ -276,7 +276,7 @@ export class ClassRoom {
     },
     open: (x, y, z) =>
       Math.abs(x) <= CLASS_MAX_COORD && Math.abs(z) <= CLASS_MAX_COORD &&
-      y >= 1 && y <= CLASS_MAX_Y && !this.furniture.occupied(x, y, z) && !this.fitted.has(voxelKey(x, y, z)) &&
+      y >= 1 && y <= CLASS_MAX_Y && !this.furniture.holdsBackWater(x, y, z) && !this.fitted.has(voxelKey(x, y, z)) &&
       // a full store takes no new cells — water included
       (this.edits.has(voxelKey(x, y, z)) || this.hasFluidCapacity()),
     set: (x, y, z, block) => {
@@ -1421,6 +1421,6 @@ class RustClassWater {
     if (furniture === this.propsLayout && furniture.version === this.propsVersion) return;
     this.propsLayout = furniture;
     this.propsVersion = furniture.version;
-    this.water.props(Int32Array.from(furniture.solidCells()));
+    this.water.props(Int32Array.from(furniture.waterCells()));
   }
 }

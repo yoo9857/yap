@@ -181,9 +181,10 @@ export function surface_style(key: string): Float64Array;
  * their water) and the column beyond it (`outside`, empty = air). Returns one Float32Array:
  * [vertex count, index count, position (3n), normal (3n), wave, wet, foam, depth (n each),
  * flow (3n), impact (3n), grid (4n), indices]; [0, 0] when nothing is drawn, [-1, 0] when the
- * TypeScript would throw.
+ * TypeScript would throw. `profile` (same layout as `cells`, or empty): the top of each shaped
+ * block holding water (waterlog.ts `shapeProfile`).
  */
-export function water_mesh(cells: Uint8Array | number[], outside: Uint8Array | number[], list: Int32Array | number[]): Float32Array;
+export function water_mesh(cells: Uint8Array | number[], outside: Uint8Array | number[], list: Int32Array | number[], profile: Uint8Array | number[]): Float32Array;
 
 export type InitInput = RequestInfo | URL | Response | BufferSource | WebAssembly.Module;
 
@@ -236,7 +237,7 @@ export interface InitOutput {
     readonly wasmwater_step: (a: number, b: number) => [number, number];
     readonly wasmwater_touch: (a: number, b: number, c: number, d: number) => void;
     readonly wasmwater_write: (a: number, b: number, c: number, d: number, e: number) => void;
-    readonly water_mesh: (a: number, b: number, c: number, d: number, e: number, f: number) => [number, number];
+    readonly water_mesh: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number) => [number, number];
     readonly __wbindgen_externrefs: WebAssembly.Table;
     readonly __wbindgen_malloc: (a: number, b: number) => number;
     readonly __wbindgen_free: (a: number, b: number, c: number) => void;

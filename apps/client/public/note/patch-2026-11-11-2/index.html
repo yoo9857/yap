@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>11월 11일 패치 노트 ② — 물이 블록을 타고 흐르게 고쳤어요 | 크래프트얍 개발 노트</title>
+    <meta name="description" content="물이 블록·경사·가구를 만날 때 덩어리로 감싸거나 끊기던 문제를 고쳤어요. 물이 벽과 경사면을 타고 얇게 흐르고, 블록 모서리에서 하나로 이어지고, 가구 주변에 마른 구멍이 생기지 않아요." />
+    <meta name="robots" content="index, follow, max-image-preview:large" />
+    <meta name="theme-color" content="#ffd21c" />
+    <meta name="generator" content="tools/build-notes.mjs" />
+    <link rel="canonical" href="https://craftyap.com/note/patch-2026-11-11-2/" />
+    <link rel="alternate" type="application/rss+xml" title="크래프트얍 개발 노트" href="/feed.xml" />
+    <link rel="alternate" type="application/atom+xml" title="크래프트얍 개발 노트 (Atom)" href="/note/feed.xml" />
+    <link rel="icon" type="image/png" sizes="48x48" href="/favicon-48.png" />
+    <link rel="stylesheet" href="/guide/guide.css?v=0f9762e0f8" />
+    <link rel="stylesheet" href="/note/note.css?v=e5352788b0" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Jua&family=Noto+Sans+KR:wght@400;700;900&display=swap" rel="stylesheet" />
+    <meta property="og:type" content="article" />
+    <meta property="og:locale" content="ko_KR" />
+    <meta property="og:site_name" content="크래프트얍(CraftYap)" />
+    <meta property="og:title" content="11월 11일 패치 노트 ② — 물이 블록을 타고 흐르게 고쳤어요 | 크래프트얍 개발 노트" />
+    <meta property="og:description" content="물이 블록·경사·가구를 만날 때 덩어리로 감싸거나 끊기던 문제를 고쳤어요. 물이 벽과 경사면을 타고 얇게 흐르고, 블록 모서리에서 하나로 이어지고, 가구 주변에 마른 구멍이 생기지 않아요." />
+    <meta property="og:url" content="https://craftyap.com/note/patch-2026-11-11-2/" />
+    <meta property="og:image" content="https://craftyap.com/craftyap-banner.jpg" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="675" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="11월 11일 패치 노트 ② — 물이 블록을 타고 흐르게 고쳤어요 | 크래프트얍 개발 노트" />
+    <meta name="twitter:description" content="물이 블록·경사·가구를 만날 때 덩어리로 감싸거나 끊기던 문제를 고쳤어요. 물이 벽과 경사면을 타고 얇게 흐르고, 블록 모서리에서 하나로 이어지고, 가구 주변에 마른 구멍이 생기지 않아요." />
+    <meta name="twitter:image" content="https://craftyap.com/craftyap-banner.jpg" />
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "BlogPosting",
+      "@id": "https://craftyap.com/note/patch-2026-11-11-2/#post",
+      "url": "https://craftyap.com/note/patch-2026-11-11-2/",
+      "headline": "11월 11일 패치 노트 ② — 물이 블록을 타고 흐르게 고쳤어요",
+      "description": "물이 블록·경사·가구를 만날 때 덩어리로 감싸거나 끊기던 문제를 고쳤어요. 물이 벽과 경사면을 타고 얇게 흐르고, 블록 모서리에서 하나로 이어지고, 가구 주변에 마른 구멍이 생기지 않아요.",
+      "datePublished": "2026-11-11",
+      "dateModified": "2026-11-11",
+      "inLanguage": "ko",
+      "keywords": "패치 노트, 버그 수정, 물",
+      "image": "https://craftyap.com/craftyap-banner.jpg",
+      "isPartOf": {
+        "@id": "https://craftyap.com/note/#blog"
+      },
+      "author": {
+        "@type": "Organization",
+        "name": "크래프트얍(CraftYap)",
+        "url": "https://craftyap.com/"
+      },
+      "about": {
+        "@id": "https://craftyap.com/#game"
+      }
+    },
+    {
+      "@type": "BreadcrumbList",
+      "itemListElement": [
+        {
+          "@type": "ListItem",
+          "position": 1,
+          "name": "크래프트얍",
+          "item": "https://craftyap.com/"
+        },
+        {
+          "@type": "ListItem",
+          "position": 2,
+          "name": "개발 노트",
+          "item": "https://craftyap.com/note/"
+        },
+        {
+          "@type": "ListItem",
+          "position": 3,
+          "name": "11월 11일 패치 노트 ② — 물이 블록을 타고 흐르게 고쳤어요",
+          "item": "https://craftyap.com/note/patch-2026-11-11-2/"
+        }
+      ]
+    }
+  ]
+}
+    </script>
+    <script src="/guide/guide.js?v=b6f46abba1" defer></script>
+  </head>
+
+  <body>
+    <a class="skip-link" href="#content">본문으로 이동</a>
+    <header class="site-header"><div class="header-inner">
+      <a class="brand" href="/" aria-label="크래프트얍 게임 홈"><img src="/craftyap-logo.webp" width="64" height="64" alt="" /><span>크래프트얍<small>CRAFTYAP</small></span></a>
+      <nav class="header-nav" id="site-nav" aria-label="주요 메뉴"><a href="/note/">개발 노트</a><a href="/guide/">게임 안내</a><a href="/guide/#controls">조작법</a><a href="/guide/#faq">FAQ</a></nav>
+      <a class="button button-dark header-play" href="/">지금 플레이 <span aria-hidden="true">↗</span></a>
+      <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="site-nav" aria-label="메뉴 열기" hidden><span></span><span></span></button>
+    </div></header>
+    <main id="content" class="note-main section-shell">
+      <article class="note-article" aria-labelledby="post-title">
+        <nav class="note-crumb" aria-label="현재 위치"><a href="/note/">← 개발 노트</a></nav>
+        <header class="note-head">
+          <p class="note-date"><time datetime="2026-11-11">2026.11.11</time></p>
+          <h1 id="post-title">11월 11일 패치 노트 ② — 물이 블록을 타고 흐르게 고쳤어요</h1>
+          <p class="note-summary">물이 블록·경사·가구를 만날 때 덩어리로 감싸거나 끊기던 문제를 고쳤어요. 물이 벽과 경사면을 타고 얇게 흐르고, 블록 모서리에서 하나로 이어지고, 가구 주변에 마른 구멍이 생기지 않아요.</p>
+          <ul class="note-tags" aria-label="태그"><li>패치 노트</li><li>버그 수정</li><li>물</li></ul>
+          <nav class="note-chips" aria-label="이번 노트의 변경 사항"><a class="note-chip note-chip--up" href="#up">개선 <b>5</b></a><a class="note-chip note-chip--fix" href="#fix">수정 <b>4</b></a><a class="note-chip note-chip--known" href="#known">알려진 문제 <b>3</b></a></nav>
+        </header>
+        <div class="note-body">
+<section class="note-sec note-sec--summary" id="s0" aria-labelledby="s0-h">
+<h2 id="s0-h"><span class="note-badge" aria-hidden="true">요약</span>한눈에 보기</h2>
+<div class="note-sec-body">
+<p>물이 흘러내리다가 블록 모서리, 경사 블록, 가구를 만나면 <strong>큰 물 덩어리로 감싸거나, 끊기거나, 빈 공간이 생기던 문제</strong>를 고쳤어요. 이제 물은 <strong>타고 내려오는 면에 붙은 얇은 물막</strong>으로 흐르고, 경사 블록에서는 <strong>내리막으로만</strong> 흘러요.</p>
+</div>
+</section>
+<section class="note-sec">
+<h2>BEFORE / AFTER</h2>
+<p><img src="/note/assets/20261111-water-slide-ba.webp" alt="경사 블록 미끄럼틀 비교: 이전에는 물이 경사 블록을 두껍게 덮고 양옆으로 커튼처럼 흘렀고, 업데이트 후에는 경사면을 따라 얇게 흘러 블록이 그대로 보인다"></p>
+<p><img src="/note/assets/20261111-water-furniture-ba.webp" alt="가구 비교: 이전에는 탁자와 소파 주변 한 칸이 말라 구덩이처럼 보였고, 업데이트 후에는 가구가 물속에 서 있다"></p>
+<p><img src="/note/assets/20261111-water-tower-ba.webp" alt="기둥 비교: 이전에는 기둥 꼭대기의 물이 기둥을 큰 덩어리로 감쌌고, 업데이트 후에는 기둥 면에 붙어 흘러내린다"></p>
+</section>
+<section class="note-sec note-sec--up" id="up" aria-labelledby="up-h">
+<h2 id="up-h"><span class="note-badge" aria-hidden="true">UP</span>개선 <small>5</small></h2>
+<div class="note-sec-body">
+<ul>
+<li><strong class="item-title">물이 면을 타고 흘러요</strong>벽이나 블록 옆으로 떨어지는 물, 가장자리에서 넘치는 물을 한 칸짜리 덩어리 대신 그 면에 붙은 얇은 물막으로 그려요.</li>
+<li><strong class="item-title">경사·반블록·계단 위의 물</strong>위에서 떨어진 물이 블록을 통째로 감싸지 않고 윗면을 따라 얇게 흘러요.</li>
+<li><strong class="item-title">경사에서는 내리막으로만</strong>삼각형·계단 위로 떨어진 물이 옆면으로 새지 않고 낮은 쪽으로만 흘러요.</li>
+<li><strong class="item-title">흐르는 물이 얕아졌어요</strong>평지에서 흐르는 물이 두꺼운 판처럼 보이지 않도록 깊이를 줄였어요. 고인 물과 물 근원의 높이는 그대로예요.</li>
+<li><strong class="item-title">폭포가 곧게 떨어져요</strong>폭포 기둥이 블록마다 잘록해지던 모양을 바로잡았고, 폭포가 아래 물과 만나는 자리가 치맛자락처럼 퍼지지 않아요.</li>
+</ul>
+</div>
+</section>
+<section class="note-sec note-sec--fix" id="fix" aria-labelledby="fix-h">
+<h2 id="fix-h"><span class="note-badge" aria-hidden="true">FIX</span>버그 수정 <small>4</small></h2>
+<div class="note-sec-body">
+<ul>
+<li><strong class="item-title">블록 모서리에서 물이 갈라지던 문제</strong>네모난 블록의 두 면을 타고 내려온 물이 모서리에서 따로 놀지 않고 하나로 이어져요.</li>
+<li><strong class="item-title">가구 주변의 마른 구멍</strong>의자·탁자·소파가 있는 칸에도 물이 차요. 닫힌 문과 대문만 물을 막아요.</li>
+<li><strong class="item-title">공중에 뜬 블록 아래로 비스듬한 물판이 생기던 문제</strong>블록 아랫모서리에서 땅까지 천막처럼 늘어지던 면을 없앴어요.</li>
+<li><strong class="item-title">모양 블록 안의 물이 사라지던 문제</strong>같은 구역의 다른 높이에서 물이 움직이면 경사·반블록 안에 있던 물이 화면에서 사라지던 문제를 고쳤어요.</li>
+</ul>
+</div>
+</section>
+<section class="note-sec note-sec--known" id="known" aria-labelledby="known-h">
+<h2 id="known-h"><span class="note-badge" aria-hidden="true">!</span>알려진 문제 <small>3</small></h2>
+<div class="note-sec-body">
+<ul>
+<li>높이가 다른 블록이 여러 개 겹친 곳에서는 물 표면이 아직 각져 보일 수 있어요.</li>
+<li>기둥 꼭대기에 놓은 물 근원은 네 면 모두로 흘러내려요.</li>
+<li>물은 근원에서 7칸까지만 퍼져요.</li>
+</ul>
+</div>
+</section>
+        </div>
+      </article>
+      <nav class="note-pager" aria-label="다른 노트"><a class="note-prev" href="/note/patch-2026-11-11/"><small>이전 노트</small>11월 11일 패치 노트 — 자동차·헬리콥터 모델과 기계 작업실 개편</a><span></span></nav>
+    </main>
+    <footer class="site-footer section-shell"><div><a class="footer-brand" href="/">크래프트얍 <span>CraftYap</span></a><p>블록 하나에서 시작되는, 네가 만드는 세상.</p></div><nav aria-label="하단 메뉴"><a href="/">게임 홈</a><a href="/note/">개발 노트</a><a href="/guide/">게임 안내</a><a href="/feed.xml">RSS</a><a href="#content">맨 위로 ↑</a></nav><small>크래프트얍 개발 노트 · <time datetime="2026-11-11">2026.11.11 업데이트</time></small></footer>
+  </body>
+</html>

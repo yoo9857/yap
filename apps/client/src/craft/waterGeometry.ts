@@ -1,9 +1,11 @@
 import * as THREE from "three";
-import { WATER_FALLING, isWater, waterHeight, waterLevel } from "@robo/shared";
+import { WATER, WATER_FALLING, isWater, waterHeight, waterLevel } from "@robo/shared";
 import { SOLID_ID } from "./blocks.js";
 import type { VoxelWorld } from "./voxelWorld.js";
 
-type World = Pick<VoxelWorld, "get">;
+/** `profile`: the top of a shaped block holding water, per corner (waterlog.ts `shapeProfile`), or
+ *  WATER_HELD for one whose water stands at its own level; 0 or absent = ordinary water. */
+type World = Pick<VoxelWorld, "get"> & { profile?(x: number, y: number, z: number): number };
 type V3 = [number, number, number];
 interface Node {
   id: number;
@@ -24,6 +26,13 @@ const CUBE_FACES = Array.from({ length: 6 }, (_, i) => {
 });
 const DIRECTIONS: V3[] = [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]];
 const HORIZONTAL = [DIRECTIONS[0]!, DIRECTIONS[1]!, DIRECTIONS[4]!, DIRECTIONS[5]!];
+/** How far a sheet of running water reaches from the face it runs down (m). */
+const SHEET = 0.34;
+/** How far a fall's foot is pulled from the rounded average to the line where it meets the water
+ *  below (0 = the old half-cell skirt, 1 = a hard crease). */
+const JOIN = 0.8;
+/** How deep water lies over a shaped block it runs across (m). */
+const FILM = 0.22;
 const cellKey = (x: number, y: number, z: number) => ((y + 2) * 164 + z + 2) * 164 + x + 2;
 const normalize = (n: V3): V3 => { const k = Math.hypot(...n); return k > 0.00001 ? [n[0] / k, n[1] / k, n[2] / k] : [0, 1, 0]; };
 const lerp3 = (a: V3, b: V3, t: number): V3 => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
@@ -60,6 +69,37 @@ export function buildWaterGeometry(world: World, cells: readonly number[]): THRE
     let d = waterHeight(world.get(x, y, z));
     for (let yy = y - 1; yy >= 0 && y - yy < 16 && isWater(world.get(x, yy, z)); yy--) d++;
     depthCache.set(key, d); return d;
+  };
+  // Water running OFF something is a sheet on the face it runs down, not a cell-sized block of
+  // water: a fall beside a wall, and the lip that hangs over an edge, reach only SHEET from the
+  // wall (or from the standing water they left). 0 = the whole cell; 1/2 = the sheet lies on the
+  // cell's −x/+x face, 3/4 = on its −z/+z face. A cell with two such faces (an inside corner)
+  // keeps the whole cell. Decided from world samples only, so neighbouring chunks agree.
+  const sheetCache = new Map<number, number>();
+  const sheet = (x: number, y: number, z: number, id: number): number => {
+    const key = cellKey(x, y, z), cached = sheetCache.get(key);
+    if (cached !== undefined) return cached;
+    let found = 0;
+    const below = world.get(x, y - 1, z);
+    const loose = id === WATER_FALLING || id > WATER && id < WATER_FALLING && (below === 0 || below === WATER_FALLING);
+    if (loose) {
+      for (let i = 0; i < 4; i++) {
+        const sx = HORIZONTAL[i]![0], sz = HORIZONTAL[i]![2];
+        if (world.get(x + sx, y, z + sz) !== 0) continue;
+        const back = world.get(x - sx, y, z - sz);
+        // a shaped block holding water (any profile mark) is something to run off, like a solid
+        let hug = SOLID_ID[back] === 1 || isWater(back) && world.profile !== undefined && world.profile(x - sx, y, z - sz) !== 0;
+        if (!hug && isWater(back) && back !== WATER_FALLING) {
+          const under = world.get(x - sx, y - 1, z - sz);
+          hug = under !== 0 && under !== WATER_FALLING;
+        }
+        if (!hug) continue;
+        if (found) { found = 0; break; }
+        found = i + 1;
+      }
+    }
+    if (loose) found |= 8; // running water, whether or not it lies on a face
+    sheetCache.set(key, found); return found;
   };
   const sampleCache = new Map<number, { depth: number; fx: number; fz: number; fall: number; impact: boolean }>();
   const sample = (x: number, y: number, z: number, id: number) => {
@@ -105,8 +145,17 @@ export function buildWaterGeometry(world: World, cells: readonly number[]): THRE
       for (const face of CUBE_FACES) {
         const crossed = face.edges.filter((edge) => (remaining & 1 << edge) !== 0);
         if (crossed.length === 2) join(crossed[0]!, crossed[1]!);
-        else if (crossed.length === 4) for (let j = 0; j < 4; j++)
-          if (waterMask & 1 << face.corners[j]!) join(face.edges[(j + 3) % 4]!, face.edges[j]!);
+        else if (crossed.length === 4) {
+          // Two wet cells meeting corner to corner. In the open they are two streams (joined
+          // round each wet corner). Round a block's corner — the other two cells are one solid
+          // and one air — they are ONE sheet turning that corner: join round the dry corners, or
+          // water running down two faces of a block stayed two strips with a slit along its edge.
+          let solids = 0;
+          for (let j = 0; j < 4; j++) if (!(waterMask & 1 << face.corners[j]!) && SOLID_ID[ids[face.corners[j]!]!] === 1) solids++;
+          const wrap = solids === 1;
+          for (let j = 0; j < 4; j++)
+            if (!!(waterMask & 1 << face.corners[j]!) !== wrap) join(face.edges[(j + 3) % 4]!, face.edges[j]!);
+        }
       }
       while (remaining) {
         const seed = 31 - Math.clz32(remaining & -remaining), queue = [seed];
@@ -122,6 +171,8 @@ export function buildWaterGeometry(world: World, cells: readonly number[]): THRE
         remaining &= ~edgeMask;
         const points: V3[] = [], normal: V3 = [0, 0, 0], surfaceHeights: number[] = [];
         const constraints: (number | undefined)[] = [undefined, undefined, undefined];
+        const sideSum = [0, 0, 0], sideCount = [0, 0, 0], axisSum = [0, 0, 0], axisCount = [0, 0, 0];
+        let running = false;
         for (let e = 0; e < EDGES.length; e++) {
           if (!(edgeMask & 1 << e)) continue;
           const [ia, ib, axis] = EDGES[e]!;
@@ -129,19 +180,51 @@ export function buildWaterGeometry(world: World, cells: readonly number[]): THRE
           const wi = wa ? ia : ib, ai = wa ? ib : ia;
           const a = CORNERS[wi]!, b = CORNERS[ai]!;
           const x = cx + a[0], y = cy + a[1], z = cz + a[2];
-          const h = waterHeight(ids[wi]!, isWater(world.get(x, y + 1, z)));
+          // over a shaped block the surface follows the block's top at this corner of its cell: a
+          // film down a ramp, across a half block, over each step — not a body of water around it
+          const profile = world.profile ? world.profile(x, y, z) : 0;
+          const h = (profile & 3) === 0 ? waterHeight(ids[wi]!, isWater(world.get(x, y + 1, z)))
+            : Math.min(1, ((profile >> ((1 - a[0]) + 2 * (1 - a[2])) * 2 & 3) - 1) * 0.5 + FILM);
           const p: V3 = [x + 0.5, y + h * 0.5, z + 0.5];
           const sign = b[axis]! - a[axis]!;
+          const code = sheet(x, y, z, ids[wi]!), thin = code & 7, thinAxis: number = thin === 0 ? -1 : thin < 3 ? 0 : 2;
+          if (code !== 0) running = true;
+          const near = (thin & 1) === 1; // the sheet lies on the cell's low face
+          if (thinAxis >= 0) p[thinAxis] = (thinAxis === 0 ? x : z) + (near ? SHEET * 0.5 : 1 - SHEET * 0.5);
           if (axis === 1) p[1] = y + (sign > 0 ? h : 0);
+          else if (axis === thinAxis) p[axis] = (axis === 0 ? x : z) + (sign > 0 ? (near ? SHEET : 1) : (near ? 0 : 1 - SHEET));
+          else if (thinAxis >= 0 && SOLID_ID[thinAxis === 0 ? world.get(x + (near ? -1 : 1), y, z) : world.get(x, y, z + (near ? -1 : 1))] === 1 &&
+            isWater(thinAxis === 0 ? world.get(x + (near ? -1 : 1), y, z + sign) : world.get(x + sign, y, z + (near ? -1 : 1))))
+            // the sheet goes on round the block's corner, where the next face's sheet meets it
+            p[axis] = p[axis]! + sign * (0.5 + SHEET);
           else p[axis] = p[axis]! + sign * 0.5;
           points.push(p);
+          axisSum[axis] = axisSum[axis]! + p[axis]!; axisCount[axis] = axisCount[axis]! + 1;
           if (axis === 1 && sign > 0) surfaceHeights.push(p[1]);
+          else if (axis !== 1 && a[1] === 1) { sideSum[axis] = sideSum[axis]! + p[axis]!; sideCount[axis] = sideCount[axis]! + 1; }
           if (ids[ai] === 0 || axis === 1 && sign > 0 && h < 0.999) normal[axis] = normal[axis]! + sign;
           if (SOLID_ID[ids[ai]!] === 1) constraints[axis] = p[axis];
         }
         if (!points.length) continue;
         const p: V3 = [0, 0, 0];
         for (const point of points) for (let axis = 0; axis < 3; axis++) p[axis] = p[axis]! + point[axis]! / points.length;
+        // Where water comes DOWN into water — the side of a fall or of a higher stream (a wet cell in
+        // the cube's upper layer) meeting a surface below it — the two meet in a line: the surface's
+        // height, the side's position. Averaged like everything else, that corner was rounded by half
+        // a cell each way, and every fall stood in a skirt 0.5 m high and a metre wide (from a block
+        // hanging in the air: a tent from its lower edge to the ground). JOIN keeps a little of it.
+        // Running water (falls, sheets, overhanging lips) takes each coordinate from the faces that
+        // cross THAT axis: a fall's side stays upright, its top level, a sheet as thick at its corner
+        // as on its face. Averaging every crossing together tilted them toward each other, and
+        // between blocks hanging at different heights the surface became slanted panels and fins.
+        if (running) {
+          for (let axis = 0; axis < 3; axis++)
+            if (axisCount[axis]! > 0) p[axis] = p[axis]! + (axisSum[axis]! / axisCount[axis]! - p[axis]!) * JOIN;
+        } else if (surfaceHeights.length && (sideCount[0]! > 0 || sideCount[2]! > 0)) {
+          p[1] = p[1] + (surfaceHeights.reduce((sum, h) => sum + h, 0) / surfaceHeights.length - p[1]) * JOIN;
+          for (let axis = 0; axis < 3; axis += 2)
+            if (sideCount[axis]! > 0) p[axis] = p[axis]! + (sideSum[axis]! / sideCount[axis]! - p[axis]!) * JOIN;
+        }
         for (let axis = 0; axis < 3; axis++) if (constraints[axis] !== undefined) p[axis] = constraints[axis]!;
         // Contact with a vertical bank must not pull a flat pond down into
         // a deep artificial gutter. Keep its actual water level at the wall.
@@ -246,6 +329,18 @@ export function buildWaterGeometry(world: World, cells: readonly number[]): THRE
       center.p[axis] = center.p[axis]! + v.p[axis]! / 4;
       center.grid[axis] = center.grid[axis]! + v.grid[axis]! / 4;
     }
+    // The centre lies ON the curved edges (a Coons patch: each edge point's offset from its chord
+    // counts half). Left at the flat average, a face whose edges bulge was a dent between them: a
+    // falling column was round at every cell boundary and square halfway, so it looked pinched
+    // once per block.
+    const flat: V3 = [center.p[0], center.p[1], center.p[2]];
+    for (let i = 0; i < 4; i++) {
+      const edge = edges[i]; if (!edge) continue;
+      const a = nodes[i]!.p, b = nodes[(i + 1) % 4]!.p;
+      for (let axis = 0; axis < 3; axis++)
+        center.p[axis] = center.p[axis]! + (edge.p[axis]! - (a[axis]! + (b[axis]! - a[axis]!) * 0.5)) * 0.5;
+    }
+    if (deeplyInsideSolid(center.p)) center.p = flat;
     const perimeter: Node[] = [];
     for (let i = 0; i < 4; i++) { perimeter.push(nodes[i]!); if (edges[i]) perimeter.push(edges[i]!); }
     for (let i = 0; i < perimeter.length; i++) indices.push(emit(center), emit(perimeter[i]!), emit(perimeter[(i + 1) % perimeter.length]!));

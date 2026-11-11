@@ -716,14 +716,16 @@ export function surface_style(key) {
  * their water) and the column beyond it (`outside`, empty = air). Returns one Float32Array:
  * [vertex count, index count, position (3n), normal (3n), wave, wet, foam, depth (n each),
  * flow (3n), impact (3n), grid (4n), indices]; [0, 0] when nothing is drawn, [-1, 0] when the
- * TypeScript would throw.
+ * TypeScript would throw. `profile` (same layout as `cells`, or empty): the top of each shaped
+ * block holding water (waterlog.ts `shapeProfile`).
  * @param {Uint8Array | number[]} cells
  * @param {Uint8Array | number[]} outside
  * @param {Int32Array | number[]} list
+ * @param {Uint8Array | number[]} profile
  * @returns {Float32Array}
  */
-export function water_mesh(cells, outside, list) {
-    let ptr0, len0, ptr1, len1, ptr2, len2;
+export function water_mesh(cells, outside, list, profile) {
+    let ptr0, len0, ptr1, len1, ptr2, len2, ptr3, len3;
     try {
         ptr0 = passArray8ToWasm0(cells, wasm.__wbindgen_malloc);
         len0 = WASM_VECTOR_LEN;
@@ -731,16 +733,19 @@ export function water_mesh(cells, outside, list) {
         len1 = WASM_VECTOR_LEN;
         ptr2 = passArray32ToWasm0(list, wasm.__wbindgen_malloc);
         len2 = WASM_VECTOR_LEN;
+        ptr3 = passArray8ToWasm0(profile, wasm.__wbindgen_malloc);
+        len3 = WASM_VECTOR_LEN;
     } catch (e) {
+        if (ptr3) { wasm.__wbindgen_free(ptr3, len3 * 1, 1); }
         if (ptr2) { wasm.__wbindgen_free(ptr2, len2 * 4, 4); }
         if (ptr1) { wasm.__wbindgen_free(ptr1, len1 * 1, 1); }
         if (ptr0) { wasm.__wbindgen_free(ptr0, len0 * 1, 1); }
         throw e;
     }
-    const ret = wasm.water_mesh(ptr0, len0, ptr1, len1, ptr2, len2);
-    var v4 = getArrayF32FromWasm0(ret[0], ret[1]).slice();
+    const ret = wasm.water_mesh(ptr0, len0, ptr1, len1, ptr2, len2, ptr3, len3);
+    var v5 = getArrayF32FromWasm0(ret[0], ret[1]).slice();
     wasm.__wbindgen_free(ret[0], ret[1] * 4, 4);
-    return v4;
+    return v5;
 }
 function __wbg_get_imports() {
     const import0 = {

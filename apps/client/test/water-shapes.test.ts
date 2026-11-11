@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ROUND, WATER, flowingWater, slabShape } from "@robo/shared";
+import { ROUND, WATER, WATER_FALLING, flowingWater, kitSlopeShape, shapeProfile, slabShape, WATER_HELD } from "@robo/shared";
 import { VoxelWorld, WORLD_X, WORLD_Z } from "../src/craft/voxelWorld.js";
 import { waterlogSnapshot } from "../src/craft/voxelView.js";
 import { FieldWindow } from "../src/craft/fieldWorld.js";
@@ -35,6 +35,27 @@ describe("water held inside shaped blocks (client)", () => {
     expect(cells[at(6, 3, 5)]).toBe(3);
     expect(w.get(5, 3, 5)).toBe(3);
     expect(w.waterAt(5, 3, 5)).toBe(flowingWater(2));
+  });
+
+  it("water that fell onto a ramp is handed over with the ramp's top, and the lip above it is not drawn twice", () => {
+    const w = new VoxelWorld(), ramp = kitSlopeShape(0, 0);
+    // two ramps: one fed from above (falling), one reached from the side (flowing)
+    w.setShaped(5, 3, 5, 3, ramp); w.setWet(5, 3, 5, WATER_FALLING);
+    w.setShaped(9, 3, 5, 3, ramp); w.setWet(9, 3, 5, flowingWater(2));
+    w.set(5, 4, 5, flowingWater(1)); // the lip the water came over, open air around it
+    w.set(9, 4, 5, flowingWater(1));
+    const cells = w.cells.slice(), profile = new Uint8Array(cells.length);
+    waterlogSnapshot(cells, w.wet, region, w.shapes, profile, w.cells);
+    expect(profile[at(5, 3, 5)]).toBe(shapeProfile(ramp));
+    expect(cells[at(5, 4, 5)]).toBe(0);               // drawn as the film on the ramp
+    expect(profile[at(9, 3, 5)]).toBe(WATER_HELD);    // stands at its own level, as before
+    expect(cells[at(9, 4, 5)]).toBe(flowingWater(1));
+    expect(w.get(5, 4, 5)).toBe(flowingWater(1));     // only the mesher's copy changed
+    // a falling column onto the ramp stays whole
+    w.set(5, 4, 5, WATER_FALLING);
+    const again = w.cells.slice();
+    waterlogSnapshot(again, w.wet, region, w.shapes, profile, w.cells);
+    expect(again[at(5, 4, 5)]).toBe(WATER_FALLING);
   });
 
   it("writing a cell clears the water it held (both set and setShaped)", () => {

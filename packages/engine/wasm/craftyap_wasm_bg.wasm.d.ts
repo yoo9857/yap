@@ -48,7 +48,7 @@ export const wasmwater_props: (a: number, b: number, c: number) => void;
 export const wasmwater_step: (a: number, b: number) => [number, number];
 export const wasmwater_touch: (a: number, b: number, c: number, d: number) => void;
 export const wasmwater_write: (a: number, b: number, c: number, d: number, e: number) => void;
-export const water_mesh: (a: number, b: number, c: number, d: number, e: number, f: number) => [number, number];
+export const water_mesh: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number) => [number, number];
 export const __wbindgen_externrefs: WebAssembly.Table;
 export const __wbindgen_malloc: (a: number, b: number) => number;
 export const __wbindgen_free: (a: number, b: number, c: number) => void;

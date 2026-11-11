@@ -219,6 +219,17 @@ fn settled_basin<W: FluidWorld>(w: &W, x: i32, y: i32, z: i32, memo: &mut HashMa
     result
 }
 
+/// Water that fell onto a ramp or a step leaves only by the face opposite the block's back
+/// (fluid.ts `runsAway`). `(dx, dz)` points from the cell being fed to this neighbour.
+fn runs_away<W: FluidWorld>(w: &W, x: i32, y: i32, z: i32, id: u8, dx: i32, dz: i32) -> bool {
+    if id != WATER_FALLING {
+        return false;
+    }
+    let seal = w.seal(x, y, z);
+    let back = seal & (FACE_PX | FACE_NX | FACE_PZ | FACE_NZ);
+    (seal & (FACE_PY | FACE_NY)) == FACE_NY && back != 0 && (back & (back - 1)) == 0 && back != face_bit(dx, 0, dz)
+}
+
 /// What this cell should hold next step.
 pub fn next_state<W: FluidWorld>(w: &W, x: i32, y: i32, z: i32, now: u8, basins: &mut HashMap<Cell, bool>) -> u8 {
     if !(now == 0 || is_water(now)) {
@@ -240,7 +251,7 @@ pub fn next_state<W: FluidWorld>(w: &W, x: i32, y: i32, z: i32, now: u8, basins:
         if id == WATER {
             sources += 1;
         }
-        if !spreads_sideways(w, x + dx, y, z + dz) {
+        if !spreads_sideways(w, x + dx, y, z + dz) || runs_away(w, x + dx, y, z + dz, id, dx, dz) {
             continue;
         }
         best = best.min(water_level(id));

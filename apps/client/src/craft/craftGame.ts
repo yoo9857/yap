@@ -410,6 +410,8 @@ export class CraftGame {
       const science = this.science;
       const furnitureSolid = this.state.world.propSolid;
       this.state.world.propSolid = (x, y, z) => (furnitureSolid?.(x, y, z) ?? false) || science.solidAt(x, y, z);
+      const furnitureDry = this.state.world.propDry;
+      this.state.world.propDry = (x, y, z) => (furnitureDry?.(x, y, z) ?? false) || science.solidAt(x, y, z);
       this.science.load(this.savedPlants);
       this.savedPlants = undefined;
     }
@@ -551,7 +553,7 @@ export class CraftGame {
     const layout = this.state.furniture;
     this.water = this.sync ? null : new WaterSim(this.state.world, this.view, this.field, {
       rust: opts.rust ?? null,
-      furniture: { version: () => layout.version, solidCells: () => layout.solidCells() },
+      furniture: { version: () => layout.version, dryCells: () => layout.waterCells() },
     });
     this.water?.wakeAll();
     this.sand=this.sync?null:new SandSim(this.state.world,{scene:this.renderer.scene,shape:(block,shape,cell)=>this.view.miningShape(shape,block,cell,this.state.world),write:(x,y,z,block,shape)=>this.writeCell(x,y,z,block,shape),hidden:cells=>this.view.setFallingHidden(cells),canEnter:(x,y,z)=>!overlapsShapedVoxel(this.body,x,y,z,0)&&!overlapsShapedVoxel(this.pet.body,x,y,z,0)&&!this.furniture.blocksCell(x,y,z)});this.sand?.wakeAll();
@@ -2449,6 +2451,7 @@ export class CraftGame {
         return { held: held.length, dryShaped: dry, drawn: this.view.lastWaterlog, cells: held.slice(0, 200) };
       },
       /** The water a cell holds: its own water id, or what a shaped block holds (0: none). */
+      shapeAt: (x: number, y: number, z: number) => this.state.world.getShape(x, y, z),
       waterAt: (x: number, y: number, z: number) => this.state.world.waterAt(x, y, z),
       /** Faces bordering air that no shell draws (see VoxelView.auditFaces). */
       auditFaces: (limit?: number) => this.view.auditFaces(this.state.world, limit),
