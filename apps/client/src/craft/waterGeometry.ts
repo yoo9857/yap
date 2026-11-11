@@ -31,6 +31,8 @@ const SHEET = 0.34;
 /** How far a fall's foot is pulled from the rounded average to the line where it meets the water
  *  below (0 = the old half-cell skirt, 1 = a hard crease). */
 const JOIN = 0.8;
+/** The same for running water's own foot, sideways (its height is always exact): exact. */
+const FOOT = 1;
 /** How deep water lies over a shaped block it runs across (m). */
 const FILM = 0.22;
 const cellKey = (x: number, y: number, z: number) => ((y + 2) * 164 + z + 2) * 164 + x + 2;
@@ -79,7 +81,7 @@ export function buildWaterGeometry(world: World, cells: readonly number[]): THRE
   const sheet = (x: number, y: number, z: number, id: number): number => {
     const key = cellKey(x, y, z), cached = sheetCache.get(key);
     if (cached !== undefined) return cached;
-    let found = 0;
+    let found = 0, both = false;
     const below = world.get(x, y - 1, z);
     const loose = id === WATER_FALLING || id > WATER && id < WATER_FALLING && (below === 0 || below === WATER_FALLING);
     if (loose) {
@@ -89,13 +91,25 @@ export function buildWaterGeometry(world: World, cells: readonly number[]): THRE
         const back = world.get(x - sx, y, z - sz);
         // a shaped block holding water (any profile mark) is something to run off, like a solid
         let hug = SOLID_ID[back] === 1 || isWater(back) && world.profile !== undefined && world.profile(x - sx, y, z - sz) !== 0;
-        if (!hug && isWater(back) && back !== WATER_FALLING) {
+        if (!hug && isWater(back)) {
+          // standing water, or a fall that has LANDED on a block (it spreads from there like
+          // standing water; left out, the lip over that block's edge was a whole cell above a sheet)
           const under = world.get(x - sx, y - 1, z - sz);
-          hug = under !== 0 && under !== WATER_FALLING;
+          hug = back !== WATER_FALLING ? under !== 0 && under !== WATER_FALLING : SOLID_ID[under] === 1;
         }
         if (!hug) continue;
-        if (found) { found = 0; break; }
+        if (found) { found = 0; both = true; break; }
         found = i + 1;
+      }
+      // A fall keeps the sheet of the fall above it once the face it ran down ends (below a block
+      // hanging in the air): a curtain as thick as the sheet, not a whole cell again — the step
+      // from 0.34 m to a metre was a slanted panel under every floating block's edge.
+      if (found === 0 && !both && id === WATER_FALLING) {
+        const up = world.get(x, y + 1, z), above = isWater(up) ? sheet(x, y + 1, z, up) & 7 : 0;
+        if (above !== 0) {
+          const sx = HORIZONTAL[above - 1]![0], sz = HORIZONTAL[above - 1]![2];
+          if (world.get(x + sx, y, z + sz) === 0 && !isWater(world.get(x - sx, y, z - sz))) found = above;
+        }
       }
     }
     if (loose) found |= 8; // running water, whether or not it lies on a face
@@ -171,6 +185,7 @@ export function buildWaterGeometry(world: World, cells: readonly number[]): THRE
         remaining &= ~edgeMask;
         const points: V3[] = [], normal: V3 = [0, 0, 0], surfaceHeights: number[] = [];
         const constraints: (number | undefined)[] = [undefined, undefined, undefined];
+        const below: (number | undefined)[] = [undefined, undefined, undefined];
         const sideSum = [0, 0, 0], sideCount = [0, 0, 0], axisSum = [0, 0, 0], axisCount = [0, 0, 0];
         let running = false;
         for (let e = 0; e < EDGES.length; e++) {
@@ -203,7 +218,10 @@ export function buildWaterGeometry(world: World, cells: readonly number[]): THRE
           if (axis === 1 && sign > 0) surfaceHeights.push(p[1]);
           else if (axis !== 1 && a[1] === 1) { sideSum[axis] = sideSum[axis]! + p[axis]!; sideCount[axis] = sideCount[axis]! + 1; }
           if (ids[ai] === 0 || axis === 1 && sign > 0 && h < 0.999) normal[axis] = normal[axis]! + sign;
-          if (SOLID_ID[ids[ai]!] === 1) constraints[axis] = p[axis];
+          if (SOLID_ID[ids[ai]!] === 1) {
+            if (axis === 1 || a[1] === 1) constraints[axis] = p[axis];
+            else below[axis] = p[axis]; // contact made by the water UNDER what comes down
+          }
         }
         if (!points.length) continue;
         const p: V3 = [0, 0, 0];
@@ -219,13 +237,23 @@ export function buildWaterGeometry(world: World, cells: readonly number[]): THRE
         // between blocks hanging at different heights the surface became slanted panels and fins.
         if (running) {
           for (let axis = 0; axis < 3; axis++)
-            if (axisCount[axis]! > 0) p[axis] = p[axis]! + (axisSum[axis]! / axisCount[axis]! - p[axis]!) * JOIN;
+            // (FOOT < 1 would keep some of the average in a foot's sideways place; at 0.9 the sheets
+            // leaned again just above the water they fall into)
+            if (axisCount[axis]! > 0) p[axis] = axis !== 1 && surfaceHeights.length
+              ? p[axis]! + (axisSum[axis]! / axisCount[axis]! - p[axis]!) * FOOT : axisSum[axis]! / axisCount[axis]!;
         } else if (surfaceHeights.length && (sideCount[0]! > 0 || sideCount[2]! > 0)) {
           p[1] = p[1] + (surfaceHeights.reduce((sum, h) => sum + h, 0) / surfaceHeights.length - p[1]) * JOIN;
           for (let axis = 0; axis < 3; axis += 2)
             if (sideCount[axis]! > 0) p[axis] = p[axis]! + (sideSum[axis]! / sideCount[axis]! - p[axis]!) * JOIN;
         }
-        for (let axis = 0; axis < 3; axis++) if (constraints[axis] !== undefined) p[axis] = constraints[axis]!;
+        // Solid contact holds the surface on a wall. Where water comes down past a block that only
+        // the water BELOW touches, the falling side keeps its own place on that axis: pinned to the
+        // lower block's corner, a curtain's foot was dragged a cell sideways into a slanted panel
+        // (the pool's own edge there lies inside that block, out of sight).
+        for (let axis = 0; axis < 3; axis++) {
+          const held = constraints[axis] ?? (sideCount[axis]! > 0 ? undefined : below[axis]);
+          if (held !== undefined) p[axis] = held;
+        }
         // Contact with a vertical bank must not pull a flat pond down into
         // a deep artificial gutter. Keep its actual water level at the wall.
         if (normal[1] > 0 && normal[0] === 0 && normal[2] === 0 && surfaceHeights.length)
@@ -301,7 +329,9 @@ export function buildWaterGeometry(world: World, cells: readonly number[]): THRE
       }
     }
     const deviation = Math.hypot(p[0] - mid[0], p[1] - mid[1], p[2] - mid[2]);
-    const node = (saddle || deviation > 0.006 && deviation < 0.2) && !deeplyInsideSolid(p)
+    // Only an outward (convex) edge is rounded. An inward crease — a sheet meeting the water it
+    // falls into — stays a crease: rounding it cut 10 cm INTO the sheet just above its foot.
+    const node = (saddle || deviation > 0.006 && deviation < 0.2 && da <= 0 && db <= 0) && !deeplyInsideSolid(p)
       ? blend(a, b, p, [(a.grid[0] + b.grid[0]) / 2, (a.grid[1] + b.grid[1]) / 2,
         (a.grid[2] + b.grid[2]) / 2, 131072 + a.grid[3] + b.grid[3] + tag * 16384]) : null;
     edgeCache.set(key, node); return node;

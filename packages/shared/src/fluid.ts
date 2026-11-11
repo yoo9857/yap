@@ -53,6 +53,14 @@ export function waterLevel(id: number): number {
  * Height of the water surface inside its cell, 0‒1. Full when more water
  * sits on top (the caller passes `covered`), so a column has no seams.
  */
+let heightByAmount = false;
+/**
+ * Finite water (fluidVolume.ts) reads the flowing ids as AMOUNTS, so their height is the amount:
+ * seven eighths of a full cell's 0.875 down to one eighth. Set once per thread (the game and its
+ * water worker) by whoever runs that simulation; the default is the shallow running stream below.
+ */
+export function drawWaterByAmount(on: boolean): void { heightByAmount = on; }
+
 export function waterHeight(id: number, covered = false): number {
   if (!isWater(id)) return 0;
   if (covered || id === WATER_FALLING) return 1;
@@ -60,7 +68,8 @@ export function waterHeight(id: number, covered = false): number {
   // ground is a shallow stream that thins as it spreads: 0.56 m beside its source down to 0.10 m
   // at its seventh cell. (It used to be 0.77 m beside the source — a slab of water on open ground.)
   const level = waterLevel(id);
-  return level === 0 ? 0.875 : 0.64 - level * 0.077;
+  if (level === 0) return 0.875;
+  return heightByAmount ? 0.875 * (8 - level) / 8 : 0.64 - level * 0.077;
 }
 
 export interface FluidWorld {

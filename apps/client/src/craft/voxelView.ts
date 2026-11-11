@@ -496,6 +496,9 @@ export class VoxelView {
   private waterBatch: WaterBatch | null = null;
   private waterSnapshot: Uint8Array | null = null;
   private waterProfile: Uint8Array | null = null;
+  private finiteWater = false;
+  /** Finite water is drawn by amount; the worker has its own copy of that switch. */
+  setFiniteWater(on: boolean): void { this.finiteWater = on; }
   private waterBuildPeak = 0;
   private waterCommits = 0;
   private waterSerial = 0;
@@ -575,7 +578,7 @@ export class VoxelView {
       this.waterBatch = { id: ++this.waterSerial, waiting: false, world: frozen, jobs, cursor: 0, results: [] };
       const worker = this.ensureWaterWorker();
       if (worker) {
-        const request: WaterWorkerRequest = { t: "build", id: this.waterBatch.id, cells: snapshot, profile: Int32Array.from(marks),
+        const request: WaterWorkerRequest = { t: "build", id: this.waterBatch.id, cells: snapshot, profile: Int32Array.from(marks), finite: this.finiteWater,
           outside: outside ?? null, jobs: spans };
         // Keep the immutable snapshot for bounded main-thread fallback if a
         // worker is unavailable; all result buffers return by transfer.
@@ -1383,7 +1386,10 @@ export class VoxelView {
 
   // ------------------------------------------------------------ water
 
+  /** One shader, three passes (waterMesh.ts): level surfaces, then the steep faces' depth, then
+   *  their colour. `waterMaterial` (everything) is only the boot warm-up quad's. */
   private readonly waterMaterial = makeWaterMaterial();
+  private readonly waterPasses = [makeWaterMaterial("level"), makeWaterMaterial("depth"), makeWaterMaterial("steep")] as const;
   /** One quad far below the world, drawn only during the boot warm-up so the
    *  water shader compiles behind the loading screen, not at the first pour. */
   private waterWarm: THREE.Mesh | null = null;
@@ -1420,15 +1426,24 @@ export class VoxelView {
     if (chunk.water) {
       const old = chunk.water.geometry;
       chunk.water.geometry = geometry;
+      for (const child of chunk.water.children) (child as THREE.Mesh).geometry = geometry;
       // Vertices rebuilt in the new field grid must lose the old scroll offset.
       chunk.water.position.set(0, 0, 0);
       chunk.water.visible = !chunk.hidden;
       old.dispose();
       return;
     }
-    const mesh = new THREE.Mesh(geometry, this.waterMaterial);
+    // level surfaces, then (children: same place, same visibility) the steep faces' depth and colour —
+    // each pass for every chunk before the next one starts
+    const mesh = new THREE.Mesh(geometry, this.waterPasses[0]);
     mesh.receiveShadow = true;
     mesh.renderOrder = 3; // after glass, so glass behind water still shows
+    for (let i = 1; i < 3; i++) {
+      const pass = new THREE.Mesh(geometry, this.waterPasses[i]);
+      pass.receiveShadow = true;
+      pass.renderOrder = 3 + i * 0.2;
+      mesh.add(pass);
+    }
     mesh.visible = !chunk.hidden;
     this.scene.add(mesh);
     chunk.water = mesh;
@@ -1553,6 +1568,7 @@ export class VoxelView {
     this.chunks.clear(); this.queue.clear(); this.waterSnapshot = null; this.waterProfile = null;
     this.setWarm(false);
     this.waterMaterial.dispose();
+    for (const material of this.waterPasses) material.dispose();
     for (const mesh of this.studMeshes.values()) {
       this.scene.remove(mesh);
       mesh.dispose();

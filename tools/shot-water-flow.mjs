@@ -38,6 +38,7 @@ try {
     { name: "shape-hover", cx: X - 30, cz: Z + 34 },
     { name: "corner", cx: X - 10, cz: Z + 34 },
     { name: "float", cx: X + 10, cz: Z + 34 },
+    { name: "pool", cx: X + 30, cz: Z + 34 },
   ];
   await page.evaluate((scenes, Y) => {
     const c = globalThis.__roboCraft;
@@ -113,6 +114,14 @@ try {
         for (let x = cx - 2; x <= cx; x++) put(x, Y + 1, cz, "oak-planks");
         put(cx + 2, Y + 1, cz, "dirt"); put(cx + 2, Y + 2, cz + 1, "oak-planks"); put(cx + 1, Y, cz + 2, "cobblestone");
         water(cx - 1, Y + 2, cz); water(cx + 2, Y + 3, cz + 1);
+      } else if (name === "pool") {
+        // a pit three deep with a fall into it, a glass wall beside it and a ramp and a chair in the water
+        for (let x = cx - 3; x <= cx + 3; x++) for (let z = cz - 3; z <= cz + 3; z++) for (let y = Y - 3; y <= Y - 1; y++) c.mineAt(x, y, z);
+        for (let x = cx - 3; x <= cx + 3; x++) for (let z = cz - 3; z <= cz + 3; z++) water(x, Y - 1, z);
+        for (let x = cx - 3; x <= cx + 3; x++) for (let y = Y; y <= Y + 2; y++) put(x, y, cz - 4, "glass");
+        put(cx - 2, Y + 3, cz - 4, "stone"); water(cx - 2, Y + 4, cz - 4);
+        shape(1, 0, 0, cx + 2, Y - 3, cz + 1, "oak-planks"); shape(4, 0, 0, cx + 2, Y - 1, cz - 2, "birch-planks");
+        c.furniturePlace("armchair", cx - 1, Y - 3, cz + 2, 0);
       } else if (name === "shape-slide") {
         // a slide: ramps stepping down from a platform, walls beside it, water from the top
         for (let s = 0; s < 3; s++) {
@@ -160,6 +169,10 @@ try {
       ["e", [cx + 4.2, Y + 4.2, cz + 4.6], Math.PI + 0.75, -0.5],
       ["f", [cx - 0.5, Y + 0.2, cz + 3.4], Math.PI, 0.12],
       ["g", [cx + 3.6, Y + 0.3, cz + 2.4], Math.PI + 1.1, 0.1],
+      ["h", [cx - 1.0, Y + 0.4, cz - 0.4], Math.PI - 1.2, 0.05],
+      ["u", [cx + 0.5, Y - 2.6, cz + 1.5], Math.PI, 0.35],
+      ["v", [cx + 2.5, Y - 2.2, cz + 2.5], Math.PI + 0.8, 0.1],
+      ["i", [cx + 1.2, Y + 2.2, cz + 2.2], Math.PI + 0.5, -0.35],
     ];
 
     for (const [tag, pos, yaw, pitch] of views) {

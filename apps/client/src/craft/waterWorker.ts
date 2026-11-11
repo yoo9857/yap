@@ -1,3 +1,4 @@
+import { drawWaterByAmount } from "@robo/shared";
 import { buildWaterGeometry } from "./waterGeometry.js";
 import { WORLD_X, WORLD_Y, WORLD_Z } from "./voxelWorld.js";
 import { SOLID_ID } from "./blocks.js";
@@ -12,6 +13,7 @@ scope.onmessage = (event) => {
   if (request.t === "cancel") return;
   void (async () => {
     const start = performance.now(), results: WaterWorkerResult[] = [], transfers: Transferable[] = [];
+    drawWaterByAmount(request.finite);
     const marks = new Map<number, number>();
     for (let i = 0; i < request.profile.length; i += 2) marks.set(request.profile[i]!, request.profile[i + 1]!);
     const world = { get: (x: number, y: number, z: number) =>

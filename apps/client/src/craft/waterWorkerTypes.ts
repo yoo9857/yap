@@ -4,6 +4,8 @@ export type WaterWorkerRequest = { t: "cancel"; id: number } | {
    *  (shapeProfile / WATER_HELD). Sparse: a second whole-grid copy per build was 1.4 MB of garbage. */
   profile: Int32Array;
   jobs: { id: number; x: number; z: number; minY: number; maxY: number }[];
+  /** Finite water: the flowing ids are amounts, drawn that high (fluid.ts drawWaterByAmount). */
+  finite: boolean;
 };
 export interface WaterWorkerResult {
   id: number; minY: number; maxY: number;

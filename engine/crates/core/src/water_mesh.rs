@@ -13,6 +13,8 @@ use crate::fluid::{is_water, water_level, WATER, WATER_FALLING};
 const SHEET: f64 = 0.34;
 /// How far a fall's foot is pulled from the rounded average to the line where it meets the water below.
 const JOIN: f64 = 0.8;
+/// The same for running water's own foot (its height is exact).
+const FOOT: f64 = 1.0;
 /// How deep water lies over a shaped block it runs across (m).
 const FILM: f64 = 0.22;
 use crate::kit::{js_hypot, js_hypot_n};
@@ -153,7 +155,7 @@ impl<G: Fn(i32, i32, i32) -> u8> Builder<'_, G> {
         if let Some(&v) = self.sheet_cache.get(&key) {
             return v;
         }
-        let mut found = 0u8;
+        let (mut found, mut both) = (0u8, false);
         let below = self.get(x, y - 1, z);
         let loose = id == WATER_FALLING || id > WATER && id < WATER_FALLING && (below == 0 || below == WATER_FALLING);
         if loose {
@@ -164,18 +166,31 @@ impl<G: Fn(i32, i32, i32) -> u8> Builder<'_, G> {
                 let back = self.get(x - sx, y, z - sz);
                 // a shaped block holding water (any profile mark) is something to run off, like a solid
                 let mut hug = SOLID[back as usize] || is_water(back) && (self.profile)(x - sx, y, z - sz) != 0;
-                if !hug && is_water(back) && back != WATER_FALLING {
+                if !hug && is_water(back) {
+                    // standing water, or a fall that has landed on a block
                     let under = self.get(x - sx, y - 1, z - sz);
-                    hug = under != 0 && under != WATER_FALLING;
+                    hug = if back != WATER_FALLING { under != 0 && under != WATER_FALLING } else { SOLID[under as usize] };
                 }
                 if !hug {
                     continue;
                 }
                 if found != 0 {
                     found = 0;
+                    both = true;
                     break;
                 }
                 found = i as u8 + 1;
+            }
+            // a fall keeps the sheet of the fall above it once the face it ran down ends
+            if found == 0 && !both && id == WATER_FALLING {
+                let up = self.get(x, y + 1, z);
+                let above = if is_water(up) { self.sheet(x, y + 1, z, up) & 7 } else { 0 };
+                if above != 0 {
+                    let [sx, _, sz] = HORIZONTAL[above as usize - 1];
+                    if self.get(x + sx, y, z + sz) == 0 && !is_water(self.get(x - sx, y, z - sz)) {
+                        found = above;
+                    }
+                }
             }
         }
         if loose {
@@ -305,6 +320,7 @@ impl<G: Fn(i32, i32, i32) -> u8> Builder<'_, G> {
             let (mut axis_sum, mut axis_count) = ([0.0f64; 3], [0.0f64; 3]);
             let mut running = false;
             let mut constraints: [Option<f64>; 3] = [None; 3];
+            let mut below: [Option<f64>; 3] = [None; 3];
             for (e, &(ia, ib, axis)) in t.edges.iter().enumerate() {
                 if edge_mask & 1 << e == 0 {
                     continue;
@@ -366,7 +382,11 @@ impl<G: Fn(i32, i32, i32) -> u8> Builder<'_, G> {
                     normal[axis] += sign;
                 }
                 if SOLID[ids[ai] as usize] {
-                    constraints[axis] = Some(p[axis]);
+                    if axis == 1 || a[1] == 1 {
+                        constraints[axis] = Some(p[axis]);
+                    } else {
+                        below[axis] = Some(p[axis]); // contact made by the water under what comes down
+                    }
                 }
             }
             if points.is_empty() {
@@ -383,7 +403,12 @@ impl<G: Fn(i32, i32, i32) -> u8> Builder<'_, G> {
             if running {
                 for axis in 0..3 {
                     if axis_count[axis] > 0.0 {
-                        p[axis] += (axis_sum[axis] / axis_count[axis] - p[axis]) * JOIN;
+                        // exactly, except a foot's sideways place (waterGeometry.ts FOOT)
+                        p[axis] = if axis != 1 && !surface_heights.is_empty() {
+                            p[axis] + (axis_sum[axis] / axis_count[axis] - p[axis]) * FOOT
+                        } else {
+                            axis_sum[axis] / axis_count[axis]
+                        };
                     }
                 }
             } else if !surface_heights.is_empty() && (side_count[0] > 0.0 || side_count[2] > 0.0) {
@@ -395,7 +420,9 @@ impl<G: Fn(i32, i32, i32) -> u8> Builder<'_, G> {
                 }
             }
             for axis in 0..3 {
-                if let Some(c) = constraints[axis] {
+                // the falling side keeps its own place where only the water below touches a block
+                let held = constraints[axis].or(if side_count[axis] > 0.0 { None } else { below[axis] });
+                if let Some(c) = held {
                     p[axis] = c;
                 }
             }
@@ -512,7 +539,8 @@ impl<G: Fn(i32, i32, i32) -> u8> Builder<'_, G> {
             }
         }
         let deviation = js_hypot_n(&[p[0] - mid[0], p[1] - mid[1], p[2] - mid[2]]);
-        let node = if (saddle || deviation > 0.006 && deviation < 0.2) && !self.deeply_inside_solid(p) {
+        // only an outward (convex) edge is rounded; an inward crease stays a crease
+        let node = if (saddle || deviation > 0.006 && deviation < 0.2 && da <= 0.0 && db <= 0.0) && !self.deeply_inside_solid(p) {
             let grid = [(a.grid[0] + b.grid[0]) / 2.0, (a.grid[1] + b.grid[1]) / 2.0, (a.grid[2] + b.grid[2]) / 2.0, 131072.0 + a.grid[3] + b.grid[3] + tag * 16384.0];
             Some(self.blend(ai, bi, p, grid))
         } else {

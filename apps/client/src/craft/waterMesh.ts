@@ -69,6 +69,7 @@ uniform vec2 uOrigin;
 uniform vec3 uSky;
 uniform vec3 uDeep;
 uniform sampler2D uWaterDetail;
+uniform int uPass;
 varying vec3 vWPos;
 varying vec3 vWNormal;
 varying vec3 vFlow;
@@ -83,8 +84,26 @@ vec4 waterNoise(vec2 p, vec2 drift) {
 }
 `;
 
-/** Lit, shadowed, fogged water with no reflection camera or extra scene pass. */
-export function makeWaterMaterial(): THREE.MeshStandardMaterial {
+/** Which part of the water a material draws (VoxelView.installWater draws all three, in this order). */
+export type WaterPass = "all" | "level" | "depth" | "steep";
+const PASS: Record<WaterPass, number> = { all: 0, level: 1, depth: 2, steep: 3 };
+
+/**
+ * Lit, shadowed, fogged water with no reflection camera or extra scene pass.
+ *
+ * One shader, three passes per chunk, so every pixel blends a known set of layers:
+ *   level — the surfaces you look down on (pools, streams, the top of a fall), without depth;
+ *   depth — ALL of the water, writing depth and no colour;
+ *   steep — the colour of the steep faces (sheets, falls, a stream's sides), which only passes
+ *           where it IS that nearest depth.
+ * So a sheet or a fall shows exactly one layer, over the level water behind it, and nothing steep
+ * shows through a level surface in front of it. Blended in one
+ * double-sided pass without depth, a sheet's front, its back and every sheet behind it all stacked
+ * (dark overlaps, inner edges showing through) in whatever order the triangles happened to be
+ * listed — which changed with every flow step, so the surface shimmered. (Nearest layer for ALL of
+ * it was tried: the stream behind a sheet vanished, leaving a bright dry patch.)
+ */
+export function makeWaterMaterial(pass: WaterPass = "all"): THREE.MeshStandardMaterial {
   uniforms.uWaterDetail.value = waterDetail();
   const material = new THREE.MeshStandardMaterial({
     color: 0x389fbe, roughness: 0.19, metalness: 0,
@@ -94,6 +113,7 @@ export function makeWaterMaterial(): THREE.MeshStandardMaterial {
   });
   material.onBeforeCompile = (shader) => {
     Object.assign(shader.uniforms, uniforms);
+    shader.uniforms.uPass = { value: PASS[pass] };
     shader.vertexShader = shader.vertexShader
       .replace("#include <common>", `#include <common>\n${VERTEX_HEAD}`)
       .replace("#include <begin_vertex>", /* glsl */ `#include <begin_vertex>
@@ -107,6 +127,17 @@ export function makeWaterMaterial(): THREE.MeshStandardMaterial {
         vFlow = aFlow; vWater = vec3(aWet, aFoam, aDepth); vImpact = aImpact;`);
     shader.fragmentShader = shader.fragmentShader
       .replace("#include <common>", `#include <common>\n${FRAGMENT_HEAD}`)
+      .replace("void main() {", /* glsl */ `void main() {
+        // How level this face is, 0‒1. Pass 1 draws it by that much and pass 3 by the rest, so a
+        // surface curving from level to steep changes hands gradually: split at a hard threshold,
+        // the two halves carried different numbers of layers and a rounded top looked patched.
+        float levelness = smoothstep(0.4, 0.85, abs(normalize(vWNormal).y));
+        float share = uPass == 1 ? levelness : uPass == 3 ? 1.0 - levelness : 1.0;
+        if (share < 0.004) discard;
+        // the depth pass writes no colour: skip the lighting, the texture reads and the foam
+        if (uPass == 2) { gl_FragColor = vec4(0.0); return; }`)
+      .replace("#include <dithering_fragment>", `#include <dithering_fragment>
+        gl_FragColor.a *= share;`)
       .replace("#include <normal_fragment_maps>", /* glsl */ `#include <normal_fragment_maps>
         vec2 p = vWPos.xz + uOrigin;
         bool curtain = vFlow.y > 0.5 && abs(vWNormal.y) < 0.5;
@@ -160,6 +191,7 @@ export function makeWaterMaterial(): THREE.MeshStandardMaterial {
         #include <opaque_fragment>`);
   };
   material.customProgramCacheKey = () => "craft-water-continuous-3";
+  if (pass === "depth") { material.colorWrite = false; material.depthWrite = true; }
   return material;
 }
 

@@ -7,6 +7,47 @@
   <updated>2026-11-11T00:00:00+09:00</updated>
   <author><name>크래프트얍(CraftYap)</name></author>
   <entry xml:base="https://craftyap.com/">
+    <title>11월 11일 패치 노트 ③ — 물이 더 깔끔해지고, 다 쓰면 없어지는 물을 시험해요</title>
+    <link href="https://craftyap.com/note/patch-2026-11-11-3/" />
+    <id>https://craftyap.com/note/patch-2026-11-11-3/</id>
+    <published>2026-11-11T00:00:00+09:00</published>
+    <updated>2026-11-11T00:00:00+09:00</updated>
+    <summary>흘러내리는 물이 겹쳐 보이거나 지글거리던 문제를 고치고, 쌓인 블록 사이에서 비스듬하게 늘어지던 물 면을 정리했어요. 웅덩이를 터뜨리면 물이 다 빠지고 끝나는 &#39;유한한 물&#39;도 실험 기능으로 넣었어요.</summary>
+    <content type="html">&lt;h2&gt;한눈에 보기&lt;/h2&gt;
+&lt;p&gt;흘러내리는 물이 &lt;strong&gt;여러 겹으로 겹쳐 어둡게 보이거나 지글거리던 문제&lt;/strong&gt;를 고쳤어요. 높이가 다른 블록 사이에서 &lt;strong&gt;비스듬하게 늘어지던 물 면&lt;/strong&gt;도 곧게 폈어요. 그리고 웅덩이 벽을 깨면 물이 끝없이 나오던 것 대신, &lt;strong&gt;물이 다 빠지면 끝나는 &amp;#39;유한한 물&amp;#39;&lt;/strong&gt; 을 실험 기능으로 써 볼 수 있어요.&lt;/p&gt;
+&lt;h2&gt;BEFORE / AFTER&lt;/h2&gt;
+&lt;p&gt;&lt;img src=&quot;/note/assets/20261111-water-stack-ba.webp&quot; alt=&quot;쌓인 블록 비교: 이전에는 물막이 여러 겹으로 겹치고 발치에 쐐기 모양이 보였고, 업데이트 후에는 물막이 수직으로 곧게 떨어진다&quot;&gt;&lt;/p&gt;
+&lt;p&gt;&lt;img src=&quot;/note/assets/20261111-water-curtain-ba.webp&quot; alt=&quot;기둥 비교: 이전에는 기둥을 감싼 물막 아래쪽에 어두운 조각이 겹쳐 보였고, 업데이트 후에는 한 겹의 고른 물막으로 보인다&quot;&gt;&lt;/p&gt;
+&lt;p&gt;&lt;img src=&quot;/note/assets/20261111-water-finite-ba.webp&quot; alt=&quot;벽을 깬 물탱크 비교: 위쪽은 기존 규칙으로 탱크 물이 그대로 남은 채 계속 흘러나오고, 아래쪽은 유한한 물로 탱크가 비워지며 바깥 물이 말라 간다&quot;&gt;&lt;/p&gt;
+&lt;h2&gt;새로 추가&lt;/h2&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;유한한 물 (실험 기능)&lt;/strong&gt; — 주소 끝에 &lt;code&gt;&amp;amp;water=finite&lt;/code&gt;를 붙여 혼자 하는 들판을 열면 써 볼 수 있어요. 예: &lt;code&gt;craftyap.com/?mode=field&amp;amp;water=finite&lt;/code&gt;&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;양동이 한 번 = 물 한 칸&lt;/strong&gt; — 흐른다고 물이 늘어나지 않아요. 구덩이에 여러 번 부어야 연못이 차요.&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;웅덩이를 터뜨리면 다 빠져요&lt;/strong&gt; — 벽을 깨면 수위가 내려가며 물이 흘러나오고, 다 빠지면 끝나요.&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;평지의 물은 말라요&lt;/strong&gt; — 평평한 땅에 쏟은 물은 얇게 퍼졌다가 몇 초 뒤 말라요. 구덩이 안의 물은 남아요.&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2&gt;개선&lt;/h2&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;겹쳐 보이던 물&lt;/strong&gt; — 물막과 폭포를 가장 가까운 한 겹만 그려요. 안쪽 선이 비치거나 어둡게 겹치지 않아요.&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;지글거림&lt;/strong&gt; — 물이 흐를 때마다 표면이 깜빡이던 현상이 없어졌어요.&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;물막이 곧게 떨어져요&lt;/strong&gt; — 물막 아래쪽이 바깥으로 벌어지거나 안쪽이 파이던 모양을 바로잡았어요.&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;공중 블록 아래의 물&lt;/strong&gt; — 블록 옆면을 타던 물이 블록 아래에서도 같은 두께의 커튼으로 떨어져요.&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2&gt;버그 수정&lt;/h2&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;옆 블록 모서리로 끌려가던 물&lt;/strong&gt; — 떨어지는 물 옆에 다른 블록이 있으면 물 아래쪽이 그 모서리로 한 칸 끌려가 비스듬한 판이 되던 문제를 고쳤어요.&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;블록 위에서 다시 넘치는 물&lt;/strong&gt; — 아래 블록에 떨어진 물이 가장자리로 넘칠 때 두꺼운 덩어리로 보이던 문제를 고쳤어요.&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2&gt;알려진 문제&lt;/h2&gt;
+&lt;ul&gt;
+&lt;li&gt;유한한 물은 아직 &lt;strong&gt;혼자 하는 들판에서만&lt;/strong&gt; 돼요. 반(교실)과 섬에서는 기존 규칙으로 흘러요.&lt;/li&gt;
+&lt;li&gt;유한한 물에서는 마르지 않는 샘을 새로 놓을 수 없어요. 예전에 부어 둔 물만 샘으로 남아요.&lt;/li&gt;
+&lt;li&gt;벽에 대고 부은 물의 시작점은 물방울처럼 떠 보여요.&lt;/li&gt;
+&lt;li&gt;높이가 다른 두 물막이 만나는 자리에 대각선 이음이 보일 수 있어요.&lt;/li&gt;
+&lt;/ul&gt;
+</content>
+  </entry>
+  <entry xml:base="https://craftyap.com/">
     <title>11월 11일 패치 노트 ② — 물이 블록을 타고 흐르게 고쳤어요</title>
     <link href="https://craftyap.com/note/patch-2026-11-11-2/" />
     <id>https://craftyap.com/note/patch-2026-11-11-2/</id>
@@ -714,34 +755,6 @@
 &lt;li&gt;멀리 보이는 블록 화면과 청크 훑기도 옮기기&lt;/li&gt;
 &lt;li&gt;화면을 멈추지 않도록 별도 작업 스레드에서 만들기&lt;/li&gt;
 &lt;li&gt;Rust 엔진을 기본으로 켜기&lt;/li&gt;
-&lt;/ol&gt;
-</content>
-  </entry>
-  <entry xml:base="https://craftyap.com/">
-    <title>11월 4일 패치 노트 (10) — 새 Rust 엔진 준비: 물 계산을 먼저 옮겼어요</title>
-    <link href="https://craftyap.com/note/patch-2026-11-04-10/" />
-    <id>https://craftyap.com/note/patch-2026-11-04-10/</id>
-    <published>2026-11-04T00:00:00+09:00</published>
-    <updated>2026-11-04T00:00:00+09:00</updated>
-    <summary>웹·앱·PC·서버에서 함께 쓸 Rust 엔진을 지금 게임 옆에서 만들기 시작했어요. 첫 부품은 물 계산이에요. 결과는 지금과 똑같고 계산은 2.5~5배 빨라요. 이번 배포에서는 아직 꺼 둔 상태라 게임은 그대로예요.</summary>
-    <content type="html">&lt;h2&gt;한눈에 보기&lt;/h2&gt;
-&lt;p&gt;나중에 &lt;strong&gt;안드로이드 앱, PC, 웹을 모두 하나의 엔진으로&lt;/strong&gt; 만들기 위해, 게임의 핵심 계산을 &lt;strong&gt;Rust&lt;/strong&gt;로 옮기는 작업을 시작했어요. 지금 게임은 그대로 운영하면서, 부품을 하나씩 옮기고 결과가 똑같은지 확인한 다음에만 바꿔 끼워요.&lt;/p&gt;
-&lt;p&gt;첫 부품은 &lt;strong&gt;물 계산&lt;/strong&gt;이에요. 브라우저에서는 WebAssembly로, 교실 서버에서는 Node 안에서 돌아가요.&lt;/p&gt;
-&lt;h2&gt;BEFORE / AFTER&lt;/h2&gt;
-&lt;p&gt;같은 물을 흘려서 TypeScript(이전)와 Rust(새 엔진)로 계산 시간을 쟀어요. 물이 흐르는 결과는 한 칸, 한 순서까지 똑같아요.&lt;/p&gt;
-&lt;p&gt;&lt;img src=&quot;/note/assets/20261104-rust-water-ba.webp&quot; alt=&quot;물 계산 시간 비교: 교실 서버에서 한 번 계산이 25.1 ms에서 5.0 ms로, 브라우저에서 물 20만 칸일 때 한 번 갱신이 3.0 ms에서 1.1 ms로, 저장된 교실 다시 열기가 86 ms에서 35 ms로 줄어든 막대 그래프&quot;&gt;&lt;/p&gt;
-&lt;h2&gt;이번에 달라진 점&lt;/h2&gt;
-&lt;ul&gt;
-&lt;li&gt;&lt;strong&gt;아직은 꺼져 있어요.&lt;/strong&gt; 이번 배포로 게임에서 달라지는 건 없어요. 문제가 없는지 확인한 다음 단계적으로 켜요.&lt;/li&gt;
-&lt;li&gt;&lt;strong&gt;결과는 똑같아요.&lt;/strong&gt; 무작위로 만든 세계 수십 개에서 두 엔진이 같은 칸을 같은 순서로 바꾸는지 매번 자동으로 검사해요. 반 블록·계단·원형 블록 안의 물, 가구, 들판 이동, 교실 저장과 초기화까지 포함해요.&lt;/li&gt;
-&lt;li&gt;&lt;strong&gt;문제가 생기면 자동으로 원래대로.&lt;/strong&gt; 새 엔진에서 오류가 나면 그 게임(또는 그 교실)만 바로 기존 계산으로 돌아가고, 물은 멈추지 않고 계속 흘러요.&lt;/li&gt;
-&lt;li&gt;&lt;strong&gt;교실을 다시 열 때 더 빨라졌어요.&lt;/strong&gt; 블록 모양별 물막이 계산을 미리 표로 만들어 둬서, 큰 교실을 다시 여는 시간이 줄었어요.&lt;/li&gt;
-&lt;/ul&gt;
-&lt;h2&gt;앞으로&lt;/h2&gt;
-&lt;ol&gt;
-&lt;li&gt;Rust 물 계산을 기본으로 켜기&lt;/li&gt;
-&lt;li&gt;블록 화면 만들기(메시)와 캐릭터 물리를 차례로 옮기기&lt;/li&gt;
-&lt;li&gt;같은 엔진으로 안드로이드 앱 만들기 (터치 조작, 저사양~최신 폰 그래픽 단계)&lt;/li&gt;
 &lt;/ol&gt;
 </content>
   </entry>

@@ -1,4 +1,4 @@
-import { FLUID_STEP, FluidSim, WATER, holdsWaterlog, isWater, shapeSeal, type FluidWorld } from "@robo/shared";
+import { FLUID_STEP, FiniteFluidSim, FluidSim, WATER, holdsWaterlog, isWater, shapeSeal, type FluidWorld } from "@robo/shared";
 import type { FieldWindow } from "./fieldWorld.js";
 import type { VoxelView } from "./voxelView.js";
 import { VoxelWorld, WORLD_X, WORLD_Y, WORLD_Z } from "./voxelWorld.js";
@@ -52,8 +52,9 @@ function applyChange(w: Window, x: number, y: number, z: number, id: number): vo
 /** The reference: `FluidSim` from @robo/shared reading the TS world directly. */
 class TsWaterBackend implements WaterBackend {
   readonly kind = "ts";
-  private readonly sim = new FluidSim();
-  constructor(private readonly w: Window) {}
+  /** The Minecraft-style rules, or (`?water=finite`) water that is an amount and runs out. */
+  private readonly sim: FluidSim | FiniteFluidSim;
+  constructor(private readonly w: Window, finite = false) { this.sim = finite ? new FiniteFluidSim() : new FluidSim(); }
 
   private readonly fluidWorld: FluidWorld = {
     // outside the scrolled window the field's banked edits hold the water: reading the plain
@@ -204,13 +205,15 @@ export class WaterSim {
     private readonly world: VoxelWorld,
     view: VoxelView,
     private readonly field: FieldWindow | null,
-    opts: { rust?: RustEngine | null; furniture?: FurnitureSource | null; maxStepMs?: number } = {},
+    opts: { rust?: RustEngine | null; furniture?: FurnitureSource | null; maxStepMs?: number; finite?: boolean } = {},
   ) {
     this.activeOriginX = this.ox;
     this.activeOriginZ = this.oz;
     const w = { world, view, field };
     this.window = w;
-    this.backend = opts.rust ? new RustWaterBackend(opts.rust, w, opts.furniture ?? null) : new TsWaterBackend(w);
+    // finite water has no Rust twin yet: it always runs on the TypeScript rules
+    this.backend = opts.finite ? new TsWaterBackend(w, true)
+      : opts.rust ? new RustWaterBackend(opts.rust, w, opts.furniture ?? null) : new TsWaterBackend(w);
     this.maxStepMs = opts.maxStepMs ?? 3;
   }
 

@@ -8,6 +8,13 @@
     <language>ko</language>
     <lastBuildDate>Tue, 10 Nov 2026 15:00:00 +0000</lastBuildDate>
     <item>
+      <title>11월 11일 패치 노트 ③ — 물이 더 깔끔해지고, 다 쓰면 없어지는 물을 시험해요</title>
+      <link>https://craftyap.com/note/patch-2026-11-11-3/</link>
+      <guid isPermaLink="true">https://craftyap.com/note/patch-2026-11-11-3/</guid>
+      <pubDate>Tue, 10 Nov 2026 15:00:00 +0000</pubDate>
+      <description>흘러내리는 물이 겹쳐 보이거나 지글거리던 문제를 고치고, 쌓인 블록 사이에서 비스듬하게 늘어지던 물 면을 정리했어요. 웅덩이를 터뜨리면 물이 다 빠지고 끝나는 &#39;유한한 물&#39;도 실험 기능으로 넣었어요.</description>
+    </item>
+    <item>
       <title>11월 11일 패치 노트 ② — 물이 블록을 타고 흐르게 고쳤어요</title>
       <link>https://craftyap.com/note/patch-2026-11-11-2/</link>
       <guid isPermaLink="true">https://craftyap.com/note/patch-2026-11-11-2/</guid>
@@ -139,13 +146,6 @@
       <guid isPermaLink="true">https://craftyap.com/note/patch-2026-11-04-11/</guid>
       <pubDate>Tue, 03 Nov 2026 15:00:00 +0000</pubDate>
       <description>새 Rust 엔진으로 두 번째 부품을 옮겼어요. 가까운 블록을 그리는 장난감 블록 껍데기를 만드는 계산이에요. 화면은 픽셀까지 똑같고 만드는 시간은 3~5배 줄었어요. 이번에도 아직은 꺼 둔 상태라 게임은 그대로예요.</description>
-    </item>
-    <item>
-      <title>11월 4일 패치 노트 (10) — 새 Rust 엔진 준비: 물 계산을 먼저 옮겼어요</title>
-      <link>https://craftyap.com/note/patch-2026-11-04-10/</link>
-      <guid isPermaLink="true">https://craftyap.com/note/patch-2026-11-04-10/</guid>
-      <pubDate>Tue, 03 Nov 2026 15:00:00 +0000</pubDate>
-      <description>웹·앱·PC·서버에서 함께 쓸 Rust 엔진을 지금 게임 옆에서 만들기 시작했어요. 첫 부품은 물 계산이에요. 결과는 지금과 똑같고 계산은 2.5~5배 빨라요. 이번 배포에서는 아직 꺼 둔 상태라 게임은 그대로예요.</description>
     </item>
   </channel>
 </rss>

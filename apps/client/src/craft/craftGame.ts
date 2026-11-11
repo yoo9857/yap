@@ -42,7 +42,7 @@ import type { ClassClient, ClassSession } from "../net/classClient.js";
 import { SWIM_DEPTH, pointInWater, stepBody, unstick, overlapsShapedVoxel, overlapsVoxel, wishFromInput, type Body } from "./voxelBody.js";
 import {SandSim} from "./sandSim.js";
 import { WaterSim } from "./waterSim.js";
-import { classKey, seatLayout, WATER, WATER_SETTLED, isWater, emoteDef, lookDirection, pickBonk, bonkBlocked, tapBeatsDig, BONK_COOLDOWN_MS, BONK_DECAY, BONK_PUSH_CAP, type EmoteId, type CharacterId, type ClassAnim, type CharacterAction, type CharacterPresentation, postureTransition } from "@robo/shared";
+import { classKey, seatLayout, WATER, WATER_SETTLED, drawWaterByAmount, isWater, emoteDef, lookDirection, pickBonk, bonkBlocked, tapBeatsDig, BONK_COOLDOWN_MS, BONK_DECAY, BONK_PUSH_CAP, type EmoteId, type CharacterId, type ClassAnim, type CharacterAction, type CharacterPresentation, postureTransition } from "@robo/shared";
 import { EmoteMenu } from "./emoteMenu.js";
 import { adoptPosture, moveScale, POSTURE_EYE, type Posture } from "./posture.js";
 import { gaitBlend } from "../player/motionPolicy.js";
@@ -551,7 +551,13 @@ export class CraftGame {
     // solo play runs the water itself; a classroom's water is the server's
     // `?engine=rust`: the same rules in the Rust engine (docs/ENGINE.md), loaded by main.ts
     const layout = this.state.furniture;
+    // `?water=finite` (solo): water is an amount — a bucket is one cell of it and a pool that is
+    // opened runs out (packages/shared/src/fluidVolume.ts). Old poured water stays a spring.
+    this.finiteWater = !this.sync && new URLSearchParams(location.search).get("water") === "finite";
+    drawWaterByAmount(this.finiteWater);
+    this.view.setFiniteWater(this.finiteWater);
     this.water = this.sync ? null : new WaterSim(this.state.world, this.view, this.field, {
+      finite: this.finiteWater,
       rust: opts.rust ?? null,
       furniture: { version: () => layout.version, dryCells: () => layout.waterCells() },
     });
@@ -589,6 +595,8 @@ export class CraftGame {
     // a student kept on their plot builds only inside it
     !(this.sync?.canEditAt(x, z) ?? true);
 
+  /** `?water=finite`: see where the WaterSim is made. */
+  private finiteWater = false;
   private holdingWater(): boolean {
     return !this.emptyHands && blockByKey(this.heldKey())?.fluid === true;
   }
@@ -1556,7 +1564,7 @@ export class CraftGame {
       this.hud.toast(t("🧱 지금은 건축이 잠겨 있어요", "🧱 Building is locked right now"));
       return;
     }
-    if (id !== WATER && id !== WATER_SETTLED) {
+    if (!this.finiteWater && id !== WATER && id !== WATER_SETTLED) {
       this.hud.toast(t("💧 흐르는 물이에요 — 물이 시작된 곳(원천)을 떠야 없어져요", "💧 That water is flowing — scoop up its source to clear it"));
       return;
     }
@@ -1568,8 +1576,9 @@ export class CraftGame {
   private pour(x: number, y: number, z: number): void {
     const world = this.state.world;
     if (!world.inBounds(x, y, z) || !world.isReplaceable(x, y, z) || this.furniture.blocksCell(x, y, z)) return;
-    if (world.get(x, y, z) === WATER) return;
-    this.writeCell(x, y, z, WATER, 0);
+    const poured = this.finiteWater ? WATER_SETTLED : WATER; // finite: one cell of water, not a spring
+    if (world.get(x, y, z) === poured) return;
+    this.writeCell(x, y, z, poured, 0);
     this.sfx.play("pour");this.beginWork("place");
   }
 
@@ -2452,6 +2461,8 @@ export class CraftGame {
       },
       /** The water a cell holds: its own water id, or what a shaped block holds (0: none). */
       shapeAt: (x: number, y: number, z: number) => this.state.world.getShape(x, y, z),
+      /** Pour the bucket into a grid cell, as a right click does (a spring, or one cell of finite water). */
+      pourAt: (x: number, y: number, z: number) => this.pour(x, y, z),
       waterAt: (x: number, y: number, z: number) => this.state.world.waterAt(x, y, z),
       /** Faces bordering air that no shell draws (see VoxelView.auditFaces). */
       auditFaces: (limit?: number) => this.view.auditFaces(this.state.world, limit),

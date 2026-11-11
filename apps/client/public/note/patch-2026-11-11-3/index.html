@@ -1,0 +1,168 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>11월 11일 패치 노트 ③ — 물이 더 깔끔해지고, 다 쓰면 없어지는 물을 시험해요 | 크래프트얍 개발 노트</title>
+    <meta name="description" content="흘러내리는 물이 겹쳐 보이거나 지글거리던 문제를 고치고, 쌓인 블록 사이에서 비스듬하게 늘어지던 물 면을 정리했어요. 웅덩이를 터뜨리면 물이 다 빠지고 끝나는 &#39;유한한 물&#39;도 실험 기능으로 넣었어요." />
+    <meta name="robots" content="index, follow, max-image-preview:large" />
+    <meta name="theme-color" content="#ffd21c" />
+    <meta name="generator" content="tools/build-notes.mjs" />
+    <link rel="canonical" href="https://craftyap.com/note/patch-2026-11-11-3/" />
+    <link rel="alternate" type="application/rss+xml" title="크래프트얍 개발 노트" href="/feed.xml" />
+    <link rel="alternate" type="application/atom+xml" title="크래프트얍 개발 노트 (Atom)" href="/note/feed.xml" />
+    <link rel="icon" type="image/png" sizes="48x48" href="/favicon-48.png" />
+    <link rel="stylesheet" href="/guide/guide.css?v=0f9762e0f8" />
+    <link rel="stylesheet" href="/note/note.css?v=e5352788b0" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Jua&family=Noto+Sans+KR:wght@400;700;900&display=swap" rel="stylesheet" />
+    <meta property="og:type" content="article" />
+    <meta property="og:locale" content="ko_KR" />
+    <meta property="og:site_name" content="크래프트얍(CraftYap)" />
+    <meta property="og:title" content="11월 11일 패치 노트 ③ — 물이 더 깔끔해지고, 다 쓰면 없어지는 물을 시험해요 | 크래프트얍 개발 노트" />
+    <meta property="og:description" content="흘러내리는 물이 겹쳐 보이거나 지글거리던 문제를 고치고, 쌓인 블록 사이에서 비스듬하게 늘어지던 물 면을 정리했어요. 웅덩이를 터뜨리면 물이 다 빠지고 끝나는 &#39;유한한 물&#39;도 실험 기능으로 넣었어요." />
+    <meta property="og:url" content="https://craftyap.com/note/patch-2026-11-11-3/" />
+    <meta property="og:image" content="https://craftyap.com/craftyap-banner.jpg" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="675" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="11월 11일 패치 노트 ③ — 물이 더 깔끔해지고, 다 쓰면 없어지는 물을 시험해요 | 크래프트얍 개발 노트" />
+    <meta name="twitter:description" content="흘러내리는 물이 겹쳐 보이거나 지글거리던 문제를 고치고, 쌓인 블록 사이에서 비스듬하게 늘어지던 물 면을 정리했어요. 웅덩이를 터뜨리면 물이 다 빠지고 끝나는 &#39;유한한 물&#39;도 실험 기능으로 넣었어요." />
+    <meta name="twitter:image" content="https://craftyap.com/craftyap-banner.jpg" />
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "BlogPosting",
+      "@id": "https://craftyap.com/note/patch-2026-11-11-3/#post",
+      "url": "https://craftyap.com/note/patch-2026-11-11-3/",
+      "headline": "11월 11일 패치 노트 ③ — 물이 더 깔끔해지고, 다 쓰면 없어지는 물을 시험해요",
+      "description": "흘러내리는 물이 겹쳐 보이거나 지글거리던 문제를 고치고, 쌓인 블록 사이에서 비스듬하게 늘어지던 물 면을 정리했어요. 웅덩이를 터뜨리면 물이 다 빠지고 끝나는 '유한한 물'도 실험 기능으로 넣었어요.",
+      "datePublished": "2026-11-11",
+      "dateModified": "2026-11-11",
+      "inLanguage": "ko",
+      "keywords": "패치 노트, 버그 수정, 실험 기능, 물",
+      "image": "https://craftyap.com/craftyap-banner.jpg",
+      "isPartOf": {
+        "@id": "https://craftyap.com/note/#blog"
+      },
+      "author": {
+        "@type": "Organization",
+        "name": "크래프트얍(CraftYap)",
+        "url": "https://craftyap.com/"
+      },
+      "about": {
+        "@id": "https://craftyap.com/#game"
+      }
+    },
+    {
+      "@type": "BreadcrumbList",
+      "itemListElement": [
+        {
+          "@type": "ListItem",
+          "position": 1,
+          "name": "크래프트얍",
+          "item": "https://craftyap.com/"
+        },
+        {
+          "@type": "ListItem",
+          "position": 2,
+          "name": "개발 노트",
+          "item": "https://craftyap.com/note/"
+        },
+        {
+          "@type": "ListItem",
+          "position": 3,
+          "name": "11월 11일 패치 노트 ③ — 물이 더 깔끔해지고, 다 쓰면 없어지는 물을 시험해요",
+          "item": "https://craftyap.com/note/patch-2026-11-11-3/"
+        }
+      ]
+    }
+  ]
+}
+    </script>
+    <script src="/guide/guide.js?v=b6f46abba1" defer></script>
+  </head>
+
+  <body>
+    <a class="skip-link" href="#content">본문으로 이동</a>
+    <header class="site-header"><div class="header-inner">
+      <a class="brand" href="/" aria-label="크래프트얍 게임 홈"><img src="/craftyap-logo.webp" width="64" height="64" alt="" /><span>크래프트얍<small>CRAFTYAP</small></span></a>
+      <nav class="header-nav" id="site-nav" aria-label="주요 메뉴"><a href="/note/">개발 노트</a><a href="/guide/">게임 안내</a><a href="/guide/#controls">조작법</a><a href="/guide/#faq">FAQ</a></nav>
+      <a class="button button-dark header-play" href="/">지금 플레이 <span aria-hidden="true">↗</span></a>
+      <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="site-nav" aria-label="메뉴 열기" hidden><span></span><span></span></button>
+    </div></header>
+    <main id="content" class="note-main section-shell">
+      <article class="note-article" aria-labelledby="post-title">
+        <nav class="note-crumb" aria-label="현재 위치"><a href="/note/">← 개발 노트</a></nav>
+        <header class="note-head">
+          <p class="note-date"><time datetime="2026-11-11">2026.11.11</time></p>
+          <h1 id="post-title">11월 11일 패치 노트 ③ — 물이 더 깔끔해지고, 다 쓰면 없어지는 물을 시험해요</h1>
+          <p class="note-summary">흘러내리는 물이 겹쳐 보이거나 지글거리던 문제를 고치고, 쌓인 블록 사이에서 비스듬하게 늘어지던 물 면을 정리했어요. 웅덩이를 터뜨리면 물이 다 빠지고 끝나는 &#39;유한한 물&#39;도 실험 기능으로 넣었어요.</p>
+          <ul class="note-tags" aria-label="태그"><li>패치 노트</li><li>버그 수정</li><li>실험 기능</li><li>물</li></ul>
+          <nav class="note-chips" aria-label="이번 노트의 변경 사항"><a class="note-chip note-chip--new" href="#new">신규 <b>4</b></a><a class="note-chip note-chip--up" href="#up">개선 <b>4</b></a><a class="note-chip note-chip--fix" href="#fix">수정 <b>2</b></a><a class="note-chip note-chip--known" href="#known">알려진 문제 <b>4</b></a></nav>
+        </header>
+        <div class="note-body">
+<section class="note-sec note-sec--summary" id="s0" aria-labelledby="s0-h">
+<h2 id="s0-h"><span class="note-badge" aria-hidden="true">요약</span>한눈에 보기</h2>
+<div class="note-sec-body">
+<p>흘러내리는 물이 <strong>여러 겹으로 겹쳐 어둡게 보이거나 지글거리던 문제</strong>를 고쳤어요. 높이가 다른 블록 사이에서 <strong>비스듬하게 늘어지던 물 면</strong>도 곧게 폈어요. 그리고 웅덩이 벽을 깨면 물이 끝없이 나오던 것 대신, <strong>물이 다 빠지면 끝나는 &#39;유한한 물&#39;</strong> 을 실험 기능으로 써 볼 수 있어요.</p>
+</div>
+</section>
+<section class="note-sec">
+<h2>BEFORE / AFTER</h2>
+<p><img src="/note/assets/20261111-water-stack-ba.webp" alt="쌓인 블록 비교: 이전에는 물막이 여러 겹으로 겹치고 발치에 쐐기 모양이 보였고, 업데이트 후에는 물막이 수직으로 곧게 떨어진다"></p>
+<p><img src="/note/assets/20261111-water-curtain-ba.webp" alt="기둥 비교: 이전에는 기둥을 감싼 물막 아래쪽에 어두운 조각이 겹쳐 보였고, 업데이트 후에는 한 겹의 고른 물막으로 보인다"></p>
+<p><img src="/note/assets/20261111-water-finite-ba.webp" alt="벽을 깬 물탱크 비교: 위쪽은 기존 규칙으로 탱크 물이 그대로 남은 채 계속 흘러나오고, 아래쪽은 유한한 물로 탱크가 비워지며 바깥 물이 말라 간다"></p>
+</section>
+<section class="note-sec note-sec--new" id="new" aria-labelledby="new-h">
+<h2 id="new-h"><span class="note-badge" aria-hidden="true">NEW</span>새로 추가 <small>4</small></h2>
+<div class="note-sec-body">
+<ul>
+<li><strong class="item-title">유한한 물 (실험 기능)</strong>주소 끝에 <code>&amp;water=finite</code>를 붙여 혼자 하는 들판을 열면 써 볼 수 있어요. 예: <code>craftyap.com/?mode=field&amp;water=finite</code></li>
+<li><strong class="item-title">양동이 한 번 = 물 한 칸</strong>흐른다고 물이 늘어나지 않아요. 구덩이에 여러 번 부어야 연못이 차요.</li>
+<li><strong class="item-title">웅덩이를 터뜨리면 다 빠져요</strong>벽을 깨면 수위가 내려가며 물이 흘러나오고, 다 빠지면 끝나요.</li>
+<li><strong class="item-title">평지의 물은 말라요</strong>평평한 땅에 쏟은 물은 얇게 퍼졌다가 몇 초 뒤 말라요. 구덩이 안의 물은 남아요.</li>
+</ul>
+</div>
+</section>
+<section class="note-sec note-sec--up" id="up" aria-labelledby="up-h">
+<h2 id="up-h"><span class="note-badge" aria-hidden="true">UP</span>개선 <small>4</small></h2>
+<div class="note-sec-body">
+<ul>
+<li><strong class="item-title">겹쳐 보이던 물</strong>물막과 폭포를 가장 가까운 한 겹만 그려요. 안쪽 선이 비치거나 어둡게 겹치지 않아요.</li>
+<li><strong class="item-title">지글거림</strong>물이 흐를 때마다 표면이 깜빡이던 현상이 없어졌어요.</li>
+<li><strong class="item-title">물막이 곧게 떨어져요</strong>물막 아래쪽이 바깥으로 벌어지거나 안쪽이 파이던 모양을 바로잡았어요.</li>
+<li><strong class="item-title">공중 블록 아래의 물</strong>블록 옆면을 타던 물이 블록 아래에서도 같은 두께의 커튼으로 떨어져요.</li>
+</ul>
+</div>
+</section>
+<section class="note-sec note-sec--fix" id="fix" aria-labelledby="fix-h">
+<h2 id="fix-h"><span class="note-badge" aria-hidden="true">FIX</span>버그 수정 <small>2</small></h2>
+<div class="note-sec-body">
+<ul>
+<li><strong class="item-title">옆 블록 모서리로 끌려가던 물</strong>떨어지는 물 옆에 다른 블록이 있으면 물 아래쪽이 그 모서리로 한 칸 끌려가 비스듬한 판이 되던 문제를 고쳤어요.</li>
+<li><strong class="item-title">블록 위에서 다시 넘치는 물</strong>아래 블록에 떨어진 물이 가장자리로 넘칠 때 두꺼운 덩어리로 보이던 문제를 고쳤어요.</li>
+</ul>
+</div>
+</section>
+<section class="note-sec note-sec--known" id="known" aria-labelledby="known-h">
+<h2 id="known-h"><span class="note-badge" aria-hidden="true">!</span>알려진 문제 <small>4</small></h2>
+<div class="note-sec-body">
+<ul>
+<li>유한한 물은 아직 <strong>혼자 하는 들판에서만</strong> 돼요. 반(교실)과 섬에서는 기존 규칙으로 흘러요.</li>
+<li>유한한 물에서는 마르지 않는 샘을 새로 놓을 수 없어요. 예전에 부어 둔 물만 샘으로 남아요.</li>
+<li>벽에 대고 부은 물의 시작점은 물방울처럼 떠 보여요.</li>
+<li>높이가 다른 두 물막이 만나는 자리에 대각선 이음이 보일 수 있어요.</li>
+</ul>
+</div>
+</section>
+        </div>
+      </article>
+      <nav class="note-pager" aria-label="다른 노트"><a class="note-prev" href="/note/patch-2026-11-11-2/"><small>이전 노트</small>11월 11일 패치 노트 ② — 물이 블록을 타고 흐르게 고쳤어요</a><span></span></nav>
+    </main>
+    <footer class="site-footer section-shell"><div><a class="footer-brand" href="/">크래프트얍 <span>CraftYap</span></a><p>블록 하나에서 시작되는, 네가 만드는 세상.</p></div><nav aria-label="하단 메뉴"><a href="/">게임 홈</a><a href="/note/">개발 노트</a><a href="/guide/">게임 안내</a><a href="/feed.xml">RSS</a><a href="#content">맨 위로 ↑</a></nav><small>크래프트얍 개발 노트 · <time datetime="2026-11-11">2026.11.11 업데이트</time></small></footer>
+  </body>
+</html>

@@ -258,9 +258,30 @@ water that is running off something, and where furniture keeps water out.
   slanted panels between blocks hanging at different heights. Where a higher stream or a fall meets
   water below, the foot is pulled to the line where they meet (no half-cell skirt). Standing water and
   ground streams keep the rounded average.
+- **Stacked blocks** (follow-up, same day): a fall keeps the sheet of the fall above it once the
+  face it ran down ends (a curtain below a hanging block, not a whole cell again); a fall that has
+  LANDED on a block counts as standing water for the lip beside it; and a block that only the water
+  BELOW touches no longer pins the falling side's vertex to its corner (`below` constraints yield
+  to the falling side's own crossing on that axis). `test/water-slant.test.ts` settles water over
+  hanging blocks with the real rules and adds up the triangles that are neither upright nor level:
+  27 m² with the first mesher, under 6 now. Two more rules got it there: running water's vertices
+  are placed EXACTLY per axis (the 20 % of the average kept at first leaned every sheet outward just
+  above its foot), and only outward (convex) edges are rounded — rounding the inward crease where a
+  sheet meets the water below cut 10 cm into the sheet. What is left comes from one vertex per
+  lattice cube having to stand for several features at once (two curtains at different heights
+  meeting, a hovering source above its own sheet); removing it needs more than one vertex per cube.
 - **The snapshot hands over a chunk's whole re-meshed height**, not just the changed layers: a shaped
   block's water above or below a change used to vanish from the new mesh. The worker gets the
   profile marks as a sparse list (a second whole-grid copy per build was 1.4 MB of garbage).
+
+- **Three passes, one shader** (`makeWaterMaterial(pass)`, `VoxelView.installWater`; web only): the
+  level surfaces first, without depth; then ALL the water's depth, no colour; then the steep faces'
+  colour, only where it is that nearest depth. A sheet or a fall therefore blends exactly one layer,
+  over the level water behind it. In one double-sided pass without depth, a sheet's front, back and
+  every sheet behind it stacked (dark overlaps, inner edges showing through) in triangle order,
+  which changed with every flow step (the shimmer). Nearest-layer for everything dropped the stream
+  behind a sheet (a bright dry patch); steep-only depth let steep faces show through level ones.
+  Cost: three draw calls per water chunk instead of one, the same program (`uPass` is a uniform).
 
 All of it is in both meshers (`engine/crates/core/src/water_mesh.rs`, bit-identical:
 `test/rust-water-mesh.test.ts` now feeds random profiles). `water_mesh` (wasm) takes the profile
@@ -283,3 +304,30 @@ Not changed: a source on a pillar still runs down all four faces, and the seven-
 `node tools/shot-water-flow.mjs [outdir]` builds every case above (walls, falls,
 furniture, steps, shapes, a slide, hanging shapes, a pillar's corners), prints the cells and shoots
 them; `ONLY=shape,corner` picks scenes.
+
+## Finite water — prototype behind `?water=finite` (2026-11-11)
+
+Players: "break a pool's wall and the last stream never ends — water is made forever". True of the
+rules above: every poured bucket is a spring, so an opened tank keeps all twelve cells and feeds a
+stream for ever (`tools/shot-water-break.mjs` films it). `packages/shared/src/fluidVolume.ts`
+(`FiniteFluidSim`, `test/fluid-volume.test.ts`) is the alternative, on SOLO play only for now:
+
+- **The same ids, read as amounts** (eighths of a cell): 28 = full, 20…26 = 7…1, 27 = the trail
+  under dropping water (no water of its own), 19 = a SPRING that never runs dry. Nothing new is
+  saved, and every older world's poured water simply stays a spring. The bucket pours 28 and scoops
+  whatever a cell holds. Heights are drawn by amount (`drawWaterByAmount`, set in the game thread
+  and in the water worker).
+- **Rules**, cell by cell with every move written at once so the total is exact: down first (through
+  open air straight to what holds it); then sideways, an eighth at a time to the lowest cell in
+  reach while it is two eighths lower — a neighbour, or up to four cells away THROUGH water, which
+  is what makes a pool settle flat instead of as a staircase; then a film nothing will feed dries
+  (a hash of cell and step, about one evaluation in eight).
+- So: a walled pool stands; an opened one runs out and its water spreads thin and dries; a bucket on
+  open ground is a puddle for a few seconds; in a pit it stays; a fall is visible only while water
+  is dropping; a spring keeps feeding and what it fed dries once the spring is scooped.
+
+Not done, in the order it would have to be: a spring item (today only old saves have springs), the
+Rust twin + parity test, the classroom server (`ClassRoom.stepFluids`, and the bucket/scoop rules
+there), the island, shaped blocks under the new rules (the `seal` hooks are used but unshot), and
+the E2E suite (e2e-water asserts the seven-cell stream). Try it: `/?mode=field&water=finite`;
+film it: `QUERY="&water=finite" FRAMES=36 GAP=400 node tools/shot-water-break.mjs tmp/out`.

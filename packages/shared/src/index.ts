@@ -17,4 +17,5 @@ export * from "./bonk.js";
 
 export * from "./blockShapes.js";
 export * from "./waterlog.js";
+export * from "./fluidVolume.js";
 export * from "./plants.js";
