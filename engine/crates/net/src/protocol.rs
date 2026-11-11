@@ -16,7 +16,7 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
 /// `PARTY_PROTOCOL_VERSION` (party.ts). The fixtures carry the TypeScript value; a test compares.
 pub const PARTY_PROTOCOL_VERSION: u32 = 1;
 /// `CLASS_PROTOCOL_VERSION` (classroom.ts).
-pub const CLASS_PROTOCOL_VERSION: u32 = 15;
+pub const CLASS_PROTOCOL_VERSION: u32 = 16;
 /// Largest message the server sends (decodeClassServer's limit: whole-world batches).
 pub const MAX_SERVER_MESSAGE: usize = 4 * 1024 * 1024;
 
@@ -267,6 +267,12 @@ pub struct ClassSettings {
     pub build_locked: bool,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub taps_locked: Option<bool>,
+    /// Students may not build power plants.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub plants_locked: Option<bool>,
+    /// No pets in this class.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub pets_off: Option<bool>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -391,7 +397,14 @@ pub enum ClassClient {
         build_locked: bool,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         taps_locked: Option<bool>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        plants_locked: Option<bool>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        pets_off: Option<bool>,
     },
+    /// Teacher clears one student's plot: "drain" (its water) or "reset" (everything on it).
+    #[serde(rename = "k-plot")]
+    Plot { name: String, op: String },
     #[serde(rename = "k-end")]
     End,
     #[serde(rename = "k-reset-world")]

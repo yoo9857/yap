@@ -129,15 +129,59 @@ fn put(b: &mut Body, a: Axis, v: f64) {
 }
 
 /// `submersion`: how much of the body is underwater, 0..1, down its centre column.
+/// Is this falling-water cell a sheet (the thin curtain on a block's face, and on down below it)?
+/// voxelBody.ts `fallIsSheet`.
+fn fall_is_sheet<W: BodyWorld + ?Sized>(world: &W, x: i32, mut y: i32, z: i32) -> bool {
+    let top = y + 64;
+    while y < top {
+        if world.water_at(x, y, z) != WATER_FALLING {
+            return false;
+        }
+        let (mut air, mut block) = (false, false);
+        for (dx, dz) in [(1, 0), (-1, 0), (0, 1), (0, -1)] {
+            if is_water(world.water_at(x + dx, y, z + dz)) {
+                continue;
+            }
+            if world.is_blocked(x + dx, y, z + dz) {
+                block = true;
+            } else {
+                air = true;
+            }
+        }
+        if !air {
+            return false;
+        }
+        if block {
+            return true;
+        }
+        y += 1;
+    }
+    false
+}
+
+/// The water a body is IN at this cell, or 0: any water except a sheet of falling water, which is
+/// walked through. voxelBody.ts `waterBodyAt`.
+pub fn water_body_at<W: BodyWorld + ?Sized>(world: &W, x: i32, y: i32, z: i32) -> u8 {
+    let id = world.water_at(x, y, z);
+    if !is_water(id) {
+        return 0;
+    }
+    if id == WATER_FALLING && fall_is_sheet(world, x, y, z) {
+        0
+    } else {
+        id
+    }
+}
+
 pub fn submersion<W: BodyWorld + ?Sized>(world: &W, body: &Body) -> f64 {
     let h = body.height();
     let (cx, cz) = (body.x.floor() as i32, body.z.floor() as i32);
     let mut surface = f64::NEG_INFINITY;
     let mut y = body.y.floor() as i32;
     while y as f64 <= (body.y + h).floor() {
-        let id = world.water_at(cx, y, cz);
-        if is_water(id) {
-            surface = surface.max(y as f64 + water_height(id, is_water(world.water_at(cx, y + 1, cz))));
+        let id = water_body_at(world, cx, y, cz);
+        if id != 0 {
+            surface = surface.max(y as f64 + water_height(id, water_body_at(world, cx, y + 1, cz) != 0));
         }
         y += 1;
     }
@@ -151,11 +195,11 @@ pub fn submersion<W: BodyWorld + ?Sized>(world: &W, body: &Body) -> f64 {
 pub fn point_in_water<W: BodyWorld + ?Sized>(world: &W, x: f64, y: f64, z: f64) -> bool {
     let cy = y.floor() as i32;
     let (cx, cz) = (x.floor() as i32, z.floor() as i32);
-    let id = world.water_at(cx, cy, cz);
-    if !is_water(id) {
+    let id = water_body_at(world, cx, cy, cz);
+    if id == 0 {
         return false;
     }
-    y < cy as f64 + water_height(id, is_water(world.water_at(cx, cy + 1, cz)))
+    y < cy as f64 + water_height(id, water_body_at(world, cx, cy + 1, cz) != 0)
 }
 
 /// `wishFromInput`: camera-relative wish direction from raw axes (fwd / strafe in -1..1), normalised.

@@ -23,6 +23,10 @@ export interface ClassToolsActions {
   resetWorld(): void;
   /** Remove water throughout the class field, keeping buildings and furniture. */
   drainWater(): void;
+  /** One student's plot: take its water out, or put the whole plot back to empty grass (asked first). */
+  plot(member: ClassMember, op: "drain" | "reset"): void;
+  /** Bring the teacher back up to the ground (dug in and stuck). */
+  rescue(): void;
   /** End the lesson for everyone (asked first). */
   end(): void;
   /** The panel opened / closed. `resume`: closed by a click or F2 (a user gesture → back to play). */
@@ -136,7 +140,9 @@ export class ClassTools {
       group(t("잠금", "Locks"),
         this.tile("build", 8, "lock-build", () => this.actions.settings({ ...this.settings, buildLocked: !this.settings.buildLocked }), true),
         this.tile("chat", 9, "lock-chat", () => this.actions.settings({ ...this.settings, chatLocked: !this.settings.chatLocked }), true),
-        this.tile("taps", 0, "lock-taps", () => this.actions.settings({ ...this.settings, tapsLocked: !this.settings.tapsLocked }), true)),
+        this.tile("taps", 0, "lock-taps", () => this.actions.settings({ ...this.settings, tapsLocked: !this.settings.tapsLocked }), true),
+        this.tile("plants", -1, "lock-build", () => this.actions.settings({ ...this.settings, plantsLocked: !this.settings.plantsLocked }), true),
+        this.tile("pets", -1, "lock-taps", () => this.actions.settings({ ...this.settings, petsOff: !this.settings.petsOff }), true)),
     );
     this.buildTimerView();
     this.buildAnnounceView();
@@ -160,6 +166,10 @@ export class ClassTools {
       el("kbd", "", "0–9"), document.createTextNode(t(" 바로 고르기 · ", " pick · ")),
       el("kbd", "", "Esc"), document.createTextNode(t(" 뒤로 / 닫기", " back / close")),
     );
+    // dug in and stuck: the teacher comes straight back up (no number key; it is rarely needed)
+    const rescue = el("button", "ct-manage ct-rescue", t("↑ 땅 위로 올라오기", "↑ Back to the surface"));
+    rescue.title = t("땅속에 갇혔을 때 지상으로 올라와요.", "Stuck underground? Come straight back up.");
+    rescue.addEventListener("click", () => this.run(() => this.actions.rescue()));
     const drain = el("button", "ct-manage ct-drain", t("💧 빠르게 물 빼기", "💧 Drain all water"));
     drain.title = t("반 전체의 물을 한 번에 없애요. 건물과 가구는 그대로예요.", "Remove water throughout the class field. Buildings and furniture stay.");
     drain.addEventListener("click", () => this.run(() => this.actions.drainWater()));
@@ -172,7 +182,7 @@ export class ClassTools {
     end.addEventListener("click", () => {
       if (confirm(t("수업을 끝낼까요? 모든 학생의 연결이 끊어져요.", "End the class? Every student will be disconnected."))) this.run(() => this.actions.end());
     });
-    foot.append(drain, reset, end, keys);
+    foot.append(rescue, drain, reset, end, keys);
     this.card.append(head, body, foot);
     this.root.append(this.card);
     document.body.append(this.root);
@@ -288,7 +298,7 @@ export class ClassTools {
   private tile(id: string, n: number, icon: string, run: () => void, toggle = false): Tile {
     const root = el("button", `ct-tile ct-${id}${toggle ? " ct-switch" : ""}`);
     if (toggle) root.setAttribute("role", "switch");
-    root.dataset.key = String(n);
+    if (n >= 0) root.dataset.key = String(n); // tools past the ten number keys are click-only
     const art = el("span", "ct-art");
     const img = el("img");
     img.src = ICON(icon);
@@ -298,7 +308,9 @@ export class ClassTools {
     const title = el("b", "ct-title");
     const desc = el("small", "ct-desc");
     const state = el("span", "ct-state");
-    root.append(el("kbd", "ct-num", String(n)), art, title, desc, state);
+    const num = el("kbd", "ct-num", n >= 0 ? String(n) : "");
+    if (n < 0) num.style.visibility = "hidden"; // keeps the row's columns in line
+    root.append(num, art, title, desc, state);
     root.addEventListener("click", () => {
       if (!root.disabled) run();
     });
@@ -434,6 +446,12 @@ export class ClassTools {
     this.setTile("taps", t("친구 밀기 끄기", "Taps off"),
       this.settings.tapsLocked ? t("지금 꺼져 있어요 — 친구를 밀 수 없어요", "Off — nobody can tap a classmate") : t("켜면 친구를 살짝 미는 장난을 못 해요", "On: nobody can tap a classmate"),
       { on: this.settings.tapsLocked === true });
+    this.setTile("plants", t("발전소 잠금", "Lock power plants"),
+      this.settings.plantsLocked ? t("지금 잠겨 있어요 — 학생은 발전소를 못 지어요", "Locked — students can't build power plants") : t("켜면 학생이 발전소를 못 지어요", "On: students can't build power plants"),
+      { on: this.settings.plantsLocked === true });
+    this.setTile("pets", t("펫 끄기", "Pets off"),
+      this.settings.petsOff ? t("지금 꺼져 있어요 — 반에 펫이 없어요", "Off — no pets in this class") : t("켜면 모두의 펫이 사라져요", "On: everyone's pet goes away"),
+      { on: this.settings.petsOff === true });
     this.renderChips();
     this.refreshClock();
   }
@@ -447,6 +465,8 @@ export class ClassTools {
     if (this.settings.buildLocked) chips.push(["lock", t("🧱 건축 잠김", "🧱 Building locked")]);
     if (this.settings.chatLocked) chips.push(["lock", t("💬 채팅 잠김", "💬 Chat locked")]);
     if (this.settings.tapsLocked) chips.push(["lock", t("👋 밀기 꺼짐", "👋 Taps off")]);
+    if (this.settings.plantsLocked) chips.push(["lock", t("⚡ 발전소 잠김", "⚡ Plants locked")]);
+    if (this.settings.petsOff) chips.push(["lock", t("🐾 펫 꺼짐", "🐾 Pets off")]);
     if (chips.length === 0) chips.push(["calm", t("지금은 자유롭게 짓는 중이에요", "Free building right now")]);
     this.chips.replaceChildren(...chips.map(([kind, text]) => {
       const c = el("span", `ct-chip ct-chip-${kind}`, text);
@@ -507,6 +527,18 @@ export class ClassTools {
         go.title = t(`${m.name} 옆으로 가기`, `Go to ${m.name}`);
         go.addEventListener("click", () => this.run(() => this.actions.visit(m)));
         li.append(go);
+      }
+      // a student with a plot: its water out, or the whole plot back to grass (both need 자리 배치)
+      if (seated.has(m.name.trim().toLowerCase())) {
+        const drain = el("button", "ct-icon-btn ct-plot-drain", "💧");
+        drain.title = t(`${m.name}의 자리에서 물 빼기`, `Drain ${m.name}'s plot`);
+        drain.addEventListener("click", () => this.actions.plot(m, "drain"));
+        const reset = el("button", "ct-icon-btn ct-plot-reset", "🧹");
+        reset.title = t(`${m.name}의 자리 초기화`, `Reset ${m.name}'s plot`);
+        reset.addEventListener("click", () => {
+          if (confirm(t(`${m.name}의 자리를 초기화할까요? 그 자리에 만든 것이 모두 사라져요.`, `Reset ${m.name}'s plot? Everything built on it will be gone.`))) this.actions.plot(m, "reset");
+        });
+        li.append(drain, reset);
       }
       const kick = el("button", "ct-icon-btn ct-kick", "✕");
       kick.title = t(`${m.name} 내보내기`, `Remove ${m.name}`);

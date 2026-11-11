@@ -331,3 +331,30 @@ Rust twin + parity test, the classroom server (`ClassRoom.stepFluids`, and the b
 there), the island, shaped blocks under the new rules (the `seal` hooks are used but unshot), and
 the E2E suite (e2e-water asserts the seven-cell stream). Try it: `/?mode=field&water=finite`;
 film it: `QUERY="&water=finite" FRAMES=36 GAP=400 node tools/shot-water-break.mjs tmp/out`.
+
+## In the water or not; the underwater screen (2026-11-11)
+
+Players: "under water the screen often looks as if I were above it". Two causes, both fixed:
+
+- **What counts as water follows what is drawn** (`voxelBody.waterBodyAt` ↔ `body.rs`): every
+  water cell, except a SHEET of falling water (`fallIsSheet`: open air on one side and a block on
+  another, or continuing such a cell above it — the curtain on a block's face and below it). A
+  sheet is a third of its cell: counted as a cell, the robot swam and the screen went under in open
+  air beside it. A lone column, a wide fall and the inside of deep water (a wide pond's cells under
+  its surface ARE falling water) are swum in. (A first version excluded every falling cell with air
+  beside it — and deep ponds read as "not water"; never deployed.)
+- **The screen is split at the waterline** (`CraftGame.updateUnderwater`): `waterDepthAt` is the
+  eye's depth under the DRAWN surface (the top water cell's height), not "is the eye in a water
+  cell". The row where that surface crosses the near plane splits the screen; the wash covers what
+  is below it (stronger while split: the fog cannot be split), and fog (12 m, was 18) and the
+  muffle follow the larger half with a band between. This is the known cell-versus-surface
+  mismatch (Minecraft MC-135839) solved the way ocean renderers do it (signed height of the camera
+  over the surface).
+
+Not solved here, and the reason for `docs/WATER_DESIGN_KO.md`: a space ENCLOSED by sheets is air
+and looks like air from inside, and at the waterline the part below is washed but not fogged. Both
+need the scene's depth (a water pass that knows how much water each pixel looks through).
+
+Also in classrooms: while a seating exists the plot fences are walls to the flow
+(`ClassRoom.plotWalls`), so one student's water never floods a neighbour's plot.
+`node tools/shot-underwater.mjs [outdir]` checks deep water, the waterline, the bank and a sheet.

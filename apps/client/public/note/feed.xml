@@ -7,6 +7,48 @@
   <updated>2026-11-11T00:00:00+09:00</updated>
   <author><name>크래프트얍(CraftYap)</name></author>
   <entry xml:base="https://craftyap.com/">
+    <title>11월 11일 패치 노트 ④ — 오늘 수업에서 나온 요청을 반영했어요</title>
+    <link href="https://craftyap.com/note/patch-2026-11-11-4/" />
+    <id>https://craftyap.com/note/patch-2026-11-11-4/</id>
+    <published>2026-11-11T00:00:00+09:00</published>
+    <updated>2026-11-11T00:00:00+09:00</updated>
+    <summary>선생님 수업 도구에 학생 자리만 물 빼기·초기화, 발전소 잠금, 펫 끄기, 땅 위로 올라오기를 추가했어요. 물이 옆 친구 자리로 넘어가지 않고, 물속 화면도 실제 수면에 맞게 바뀌어요.</summary>
+    <content type="html">&lt;h2&gt;한눈에 보기&lt;/h2&gt;
+&lt;p&gt;오늘 수업에서 아이들과 선생님이 알려 준 다섯 가지를 &lt;strong&gt;선생님 수업 도구(F2)&lt;/strong&gt; 에 넣었어요. 그리고 &lt;strong&gt;물이 옆 친구 자리로 넘어가던 문제&lt;/strong&gt;와 &lt;strong&gt;물속인데 물 밖처럼 보이던 문제&lt;/strong&gt;를 고쳤어요.&lt;/p&gt;
+&lt;h2&gt;BEFORE / AFTER&lt;/h2&gt;
+&lt;p&gt;&lt;img src=&quot;/note/assets/20261111-class-tools-ba.webp&quot; alt=&quot;선생님 F2 수업 도구 비교: 이전에는 잠금 스위치가 세 개였고, 업데이트 후에는 발전소 잠금과 펫 끄기가 추가되고 아래쪽에 땅 위로 올라오기 버튼이, 학생 이름 옆에 물 빼기와 초기화 버튼이 생겼다&quot;&gt;&lt;/p&gt;
+&lt;p&gt;&lt;img src=&quot;/note/assets/20261111-underwater-ba.webp&quot; alt=&quot;물속 화면 비교: 이전에는 멀리 있는 벽돌이 또렷하게 보였고, 업데이트 후에는 몇 미터 밖부터 푸르게 흐려진다&quot;&gt;&lt;/p&gt;
+&lt;p&gt;&lt;img src=&quot;/note/assets/20261111-waterline.webp&quot; alt=&quot;수면에 걸친 화면: 화면 위쪽은 물 밖, 수면 아래쪽은 파랗게 물든다&quot;&gt;&lt;/p&gt;
+&lt;h2&gt;새로 추가&lt;/h2&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;학생 자리만 물 빼기 💧&lt;/strong&gt; — F2 → 오른쪽 학생 목록에서 그 학생 줄의 💧를 누르면 그 자리의 물만 빠져요. 옆 자리의 물은 그대로예요.&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;학생 자리만 초기화 🧹&lt;/strong&gt; — 같은 줄의 🧹를 누르면(한 번 더 물어봐요) 그 자리에 만든 블록·판 구덩이·가구·물·발전소가 모두 사라지고 풀밭으로 돌아가요.&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;발전소 잠금&lt;/strong&gt; — F2 → 잠금에서 켜면 학생은 발전소를 놓거나 조립할 수 없어요. 선생님은 그대로 지을 수 있어요.&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;펫 끄기&lt;/strong&gt; — F2 → 잠금에서 켜면 반 모두의 펫과 입양 버튼이 사라져요. 나중에 들어온 학생도 펫 없이 시작해요.&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;땅 위로 올라오기&lt;/strong&gt; — 땅을 파고 들어갔다가 갇혔을 때 F2 아래쪽 버튼을 누르면 지상으로 올라와요.&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2&gt;개선&lt;/h2&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;물이 자기 자리 안에 머물러요&lt;/strong&gt; — 자리 배치를 한 동안에는 울타리 선이 물에 대한 벽이 돼요. 자리를 치우면 다시 자유롭게 흘러요.&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;물속 화면이 실제 수면을 따라요&lt;/strong&gt; — 수면을 지날 때 화면이 한 번에 바뀌지 않고 수면 아래쪽부터 파랗게 차올라요.&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;물속이 더 물속 같아요&lt;/strong&gt; — 몇 미터 밖의 벽돌이 푸르게 흐려져요.&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;블록 면을 타고 흐르는 얇은 물막은 걸어서 지나가요&lt;/strong&gt; — 물막 옆 빈 공간에서 헤엄을 치거나 화면이 물속으로 바뀌지 않아요.&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2&gt;버그 수정&lt;/h2&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;다른 학생 땅에 물이 침범하던 문제&lt;/strong&gt;를 고쳤어요.&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;수업 도구의 스위치가 화면 아래에서 잘리던 문제&lt;/strong&gt;를 고쳤어요.&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2&gt;알려진 문제&lt;/h2&gt;
+&lt;ul&gt;
+&lt;li&gt;💧와 🧹는 &lt;strong&gt;자리 배치를 한 뒤에만&lt;/strong&gt; 나와요. 자리가 없는 학생에게는 쓸 수 없어요.&lt;/li&gt;
+&lt;li&gt;발전소 잠금과 펫 끄기는 숫자 단축키가 없어서 눌러서 켜요.&lt;/li&gt;
+&lt;li&gt;블록에서 떨어지는 물막으로 둘러싸인 안쪽은 실제로 공기라서, 안에 들어가면 물 밖처럼 보여요.&lt;/li&gt;
+&lt;li&gt;수면에 걸친 순간 수면 아래쪽은 파랗게 물들지만 벽돌이 흐려지지는 않아요.&lt;/li&gt;
+&lt;/ul&gt;
+</content>
+  </entry>
+  <entry xml:base="https://craftyap.com/">
     <title>11월 11일 패치 노트 ③ — 물이 더 깔끔해지고, 다 쓰면 없어지는 물을 시험해요</title>
     <link href="https://craftyap.com/note/patch-2026-11-11-3/" />
     <id>https://craftyap.com/note/patch-2026-11-11-3/</id>
@@ -730,32 +772,6 @@
 &lt;ul&gt;
 &lt;li&gt;이미 열려 있던 탭은 &lt;strong&gt;새로고침&lt;/strong&gt;해야 바뀐 화면이 보여요.&lt;/li&gt;
 &lt;/ul&gt;
-</content>
-  </entry>
-  <entry xml:base="https://craftyap.com/">
-    <title>11월 4일 패치 노트 (11) — 새 Rust 엔진: 블록 화면 만들기도 옮겼어요</title>
-    <link href="https://craftyap.com/note/patch-2026-11-04-11/" />
-    <id>https://craftyap.com/note/patch-2026-11-04-11/</id>
-    <published>2026-11-04T00:00:00+09:00</published>
-    <updated>2026-11-04T00:00:00+09:00</updated>
-    <summary>새 Rust 엔진으로 두 번째 부품을 옮겼어요. 가까운 블록을 그리는 장난감 블록 껍데기를 만드는 계산이에요. 화면은 픽셀까지 똑같고 만드는 시간은 3~5배 줄었어요. 이번에도 아직은 꺼 둔 상태라 게임은 그대로예요.</summary>
-    <content type="html">&lt;h2&gt;한눈에 보기&lt;/h2&gt;
-&lt;p&gt;걸어 다니면 가까워진 블록이 장난감 블록 모양으로 바뀌어요. 이때 붙어 있는 블록들을 &lt;strong&gt;하나의 매끈한 껍데기로 깎는 계산&lt;/strong&gt;이 꽤 무거웠어요. 청크(16×16칸) 하나에 길게는 37 ms가 걸렸는데, 한 프레임에 쓸 수 있는 시간은 4 ms예요. 이 계산을 새 &lt;strong&gt;Rust 엔진&lt;/strong&gt;으로 옮겼어요.&lt;/p&gt;
-&lt;h2&gt;BEFORE / AFTER&lt;/h2&gt;
-&lt;p&gt;섬에서 같은 경로를 걸으며 TypeScript(이전)와 Rust(새 엔진)를 비교했어요. 두 엔진으로 찍은 화면은 &lt;strong&gt;픽셀까지 똑같았어요&lt;/strong&gt;.&lt;/p&gt;
-&lt;p&gt;&lt;img src=&quot;/note/assets/20261104-rust-shells-ba.webp&quot; alt=&quot;블록 화면 만들기 시간 비교: 가까운 블록 70청크 만들기 합계가 665 ms에서 139 ms로, 가장 오래 걸린 청크 하나가 37 ms에서 11 ms로, 청크 만들기 전체가 749 ms에서 229 ms로 줄어든 막대 그래프&quot;&gt;&lt;/p&gt;
-&lt;h2&gt;이번에 달라진 점&lt;/h2&gt;
-&lt;ul&gt;
-&lt;li&gt;&lt;strong&gt;아직은 꺼져 있어요.&lt;/strong&gt; 이번 배포로 게임에서 달라지는 건 없어요. 물 계산과 함께 확인한 다음 켜요.&lt;/li&gt;
-&lt;li&gt;&lt;strong&gt;똑같은 모양.&lt;/strong&gt; 블록 껍데기의 꼭짓점·면 방향·색·무늬 좌표를 하나하나 비교해서, 소수점 끝자리까지 같아야 통과하는 자동 검사를 붙였어요. 무작위 지형 40개와 고리, 속이 빈 상자 같은 특이한 모양도 검사해요.&lt;/li&gt;
-&lt;li&gt;&lt;strong&gt;문제가 생기면 자동으로 원래대로.&lt;/strong&gt; 새 엔진에서 오류가 나면 바로 기존 계산으로 돌아가요.&lt;/li&gt;
-&lt;/ul&gt;
-&lt;h2&gt;앞으로&lt;/h2&gt;
-&lt;ol&gt;
-&lt;li&gt;멀리 보이는 블록 화면과 청크 훑기도 옮기기&lt;/li&gt;
-&lt;li&gt;화면을 멈추지 않도록 별도 작업 스레드에서 만들기&lt;/li&gt;
-&lt;li&gt;Rust 엔진을 기본으로 켜기&lt;/li&gt;
-&lt;/ol&gt;
 </content>
   </entry>
 </feed>

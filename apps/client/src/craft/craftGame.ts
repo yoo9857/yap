@@ -39,14 +39,14 @@ import { SkyDome } from "./skyDome.js";
 import { createSkyEnvironment } from "../render/skyEnvironment.js";
 import { ClassSync } from "./classSync.js";
 import type { ClassClient, ClassSession } from "../net/classClient.js";
-import { SWIM_DEPTH, pointInWater, stepBody, unstick, overlapsShapedVoxel, overlapsVoxel, wishFromInput, type Body } from "./voxelBody.js";
+import { SWIM_DEPTH, pointInWater, waterDepthAt, stepBody, unstick, overlapsShapedVoxel, overlapsVoxel, wishFromInput, type Body } from "./voxelBody.js";
 import {SandSim} from "./sandSim.js";
 import { WaterSim } from "./waterSim.js";
 import { classKey, seatLayout, WATER, WATER_SETTLED, drawWaterByAmount, isWater, emoteDef, lookDirection, pickBonk, bonkBlocked, tapBeatsDig, BONK_COOLDOWN_MS, BONK_DECAY, BONK_PUSH_CAP, type EmoteId, type CharacterId, type ClassAnim, type CharacterAction, type CharacterPresentation, postureTransition } from "@robo/shared";
 import { EmoteMenu } from "./emoteMenu.js";
 import { adoptPosture, moveScale, POSTURE_EYE, type Posture } from "./posture.js";
 import { gaitBlend } from "../player/motionPolicy.js";
-import { CRAFT_SPAWN, WORLD_X, WORLD_Z, surfaceY, type RayHit } from "./voxelWorld.js";
+import { CRAFT_SPAWN, WORLD_X, WORLD_Y, WORLD_Z, surfaceY, type RayHit } from "./voxelWorld.js";
 import { PIECES, MAX_PIECE_CELLS, pieceCells, pieceShape } from "./pieces.js";
 import { ROUND, KIT_CUBE, isOrientedShape, blockShapeFamily, shapeBoxes, shapeBounds } from "./shapes.js";
 import {kitCubeGeometry,kitRampGeometry,kitConnectorGeometry,kitRoundGeometry,kitCellsGeometry,kitBoxesGeometry} from "./kitGeometry.js";
@@ -398,7 +398,8 @@ export class CraftGame {
         // a classroom's server judges every plant change (ClassSync exists by the time anyone builds)
         net: classroom ? {
           send: (op) => this.sync?.sendPlant(op),
-          blocked: () => !this.sync || this.sync.canBuild() ? null
+          blocked: () => this.sync?.plantsLocked ? t("⚡ 지금은 선생님이 발전소 짓기를 잠가 뒀어요", "⚡ The teacher has power plants locked right now")
+            : !this.sync || this.sync.canBuild() ? null
             : this.sync.frozen ? t("✋ 지금은 선생님을 봐요 — 짓기는 잠시 후에", "✋ Eyes on the teacher — build in a moment")
             : t("🔒 지금은 선생님이 짓기를 잠가 뒀어요", "🔒 The teacher has building locked right now"),
           canEditAt: (x, z) => this.sync?.canEditAbs(x, z) ?? true,
@@ -436,6 +437,7 @@ export class CraftGame {
       this.sync = new ClassSync(opts.classroom.client, opts.classroom.session, this.field, this.view,
         this.renderer.scene, {
           camera: () => this.renderer.camera,
+          rescue: () => this.rescue(),
           teleport: (x, y, z) => {
             // a test drive keeps its machine, colliders and apron in grid coordinates: scrolling the
             // field under it would leave the machine on invisible old terrain — leave the lab first
@@ -577,6 +579,8 @@ export class CraftGame {
   private readonly water: WaterSim | null;
   /** Blue wash over the screen while the camera is underwater. */
   private readonly underwaterTint = document.createElement("div");
+  /** How much of the screen (from the bottom) is below the waterline, 0‒1. */
+  private underwaterCover = 0;
   private underwater = false;
   /** How wet the body was last tick — a dry → wet change with speed splashes. */
   private lastWet = 0;
@@ -589,11 +593,54 @@ export class CraftGame {
   /** Cells a placed block may not take: solid furniture, the pet (a block dropped on it buried it
    *  until the recall teleported it out), and a classmate (it popped them up out of the block). */
   private readonly buildBlocked = (x: number, y: number, z: number): boolean =>
-    this.furniture.blocksCell(x, y, z) || overlapsShapedVoxel(this.pet.body, x, y, z, 0) ||
+    this.furniture.blocksCell(x, y, z) || !this.petsOff() && overlapsShapedVoxel(this.pet.body, x, y, z, 0) ||
     (this.science?.solidAt(x, y, z) ?? false) ||
     (this.sync?.bodyInGridCell(x, y, z, 0) ?? false) ||
     // a student kept on their plot builds only inside it
     !(this.sync?.canEditAt(x, z) ?? true);
+
+  /** The teacher turned pets off for this class: no pet, no adoption chip, and P / Y do nothing. */
+  private petsOff(): boolean { return this.sync?.petsOff ?? false; }
+
+  /**
+   * The teacher's 땅 위로 올라오기 (F2): dug in and stuck. Up to the nearest place ABOVE where they
+   * are with ground under it and room to stand: this very column under a roof of earth, and in an
+   * open shaft (whose own column is air all the way up) the rim beside it.
+   */
+  private rescue(): void {
+    const world = this.state.world, bx = Math.floor(this.body.x), bz = Math.floor(this.body.z);
+    const standAt = (x: number, z: number): number => {
+      for (let y = WORLD_Y - 3; y >= 1; y--)
+        if (world.isBlocked(x, y - 1, z) && !world.isBlocked(x, y, z) && !world.isBlocked(x, y + 1, z)) return y;
+      return -1;
+    };
+    // Only when actually dug in: earth over the head, or walled in on every side two blocks high
+    // (a shaft). Standing in the open, "the nearest higher place" was the top of a student's tower.
+    const feet = Math.floor(this.body.y + 0.01);
+    let roofed = false;
+    for (let y = feet + 2; y < WORLD_Y && !roofed; y++) roofed = world.isBlocked(bx, y, bz);
+    const walled = [[1, 0], [-1, 0], [0, 1], [0, -1]].every(([dx, dz]) =>
+      world.isBlocked(bx + dx!, feet, bz + dz!) && world.isBlocked(bx + dx!, feet + 1, bz + dz!));
+    if (!roofed && !walled) { this.hud.toast(t("이미 땅 위에 있어요", "You are already above ground")); return; }
+    let spot: [number, number, number] | null = null;
+    for (let r = 0; r <= 8 && !spot; r++)
+      for (let dx = -r; dx <= r && !spot; dx++) for (let dz = -r; dz <= r && !spot; dz++) {
+        if (Math.max(Math.abs(dx), Math.abs(dz)) !== r || !world.inBounds(bx + dx, 1, bz + dz)) continue;
+        const y = standAt(bx + dx, bz + dz);
+        if (y > this.body.y + 0.5) spot = [bx + dx, y, bz + dz];
+      }
+    if (!spot) { this.hud.toast(t("이미 땅 위에 있어요", "You are already above ground")); return; }
+    if (this.workshop.active) this.workshop.toggle();
+    if (this.seated) this.standUp();
+    if (this.posture !== "stand") this.changePosture("stand", false);
+    this.body.x = spot[0] + 0.5; this.body.y = spot[1] + 0.05; this.body.z = spot[2] + 0.5;
+    this.body.vx = this.body.vy = this.body.vz = 0;
+    this.knockX = this.knockZ = 0;
+    this.prevBody.set(this.body.x, this.body.y, this.body.z);
+    this.seatBlend = 0;
+    this.pet.recall(world, this.body);
+    this.hud.toast(t("↑ 땅 위로 올라왔어요", "↑ Back on the surface"));
+  }
 
   /** `?water=finite`: see where the WaterSim is made. */
   private finiteWater = false;
@@ -998,11 +1045,11 @@ export class CraftGame {
         return;
       }
       if (key === "v" && !e.repeat) this.camera.toggleView();
-      if (key === "p" && !e.repeat) {
+      if (key === "p" && !e.repeat && !this.petsOff()) {
         this.hud.toast(this.pet.toggleMode() === "stay" ? t("🐶 앉아! 여기서 기다려요", "🐶 Buddy: stay") : t("🐶 따라와! 다시 따라와요", "🐶 Buddy: follow"));
       }
       // Y opens and closes the adoption panel (Ctrl+Y, handled above, is redo)
-      if (key === "y" && !e.repeat) this.petShop.toggle(); // its onOpen closes the bag and the furniture panel
+      if (key === "y" && !e.repeat && !this.petsOff()) this.petShop.toggle(); // its onOpen closes the bag and the furniture panel
       if (key === "o" && !e.repeat) {
         const next = (this.viewPreset + 1) % VIEW_NAMES.length;
         updateSettings({ view: next }); // the settings listener applies it
@@ -2094,8 +2141,10 @@ export class CraftGame {
       return;
     }
     this.ghost.visible = true;
-    this.pet.setVisible(true);
-    this.petShop.setVisible(true);
+    const pets = !this.petsOff();
+    if (!pets && this.petShop.open) this.petShop.setOpen(false);
+    this.pet.setVisible(pets);
+    this.petShop.setVisible(pets);
     this.furniture.setVisible(true);
     this.pet.render(alpha, frameDt);
     // on furniture the mining bar is the feedback; a cell box would frame one
@@ -2264,10 +2313,29 @@ export class CraftGame {
    * no shader recompile), and the render distance's fog comes back on exit.
    */
   private updateUnderwater(): void {
-    const p = this.renderer.camera.position;
-    // A small hysteresis band stops tiny surface waves/camera bobbing from
-    // flashing between the underwater fog and the daylight fog every frame.
-    const under = pointInWater(this.state.world, p.x, p.y + (this.underwater ? -0.07 : 0.07), p.z);
+    // Where the DRAWN surface crosses the screen. The eye sits `depth` under the surface; a point
+    // on the near plane at view height v is at world height eye + v·cos(pitch) + near·sin(pitch),
+    // so the waterline is the row where that equals the surface. Everything below that row is
+    // seen through water: the wash covers exactly that part, so going under wipes up the screen
+    // (and coming out, down) instead of the whole screen flipping at once.
+    const camera = this.renderer.camera, p = camera.position;
+    const depth = waterDepthAt(this.state.world, p.x, p.y, p.z);
+    let covered = 0;
+    if (depth !== null) {
+      const half = camera.near * Math.tan(THREE.MathUtils.degToRad(camera.fov) / 2);
+      const cos = Math.cos(this.viewPitch), sin = Math.sin(this.viewPitch);
+      const line = Math.abs(cos) > 0.05 ? (depth - camera.near * sin) / cos : depth > 0 ? Infinity : -Infinity;
+      covered = THREE.MathUtils.clamp((line + half) / (2 * half), 0, 1);
+    }
+    if (covered !== this.underwaterCover) {
+      this.underwaterCover = covered;
+      this.underwaterTint.classList.toggle("on", covered > 0);
+      this.underwaterTint.classList.toggle("split", covered > 0 && covered < 1);
+      this.underwaterTint.style.clipPath = covered >= 1 || covered <= 0 ? "" : `inset(${((1 - covered) * 100).toFixed(1)}% 0 0 0)`;
+    }
+    // the murk (fog) and the muffle follow the larger half of the screen, with a band between so
+    // a camera bobbing at the waterline does not flick them every frame
+    const under = this.underwater ? covered > 0.4 : covered > 0.6;
     if (under !== this.underwater) this.setUnderwater(under);
   }
 
@@ -2278,6 +2346,7 @@ export class CraftGame {
    */
   private labAudio(frameDt: number): void {
     if (this.underwater) this.setUnderwater(false);
+    if (this.underwaterCover > 0) { this.underwaterCover = 0; this.underwaterTint.classList.remove("on", "split"); this.underwaterTint.style.clipPath = ""; }
     const cam = this.renderer.camera;
     this.sfx.setListener(cam.position.x, cam.position.y, cam.position.z, this.viewYaw, this.viewPitch);
     if ((this.roomProbeIn -= frameDt) <= 0) { this.roomProbeIn = 0.25; this.sfx.setRoom(OPEN_AIR); }
@@ -2286,12 +2355,11 @@ export class CraftGame {
   private setUnderwater(under: boolean): void {
     this.underwater = under;
     this.sfx.setUnderwater(under);
-    this.underwaterTint.classList.toggle("on", under);
     const fog = this.renderer.scene.fog as THREE.Fog;
     if (under) {
       fog.color.set(UNDERWATER_FOG);
-      fog.near = 0.5;
-      fog.far = 18;
+      fog.near = 0.3;
+      fog.far = 12; // bricks a few metres off fade into the blue: at 18 they read as if in air
     } else {
       fog.color.set(FOG_COLOR);
       this.applyViewDistance(this.viewPreset);
@@ -2396,7 +2464,7 @@ export class CraftGame {
           cells++;
           if (id === WATER) sources++;
         }
-        return { wet: this.body.wet ?? 0, underwater: this.underwater, cells, sources, y: this.body.y, selected: this.heldKey() };
+        return { wet: this.body.wet ?? 0, underwater: this.underwater, cover: this.underwaterCover, cells, sources, y: this.body.y, selected: this.heldKey() };
       },
       /** The live scene — for resource audits (duplicate materials/geometries). */
       scene: () => this.renderer.scene,
@@ -2437,6 +2505,14 @@ export class CraftGame {
       petShopToggle: () => this.petShop.toggle(),
       ...this.furniture.debug(),
       blockAt: (x: number, y: number, z: number) => this.state.world.get(x, y, z),
+      shapeAt: (x: number, y: number, z: number) => this.state.world.getShape(x, y, z),
+      /** Pour the bucket into a grid cell, as a right click does (a spring, or one cell of finite water). */
+      pourAt: (x: number, y: number, z: number) => this.pour(x, y, z),
+      /** The teacher's F2 tools, without the panel: back to the surface; are pets off in this class. */
+      rescue: () => this.rescue(),
+      petsOff: () => this.petsOff(),
+      /** First person on/off (the V key), for checks that need the camera at the eye. */
+      firstPerson: (on: boolean) => { if (this.camera.firstPerson !== on) this.camera.toggleView(); },
       mineAt: (x: number, y: number, z: number) => {
         const def = blockById(this.state.world.get(x, y, z));
         if (!def || def.hardness <= 0) return false;
@@ -2460,9 +2536,6 @@ export class CraftGame {
         return { held: held.length, dryShaped: dry, drawn: this.view.lastWaterlog, cells: held.slice(0, 200) };
       },
       /** The water a cell holds: its own water id, or what a shaped block holds (0: none). */
-      shapeAt: (x: number, y: number, z: number) => this.state.world.getShape(x, y, z),
-      /** Pour the bucket into a grid cell, as a right click does (a spring, or one cell of finite water). */
-      pourAt: (x: number, y: number, z: number) => this.pour(x, y, z),
       waterAt: (x: number, y: number, z: number) => this.state.world.waterAt(x, y, z),
       /** Faces bordering air that no shell draws (see VoxelView.auditFaces). */
       auditFaces: (limit?: number) => this.view.auditFaces(this.state.world, limit),

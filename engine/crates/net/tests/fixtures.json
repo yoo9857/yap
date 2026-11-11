@@ -1,7 +1,7 @@
 {
  "versions": {
   "party": 1,
-  "class": 15
+  "class": 16
  },
  "partyClient": [
   {
@@ -146,7 +146,7 @@
  "classClient": [
   {
    "t": "k-host",
-   "v": 15,
+   "v": 16,
    "room": "햇살반",
    "teacher": "김선생",
    "password": "1234",
@@ -154,26 +154,26 @@
   },
   {
    "t": "k-host",
-   "v": 15,
+   "v": 16,
    "room": "햇살반",
    "teacher": "김선생"
   },
   {
    "t": "k-join",
-   "v": 15,
+   "v": 16,
    "room": "햇살반",
    "student": "Mina",
    "seatKey": "sk"
   },
   {
    "t": "k-join",
-   "v": 15,
+   "v": 16,
    "room": "햇살반",
    "student": "Mina"
   },
   {
    "t": "k-peek",
-   "v": 15,
+   "v": 16,
    "room": "햇살반"
   },
   {
@@ -346,6 +346,23 @@
    "t": "k-settings",
    "chatLocked": false,
    "buildLocked": true
+  },
+  {
+   "t": "k-settings",
+   "chatLocked": false,
+   "buildLocked": false,
+   "plantsLocked": true,
+   "petsOff": true
+  },
+  {
+   "t": "k-plot",
+   "name": "민지",
+   "op": "drain"
+  },
+  {
+   "t": "k-plot",
+   "name": "민지",
+   "op": "reset"
   },
   {
    "t": "k-end"
@@ -714,6 +731,15 @@
     "chatLocked": true,
     "buildLocked": true,
     "tapsLocked": false
+   }
+  },
+  {
+   "t": "s-k-settings",
+   "settings": {
+    "chatLocked": false,
+    "buildLocked": false,
+    "plantsLocked": true,
+    "petsOff": true
    }
   },
   {

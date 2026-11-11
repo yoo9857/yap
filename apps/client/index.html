@@ -860,12 +860,18 @@
         inset: 0;
         pointer-events: none;
         z-index: 19;
-        background: radial-gradient(ellipse at 50% 40%, rgba(40, 120, 200, 0.18), rgba(10, 50, 110, 0.42));
+        background: radial-gradient(ellipse at 50% 40%, rgba(40, 120, 200, 0.26), rgba(10, 50, 110, 0.5));
         opacity: 0;
         transition: opacity 0.15s ease-out;
       }
       .craft-underwater.on {
         opacity: 1;
+      }
+      /* the eye is AT the surface: only the part of the screen below the waterline is washed, and
+         more strongly — the fog (the murk) cannot be split, so this stands in for it there */
+      .craft-underwater.split {
+        background: linear-gradient(to bottom, rgba(36, 118, 190, 0.62), rgba(12, 58, 120, 0.8));
+        transition: none;
       }
       .craft-hud {
         position: fixed;

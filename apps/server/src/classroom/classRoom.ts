@@ -14,6 +14,7 @@ import {
   BONK_TARGET_REST_MS,
   bonkEye,
   pickBonk,
+  FACE_NX, FACE_NZ, FACE_PX, FACE_PZ,
   FluidSim,
   classKey,
   isPlayerBlock,
@@ -220,6 +221,7 @@ export class ClassRoom {
       this.seating = saved.seating.seats.map((x) => ({ ...x, pos: [x.pos[0], x.pos[1], x.pos[2]] as [number, number, number] }));
       this.seatOrigin = { pos: [saved.seating.origin.pos[0], saved.seating.origin.pos[1], saved.seating.origin.pos[2]], yaw: saved.seating.origin.yaw };
       this.seatRoam = saved.seating.roam;
+      this.rebuildPlotWalls();
     }
     if (saved.lesson) {
       this.frozen = saved.lesson.frozen;
@@ -272,7 +274,7 @@ export class ClassRoom {
     },
     seal: (x, y, z) => {
       const edit = this.edits.get(voxelKey(x, y, z));
-      return edit && holdsWaterlog(edit[0], edit[1]) ? shapeSeal(edit[1]) : 0;
+      return (edit && holdsWaterlog(edit[0], edit[1]) ? shapeSeal(edit[1]) : 0) | this.plotWalls(x, z);
     },
     open: (x, y, z) =>
       Math.abs(x) <= CLASS_MAX_COORD && Math.abs(z) <= CLASS_MAX_COORD &&
@@ -302,6 +304,14 @@ export class ClassRoom {
   /** One flow step (ClassManager calls this every FLUID_STEP). Returns the
    *  number of cells that changed. */
   stepFluids(maxMs = 6): number {
+    // The plot walls are a rule of the TypeScript water only (the Rust mirror has none yet): a
+    // seated class runs on it, every water cell woken again as after a Rust failure.
+    if (this.rust && this.plotBoxes.length > 0) {
+      try { this.rust.water.free(); } catch { /* already freed */ }
+      this.rust = null;
+      this.fluidRescan = this.edits.entries();
+      this.fluidRescanLeft = this.edits.size;
+    }
     if (this.edits.size >= MAX_EDITS && this.fluidRescan) {
       // Do not retain a paused Map iterator (and old hash tables) while a
       // full classroom repeatedly replaces cells. Restart after space opens.
@@ -579,7 +589,41 @@ export class ClassRoom {
   }
 
   /** Tell everyone the plots changed — and save them (a deploy mid-lesson must not lose them). */
+  /**
+   * Water stays on the plot it was poured on. While the class is seated, the fence lines are walls
+   * to the flow: a cell's face toward a cell of another plot (or toward open field) is sealed, at
+   * any height. Children flooded each other's plots; the fences themselves are only drawn.
+   */
+  private plotBoxes: [number, number, number, number][] = [];
+  private readonly plotCache = new Map<number, number>();
+  private plotAt(x: number, z: number): number {
+    const key = (x + 2_000_000) * 4_000_000 + (z + 2_000_000);
+    let index = this.plotCache.get(key);
+    if (index === undefined) {
+      index = this.plotBoxes.findIndex(([x0, x1, z0, z1]) => x >= x0 && x + 1 <= x1 && z >= z0 && z + 1 <= z1);
+      if (this.plotCache.size > 200_000) this.plotCache.clear();
+      this.plotCache.set(key, index);
+    }
+    return index;
+  }
+  private plotWalls(x: number, z: number): number {
+    if (this.plotBoxes.length === 0) return 0;
+    const here = this.plotAt(x, z);
+    return (this.plotAt(x + 1, z) !== here ? FACE_PX : 0) | (this.plotAt(x - 1, z) !== here ? FACE_NX : 0) |
+      (this.plotAt(x, z + 1) !== here ? FACE_PZ : 0) | (this.plotAt(x, z - 1) !== here ? FACE_NZ : 0);
+  }
+
+  /** The seating changed (arranged, cleared, a late student's plot, a restore): the walls follow,
+   *  and every water cell is looked at again under them. */
+  private rebuildPlotWalls(): void {
+    this.plotBoxes = (this.seating ?? []).map((seat) => plotBounds(seat));
+    this.plotCache.clear();
+    this.fluidRescan = this.edits.entries();
+    this.fluidRescanLeft = this.edits.size;
+  }
+
   private seatsChanged(): void {
+    this.rebuildPlotWalls();
     this.dirty = true;
     this.broadcast(this.seatsMessage());
   }
@@ -866,6 +910,7 @@ export class ClassRoom {
           // (which this process never saw) must still come down for everyone
           const had = this.seating !== null;
           this.seating = null;
+          this.rebuildPlotWalls(); // the fences go, and the water may cross again
           this.seatOrigin = null;
           this.seatRoam = false;
           this.dirty = true;
@@ -906,7 +951,10 @@ export class ClassRoom {
         return;
       }
       case "k-settings":
-        this.settings = { chatLocked: msg.chatLocked, buildLocked: msg.buildLocked, tapsLocked: msg.tapsLocked ?? this.settings.tapsLocked ?? false };
+        // the two newer switches are written only while ON (off = absent, as in every older save)
+        this.settings = { chatLocked: msg.chatLocked, buildLocked: msg.buildLocked, tapsLocked: msg.tapsLocked ?? this.settings.tapsLocked ?? false,
+          ...((msg.plantsLocked ?? this.settings.plantsLocked) ? { plantsLocked: true } : {}),
+          ...((msg.petsOff ?? this.settings.petsOff) ? { petsOff: true } : {}) };
         this.dirty = true;
         this.broadcast({ t: "s-k-settings", settings: this.settings });
         return;
@@ -915,6 +963,9 @@ export class ClassRoom {
         return;
       case "k-drain-water":
         this.drainWater();
+        return;
+      case "k-plot":
+        this.clearPlot(peer, msg.name, msg.op === "drain");
         return;
       case "k-reset-world":
         this.edits.clear();
@@ -932,6 +983,53 @@ export class ClassRoom {
         this.system("선생님이 들판을 새로 비웠어요");
         return;
     }
+  }
+
+  /**
+   * One student's plot: its water out (`waterOnly`), or everything on it back to empty grass —
+   * blocks, dug holes, furniture, water and power plants. Sent as the ordinary messages every
+   * client already applies (edits by "", the furniture layout, plant rows), in bounded batches.
+   */
+  private clearPlot(peer: ClassPeer, name: string, waterOnly: boolean): void {
+    const seat = this.seatOf(name);
+    if (!seat) { peer.send({ t: "s-k-chat", from: "", name: this.teacherName, role: "teacher", text: `${name}의 자리가 없어요 — 먼저 자리를 배치해 주세요`, system: true }); return; }
+    const [x0, x1, z0, z1] = plotBounds(seat);
+    const inside = (x: number, z: number) => x >= x0 && x + 1 <= x1 && z >= z0 && z + 1 <= z1;
+    const changed: ClassEdit[] = [];
+    for (const [key, [block]] of [...this.edits]) {
+      const [x, y, z] = voxelCoordinates(key);
+      if (!inside(x, z) || waterOnly && !isWater(block)) continue;
+      // water out: the cell is air (which is an edit where the field's own column is not air);
+      // reset: the cell is the field's own again
+      const air = waterOnly && pristine(y) !== 0;
+      this.writeEdit(key, air ? [0, 0] : null);
+      changed.push([x, y, z, air ? 0 : waterOnly ? 0 : pristine(y), 0]);
+    }
+    const dried: ClassWet[] = [];
+    for (const key of [...this.wet.keys()]) {
+      const [x, y, z] = voxelCoordinates(key);
+      if (!inside(x, z)) continue;
+      this.wet.delete(key);
+      if (this.rust) { const held = this.edits.get(key); this.rust.wrote(key, held ?? null); }
+      dried.push([x, y, z, 0]);
+    }
+    let furniture = false, plants: number[] = [];
+    if (!waterOnly) {
+      for (const item of [...this.furniture.all()]) {
+        if (!this.furniture.all().includes(item)) continue; // went with what it stood on
+        if (this.furniture.cellsOf(item).some(([x, , z]) => inside(x, z))) { this.furniture.remove(item); furniture = true; }
+      }
+      plants = [...this.plants.values()].filter((p) => siteSockets(p).some((s) => s.cells.some((c) => inside(c.x, c.z)))).map((p) => p.id);
+      for (const id of plants) this.plants.delete(id);
+      if (plants.length > 0) this.reindexPlants();
+    }
+    for (const [x, y, z] of changed) this.fluidTouch(x, y, z); // water beside the plot may flow in
+    this.dirty = true;
+    for (let i = 0; i < changed.length; i += 500) this.broadcast({ t: "s-k-edit", by: "", edits: changed.slice(i, i + 500) });
+    for (let i = 0; i < dried.length; i += 500) this.broadcast({ t: "s-k-wet", cells: dried.slice(i, i + 500) });
+    if (furniture) this.broadcast({ t: "s-k-furniture", furniture: this.furniture.toJSON() });
+    if (plants.length > 0) this.broadcast({ t: "s-k-plants", plants: [], removed: plants });
+    this.system(waterOnly ? `💧 선생님이 ${seat.name}의 자리에서 물을 뺐어요` : `🧹 선생님이 ${seat.name}의 자리를 새로 비웠어요`);
   }
 
   /** Clear water in one transaction and one small message, even for a flooded 300k-cell field.
@@ -1169,6 +1267,9 @@ export class ClassRoom {
       peer.send({ t: "s-k-plants", plants: p ? [this.plantRow(p)] : [], ...(msg.id !== undefined && !p ? { removed: [msg.id] } : {}), refused: why });
     };
     if (me.role === "student" && (this.settings.buildLocked || this.frozen)) return refuse("locked");
+    // the teacher's own switch for power plants: students may not start or fit one (taking their
+    // own apart stays allowed, so a plot can be tidied while it is on)
+    if (me.role === "student" && this.settings.plantsLocked && (msg.op === "lay" || msg.op === "fit" || msg.op === "on")) return refuse("locked");
     if (msg.op === "lay") {
       const { kind, x, y, z, rot } = msg;
       if (kind === undefined || x === undefined || y === undefined || z === undefined || rot === undefined) return refuse("rule");
@@ -1322,6 +1423,7 @@ export class ClassRoom {
     // (A deploy does NOT come through here: shutdown saves and drops sockets, the plots survive.)
     if (this.seating) {
       this.seating = null;
+      this.rebuildPlotWalls();
       this.seatOrigin = null;
       this.seatRoam = false;
       this.dirty = true;

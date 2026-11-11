@@ -2,7 +2,7 @@ import * as THREE from "three";
 import { describe, expect, it } from "vitest";
 import { WATER, WATER_FALLING, flowingWater } from "@robo/shared";
 import { blockByKey } from "../src/craft/blocks.js";
-import { pointInWater, stepBody, submersion, type Body } from "../src/craft/voxelBody.js";
+import { pointInWater, stepBody, submersion, waterBodyAt, waterDepthAt, type Body } from "../src/craft/voxelBody.js";
 import { VoxelWorld } from "../src/craft/voxelWorld.js";
 import { buildWaterGeometry, prepareWaterTransition } from "../src/craft/waterMesh.js";
 
@@ -68,6 +68,48 @@ describe("swimming", () => {
     run(w, b, 3, [1, 0], true); // swim +x into the bank at x = 20
     expect(b.x).toBeGreaterThan(20);
     expect(b.y).toBeGreaterThanOrEqual(3 - 1e-6);
+  });
+
+  it("a sheet of falling water on a wall is walked through; a column of it in the open is water", () => {
+    const w = new VoxelWorld();
+    for (let x = 0; x < 20; x++) for (let z = 0; z < 20; z++) w.set(x, 0, z, STONE);
+    // a fall down a wall's face, and on down below where the wall ends (a block hanging in the air)
+    for (let y = 4; y <= 8; y++) w.set(7, y, 8, STONE);
+    for (let y = 1; y <= 8; y++) w.set(8, y, 8, WATER_FALLING);
+    w.set(8, 9, 8, WATER);
+    const b = body(8.5, 5, 8.5);
+    expect(submersion(w, b)).toBe(0);
+    expect(pointInWater(w, 8.5, 6.5, 8.5)).toBe(false);
+    expect(waterBodyAt(w, 8, 2, 8)).toBe(0); // the curtain below the wall is still the sheet
+    const under = body(8.5, 1, 8.5);
+    run(w, under, 1, [0, 0], false);
+    expect(under.grounded).toBe(true); // standing in it, not floating up it
+    // a fall with nothing to run down is drawn a whole cell wide: that is water
+    for (let y = 1; y <= 6; y++) w.set(14, y, 14, WATER_FALLING);
+    w.set(14, 7, 14, WATER);
+    expect(waterBodyAt(w, 14, 3, 14)).toBe(WATER_FALLING);
+    expect(pointInWater(w, 14.5, 3.5, 14.5)).toBe(true);
+    expect(submersion(w, body(14.5, 1, 14.5))).toBe(1);
+  });
+
+  it("the inside of deep water is water even where its cells are falling water", () => {
+    // a wide pond: sources on top, and under them (no closed basin this size) falling water
+    const w = new VoxelWorld();
+    for (let x = 0; x < 30; x++) for (let z = 0; z < 30; z++) {
+      w.set(x, 0, z, STONE);
+      for (let y = 1; y <= 4; y++) w.set(x, y, z, x === 0 || z === 0 || x === 29 || z === 29 ? STONE : y === 4 ? WATER : WATER_FALLING);
+    }
+    expect(waterBodyAt(w, 15, 2, 15)).toBe(WATER_FALLING);
+    expect(pointInWater(w, 15.5, 2.5, 15.5)).toBe(true);
+    expect(submersion(w, body(15.5, 1, 15.5))).toBe(1);
+    // how far under the DRAWN surface (the top cell is full to 0.875), and just over it
+    expect(waterDepthAt(w, 15.5, 2.5, 15.5)).toBeCloseTo(4.875 - 2.5, 5);
+    expect(waterDepthAt(w, 15.5, 4.95, 15.5)).toBeCloseTo(-0.075, 5); // in the top cell, above the water
+    expect(waterDepthAt(w, 15.5, 5.2, 15.5)).toBeCloseTo(-0.325, 5);  // in the air cell over it
+    expect(waterDepthAt(w, 15.5, 7, 15.5)).toBeNull();
+    // a sheet down a block's face over the pond: no depth at all
+    for (let y = 6; y <= 9; y++) { w.set(10, y, 10, WATER_FALLING); w.set(9, y, 10, STONE); }
+    expect(waterDepthAt(w, 10.5, 7.5, 10.5)).toBeNull();
   });
 
   it("is slower in water than on land", () => {

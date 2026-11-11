@@ -17,7 +17,7 @@ import { characterIdSchema, emoteIdSchema, characterActionSchema, heldItemSchema
  */
 
 /** 3: named classrooms. 4: water. 5: paced live-world streaming + reliable replay. 6: character emotes and low postures. 7: construction shapes through code 50. 8: light player taps. 9: half blocks and stairs. 10: water inside shaped blocks (s-k-wet). 11: plot nudges. 12: lesson tools (freeze, timer, announcements). 13: science-mode power plants (k-plant / s-k-plants). 14: teacher water cleanup (k-drain-water / s-k-water-drained). 15: classroom plant synchronization (live rollout). */
-export const CLASS_PROTOCOL_VERSION = 15;
+export const CLASS_PROTOCOL_VERSION = 16;
 /** Highest block layer of the field grid (WORLD_Y - 1). */
 export const CLASS_MAX_Y = 55;
 /** Field coordinates are bounded so a hostile client can't grow the store
@@ -182,7 +182,12 @@ export const classClientSchema = z.discriminatedUnion("t", [
     z: z.number().int().min(-CLASS_MAX_COORD).max(CLASS_MAX_COORD).optional(),
     rot: z.number().int().min(0).max(3).optional(),
   }),
-  z.object({ t: z.literal("k-settings"), chatLocked: z.boolean(), buildLocked: z.boolean(), tapsLocked: z.boolean().optional() }),
+  z.object({ t: z.literal("k-settings"), chatLocked: z.boolean(), buildLocked: z.boolean(), tapsLocked: z.boolean().optional(),
+    plantsLocked: z.boolean().optional(), petsOff: z.boolean().optional() }),
+  /** Teacher clears ONE student's plot (named, as in the roster): `drain` takes the water out of it,
+   *  `reset` puts the whole plot back to empty grass (blocks, dug holes, furniture, water, plants).
+   *  Needs a seating (plots exist only after 자리 배치). */
+  z.object({ t: z.literal("k-plot"), name: playerNameSchema, op: z.enum(["drain", "reset"]) }),
   z.object({ t: z.literal("k-end") }),
   /** Teacher wipes the saved field back to empty grass. */
   z.object({ t: z.literal("k-reset-world") }),
@@ -201,8 +206,10 @@ export const classMemberSchema = z.object({
 });
 export type ClassMember = z.infer<typeof classMemberSchema>;
 
-/** `tapsLocked` (teacher turns friend taps off) is optional: classes saved before it read as unlocked. */
-export const classSettingsSchema = z.object({ chatLocked: z.boolean(), buildLocked: z.boolean(), tapsLocked: z.boolean().optional() });
+/** `tapsLocked` (teacher turns friend taps off), `plantsLocked` (students may not build power plants)
+ *  and `petsOff` (no pets in this class) are optional: classes saved before them read as off. */
+export const classSettingsSchema = z.object({ chatLocked: z.boolean(), buildLocked: z.boolean(), tapsLocked: z.boolean().optional(),
+  plantsLocked: z.boolean().optional(), petsOff: z.boolean().optional() });
 export type ClassSettings = z.infer<typeof classSettingsSchema>;
 
 export const classErrorCodeSchema = z.enum([

@@ -84,7 +84,7 @@
   padding: 2px 18px 0;
   min-height: 0;
 }
-.ct-left { display: grid; align-content: start; gap: 12px; min-width: 0; min-height: 0; overflow: auto; padding: 2px 2px 8px; }
+.ct-left { display: grid; align-content: start; gap: 8px; min-width: 0; min-height: 0; overflow: auto; padding: 2px 2px 8px; }
 .ct-main { display: grid; gap: 12px; }
 .ct-main[hidden] { display: none; }
 .ct-chips { display: flex; flex-wrap: wrap; gap: 6px; }
@@ -165,12 +165,16 @@
 .ct-gather, .ct-timer { --tint: #fff9e0; --tint-on: #fff0b3; --ring: #f0b400; }
 .ct-clear { --tint: #fdf5ea; --ring: #d39a5c; }
 .ct-freeze, .ct-announce { --tint: #fff0f2; --tint-on: #ffdbe1; --ring: var(--ct-coral); }
-.ct-build, .ct-chat, .ct-taps { --tint: #eef4ff; --tint-on: #dbe8ff; --ring: var(--ct-blue); }
+.ct-build, .ct-chat, .ct-taps, .ct-plants, .ct-pets { --tint: #eef4ff; --tint-on: #dbe8ff; --ring: var(--ct-blue); }
 
 /* ---- a lock: the same row with an on/off switch (it stays open — locks are flipped, not "done") */
 .ct-grid-switch { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .ct-switch .ct-state { display: none; }
 .ct-switch { grid-template-columns: auto 30px minmax(0, 1fr) 34px; grid-template-areas: "num art title sw" "num art desc sw"; }
+/* five locks: the two without a number key give their key column back, so three rows still fit */
+.ct-switch .ct-num[style*="hidden"] { display: none; }
+.ct-switch:has(.ct-num[style*="hidden"]) { grid-template-columns: 30px minmax(0, 1fr) 34px; grid-template-areas: "art title sw" "art desc sw"; padding-left: 12px; }
+.ct-group + .ct-group { margin-top: -2px; }
 .ct-switch .ct-art, .ct-switch .ct-art img { width: 30px; height: 30px; }
 .ct-switch::after {
   content: "";

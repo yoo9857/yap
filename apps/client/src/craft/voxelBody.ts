@@ -1,5 +1,5 @@
 import { shapeIntersectsBox, rampHeight, isFullCubeShape } from "./shapes.js";
-import { isWater, waterHeight } from "@robo/shared";
+import { WATER_FALLING, isWater, waterHeight } from "@robo/shared";
 import type { VoxelWorld } from "./voxelWorld.js";
 
 /**
@@ -34,6 +34,57 @@ const CLIMB_OUT = 5.6;
 /** Horizontal speed when fully under (wading scales toward it). */
 const SWIM_SPEED = 0.6;
 
+const SIDES: readonly (readonly [number, number])[] = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+
+/**
+ * Is this falling-water cell a SHEET — the thin curtain the mesher draws on a block's face (a third
+ * of the cell), and on down below that block once the face ends? It has open air on a side and
+ * either a block on another, or it continues such a cell above it. A lone column, the edge of a
+ * wide fall and the inside of deep water are not sheets: they are drawn as whole cells of water.
+ */
+function fallIsSheet(world: VoxelWorld, x: number, y: number, z: number): boolean {
+  for (let top = y + 64; y < top; y++) {
+    if (world.waterAt(x, y, z) !== WATER_FALLING) return false;
+    let air = false, block = false;
+    for (const [dx, dz] of SIDES) {
+      if (isWater(world.waterAt(x + dx, y, z + dz))) continue;
+      if (world.isBlocked(x + dx, y, z + dz)) block = true;
+      else air = true;
+    }
+    if (!air) return false;
+    if (block) return true;
+  }
+  return false;
+}
+
+/**
+ * The water a body is IN at this cell (its id), or 0. Any water except a sheet of falling water:
+ * that is walked through — counted as a cell of water, the robot swam, and the screen went
+ * underwater, in the plain air next to a curtain a third of a cell thick.
+ */
+export function waterBodyAt(world: VoxelWorld, x: number, y: number, z: number): number {
+  const id = world.waterAt(x, y, z);
+  if (!isWater(id)) return 0;
+  return id === WATER_FALLING && fallIsSheet(world, x, y, z) ? 0 : id;
+}
+
+/**
+ * How far a point is below the water's surface (m; negative: above it), measured against the
+ * surface that is DRAWN — the top of the highest water cell over the point — or null where there
+ * is no water under or around it. The underwater screen follows this, not "is the eye in a water
+ * cell": a cell is full to 0.875 at most, and a stream's is a tenth of that.
+ */
+export function waterDepthAt(world: VoxelWorld, x: number, y: number, z: number): number | null {
+  const cx = Math.floor(x), cz = Math.floor(z);
+  let cy = Math.floor(y);
+  if (waterBodyAt(world, cx, cy, cz) === 0) {
+    cy--; // just over a surface: the water is the cell below
+    if (waterBodyAt(world, cx, cy, cz) === 0) return null;
+  }
+  while (waterBodyAt(world, cx, cy + 1, cz) !== 0) cy++;
+  return cy + waterHeight(waterBodyAt(world, cx, cy, cz), false) - y;
+}
+
 /**
  * How much of the body is underwater, 0‒1 — sampled down its centre column,
  * each water cell counting up to its own surface height.
@@ -44,9 +95,9 @@ export function submersion(world: VoxelWorld, body: Body): number {
   const cz = Math.floor(body.z);
   let surface = -Infinity;
   for (let y = Math.floor(body.y); y <= Math.floor(body.y + h); y++) {
-    const id = world.waterAt(cx, y, cz);
-    if (!isWater(id)) continue;
-    surface = Math.max(surface, y + waterHeight(id, isWater(world.waterAt(cx, y + 1, cz))));
+    const id = waterBodyAt(world, cx, y, cz);
+    if (id === 0) continue;
+    surface = Math.max(surface, y + waterHeight(id, waterBodyAt(world, cx, y + 1, cz) !== 0));
   }
   if (surface === -Infinity) return 0;
   return Math.min(1, Math.max(0, (surface - body.y) / h));
@@ -55,9 +106,9 @@ export function submersion(world: VoxelWorld, body: Body): number {
 /** Is this point (the camera's eye) underwater? */
 export function pointInWater(world: VoxelWorld, x: number, y: number, z: number): boolean {
   const cy = Math.floor(y);
-  const id = world.waterAt(Math.floor(x), cy, Math.floor(z));
-  if (!isWater(id)) return false;
-  return y < cy + waterHeight(id, isWater(world.waterAt(Math.floor(x), cy + 1, Math.floor(z))));
+  const id = waterBodyAt(world, Math.floor(x), cy, Math.floor(z));
+  if (id === 0) return false;
+  return y < cy + waterHeight(id, waterBodyAt(world, Math.floor(x), cy + 1, Math.floor(z)) !== 0);
 }
 
 export interface Body {

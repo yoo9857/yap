@@ -32,6 +32,8 @@ export interface ClassHudActions {
   end(): void;
   resetWorld(): void;
   drainWater(): void;
+  plot(member: ClassMember, op: "drain" | "reset"): void;
+  rescue(): void;
   /** Typing started/stopped — the game drops held movement keys. */
   typing(active: boolean): void;
 }
@@ -100,6 +102,8 @@ export class ClassHud {
         kick: (m) => this.actions.kick(m),
         resetWorld: () => this.actions.resetWorld(),
         drainWater: () => this.actions.drainWater(),
+        plot: (m, op) => this.actions.plot(m, op),
+        rescue: () => this.actions.rescue(),
         end: () => this.actions.end(),
         toolsOpen: (open, resume) => {
           if (open) this.closeInput();

@@ -72,6 +72,8 @@ export interface ClassSyncHooks {
   camera?(): THREE.Camera;
   /** Move the local player to grid coordinates (gather). */
   teleport(x: number, y: number, z: number): void;
+  /** Lift the own robot out of the ground to the surface above it (the teacher's 땅 위로 올라오기). */
+  rescue?(): void;
   /** Turn the player (body and view) to a heading — a seat faces the teacher. */
   face?(yaw: number): void;
   /** A class panel closed: capture the mouse again and go back to play. */
@@ -248,6 +250,8 @@ export class ClassSync {
       end: () => client.send({ t: "k-end" }),
       resetWorld: () => client.send({ t: "k-reset-world" }),
       drainWater: () => client.send({ t: "k-drain-water" }),
+      plot: (m, op) => client.send({ t: "k-plot", name: m.name, op }),
+      rescue: () => hooks.rescue?.(),
       typing: () => hooks.clearKeys(),
     });
     this.hud.setMembers(this.members);
@@ -284,6 +288,8 @@ export class ClassSync {
       if (this.session.role === "student") {
         if ((settings.tapsLocked ?? false) !== (was.tapsLocked ?? false))
           hooks.toast(settings.tapsLocked ? t("👋 선생님이 친구 밀기를 껐어요", "👋 The teacher turned friend taps off") : t("👋 다시 친구를 살짝 밀 수 있어요", "👋 Friend taps are back on"));
+        if ((settings.plantsLocked ?? false) !== (was.plantsLocked ?? false))
+          hooks.toast(settings.plantsLocked ? t("⚡ 선생님이 발전소 짓기를 잠갔어요", "⚡ The teacher locked power plants") : t("⚡ 다시 발전소를 지을 수 있어요", "⚡ You can build power plants again"));
         if (settings.buildLocked !== was.buildLocked)
           hooks.toast(settings.buildLocked ? t("🧱 선생님이 건축을 잠갔어요", "🧱 The teacher locked building") : t("🧱 다시 건축할 수 있어요", "🧱 You can build again"));
         if (settings.chatLocked !== was.chatLocked)
@@ -473,6 +479,11 @@ export class ClassSync {
   }
 
   /** Students can't touch blocks while the teacher has building locked (or the class frozen). */
+  /** The teacher turned pets off for this class. */
+  get petsOff(): boolean { return this.settings.petsOff === true; }
+  /** Students may not build power plants right now (the teacher's own may). */
+  get plantsLocked(): boolean { return this.settings.plantsLocked === true && this.session.role === "student"; }
+
   canBuild(): boolean {
     return this.online && (this.session.role === "teacher" || (!this.settings.buildLocked && !this.lesson.frozen));
   }
