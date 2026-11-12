@@ -70,6 +70,10 @@ pub struct WaterMesh {
     pub impact: Vec<f32>,
     pub grid: Vec<f32>,
     pub indices: Vec<u32>,
+    /// The simple water's faces against BLOCKS (never drawn: `wet` is -1 on their vertices). With
+    /// them the water is a closed volume, so a ray's crossings can be counted: one more way out
+    /// than in means the eye is in the water (the web's count pass, render/waterPipeline.ts).
+    pub closure: Vec<u32>,
 }
 
 const CORNERS: [[i32; 3]; 8] = [[0, 0, 0], [1, 0, 0], [0, 1, 0], [1, 1, 0], [0, 0, 1], [1, 0, 1], [0, 1, 1], [1, 1, 1]];
@@ -1222,6 +1226,11 @@ pub struct MissingComponent;
 // toward air, the bottom over air; nothing against a block or more water. No sheets, films, lips
 // or curtains, and no surface net.
 
+/// How far a corner of the water at a block reaches INTO that block. Bricks are drawn a few
+/// centimetres inside their cell with rounded edges; water ending exactly on the cell's boundary
+/// left a slot between itself and the wall it stands against, and the view behind showed through.
+const TUCK: f64 = 0.07;
+
 /// A spring's lone corners: drawn in by this much of a cell, and standing at this share of their height.
 const SPRING_INSET: f64 = 0.14;
 const SPRING_DROP: f64 = 0.8;
@@ -1258,7 +1267,7 @@ fn build_simple<G: Fn(i32, i32, i32) -> u8>(get: &G, profile: &dyn Fn(i32, i32, 
             b.simple_cell(x, y, z, id);
         }
     }
-    if b.out.indices.is_empty() {
+    if b.out.indices.is_empty() && b.out.closure.is_empty() {
         None
     } else {
         Some(b.out)
@@ -1301,8 +1310,31 @@ impl<G: Fn(i32, i32, i32) -> u8> Builder<'_, G> {
         }
     }
 
+    /// Where the water's vertex at the lattice point (cx, level, cz) is pushed, in x and z: toward
+    /// the blocks round that point (see `TUCK`). A function of the point alone, so every face that
+    /// has a vertex there moves it alike and the volume stays closed. `both`: a vertex ON the
+    /// level (a foot, or a full top) looks at the cells under and over it; a top below its cell's
+    /// top only at its own layer.
+    fn tuck(&self, cx: i32, level: i32, cz: i32, both: bool) -> (f64, f64) {
+        let (mut sx, mut sz) = (0.0, 0.0);
+        for y in (if both { level - 1 } else { level })..=level {
+            for dx in -1..=0 {
+                for dz in -1..=0 {
+                    if SOLID[self.get(cx + dx, y, cz + dz) as usize] {
+                        sx += dx as f64 + 0.5;
+                        sz += dz as f64 + 0.5;
+                    }
+                }
+            }
+        }
+        let toward = |v: f64| if v > 0.0 { TUCK } else if v < 0.0 { -TUCK } else { 0.0 };
+        (toward(sx), toward(sz))
+    }
+
     #[allow(clippy::too_many_arguments)]
     fn simple_quad(&mut self, cell: [i32; 3], face: u32, corners: [Corner; 4], flow: V3, depth: f64, foam: f64, impact: V3) {
+        // faces 16 and up are the closing faces against blocks (see `WaterMesh::closure`)
+        let closing = face >= 16;
         let base = (self.out.position.len() / 3) as u32;
         for (k, c) in corners.iter().enumerate() {
             let o = &mut self.out;
@@ -1310,13 +1342,14 @@ impl<G: Fn(i32, i32, i32) -> u8> Builder<'_, G> {
             o.normal.extend(c.n.map(|v| v as f32));
             o.grid.extend([cell[0] as f32, cell[1] as f32, cell[2] as f32, (face * 4 + k as u32) as f32]);
             o.wave.push(c.wave as f32);
-            o.wet.push(c.wet as f32);
+            o.wet.push(if closing { -1.0 } else { c.wet as f32 });
             o.foam.push(foam as f32);
             o.depth.push(depth as f32);
             o.flow.extend(flow.map(|v| v as f32));
             o.impact.extend([(impact[0] * impact[2]) as f32, (impact[1] * impact[2]) as f32, impact[2] as f32]);
         }
-        self.out.indices.extend([base, base + 1, base + 2, base, base + 2, base + 3]);
+        let list = if closing { &mut self.out.closure } else { &mut self.out.indices };
+        list.extend([base, base + 1, base + 2, base, base + 2, base + 3]);
     }
 
     fn simple_cell(&mut self, x: i32, y: i32, z: i32, id: u8) {
@@ -1339,7 +1372,10 @@ impl<G: Fn(i32, i32, i32) -> u8> Builder<'_, G> {
         for (k, [dx, dz]) in at.into_iter().enumerate() {
             let (cx, cz) = (x + dx, z + dz);
             let (mut h, wet) = self.corner_height(cx, y, cz).unwrap_or((water_height(id, false), 1.0));
-            let alone = standing && wet == 1.0;
+            // (a corner at a block stays on it: drawn in there, the spring stood 14 cm off the wall
+            // it was set against, and the gap showed the inside of the water)
+            let walled = (-1..=0).any(|ox| (-1..=0).any(|oz| SOLID[self.get(cx + ox, y, cz + oz) as usize]));
+            let alone = standing && wet == 1.0 && !walled;
             if alone {
                 h *= SPRING_DROP;
             }
@@ -1348,7 +1384,8 @@ impl<G: Fn(i32, i32, i32) -> u8> Builder<'_, G> {
             let gx = (side(self, 1, 0) - side(self, -1, 0)) / 2.0;
             let gz = (side(self, 0, 1) - side(self, 0, -1)) / 2.0;
             let inset = if alone { SPRING_INSET } else { 0.0 };
-            let p = [xf + dx as f64 + (0.5 - dx as f64) * 2.0 * inset, yf + h, zf + dz as f64 + (0.5 - dz as f64) * 2.0 * inset];
+            let (tx, tz) = if alone { (0.0, 0.0) } else if h >= 1.0 { self.tuck(cx, y + 1, cz, true) } else { self.tuck(cx, y, cz, false) };
+            let p = [xf + dx as f64 + (0.5 - dx as f64) * 2.0 * inset + tx, yf + h, zf + dz as f64 + (0.5 - dz as f64) * 2.0 * inset + tz];
             let n = if alone { normalize([(dx as f64 - 0.5) * 1.2, 1.0, (dz as f64 - 0.5) * 1.2]) } else { normalize([-gx, 1.0, -gz]) };
             tops[k] = Corner { p, n, wave: if h >= 1.0 || alone { 0.0 } else { swell }, wet: wet / 4.0 };
         }
@@ -1359,41 +1396,44 @@ impl<G: Fn(i32, i32, i32) -> u8> Builder<'_, G> {
             // (the middle only a little over its corners: at its full height over them the spring
             // came to a point, a pyramid)
             let centre = Corner { p: [xf + 0.5, yf + mean + (own - mean).max(0.0) * SPRING_RISE, zf + 0.5], n: [0.0, 1.0, 0.0], wave: swell, wet: 1.0 };
-            let mid = |a: Corner, b: Corner| Corner {
-                p: [(a.p[0] + b.p[0]) / 2.0, (a.p[1] + b.p[1]) / 2.0, (a.p[2] + b.p[2]) / 2.0],
-                n: normalize([a.n[0] + b.n[0], a.n[1] + b.n[1], a.n[2] + b.n[2]]),
-                wave: (a.wave + b.wave) / 2.0,
-                wet: (a.wet + b.wet) / 2.0,
-            };
+            // (a fan over the corners only: a point on an edge's middle swells by its own place,
+            // off the straight edge of the side and of the next cell — a crack in the closed volume)
+            // (one triangle each, as a quad with its last corner twice)
             for k in 0..4 {
-                let (before, after) = (tops[(k + 3) % 4], tops[(k + 1) % 4]);
-                self.simple_quad([x, y, z], 6 + k as u32, [centre, mid(before, tops[k]), tops[k], mid(tops[k], after)], flow, s.depth, foam, impact);
+                let next = tops[(k + 1) % 4];
+                self.simple_quad([x, y, z], 6 + k as u32, [centre, tops[k], next, next], flow, s.depth, foam, impact);
             }
-        } else if !is_water(up) && !(SOLID[up as usize] && tops.iter().all(|c| c.p[1] >= yf + 1.0)) {
-            self.simple_quad([x, y, z], 0, tops, flow, s.depth, foam, impact);
+        } else if !is_water(up) {
+            let closing = SOLID[up as usize] && tops.iter().all(|c| c.p[1] >= yf + 1.0);
+            self.simple_quad([x, y, z], if closing { 16 } else { 0 }, tops, flow, s.depth, foam, impact);
         }
+        let feet: [V3; 4] = std::array::from_fn(|k| {
+            let (tx, tz) = self.tuck(x + at[k][0], y, z + at[k][1], true);
+            [xf + at[k][0] as f64 + tx, yf, zf + at[k][1] as f64 + tz]
+        });
         let over_fall = self.get(x, y - 1, z) == WATER_FALLING;
         // sides: toward -x (corners 0,1), +z (1,2), +x (2,3), -z (3,0)
         let sides: [(usize, usize, [i32; 2]); 4] = [(0, 1, [-1, 0]), (1, 2, [0, 1]), (2, 3, [1, 0]), (3, 0, [0, -1])];
         for (f, (a, b, [nx, nz])) in sides.into_iter().enumerate() {
             let other = self.get(x + nx, y, z + nz);
-            if is_water(other) || SOLID[other as usize] {
+            if is_water(other) {
                 continue;
             }
+            let closing = SOLID[other as usize];
             let n: V3 = [nx as f64, 0.0, nz as f64];
             let (ta, tb) = (tops[a], tops[b]);
-            let foot = |k: usize| Corner { p: [xf + at[k][0] as f64, yf, zf + at[k][1] as f64], n, wave: 0.0, wet: tops[k].wet };
+            let foot = |k: usize| Corner { p: feet[k], n, wave: 0.0, wet: tops[k].wet };
             let quad = [foot(a), foot(b), Corner { n, ..tb }, Corner { n, ..ta }];
             // the side of the cell a fall starts in is falling water too: with the lying water's
             // look it was a blue pane standing on top of every fall
             let side_flow = if over_fall { [flow[0], 1.0, flow[2]] } else { flow };
-            self.simple_quad([x, y, z], 1 + f as u32, quad, side_flow, s.depth, foam, impact);
+            self.simple_quad([x, y, z], if closing { 17 } else { 1 } + f as u32, quad, side_flow, s.depth, foam, impact);
         }
         let below = self.get(x, y - 1, z);
-        if !is_water(below) && !SOLID[below as usize] {
+        if !is_water(below) {
             let n: V3 = [0.0, -1.0, 0.0];
-            let foot = |k: usize| Corner { p: [xf + at[k][0] as f64, yf, zf + at[k][1] as f64], n, wave: 0.0, wet: tops[k].wet };
-            self.simple_quad([x, y, z], 5, [foot(3), foot(2), foot(1), foot(0)], flow, s.depth, foam, impact);
+            let foot = |k: usize| Corner { p: feet[k], n, wave: 0.0, wet: tops[k].wet };
+            self.simple_quad([x, y, z], if SOLID[below as usize] { 21 } else { 5 }, [foot(3), foot(2), foot(1), foot(0)], flow, s.depth, foam, impact);
         }
     }
 }

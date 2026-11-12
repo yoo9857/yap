@@ -1415,9 +1415,9 @@ export class VoxelView {
   private pipelineMaterials: THREE.Material[] = [];
   useWaterPipeline(pipeline: WaterPipeline): void {
     this.waterPipeline = pipeline;
-    const front = makeWaterMaterial("front"), back = makeWaterMaterial("back"), surface = makeWaterMaterial("surface");
-    this.pipelineMaterials = [front, back, surface];
-    pipeline.materials = { front, back, surface };
+    const front = makeWaterMaterial("front"), back = makeWaterMaterial("back"), surface = makeWaterMaterial("surface"), count = makeWaterMaterial("count");
+    this.pipelineMaterials = [front, back, surface, count];
+    pipeline.materials = { front, back, surface, count };
     for (const chunk of this.chunks.values()) if (chunk.water) this.pipelineMesh(chunk.water);
   }
   private pipelineMesh(mesh: THREE.Mesh): void {

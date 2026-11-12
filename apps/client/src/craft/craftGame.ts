@@ -42,7 +42,7 @@ import type { ClassClient, ClassSession } from "../net/classClient.js";
 import { SWIM_DEPTH, pointInWater, waterDepthAt, stepBody, unstick, overlapsShapedVoxel, overlapsVoxel, wishFromInput, type Body } from "./voxelBody.js";
 import {SandSim} from "./sandSim.js";
 import { WaterSim } from "./waterSim.js";
-import type { WaterPipeline } from "../render/waterPipeline.js";
+import { INSIDE_W, INSIDE_H, type WaterPipeline } from "../render/waterPipeline.js";
 import { classKey, seatLayout, WATER, WATER_SETTLED, drawWaterByAmount, isWater, emoteDef, lookDirection, pickBonk, bonkBlocked, tapBeatsDig, BONK_COOLDOWN_MS, BONK_DECAY, BONK_PUSH_CAP, type EmoteId, type CharacterId, type ClassAnim, type CharacterAction, type CharacterPresentation, postureTransition } from "@robo/shared";
 import { EmoteMenu } from "./emoteMenu.js";
 import { adoptPosture, moveScale, POSTURE_EYE, type Posture } from "./posture.js";
@@ -575,7 +575,10 @@ export class CraftGame {
     // The water's shape: simple, like Minecraft — a box per cell, the surface sloping from cell to
     // cell, falling water a whole cell (owner's call 2026-11-12). `?watershape=net` draws the
     // surface net with its films instead (the earlier look, kept for comparison).
-    this.view.setWaterSimple(new URLSearchParams(location.search).get("watershape") !== "net");
+    const simpleWater = new URLSearchParams(location.search).get("watershape") !== "net";
+    this.view.setWaterSimple(simpleWater);
+    // (only the simple water is a closed volume: the pipeline counts faces to know the eye is in it)
+    if (this.waterPipeline) this.waterPipeline.exact = simpleWater;
     this.water = this.sync ? null : new WaterSim(this.state.world, this.view, this.field, {
       finite: this.finiteWater,
       rust: opts.rust ?? null,
@@ -2331,25 +2334,38 @@ export class CraftGame {
    * metres and a tint washes the screen. Only fog numbers change (uniforms,
    * no shader recompile), and the render distance's fog comes back on exit.
    */
+  private readonly nearCorner = new THREE.Vector3();
   private updateUnderwater(): void {
-    // Where the DRAWN surface crosses the screen. The eye sits `depth` under the surface; a point
-    // on the near plane at view height v is at world height eye + v·cos(pitch) + near·sin(pitch),
-    // so the waterline is the row where that equals the surface. Everything below that row is
-    // seen through water: the wash covers exactly that part, so going under wipes up the screen
-    // (and coming out, down) instead of the whole screen flipping at once.
-    const camera = this.renderer.camera, p = camera.position;
-    const depth = waterDepthAt(this.state.world, p.x, p.y, p.z);
+    // Is the eye in water, and how much of the screen? With the pipeline the PICTURE answers per
+    // pixel and exactly: it counts the water faces each ray leaves and enters by (the simple
+    // water is a closed volume; one more out than in = the ray started in water) — level
+    // surfaces, slopes, a fall's side and water that only just touches a corner of the view are
+    // all that one rule. The game only says whether the camera is at water at all (any water in
+    // the cells round it), and measures roughly how much of the near plane is under the drawn
+    // surface for what is not per pixel: the muffle, the fog, the touch path's wash.
+    const camera = this.renderer.camera, world = this.state.world;
+    camera.updateMatrixWorld();
+    const eye = camera.position, ex = Math.floor(eye.x), ey = Math.floor(eye.y), ez = Math.floor(eye.z);
+    let atWater = false;
+    for (let dy = -1; dy <= 1 && !atWater; dy++) for (let dz = -1; dz <= 1 && !atWater; dz++) for (let dx = -1; dx <= 1; dx++) {
+      if (isWater(world.waterAt(ex + dx, ey + dy, ez + dz))) { atWater = true; break; }
+    }
+    const mask = this.waterPipeline?.inside;
     let covered = 0;
-    if (depth !== null) {
-      const half = camera.near * Math.tan(THREE.MathUtils.degToRad(camera.fov) / 2);
-      const cos = Math.cos(this.viewPitch), sin = Math.sin(this.viewPitch);
-      const line = Math.abs(cos) > 0.05 ? (depth - camera.near * sin) / cos : depth > 0 ? Infinity : -Infinity;
-      covered = THREE.MathUtils.clamp((line + half) / (2 * half), 0, 1);
+    if (atWater) {
+      const half = camera.near * Math.tan(THREE.MathUtils.degToRad(camera.fov) / 2), wide = half * camera.aspect;
+      let wet = 0, i = 0;
+      for (let row = 0; row < INSIDE_H; row++) for (let col = 0; col < INSIDE_W; col++, i++) {
+        const p = this.nearCorner.set(((col + 0.5) / INSIDE_W * 2 - 1) * wide, ((row + 0.5) / INSIDE_H * 2 - 1) * half, -camera.near).applyMatrix4(camera.matrixWorld);
+        const depth = waterDepthAt(world, p.x, p.y, p.z) ?? -1;
+        if (depth > 0) wet++;
+        if (mask) mask[i] = THREE.MathUtils.clamp(Math.round(128 + depth * 2550), 0, 255);
+      }
+      covered = wet / (INSIDE_W * INSIDE_H);
     }
     if (this.waterPipeline) {
-      // the pipeline wants the row itself (clip space): what is under it and shows no water
-      // surface is looking from inside the water
-      this.waterPipeline.waterline = depth === null ? -2 : THREE.MathUtils.clamp(covered * 2 - 1, -2, 2) + (covered >= 1 ? 1 : covered <= 0 ? -1 : 0);
+      this.waterPipeline.atWater = atWater;
+      if (atWater) this.waterPipeline.insideChanged();
       this.underwaterCover = covered;
     } else if (covered !== this.underwaterCover) {
       this.underwaterCover = covered;

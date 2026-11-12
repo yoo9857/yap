@@ -71,7 +71,7 @@ describe("simple water", () => {
 
   it("a spring is a mound, not a box: its middle stands over its corners, lone corners are drawn in", () => {
     const ground = flow(() => [[C, Y, C]]);
-    const top = ground.quads.filter((q) => q.face >= 6 && q.cell[0] === C && q.cell[2] === C);
+    const top = ground.quads.filter((q) => q.face >= 6 && q.face < 10 && q.cell[0] === C && q.cell[2] === C);
     expect(top).toHaveLength(4);
     const middle = top[0]!.v[0]!, corner = top[0]!.v[2]!;
     expect([middle[0], middle[2]]).toEqual([C + 0.5, C + 0.5]);
@@ -81,7 +81,7 @@ describe("simple water", () => {
     ground.g.dispose();
     // in the air nothing shares its corners: they are drawn in and down, the feet stay on the cell
     const air = flow(() => [[C, Y + 5, C]]);
-    const lid = air.quads.filter((q) => q.face >= 6 && q.cell[1] === Y + 5);
+    const lid = air.quads.filter((q) => q.face >= 6 && q.face < 10 && q.cell[1] === Y + 5);
     expect(lid).toHaveLength(4);
     for (const q of lid) { expect(q.v[2]![0]! % 1).not.toBe(0); expect(q.v[2]![1]!).toBeLessThan(Y + 5 + 0.75); }
     const feet = air.quads.filter((q) => q.face >= 1 && q.face <= 4 && q.cell[1] === Y + 5).flatMap((q) => q.v.slice(0, 2));
@@ -105,7 +105,51 @@ describe("simple water", () => {
     // nothing but boxes: every vertex sits on a lattice line in x and z
     const p = g.getAttribute("position");
     // (a spring's top has a point in its middle and on its edges: halves there)
-    for (let i = 0; i < p.count; i++) { expect(p.getX(i) * 2 % 1).toBe(0); expect(p.getZ(i) * 2 % 1).toBe(0); expect(Number.isFinite(p.getY(i))).toBe(true); }
+    // (...and a corner at a block reaches 7 cm into it: the bricks are drawn inside their cells)
+    const onLine = (v: number) => { const off = Math.abs(v - Math.round(v * 2) / 2); return off < 1e-6 || Math.abs(off - 0.07) < 1e-6; };
+    let tucked = 0;
+    for (let i = 0; i < p.count; i++) {
+      expect(onLine(p.getX(i)) && onLine(p.getZ(i)), `${p.getX(i)}, ${p.getZ(i)}`).toBe(true);
+      expect(Number.isFinite(p.getY(i))).toBe(true);
+      if (p.getX(i) % 0.5 !== 0 || p.getZ(i) % 0.5 !== 0) tucked++;
+    }
+    expect(tucked).toBeGreaterThan(8); // the fall's corners at the pillar
     g.dispose();
+  });
+  it("the water is a CLOSED volume: with the faces against blocks, every edge has an even number of triangles", () => {
+    // (what the pipeline's count pass stands on: a ray leaves a closed volume once more than it
+    // enters it exactly when it starts inside)
+    const layouts: ((w: VoxelWorld) => number[][])[] = [
+      () => [[C, Y, C]],
+      () => [[C, Y + 5, C]],
+      (world) => { for (let y = Y; y < Y + 4; y++) world.set(C, y, C, S); return [[C, Y + 4, C]]; },
+      (world) => { // a pond two deep with a block standing in it, and a spring beside a wall
+        for (let x = C - 3; x <= C + 3; x++) for (let z = C - 3; z <= C + 3; z++) for (let y = Y - 2; y < Y; y++) world.set(x, y, z, 0);
+        world.set(C + 1, Y - 2, C, S);
+        for (let y = Y; y < Y + 3; y++) world.set(C + 8, y, C, S);
+        const springs = [[C + 8, Y + 2, C + 1]];
+        for (let x = C - 3; x <= C + 3; x++) for (let z = C - 3; z <= C + 3; z++) springs.push([x, Y - 1, z]);
+        return springs;
+      },
+    ];
+    for (const [n, layout] of layouts.entries()) {
+      const { g, quads } = flow(layout);
+      expect(quads.some((q) => q.face >= 16), `layout ${n} has faces against blocks`).toBe(true);
+      const p = g.getAttribute("position"), index = g.index!;
+      const key = (i: number) => `${Math.round(p.getX(i) * 4096)},${Math.round(p.getY(i) * 4096)},${Math.round(p.getZ(i) * 4096)}`;
+      const edges = new Map<string, number>();
+      for (let i = 0; i < index.count; i += 3) for (let j = 0; j < 3; j++) {
+        const a = key(index.getX(i + j)), b = key(index.getX(i + (j + 1) % 3));
+        if (a === b) continue;
+        const k = a < b ? `${a}|${b}` : `${b}|${a}`;
+        edges.set(k, (edges.get(k) ?? 0) + 1);
+      }
+      const open = [...edges].filter(([, count]) => count % 2 === 1).map(([k]) => k);
+      expect(open.slice(0, 4), `layout ${n}: ${open.length} open edges`).toEqual([]);
+      // and the faces against blocks are marked for the shader (never drawn)
+      const wet = g.getAttribute("aWet"), grid = g.getAttribute("aGrid");
+      for (let i = 0; i < p.count; i++) expect(wet.getX(i) < 0).toBe(Math.floor(grid.getW(i) / 4) >= 16);
+      g.dispose();
+    }
   });
 });

@@ -451,11 +451,12 @@ pub fn water_mesh(cells: &[u8], outside: &[u8], list: &[i32], profile: &[u8], st
         Err(_) => vec![-1.0, 0.0],
         Ok(None) => vec![0.0, 0.0],
         Ok(Some(m)) => {
-            let mut out = vec![(m.position.len() / 3) as f32, m.indices.len() as f32];
+            let mut out = vec![(m.position.len() / 3) as f32, (m.indices.len() + m.closure.len()) as f32];
             for part in [&m.position, &m.normal, &m.wave, &m.wet, &m.foam, &m.depth, &m.flow, &m.impact, &m.grid] {
                 out.extend_from_slice(part);
             }
-            out.extend(m.indices.iter().map(|&i| i as f32));
+            // (the closing faces after the drawn ones: the shader keeps them out of every pass but the count)
+            out.extend(m.indices.iter().chain(m.closure.iter()).map(|&i| i as f32));
             out
         }
     }
@@ -530,11 +531,12 @@ impl WaterMesher {
             Err(_) => out.extend([-1.0, 0.0]),
             Ok(None) => out.extend([0.0, 0.0]),
             Ok(Some(m)) => {
-                out.extend([(m.position.len() / 3) as f32, m.indices.len() as f32]);
+                out.extend([(m.position.len() / 3) as f32, (m.indices.len() + m.closure.len()) as f32]);
                 for part in [&m.position, &m.normal, &m.wave, &m.wet, &m.foam, &m.depth, &m.flow, &m.impact, &m.grid] {
                     out.extend_from_slice(part);
                 }
-                out.extend(m.indices.iter().map(|&i| i as f32));
+                // (the closing faces after the drawn ones: the shader keeps them out of every pass but the count)
+            out.extend(m.indices.iter().chain(m.closure.iter()).map(|&i| i as f32));
             }
         }
         out

@@ -60,7 +60,26 @@ export function waterDepthAt(world: VoxelWorld, x: number, y: number, z: number)
     if (waterBodyAt(world, cx, cy, cz) === 0) return null;
   }
   while (waterBodyAt(world, cx, cy + 1, cz) !== 0) cy++;
-  return cy + waterHeight(waterBodyAt(world, cx, cy, cz), false) - y;
+  // The drawn top is not flat at the cell's own height: its four corners are shared with the
+  // cells round them (water_mesh.rs `corner_height` — full where one of the four has water over
+  // it, else the mean of their heights) and the top is the two triangles (0,1,2), (0,2,3) over
+  // them. Measured against the flat height, the eye beside a fall or on a stream's slope was
+  // "under" a surface that is drawn well away from it, and the view behind turned to water.
+  const corner = (px: number, pz: number): number => {
+    let sum = 0, n = 0;
+    for (let dx = -1; dx <= 0; dx++) for (let dz = -1; dz <= 0; dz++) {
+      const id = waterBodyAt(world, px + dx, cy, pz + dz);
+      if (id === 0) continue;
+      if (waterBodyAt(world, px + dx, cy + 1, pz + dz) !== 0) return 1;
+      sum += waterHeight(id, false);
+      n++;
+    }
+    return sum / n;
+  };
+  const h0 = corner(cx, cz), h1 = corner(cx, cz + 1), h2 = corner(cx + 1, cz + 1), h3 = corner(cx + 1, cz);
+  const u = x - cx, v = z - cz;
+  const top = v >= u ? h0 + (h2 - h1) * u + (h1 - h0) * v : h0 + (h3 - h0) * u + (h2 - h3) * v;
+  return cy + top - y;
 }
 
 /**

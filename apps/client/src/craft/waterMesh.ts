@@ -58,6 +58,7 @@ attribute float aDepth;
 attribute vec3 aFlow;
 attribute vec4 aTransition;
 attribute vec3 aImpact;
+uniform int uPass;
 uniform float uTime;
 uniform vec2 uOrigin;
 varying vec3 vWPos;
@@ -99,8 +100,8 @@ vec4 waterNoise(vec2 p, vec2 drift) {
 `;
 
 /** Which part of the water a material draws (VoxelView.installWater draws all three, in this order). */
-export type WaterPass = "all" | "level" | "depth" | "steep" | "front" | "back" | "surface";
-const PASS: Record<WaterPass, number> = { all: 0, level: 1, depth: 2, steep: 3, front: 4, back: 5, surface: 6 };
+export type WaterPass = "all" | "level" | "depth" | "steep" | "front" | "back" | "surface" | "count";
+const PASS: Record<WaterPass, number> = { all: 0, level: 1, depth: 2, steep: 3, front: 4, back: 5, surface: 6, count: 7 };
 
 /**
  * Lit, shadowed, fogged water with no reflection camera or extra scene pass.
@@ -131,6 +132,14 @@ export function makeWaterMaterial(pass: WaterPass = "all"): THREE.MeshStandardMa
     // Avoid stacking separate back/front transparent passes in every chunk.
     forceSinglePass: true,
   });
+  if (pass === "count") {
+    material.blending = THREE.CustomBlending;
+    material.blendEquation = THREE.AddEquation;
+    material.blendSrc = material.blendSrcAlpha = THREE.OneFactor;
+    material.blendDst = material.blendDstAlpha = THREE.OneFactor;
+    material.depthTest = false;
+    material.fog = false;
+  }
   material.onBeforeCompile = (shader) => {
     Object.assign(shader.uniforms, uniforms, waterPipelineUniforms);
     shader.uniforms.uPass = { value: PASS[pass] };
@@ -143,17 +152,25 @@ export function makeWaterMaterial(pass: WaterPass = "all"): THREE.MeshStandardMa
     shader.vertexShader = shader.vertexShader
       .replace("#include <common>", `#include <common>\n${VERTEX_HEAD}`)
       .replace("#include <begin_vertex>", /* glsl */ `#include <begin_vertex>
-        float age = clamp((uTime - aTransition.w) / 0.18, 0.0, 1.0);
+        // (the count pass takes the water where it IS: mid-transition, corners shared by two faces
+        // move apart for a moment, and the volume it counts through must stay closed)
+        float age = uPass == 7 ? 1.0 : clamp((uTime - aTransition.w) / 0.18, 0.0, 1.0);
         transformed = mix(aTransition.xyz, transformed, age * age * (3.0 - 2.0 * age));
         vec3 wp0 = (modelMatrix * vec4(transformed, 1.0)).xyz;
         // No face-normal displacement: it would split a waterfall's edges.
         transformed.y += aWave * swell(wp0.xz + uOrigin, uTime);
         vWPos = (modelMatrix * vec4(transformed, 1.0)).xyz;
         vWNormal = normalize(mat3(modelMatrix) * objectNormal);
-        vFlow = aFlow; vWater = vec3(aWet, aFoam, aDepth); vImpact = aImpact;`);
+        vFlow = aFlow; vWater = vec3(aWet, aFoam, aDepth); vImpact = aImpact;`)
+      .replace("#include <project_vertex>", /* glsl */ `#include <project_vertex>
+        // the closing faces against blocks (aWet -1, water_mesh.rs) exist for the count pass only
+        if (aWet < -0.5 && uPass != 7) gl_Position = vec4(0.0, 0.0, 2.0, 1.0);`);
     shader.fragmentShader = shader.fragmentShader
       .replace("#include <common>", `#include <common>\n${FRAGMENT_HEAD}`)
       .replace("void main() {", /* glsl */ `void main() {
+        // count pass (added up, no depth): one step of red for a face the ray LEAVES the water by,
+        // one of green for a face it enters by
+        if (uPass == 7) { gl_FragColor = gl_FrontFacing ? vec4(0.0, 1.0 / 255.0, 0.0, 0.0) : vec4(1.0 / 255.0, 0.0, 0.0, 0.0); return; }
         // How level this face is, 0‒1. Pass 1 draws it by that much and pass 3 by the rest, so a
         // surface curving from level to steep changes hands gradually: split at a hard threshold,
         // the two halves carried different numbers of layers and a rounded top looked patched.
@@ -184,7 +201,11 @@ export function makeWaterMaterial(pass: WaterPass = "all"): THREE.MeshStandardMa
         // the depth pass writes no colour: skip the lighting, the texture reads and the foam
         if (uPass == 2) { gl_FragColor = vec4(0.0); return; }`)
       .replace("#include <dithering_fragment>", `#include <dithering_fragment>
-        gl_FragColor.a *= share * thin;`)
+        gl_FragColor.a *= share * thin;
+        // A side seen from INSIDE the water (the eye stands in a fall): no veil. It was a pale
+        // pane on every side of the eye, and the ground underfoot — no face there — a clear hole
+        // in it. The pipeline's composite already tints the whole view of an eye in water.
+        if (uPass == 6 && !gl_FrontFacing) gl_FragColor.a *= smoothstep(0.5, 0.8, abs(normalize(vWNormal).y));`)
       .replace("#include <normal_fragment_maps>", /* glsl */ `#include <normal_fragment_maps>
         vec2 p = vWPos.xz + uOrigin;
         // Running water — a fall, a sheet, and the wedge where one lands on a block — is a film,

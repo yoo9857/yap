@@ -109,6 +109,22 @@ describe("swimming", () => {
     expect(waterDepthAt(w, 10.5, 7.5, 10.5)).toBeCloseTo(10 - 7.5, 5);
   });
 
+  it("the depth follows the SLOPING top that is drawn: full at a fall, the cells' mean elsewhere", () => {
+    const w = new VoxelWorld();
+    for (let x = 0; x < 30; x++) for (let z = 0; z < 30; z++) w.set(x, 0, z, STONE);
+    // a fall landing at (10, 10) and water running off it along +x
+    for (let y = 1; y <= 4; y++) w.set(10, y, 10, WATER_FALLING);
+    w.set(11, 1, 10, WATER + 1);
+    w.set(12, 1, 10, WATER + 2);
+    const near = waterDepthAt(w, 11.02, 1, 10.5)!, far = waterDepthAt(w, 11.98, 1, 10.5)!;
+    expect(near).toBeCloseTo(1, 1);        // against the fall the top stands at the cell's top
+    expect(far).toBeLessThan(0.6);          // and slopes down to the running water's own height
+    expect(far).toBeGreaterThan(0.3);
+    const mid = waterDepthAt(w, 11.5, 1, 10.5)!;
+    expect(mid).toBeGreaterThan(far);
+    expect(mid).toBeLessThan(near);
+  });
+
   it("water against a pond's wall beside an air pocket is still water (not a sheet)", () => {
     const w = new VoxelWorld();
     for (let x = 0; x < 30; x++) for (let z = 0; z < 30; z++) {
