@@ -693,3 +693,60 @@ froth where it meets something; a fall is white water streaking down over blue. 
 the usual stylised-water way, not taken from another project. Frame cost on the real GPU, uncapped,
 1920×1080, a 20×20 pond with six falls: 5.3 ms before, 4.5 ms after (median; run-to-run noise is
 of that order — read it as "not slower").
+
+## A closed volume: the eye-in-water question is counted, and what keeps it closed (2026-11-12, night)
+
+From the owner's screenshots, in the order they came. The thread through all of it: stop adding
+case rules, find the invariant, pin it with a test.
+
+**Is the eye in water?** was a level row at the eye, then a line through the near plane's four
+corners, then a 16×9 grid — each wrong somewhere (a sloping surface beside a fall, water touching
+one corner of the view, slivers along the line). It is COUNTED now: `build_simple` also emits the
+water's faces against blocks (`WaterMesh::closure`, face codes 16+, `aWet` −1 — the shader clips
+them out of every pass but `count`), so the water is a closed volume, and the pipeline's count
+pass adds up, without depth, the faces each ray leaves the water by (red) and enters it by
+(green). One more out than in: the ray starts in water. Only while the camera is at water
+(`WaterPipeline.atWater`: any water in the 27 cells round it). The older net (open against blocks)
+keeps the grid (`WaterPipeline.inside`), which is also what the muffle, the fog and the touch
+path's wash follow. An eye in water sees through at least `uInsideMin` metres (inside a fall one
+cell wide the screen read as air); a side seen from inside the water draws no veil.
+
+**What keeps the volume closed** (`test/water-simple.test.ts`: every edge has an even number of
+triangles, and every vertex at one place carries one swell):
+
+- a vertex's swell is a function of its CORNER (its height), never of the cell. Per cell, the
+  cells round a corner lifted it by different amounts: a hairline crack along every cell edge —
+  lines on the water and, through the depth-less count pass, dotted lines over blocks in front;
+- a spring's top is a fan over its corners (a point on an edge's middle swells by its own place);
+  a standing cell level with everything round it is one quad (a 32×32 pond: 22.5k → 10k vertices);
+- the count pass ignores the 0.18 s transition (corners shared by two faces part for a moment).
+
+**Where the water meets blocks** (`tuck`, a function of the lattice point, so the volume stays
+closed): a corner at a block reaches `TUCK` (7 cm) INTO it where water stands face to face with
+it — bricks are drawn inside their cells, and water ending on the cell boundary left a slot at
+every wall; only `TUCK_END` (3 cm) along a wall at its end (the whole way, the free side leaned
+into the wall: a dent); and OUT round a block's corner with water on both sides and air past it
+(drawn in, the two sides crossed inside the block and its edge stood out dry: a bright line down
+every pillar). A spring keeps its corners on a wall it is set against.
+
+**Where water of two heights meets**: a LIP — running water with a fall under it — runs down to
+its cell's floor at the corners only lips share, and at the corner two lips turn round at open
+air (`corner_height`). Standing at its own height it was a slab hung over the edge: an upright
+step all round a platform and a pane at each corner. A top folds along the diagonal whose ends
+stand most alike. `voxelBody.waterDepthAt` repeats the corner rules (`cornerHeight`): change both.
+
+**Flow** (`fluid.ts` `nextState` = `fluid.rs`): a dry cell with running water on two OPPOSITE
+sides over a floor joins them as the weakest water. Two springs a cell too far apart left a dry
+line of steps between them. A stream's own slanting edge has its water on adjacent sides, so one
+spring still ends at seven cells (113 cells), and the joined cell feeds nothing and dries a step
+after either side does (`test/fluid.test.ts`).
+
+**Look**: the sky's reflection on the simple water is faint (0.28): from up high at a slant it
+was a white glare that broke off wherever the slope changed.
+
+Checked with: `tools/shot-water-inside.mjs` (the camera in water, the eye through a sloping
+surface, sideways into a fall), `shot-water-wall.mjs`, `shot-water-meet.mjs` (`STEP=1`: a platform),
+`soak-water.mjs` (no leak over 24 pour/drain rounds), `e2e-class-water.mjs` with
+`apps/server/test/classroom-water-tools.test.ts` (the teacher's tools: both screens hold and draw
+exactly the server's water). Not reproduced: "in teacher mode the water stops and only the middle
+sticks up" — the rules, the messages and the drawn cells all agree through that sequence.
