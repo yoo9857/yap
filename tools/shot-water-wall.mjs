@@ -46,6 +46,9 @@ try {
   await shot("slot-b", [wx + 1.9, Y + 1.0, wz + 1.25], -Math.PI / 2, 0.1);
   await shot("slot-c", [wx - 0.9, Y + 1.0, wz + 1.25], Math.PI / 2, 0.1);
   await shot("slot-d", [wx - 0.9, Y + 1.0, wz + 1.25], -Math.PI / 2, 0.1);
+  // the wall's END, where the water runs round the last block's corner (it was dented in there)
+  await shot("end-a", [wx + 6.4, Y + 0.3, wz + 2.6], -Math.PI * 0.75, -0.45);
+  await shot("end-b", [wx + 5.5, Y + 1.6, wz + 1.6], -Math.PI * 0.7, -0.9);
   await shot("corner", [wx - 1.5, Y + 1.4, wz + 3.2], Math.PI * 0.75, -0.7);
 } finally {
   await browser.close();

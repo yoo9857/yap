@@ -1230,6 +1230,8 @@ pub struct MissingComponent;
 /// centimetres inside their cell with rounded edges; water ending exactly on the cell's boundary
 /// left a slot between itself and the wall it stands against, and the view behind showed through.
 const TUCK: f64 = 0.07;
+/// ...and how far along the wall at a wall's end (the bricks' own inset): see `tuck`.
+const TUCK_END: f64 = 0.03;
 
 /// A spring's lone corners: drawn in by this much of a cell, and standing at this share of their height.
 const SPRING_INSET: f64 = 0.14;
@@ -1287,17 +1289,27 @@ impl<G: Fn(i32, i32, i32) -> u8> Builder<'_, G> {
     /// The height of the water's top at the lattice corner (cx, cz) of layer y — the corner shared
     /// by the four cells (cx-1..cx, cz-1..cz): full where any of them has water over it, else the
     /// average of the water cells' own heights. Also how many of the four hold water.
+    ///
+    /// A corner that only LIPS share — running water with a fall under it, the cell a fall starts
+    /// in — stands at the cell's floor: the lip runs down to the fall under it. Standing at its
+    /// own height it was a slab hung over the edge, with an upright step all round a platform and
+    /// a pane at each corner, where water of two heights met.
     fn corner_height(&self, cx: i32, y: i32, cz: i32) -> Option<(f64, f64)> {
-        let (mut sum, mut n, mut full) = (0.0, 0.0, false);
+        // (lips: how many of the water cells are lips; open: is one of the four cells open air)
+        let (mut sum, mut n, mut full, mut lips, mut open) = (0.0, 0.0, false, 0.0, false);
         for dx in -1..=0 {
             for dz in -1..=0 {
                 let (x, z) = (cx + dx, cz + dz);
                 let id = self.get(x, y, z);
                 if !is_water(id) {
+                    open |= !SOLID[id as usize];
                     continue;
                 }
                 if is_water(self.get(x, y + 1, z)) {
                     full = true;
+                }
+                if water_level(id) > 0 && id != WATER_FALLING && self.get(x, y - 1, z) == WATER_FALLING {
+                    lips += 1.0;
                 }
                 sum += water_height(id, false);
                 n += 1.0;
@@ -1306,29 +1318,46 @@ impl<G: Fn(i32, i32, i32) -> u8> Builder<'_, G> {
         if n == 0.0 {
             None
         } else {
-            Some((if full { 1.0 } else { sum / n }, n))
+            // (...and so does the corner two lips turn round — a platform's corner: the water on it
+            // thins to nothing at that point, where it stood up as a little wall either side)
+            let down = lips == n || (lips >= 2.0 && open);
+            Some((if full { 1.0 } else if down { 0.0 } else { sum / n }, n))
         }
     }
 
-    /// Where the water's vertex at the lattice point (cx, level, cz) is pushed, in x and z: toward
-    /// the blocks round that point (see `TUCK`). A function of the point alone, so every face that
-    /// has a vertex there moves it alike and the volume stays closed. `both`: a vertex ON the
-    /// level (a foot, or a full top) looks at the cells under and over it; a top below its cell's
-    /// top only at its own layer.
+    /// Where the water's vertex at the lattice point (cx, level, cz) is pushed, in x and z: into
+    /// the blocks the water stands AGAINST there (see `TUCK`). A function of the point alone, so
+    /// every face that has a vertex there moves it alike and the volume stays closed. `both`: a
+    /// vertex ON the level (a foot, or a full top) looks at the cells under and over it; a top
+    /// below its cell's top only at its own layer.
+    ///
+    /// Along an axis the vertex goes the whole way only toward a block that has water across the
+    /// point on that axis (water face to face with it). At a wall's END the water's free side
+    /// runs past the block's corner: pushed the whole way on both axes it leaned 7 cm into the
+    /// wall — a dent at every corner; there the other axis moves only by the bricks' own inset.
     fn tuck(&self, cx: i32, level: i32, cz: i32, both: bool) -> (f64, f64) {
-        let (mut sx, mut sz) = (0.0, 0.0);
+        // (toward the block on x / on z, and which way the blocks pushing on the OTHER axis lie)
+        let (mut sx, mut sz, mut ex, mut ez) = (0.0, 0.0, 0.0, 0.0);
         for y in (if both { level - 1 } else { level })..=level {
             for dx in -1..=0 {
                 for dz in -1..=0 {
-                    if SOLID[self.get(cx + dx, y, cz + dz) as usize] {
-                        sx += dx as f64 + 0.5;
-                        sz += dz as f64 + 0.5;
+                    if !SOLID[self.get(cx + dx, y, cz + dz) as usize] {
+                        continue;
+                    }
+                    let (px, pz) = (dx as f64 + 0.5, dz as f64 + 0.5);
+                    if is_water(self.get(cx - 1 - dx, y, cz + dz)) {
+                        sx += px;
+                        ez += pz;
+                    }
+                    if is_water(self.get(cx + dx, y, cz - 1 - dz)) {
+                        sz += pz;
+                        ex += px;
                     }
                 }
             }
         }
-        let toward = |v: f64| if v > 0.0 { TUCK } else if v < 0.0 { -TUCK } else { 0.0 };
-        (toward(sx), toward(sz))
+        let toward = |v: f64, by: f64| if v > 0.0 { by } else if v < 0.0 { -by } else { 0.0 };
+        (if sx != 0.0 { toward(sx, TUCK) } else { toward(ex, TUCK_END) }, if sz != 0.0 { toward(sz, TUCK) } else { toward(ez, TUCK_END) })
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -1359,7 +1388,12 @@ impl<G: Fn(i32, i32, i32) -> u8> Builder<'_, G> {
         let flow: V3 = [s.fx * scale, s.fall, s.fz * scale];
         let foam = if s.impact { 1.0 } else { 0.0 };
         let impact: V3 = if s.impact { [x as f64 + 0.5, z as f64 + 0.5, 0.25] } else { [0.0; 3] };
-        let swell = if id == WATER_FALLING { 0.0 } else { f64::min(1.0, s.depth * 3.0) * (1.0 - foam * 0.7) };
+        // How much a corner swells is a matter of the CORNER (its height), never of the cell: taken
+        // from each cell's own depth and foam, the cells round one corner lifted it by different
+        // amounts — a hairline crack along every cell's edge, lines all over the water, and (the
+        // count pass sees through everything) dotted lines over whatever stood in front of it.
+        let corner_swell = |h: f64| f64::min(1.0, h * 3.0);
+        let swell = if id == WATER_FALLING { 0.0 } else { corner_swell(water_height(id, false)) };
         let (xf, yf, zf) = (x as f64, y as f64, z as f64);
         // the top's four corners: (x, z), (x, z+1), (x+1, z+1), (x+1, z)
         let at = [[0, 0], [0, 1], [1, 1], [1, 0]];
@@ -1384,10 +1418,12 @@ impl<G: Fn(i32, i32, i32) -> u8> Builder<'_, G> {
             let gx = (side(self, 1, 0) - side(self, -1, 0)) / 2.0;
             let gz = (side(self, 0, 1) - side(self, 0, -1)) / 2.0;
             let inset = if alone { SPRING_INSET } else { 0.0 };
-            let (tx, tz) = if alone { (0.0, 0.0) } else if h >= 1.0 { self.tuck(cx, y + 1, cz, true) } else { self.tuck(cx, y, cz, false) };
+            // (a corner on a lattice level — a full top, or a lip's at its floor — is the same point as the
+            // foot or the full top of the cells over and under it: tucked as they are)
+            let (tx, tz) = if alone { (0.0, 0.0) } else if h >= 1.0 { self.tuck(cx, y + 1, cz, true) } else if h <= 0.0 { self.tuck(cx, y, cz, true) } else { self.tuck(cx, y, cz, false) };
             let p = [xf + dx as f64 + (0.5 - dx as f64) * 2.0 * inset + tx, yf + h, zf + dz as f64 + (0.5 - dz as f64) * 2.0 * inset + tz];
             let n = if alone { normalize([(dx as f64 - 0.5) * 1.2, 1.0, (dz as f64 - 0.5) * 1.2]) } else { normalize([-gx, 1.0, -gz]) };
-            tops[k] = Corner { p, n, wave: if h >= 1.0 || alone { 0.0 } else { swell }, wet: wet / 4.0 };
+            tops[k] = Corner { p, n, wave: if h >= 1.0 || h <= 0.0 || alone { 0.0 } else { corner_swell(h) }, wet: wet / 4.0 };
         }
         if standing {
             // four quads round the middle: (middle, the edge's midpoint before, the corner, the one after)
@@ -1405,7 +1441,13 @@ impl<G: Fn(i32, i32, i32) -> u8> Builder<'_, G> {
             }
         } else if !is_water(up) {
             let closing = SOLID[up as usize] && tops.iter().all(|c| c.p[1] >= yf + 1.0);
-            self.simple_quad([x, y, z], if closing { 16 } else { 0 }, tops, flow, s.depth, foam, impact);
+            // The top folds along the diagonal whose two ends stand most alike. Always folded
+            // along the same one, a cell with ONE corner high (beside a fall, where streams of two
+            // heights meet) was a ridge from that corner right across it — the surface twisted;
+            // folded the other way it is level but for that corner. (`waterDepthAt` reads the same.)
+            let h = |k: usize| tops[k].p[1];
+            let quad = if (h(0) - h(2)).abs() <= (h(1) - h(3)).abs() { tops } else { [tops[1], tops[2], tops[3], tops[0]] };
+            self.simple_quad([x, y, z], if closing { 16 } else { 0 }, quad, flow, s.depth, foam, impact);
         }
         let feet: [V3; 4] = std::array::from_fn(|k| {
             let (tx, tz) = self.tuck(x + at[k][0], y, z + at[k][1], true);

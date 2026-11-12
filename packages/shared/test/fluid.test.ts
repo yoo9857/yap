@@ -46,6 +46,32 @@ describe("fluid", () => {
     expect(waterCells(world)).toEqual([]);
   });
 
+  it("two streams' ends a cell apart join; one spring still ends at seven cells, and it all drains", () => {
+    // alone: the diamond of radius 7 and nothing more (its slanting edge must not grow)
+    const one = makeWorld(), simOne = new FluidSim();
+    one.set(0, 1, 0, WATER); simOne.touch(0, 1, 0); settle(simOne, one);
+    expect(waterCells(one)).toHaveLength(113);
+    // two springs 13 across and 3 along apart: each reaches 7, the line of cells 8 from both joins
+    const w = makeWorld(), sim = new FluidSim();
+    w.set(-6, 1, 0, WATER); sim.touch(-6, 1, 0);
+    w.set(7, 1, 3, WATER); sim.touch(7, 1, 3);
+    expect(settle(sim, w)).toBeLessThan(400);
+    // no dry cell is left with water on two opposite sides
+    for (let x = -20; x <= 20; x++) for (let z = -20; z <= 20; z++) {
+      if (isWater(w.get(x, 1, z))) continue;
+      const wet = (dx: number, dz: number) => isWater(w.get(x + dx, 1, z + dz));
+      expect(wet(1, 0) && wet(-1, 0) || wet(0, 1) && wet(0, -1), `${x},${z}`).toBe(false);
+    }
+    expect(waterCells(w).length).toBeGreaterThan(226); // more than the two diamonds: the joining cells
+    expect(waterCells(w).length).toBeLessThan(260);    // ...and only those
+    // a joined cell is the weakest water
+    expect(w.get(2, 1, 0)).toBe(flowingWater(7)); // 8 from the first spring: only the join reaches it
+    // take both springs away: everything dries
+    w.set(-6, 1, 0, 0); sim.touch(-6, 1, 0); w.set(7, 1, 3, 0); sim.touch(7, 1, 3);
+    expect(settle(sim, w)).toBeLessThan(400);
+    expect(waterCells(w)).toEqual([]);
+  });
+
   it("a source on a floor spreads 7 cells, one level weaker per cell", () => {
     const w = makeWorld();
     const sim = new FluidSim();

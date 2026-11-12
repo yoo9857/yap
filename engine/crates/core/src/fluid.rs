@@ -252,7 +252,8 @@ pub fn next_state<W: FluidWorld>(w: &W, x: i32, y: i32, z: i32, now: u8, basins:
     }
     let mut sources = 0;
     let mut best = 8u8;
-    for (dx, dz) in N4 {
+    let mut feeds = 0u8; // which of the four sides has water that can spread here (a bit per N4 entry)
+    for (i, (dx, dz)) in N4.into_iter().enumerate() {
         let id = w.get(x + dx, y, z + dz);
         if !is_water(id) || !passes(w, x, y, z, dx, 0, dz) {
             continue;
@@ -264,6 +265,7 @@ pub fn next_state<W: FluidWorld>(w: &W, x: i32, y: i32, z: i32, now: u8, basins:
             continue;
         }
         best = best.min(water_level(id));
+        feeds |= 1 << i;
     }
     let fall = falls(w, x, y, z);
     let pool = on_reservoir(w, x, y, z);
@@ -278,6 +280,9 @@ pub fn next_state<W: FluidWorld>(w: &W, x: i32, y: i32, z: i32, now: u8, basins:
     }
     if best < WATER_MAX_LEVEL {
         flowing_water(best + 1)
+    } else if best == WATER_MAX_LEVEL && !fall && ((feeds & 3) == 3 || (feeds & 12) == 12) {
+        // two streams' ends face to face across this cell join (fluid.ts `nextState`)
+        flowing_water(WATER_MAX_LEVEL)
     } else {
         0
     }

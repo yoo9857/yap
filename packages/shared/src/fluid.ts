@@ -17,7 +17,8 @@
  *   - an open cell with water directly above it is falling water;
  *   - otherwise it takes the strongest horizontal neighbour that can spread
  *     sideways (source/falling = 0, flowing = its level) plus one, up to 7;
- *     past that it is dry (air);
+ *     past that it is dry (air) — unless water faces it from two OPPOSITE sides (two streams'
+ *     ends a cell apart join);
  *   - water spreads sideways only where it cannot fall: over a solid floor
  *     or a source;
  *   - two neighbouring sources over a floor make a new source (the
@@ -246,17 +247,25 @@ export function nextState(world: FluidWorld, x: number, y: number, z: number, no
   if (now === WATER) return WATER;
   let sources = 0;
   let best = 8;
-  for (const [dx, dz] of N4) {
+  let feeds = 0; // which of the four sides has water that can spread here (a bit per N4 entry)
+  for (const [i, [dx, dz]] of N4.entries()) {
     const id = world.get(x + dx, y, z + dz);
     if (!isWater(id) || !passes(world, x, y, z, dx, 0, dz)) continue;
     if (id === WATER) sources++;
     if (!spreadsSideways(world, x + dx, y, z + dz) || runsAway(world, x + dx, y, z + dz, id, dx, dz)) continue;
     best = Math.min(best, waterLevel(id));
+    feeds |= 1 << i;
   }
   const fall = falls(world, x, y, z), pool = onReservoir(world, x, y, z);
   if (sources >= 2 && (pool && world.get(x, y - 1, z) === WATER || !fall)) return WATER;
   if ((isWater(now) || pool || best <= WATER_MAX_LEVEL) &&
     (pool || !fall) && settledBasin(world, x, y, z, basins)) return WATER_SETTLED;
   if (isWater(world.get(x, y + 1, z)) && passes(world, x, y, z, 0, 1, 0)) return WATER_FALLING;
-  return best + 1 <= WATER_MAX_LEVEL ? flowingWater(best + 1) : 0;
+  if (best + 1 <= WATER_MAX_LEVEL) return flowingWater(best + 1);
+  // Two streams' ends face to face across this one cell (water on OPPOSITE sides, over a floor):
+  // they join. Left dry, two springs a cell too far apart had a dry line of steps between them —
+  // "a border where water meets water". Opposite sides only: a stream's own slanting edge has its
+  // water on ADJACENT sides, so one spring still ends at seven cells; and the joined cell is the
+  // weakest water, so it feeds nothing and dries a step after either side does.
+  return best === WATER_MAX_LEVEL && !fall && ((feeds & 3) === 3 || (feeds & 12) === 12) ? flowingWater(WATER_MAX_LEVEL) : 0;
 }

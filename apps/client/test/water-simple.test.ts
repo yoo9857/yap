@@ -105,8 +105,8 @@ describe("simple water", () => {
     // nothing but boxes: every vertex sits on a lattice line in x and z
     const p = g.getAttribute("position");
     // (a spring's top has a point in its middle and on its edges: halves there)
-    // (...and a corner at a block reaches 7 cm into it: the bricks are drawn inside their cells)
-    const onLine = (v: number) => { const off = Math.abs(v - Math.round(v * 2) / 2); return off < 1e-6 || Math.abs(off - 0.07) < 1e-6; };
+    // (...and a corner at a block reaches 7 cm into it — 3 cm along a wall at its end: the bricks are drawn inside their cells)
+    const onLine = (v: number) => { const off = Math.abs(v - Math.round(v * 2) / 2); return off < 1e-6 || Math.abs(off - 0.07) < 1e-6 || Math.abs(off - 0.03) < 1e-6; };
     let tucked = 0;
     for (let i = 0; i < p.count; i++) {
       expect(onLine(p.getX(i)) && onLine(p.getZ(i)), `${p.getX(i)}, ${p.getZ(i)}`).toBe(true);
@@ -146,6 +146,13 @@ describe("simple water", () => {
       }
       const open = [...edges].filter(([, count]) => count % 2 === 1).map(([k]) => k);
       expect(open.slice(0, 4), `layout ${n}: ${open.length} open edges`).toEqual([]);
+      // ...and stays closed while it moves: the shader lifts a vertex by its own swell, so every
+      // vertex at one place must carry the same one (they differed per cell: hairline cracks)
+      const wave = g.getAttribute("aWave"), swells = new Map<string, number>();
+      for (let i = 0; i < p.count; i++) {
+        const k = key(i), seen = swells.get(k);
+        if (seen === undefined) swells.set(k, wave.getX(i)); else expect(wave.getX(i), `layout ${n}: swell at ${k}`).toBe(seen);
+      }
       // and the faces against blocks are marked for the shader (never drawn)
       const wet = g.getAttribute("aWet"), grid = g.getAttribute("aGrid");
       for (let i = 0; i < p.count; i++) expect(wet.getX(i) < 0).toBe(Math.floor(grid.getW(i) / 4) >= 16);
