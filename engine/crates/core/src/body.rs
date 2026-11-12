@@ -137,51 +137,18 @@ fn put(b: &mut Body, a: Axis, v: f64) {
     }
 }
 
-/// `submersion`: how much of the body is underwater, 0..1, down its centre column.
-/// Is this falling-water cell a sheet (the thin curtain on a block's face, and on down below it)?
-/// voxelBody.ts `fallIsSheet`.
-fn fall_is_sheet<W: BodyWorld + ?Sized>(world: &W, x: i32, mut y: i32, z: i32) -> bool {
-    let top = y + 64;
-    while y < top {
-        if world.water_at(x, y, z) != WATER_FALLING {
-            return false;
-        }
-        // open air on ONE side with a block straight across from it (voxelBody.ts)
-        let (mut faces, mut open) = (0, false);
-        for (dx, dz) in [(1, 0), (-1, 0), (0, 1), (0, -1)] {
-            if is_water(world.water_at(x + dx, y, z + dz)) || world.is_blocked(x + dx, y, z + dz) {
-                continue;
-            }
-            open = true;
-            if world.is_blocked(x - dx, y, z - dz) {
-                faces += 1;
-            }
-        }
-        if faces == 1 {
-            return true;
-        }
-        if faces > 1 || !open {
-            return false;
-        }
-        y += 1;
-    }
-    false
-}
-
-/// The water a body is IN at this cell, or 0: any water except a sheet of falling water, which is
-/// walked through. voxelBody.ts `waterBodyAt`.
+/// The water a body is IN at this cell, or 0: every water cell, falling water included (the game
+/// draws falls as whole cells). voxelBody.ts `waterBodyAt`.
 pub fn water_body_at<W: BodyWorld + ?Sized>(world: &W, x: i32, y: i32, z: i32) -> u8 {
     let id = world.water_at(x, y, z);
-    if !is_water(id) {
-        return 0;
-    }
-    if id == WATER_FALLING && fall_is_sheet(world, x, y, z) {
-        0
-    } else {
+    if is_water(id) {
         id
+    } else {
+        0
     }
 }
 
+/// `submersion`: how much of the body is underwater, 0..1, down its centre column.
 pub fn submersion<W: BodyWorld + ?Sized>(world: &W, body: &Body) -> f64 {
     let h = body.height();
     let (cx, cz) = (body.x.floor() as i32, body.z.floor() as i32);

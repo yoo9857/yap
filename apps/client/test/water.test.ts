@@ -70,21 +70,18 @@ describe("swimming", () => {
     expect(b.y).toBeGreaterThanOrEqual(3 - 1e-6);
   });
 
-  it("a sheet of falling water on a wall is walked through; a column of it in the open is water", () => {
+  it("falling water is water to be in — down a wall's face, below it, and in the open", () => {
     const w = new VoxelWorld();
     for (let x = 0; x < 20; x++) for (let z = 0; z < 20; z++) w.set(x, 0, z, STONE);
-    // a fall down a wall's face, and on down below where the wall ends (a block hanging in the air)
+    // a fall down a wall's face, and on down below where the wall ends (a block hanging in the
+    // air): the game draws it as whole cells, so a body in it is in water
     for (let y = 4; y <= 8; y++) w.set(7, y, 8, STONE);
     for (let y = 1; y <= 8; y++) w.set(8, y, 8, WATER_FALLING);
     w.set(8, 9, 8, WATER);
-    const b = body(8.5, 5, 8.5);
-    expect(submersion(w, b)).toBe(0);
-    expect(pointInWater(w, 8.5, 6.5, 8.5)).toBe(false);
-    expect(waterBodyAt(w, 8, 2, 8)).toBe(0); // the curtain below the wall is still the sheet
-    const under = body(8.5, 1, 8.5);
-    run(w, under, 1, [0, 0], false);
-    expect(under.grounded).toBe(true); // standing in it, not floating up it
-    // a fall with nothing to run down is drawn a whole cell wide: that is water
+    expect(submersion(w, body(8.5, 5, 8.5))).toBe(1);
+    expect(pointInWater(w, 8.5, 6.5, 8.5)).toBe(true);
+    expect(waterBodyAt(w, 8, 2, 8)).toBe(WATER_FALLING);
+    // and a fall with nothing beside it
     for (let y = 1; y <= 6; y++) w.set(14, y, 14, WATER_FALLING);
     w.set(14, 7, 14, WATER);
     expect(waterBodyAt(w, 14, 3, 14)).toBe(WATER_FALLING);
@@ -107,9 +104,9 @@ describe("swimming", () => {
     expect(waterDepthAt(w, 15.5, 4.95, 15.5)).toBeCloseTo(-0.075, 5); // in the top cell, above the water
     expect(waterDepthAt(w, 15.5, 5.2, 15.5)).toBeCloseTo(-0.325, 5);  // in the air cell over it
     expect(waterDepthAt(w, 15.5, 7, 15.5)).toBeNull();
-    // a sheet down a block's face over the pond: no depth at all
+    // a fall down a block's face over the pond is water too: its depth is measured to its top
     for (let y = 6; y <= 9; y++) { w.set(10, y, 10, WATER_FALLING); w.set(9, y, 10, STONE); }
-    expect(waterDepthAt(w, 10.5, 7.5, 10.5)).toBeNull();
+    expect(waterDepthAt(w, 10.5, 7.5, 10.5)).toBeCloseTo(10 - 7.5, 5);
   });
 
   it("water against a pond's wall beside an air pocket is still water (not a sheet)", () => {

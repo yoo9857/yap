@@ -1,5 +1,5 @@
 import { shapeIntersectsBox, rampHeight, isFullCubeShape } from "./shapes.js";
-import { WATER_FALLING, isWater, waterHeight } from "@robo/shared";
+import { isWater, waterHeight } from "@robo/shared";
 import type { VoxelWorld } from "./voxelWorld.js";
 
 /**
@@ -34,42 +34,16 @@ const CLIMB_OUT = 5.6;
 /** Horizontal speed when fully under (wading scales toward it). */
 const SWIM_SPEED = 0.6;
 
-const SIDES: readonly (readonly [number, number])[] = [[1, 0], [-1, 0], [0, 1], [0, -1]];
-
 /**
- * Is this falling-water cell a SHEET — the thin curtain the mesher draws on a block's face (a third
- * of the cell), and on down below that block once the face ends? As the mesher decides it: open
- * air on ONE side with a block straight across from it (two such sides are an inside corner: the
- * whole cell), or open air beside it and such a cell above. A lone column, the edge of a wide fall
- * and the inside of deep water are not sheets — and neither is water against a pond's wall that
- * merely has an air pocket to one side (block and air, but not across from each other): judged a
- * sheet, a swimmer pressed into a corner beside a pocket dropped out of the water.
- */
-function fallIsSheet(world: VoxelWorld, x: number, y: number, z: number): boolean {
-  const air = (cx: number, cy: number, cz: number) => !isWater(world.waterAt(cx, cy, cz)) && !world.isBlocked(cx, cy, cz);
-  for (let top = y + 64; y < top; y++) {
-    if (world.waterAt(x, y, z) !== WATER_FALLING) return false;
-    let faces = 0, open = false;
-    for (const [dx, dz] of SIDES) {
-      if (!air(x + dx, y, z + dz)) continue;
-      open = true;
-      if (world.isBlocked(x - dx, y, z - dz)) faces++;
-    }
-    if (faces === 1) return true;
-    if (faces > 1 || !open) return false;
-  }
-  return false;
-}
-
-/**
- * The water a body is IN at this cell (its id), or 0. Any water except a sheet of falling water:
- * that is walked through — counted as a cell of water, the robot swam, and the screen went
- * underwater, in the plain air next to a curtain a third of a cell thick.
+ * The water a body is IN at this cell (its id), or 0: every water cell, falling water included.
+ * The game draws falling water as whole cells (water_mesh.rs `build_simple`), so a fall beside a
+ * wall is water to swim in like any other. (While falls beside a wall were drawn as thin sheets
+ * this let a body walk through them; left in after the shape changed, the robot stood inside a
+ * column of water without swimming and the screen stayed dry.)
  */
 export function waterBodyAt(world: VoxelWorld, x: number, y: number, z: number): number {
   const id = world.waterAt(x, y, z);
-  if (!isWater(id)) return 0;
-  return id === WATER_FALLING && fallIsSheet(world, x, y, z) ? 0 : id;
+  return isWater(id) ? id : 0;
 }
 
 /**

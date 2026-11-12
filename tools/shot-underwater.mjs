@@ -78,8 +78,12 @@ try {
   check("crossing the surface, the wash covers only the part of the screen below the waterline", partial && seen.every((c, i) => i === 0 || c >= seen[i - 1] - 0.25), `${seen.length} steps: ${seen.slice(0, 8).map((c) => c.toFixed(2)).join(" ")}`);
   const above = await at("above", [cx + 0.5, Y + 2, cz + 12], Math.PI, -0.4);
   check("standing on the bank it is not", !above.underwater && !above.on, JSON.stringify(above).slice(0, 160));
+  // (seen from the robot's own eyes: the third-person camera stands metres behind, in the air)
+  await page.evaluate(() => globalThis.__roboCraft.firstPerson(true));
   const fall = await at("fall", [cx + 16.5, Y + 0.05, cz + 0.5], Math.PI, 0.3);
-  check("inside a sheet of water running down a wall it is not", !fall.underwater && !fall.on, JSON.stringify(fall).slice(0, 160));
+  await page.evaluate(() => globalThis.__roboCraft.firstPerson(false));
+  // (falls are whole cells of water now: standing in one beside a wall IS being in water)
+  check("inside a fall running down a wall it is", fall.underwater, JSON.stringify(fall).slice(0, 160));
   console.log(failed ? `${failed} FAILED` : "all underwater checks passed");
 } finally {
   await browser.close();
