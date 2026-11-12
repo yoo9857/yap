@@ -38,21 +38,25 @@ const SIDES: readonly (readonly [number, number])[] = [[1, 0], [-1, 0], [0, 1], 
 
 /**
  * Is this falling-water cell a SHEET — the thin curtain the mesher draws on a block's face (a third
- * of the cell), and on down below that block once the face ends? It has open air on a side and
- * either a block on another, or it continues such a cell above it. A lone column, the edge of a
- * wide fall and the inside of deep water are not sheets: they are drawn as whole cells of water.
+ * of the cell), and on down below that block once the face ends? As the mesher decides it: open
+ * air on ONE side with a block straight across from it (two such sides are an inside corner: the
+ * whole cell), or open air beside it and such a cell above. A lone column, the edge of a wide fall
+ * and the inside of deep water are not sheets — and neither is water against a pond's wall that
+ * merely has an air pocket to one side (block and air, but not across from each other): judged a
+ * sheet, a swimmer pressed into a corner beside a pocket dropped out of the water.
  */
 function fallIsSheet(world: VoxelWorld, x: number, y: number, z: number): boolean {
+  const air = (cx: number, cy: number, cz: number) => !isWater(world.waterAt(cx, cy, cz)) && !world.isBlocked(cx, cy, cz);
   for (let top = y + 64; y < top; y++) {
     if (world.waterAt(x, y, z) !== WATER_FALLING) return false;
-    let air = false, block = false;
+    let faces = 0, open = false;
     for (const [dx, dz] of SIDES) {
-      if (isWater(world.waterAt(x + dx, y, z + dz))) continue;
-      if (world.isBlocked(x + dx, y, z + dz)) block = true;
-      else air = true;
+      if (!air(x + dx, y, z + dz)) continue;
+      open = true;
+      if (world.isBlocked(x - dx, y, z - dz)) faces++;
     }
-    if (!air) return false;
-    if (block) return true;
+    if (faces === 1) return true;
+    if (faces > 1 || !open) return false;
   }
   return false;
 }

@@ -10,10 +10,12 @@ import {BlockMaterialLibrary,linkSurfaceTwin,materialFaceGroups,needsCatalogText
 import { castsInstancedShadow } from "../render/instancedDepth.js";
 import { BLOCKS, SOLID_ID, blockById, textureUrl, type BlockDef } from "./blocks.js";
 import { animateWater, buildWaterGeometry, makeWaterMaterial, prepareWaterTransition } from "./waterMesh.js";
+import { drawWaterAsStreams, drawWaterFinite, drawWaterSimple, hasWaterEngine, loadWaterEngine } from "./waterMesher.js";
 import type { WaterWorkerRequest, WaterWorkerResponse } from "./waterWorkerTypes.js";
 import { loadTexture } from "../render/textures.js";
 import { WORLD_X, WORLD_Y, WORLD_Z, type VoxelWorld } from "./voxelWorld.js";
 import { WATER_FALLING, WATER_HELD, shapeProfile } from "@robo/shared";
+import { WATER_LAYER, type WaterPipeline } from "../render/waterPipeline.js";
 import { ROUND, KIT_CUBE, isOrientedShape, shapeYaw, shapeTilt, isFullCubeShape, blockShapeFamily, shapeBoxes } from "./shapes.js";
 import {
   brickOrientation,
@@ -498,8 +500,16 @@ export class VoxelView {
   private waterProfile: Uint8Array | null = null;
   private finiteWater = false;
   /** Finite water is drawn by amount; the worker has its own copy of that switch. */
-  setFiniteWater(on: boolean): void { this.finiteWater = on; }
+  setFiniteWater(on: boolean): void { this.finiteWater = on; drawWaterFinite(on); }
+  private waterSimple = true;
+  /** The simple, Minecraft-like water (default) or the surface net (waterMesher.ts). */
+  setWaterSimple(on: boolean): void { this.waterSimple = on; drawWaterSimple(on); }
+  private waterStreams = false;
+  /** Water in the air as films and streams (waterMesher.ts); the worker is told with each build. */
+  setWaterStreams(on: boolean): void { this.waterStreams = on; drawWaterAsStreams(on); }
   private waterBuildPeak = 0;
+  /** Main-thread cost of a water generation: handing it to the worker / installing its meshes (ms). */
+  private waterCost = { snapshotPeak: 0, snapshotSum: 0, installPeak: 0, installSum: 0, vertices: 0 };
   private waterCommits = 0;
   private waterSerial = 0;
   private waterWorker: Worker | null = null;
@@ -512,8 +522,11 @@ export class VoxelView {
     try {
       const worker = new Worker(new URL("./waterWorker.ts", import.meta.url), { type: "module" });
       const fallback = () => {
+        // the worker is gone (or its engine failed): mesh on this thread, within the frame budget,
+        // once the engine has been loaded here
         this.waterWorkerFailed = true; worker.terminate(); this.waterWorker = null;
         if (this.waterBatch) this.waterBatch.waiting = false;
+        void loadWaterEngine();
       };
       worker.onerror = fallback;
       worker.onmessage = (event: MessageEvent<WaterWorkerResponse>) => {
@@ -578,16 +591,19 @@ export class VoxelView {
       this.waterBatch = { id: ++this.waterSerial, waiting: false, world: frozen, jobs, cursor: 0, results: [] };
       const worker = this.ensureWaterWorker();
       if (worker) {
-        const request: WaterWorkerRequest = { t: "build", id: this.waterBatch.id, cells: snapshot, profile: Int32Array.from(marks), finite: this.finiteWater,
+        const request: WaterWorkerRequest = { t: "build", id: this.waterBatch.id, cells: snapshot, profile: Int32Array.from(marks), finite: this.finiteWater, streams: this.waterStreams, simple: this.waterSimple,
           outside: outside ?? null, jobs: spans };
         // Keep the immutable snapshot for bounded main-thread fallback if a
         // worker is unavailable; all result buffers return by transfer.
         this.waterBatch.waiting = true;
         worker.postMessage(request);
       }
+      const cost = performance.now() - start;
+      this.waterCost.snapshotPeak = Math.max(this.waterCost.snapshotPeak, cost); this.waterCost.snapshotSum += cost;
     }
     const batch = this.waterBatch;
     if (batch.waiting) { this.waterBuildPeak = Math.max(this.waterBuildPeak, performance.now() - start); return; }
+    if (!hasWaterEngine()) { void loadWaterEngine(); return; } // no worker: wait for the engine on this thread
     while (batch.cursor < batch.jobs.length) {
       const [id, range] = batch.jobs[batch.cursor++]!;
       const chunk = this.chunks.get(id);
@@ -626,6 +642,9 @@ export class VoxelView {
     }
     this.waterBatch = null;
     this.waterCommits++;
+    const cost = performance.now() - commitTime * 1000;
+    this.waterCost.installPeak = Math.max(this.waterCost.installPeak, cost); this.waterCost.installSum += cost;
+    this.waterCost.vertices = batch.results.reduce((n, r) => n + (r.geometry?.getAttribute("position").count ?? 0), 0);
   }
 
   private cancelWaterBatch(): void {
@@ -638,7 +657,7 @@ export class VoxelView {
 
   waterStats() {
     return { queued: this.waterQueue.size, pending: this.waterBatch ? this.waterBatch.jobs.length - this.waterBatch.cursor : 0,
-      commits: this.waterCommits, peakBuildMs: this.waterBuildPeak, worker: !!this.waterWorker, workerMeshMs: this.workerMeshMs };
+      commits: this.waterCommits, peakBuildMs: this.waterBuildPeak, worker: !!this.waterWorker, workerMeshMs: this.workerMeshMs, cost: { ...this.waterCost } };
   }
 
   chunkStats() {
@@ -1048,7 +1067,7 @@ export class VoxelView {
     }
     chunk.top = top;
 
-    if (!this.primed && typeof Worker === "undefined") this.buildWater(world, chunk, water);
+    if (!this.primed && typeof Worker === "undefined" && hasWaterEngine()) this.buildWater(world, chunk, water);
     else if (!this.primed || rebuildWater) this.waterQueue.set(chunkId(cx, cz), [0, WORLD_Y - 1]);
     if (far) this.buildFarMesh(chunk, farBuffers);
     else if (staged) return { positions, backing };
@@ -1390,6 +1409,22 @@ export class VoxelView {
    *  their colour. `waterMaterial` (everything) is only the boot warm-up quad's. */
   private readonly waterMaterial = makeWaterMaterial();
   private readonly waterPasses = [makeWaterMaterial("level"), makeWaterMaterial("depth"), makeWaterMaterial("steep")] as const;
+  /** `?water2=1`: the frame is built round the water (render/waterPipeline.ts). The water is then
+   *  ONE mesh per chunk on WATER_LAYER, drawn by the pipeline with its own three materials. */
+  private waterPipeline: WaterPipeline | null = null;
+  private pipelineMaterials: THREE.Material[] = [];
+  useWaterPipeline(pipeline: WaterPipeline): void {
+    this.waterPipeline = pipeline;
+    const front = makeWaterMaterial("front"), back = makeWaterMaterial("back"), surface = makeWaterMaterial("surface");
+    this.pipelineMaterials = [front, back, surface];
+    pipeline.materials = { front, back, surface };
+    for (const chunk of this.chunks.values()) if (chunk.water) this.pipelineMesh(chunk.water);
+  }
+  private pipelineMesh(mesh: THREE.Mesh): void {
+    mesh.clear(); // the three-pass children are the plain path's
+    mesh.material = this.waterMaterial;
+    mesh.layers.set(WATER_LAYER);
+  }
   /** One quad far below the world, drawn only during the boot warm-up so the
    *  water shader compiles behind the loading screen, not at the first pour. */
   private waterWarm: THREE.Mesh | null = null;
@@ -1401,6 +1436,9 @@ export class VoxelView {
       quad.position.set(0, -1000, 0);
       quad.receiveShadow = true;
       quad.frustumCulled = false;
+      // with the pipeline it is a water mesh like any other: the warm-up frames draw it through the
+      // front, back and surface passes, so those variants compile behind the loading screen too
+      if (this.waterPipeline) quad.layers.set(WATER_LAYER);
       this.scene.add(quad);
       this.waterWarm = quad;
     } else if (!on && this.waterWarm) {
@@ -1438,12 +1476,13 @@ export class VoxelView {
     const mesh = new THREE.Mesh(geometry, this.waterPasses[0]);
     mesh.receiveShadow = true;
     mesh.renderOrder = 3; // after glass, so glass behind water still shows
-    for (let i = 1; i < 3; i++) {
+    for (let i = 1; i < 3 && !this.waterPipeline; i++) {
       const pass = new THREE.Mesh(geometry, this.waterPasses[i]);
       pass.receiveShadow = true;
       pass.renderOrder = 3 + i * 0.2;
       mesh.add(pass);
     }
+    if (this.waterPipeline) this.pipelineMesh(mesh);
     mesh.visible = !chunk.hidden;
     this.scene.add(mesh);
     chunk.water = mesh;
@@ -1568,7 +1607,7 @@ export class VoxelView {
     this.chunks.clear(); this.queue.clear(); this.waterSnapshot = null; this.waterProfile = null;
     this.setWarm(false);
     this.waterMaterial.dispose();
-    for (const material of this.waterPasses) material.dispose();
+    for (const material of [...this.waterPasses, ...this.pipelineMaterials]) material.dispose();
     for (const mesh of this.studMeshes.values()) {
       this.scene.remove(mesh);
       mesh.dispose();

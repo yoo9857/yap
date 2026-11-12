@@ -10,7 +10,7 @@ vi.mock("../src/render/textures.js", () => ({ loadTexture: () => Promise.resolve
 afterEach(() => { vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 const meshes = (scene: THREE.Scene): THREE.Mesh[] => scene.children.filter((object): object is THREE.Mesh =>
   object instanceof THREE.Mesh && object.material instanceof THREE.MeshStandardMaterial &&
-  object.material.customProgramCacheKey() === "craft-water-continuous-3");
+  object.material.customProgramCacheKey() === "craft-water-continuous-9");
 const flush = (view: VoxelView, world: VoxelWorld, eye: THREE.Vector3) => {
   for (let i = 0; i < 150 && (view.waterStats().queued || view.waterStats().pending); i++) view.update(world, eye);
   expect(view.waterStats().queued + view.waterStats().pending).toBe(0);

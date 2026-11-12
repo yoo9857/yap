@@ -1,5 +1,5 @@
-// Two real browsers survive an isolated server restart, then repeat transport
-// reconnects without duplicate self avatars or growing GPU label resources.
+// Two real browsers exercise workshop motion under snapshot jitter, then
+// survive a server restart and repeated transport reconnects.
 import puppeteer from "puppeteer-core";
 import { spawn } from "node:child_process";
 import { mkdir, writeFile } from "node:fs/promises";
@@ -33,6 +33,20 @@ async function open(query) {
   await page.evaluateOnNewDocument((port) => {
     const Native = globalThis.WebSocket;
     globalThis.WebSocket = class extends Native {
+      set onmessage(handler) {
+        if (this !== globalThis.__recoverySocket || !handler) { super.onmessage = handler; return; }
+        let packet = 0, deliverAt = 0;
+        super.onmessage = (event) => {
+          if (!globalThis.__delayClassSnapshots || !event.data.startsWith('{"t":"s-k-snap"')) {
+            handler.call(this, event);
+            return;
+          }
+          const now = performance.now();
+          const delay = [40, 180, 60, 120][packet++ % 4];
+          deliverAt = Math.max(now + delay, deliverAt + 1);
+          setTimeout(() => handler.call(this, event), deliverAt - now);
+        };
+      }
       constructor(url, protocols) {
         const parsed = new URL(url, location.href), classroom = parsed.pathname === "/ws" && parsed.searchParams.get("mode") === "class";
         if (classroom) { parsed.hostname = "127.0.0.1"; parsed.port = String(port); parsed.protocol = "ws:"; }
@@ -48,8 +62,45 @@ async function open(query) {
 try {
   await startServer();
   const teacher = await open("&host=Teacher&pass=1234"), student = await open("&student=Student");
+  await teacher.evaluate(() => { globalThis.__delayClassSnapshots = true; });
+  await teacher.keyboard.press("b");
+  await teacher.waitForFunction(() => globalThis.__roboCraft.machine().active);
+  await teacher.click('.machine-coach [data-id="skip"]');
+  await student.evaluate(() => globalThis.__roboCraft.teleport(82.5, 4, 24.5));
+  await teacher.waitForFunction(() => {
+    const peer = globalThis.__roboCraft.classroom().remotes[0];
+    return peer && Math.abs(peer.abs[2] + 55.5) < 1;
+  }, { timeout: 15000 });
+  check("movement updates arrive while the workshop is in preview", true);
+  await teacher.click('.machine-panel [data-id="run"]');
+  await teacher.waitForFunction(() => globalThis.__roboCraft.machine().simulation && globalThis.__roboCraft.classroom().remotes[0]?.visible, { timeout: 30000 });
+  const startZ = await teacher.evaluate(() => globalThis.__roboCraft.classroom().remotes[0].drawn[2]);
+  await student.evaluate(() => {
+    globalThis.__roboCraft.look(0, 0);
+    globalThis.__roboCraft.debugWalk(0, 1);
+  });
+  await teacher.waitForFunction((start) => {
+    const room = globalThis.__roboCraft.classroom();
+    return room.online && globalThis.__roboCraft.machine().simulation
+      && room.remotes[0]?.visible && Math.abs(room.remotes[0].drawn[2] - start) > 3;
+  }, { timeout: 20000 }, startZ);
+  check("classmate visibly moves during a machine test with 40–180 ms snapshot delay", true);
+  await student.evaluate(() => {
+    const game = globalThis.__roboCraft;
+    game.debugWalk(0, 0);
+    // Return within view of the teacher for the GPU resource check, even
+    // after walking shifted this client's world window.
+    const [ax, az] = game.absolute();
+    const [x, , z] = game.snapshot().pos;
+    const [teacherX, , teacherZ] = game.classroom().remotes[0].abs;
+    game.teleport(x + teacherX - ax, 4, z + teacherZ - az - 5);
+    game.look(0, 0);
+  });
+  await teacher.click('.machine-panel [data-id="run"]');
+  await teacher.click('.machine-panel [data-id="close"]');
+  await teacher.evaluate(() => { globalThis.__delayClassSnapshots = false; });
   await teacher.evaluate(() => globalThis.__roboCraft.placeAt(76, 4, 82, "gold-block"));
-  await student.waitForFunction(() => globalThis.__roboCraft.blockAt(76, 4, 82) === 17, { timeout: 10000 });
+  await student.waitForFunction(() => globalThis.__roboCraft.blockAtAbs(-4, 4, 2) === 17, { timeout: 10000 });
   const before = await Promise.all([teacher, student].map((p) => p.evaluate(() => globalThis.__roboCraft.classroom().you)));
   await wait(16000); // SQLite autosave before the Windows process is terminated
   await stopServer();
@@ -59,12 +110,15 @@ try {
     const c = globalThis.__roboCraft.classroom(); return c.online && c.you !== old && c.remotes.length === 1;
   }, { timeout: 45000 }, before[i])));
   check("teacher and student recover fresh server identities without reloading", true);
-  check("the saved classroom survives the server restart", await student.evaluate(() => globalThis.__roboCraft.blockAt(76, 4, 82) === 17));
+  check("the saved classroom survives the server restart", await student.evaluate(() => globalThis.__roboCraft.blockAtAbs(-4, 4, 2) === 17));
   const cycles = [];
   for (let i = 0; i < 4; i++) {
     await student.evaluate(() => globalThis.__recoverySocket.close());
     await student.waitForFunction(() => !globalThis.__roboCraft.classroom().online, { timeout: 5000 });
-    await student.waitForFunction(() => globalThis.__roboCraft.classroom().online && globalThis.__roboCraft.classroom().remotes.length === 1, { timeout: 15000 });
+    await student.waitForFunction(() => {
+      const room = globalThis.__roboCraft.classroom();
+      return room.online && room.remotes.length === 1 && room.remotes[0].visible;
+    }, { timeout: 15000 });
     await wait(1300);
     cycles.push(await student.evaluate(() => ({ class: globalThis.__roboCraft.classroom(), perf: globalThis.__roboCraft.perf(),
       selfRows: [...document.querySelectorAll(".class-members .name")].filter((e) => e.textContent.includes("(나)")).length })));

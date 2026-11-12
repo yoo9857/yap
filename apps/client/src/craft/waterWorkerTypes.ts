@@ -6,6 +6,10 @@ export type WaterWorkerRequest = { t: "cancel"; id: number } | {
   jobs: { id: number; x: number; z: number; minY: number; maxY: number }[];
   /** Finite water: the flowing ids are amounts, drawn that high (fluid.ts drawWaterByAmount). */
   finite: boolean;
+  /** Water in the air drawn as films and streams (waterMesher.ts drawWaterAsStreams). */
+  streams: boolean;
+  /** The simple, Minecraft-like water (waterMesher.ts drawWaterSimple). */
+  simple: boolean;
 };
 export interface WaterWorkerResult {
   id: number; minY: number; maxY: number;

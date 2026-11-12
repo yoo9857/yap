@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
+import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import { GARAGE_LAYER } from "./garageStage.js";
 import { SKYLARK_PART_ORDER, type SkylarkComponent, type SkylarkPart } from "./skylarkParts.js";
 
@@ -83,6 +84,54 @@ function meshBounds(mesh: THREE.Mesh): THREE.Box3 | null {
   return mesh.geometry.boundingBox;
 }
 
+/** One opaque mesh per material and moving part. Keep the hinge, skin and glazing separate. */
+function batchMeshes(scene: THREE.Group, parts: MountedPart[], door: THREE.Object3D): void {
+  const unused = new Set<THREE.BufferGeometry>();
+  const transform = new THREE.Matrix4();
+  for (const part of parts) {
+    const groups = new Map<THREE.Object3D, Map<THREE.Material, THREE.Mesh[]>>();
+    for (const mesh of part.meshes) {
+      const { geometry, material } = mesh;
+      if (mesh instanceof THREE.SkinnedMesh || Array.isArray(material) || material.transparent ||
+          mesh.children.length || mesh.renderOrder || mesh.castShadow || mesh.receiveShadow || !mesh.visible ||
+          !geometry.index || Object.keys(geometry.morphAttributes).length ||
+          Object.keys(geometry.attributes).length !== 2 || !geometry.attributes.position || !geometry.attributes.normal ||
+          mesh.matrixWorld.determinant() < 0) continue;
+      let parent = part.node;
+      for (let ancestor = mesh.parent; ancestor && ancestor !== part.node; ancestor = ancestor.parent) {
+        if (ancestor === door) { parent = door; break; }
+      }
+      let materials = groups.get(parent);
+      if (!materials) { materials = new Map(); groups.set(parent, materials); }
+      const meshes = materials.get(material);
+      if (meshes) meshes.push(mesh);
+      else materials.set(material, [mesh]);
+    }
+    const replaced = new Set<THREE.Mesh>();
+    for (const [parent, materials] of groups) {
+      const inverse = parent.matrixWorld.clone().invert();
+      for (const [material, meshes] of materials) {
+        if (meshes.length < 2) continue;
+        const pieces = meshes.map(mesh => mesh.geometry.clone().applyMatrix4(transform.multiplyMatrices(inverse, mesh.matrixWorld)));
+        const geometry = mergeGeometries(pieces);
+        pieces.forEach(piece => piece.dispose());
+        if (!geometry) continue;
+        const batch = new THREE.Mesh(geometry, material);
+        parent.add(batch);
+        part.meshes.push(batch);
+        for (const mesh of meshes) {
+          replaced.add(mesh);
+          unused.add(mesh.geometry);
+          mesh.removeFromParent();
+        }
+      }
+    }
+    part.meshes = part.meshes.filter(mesh => !replaced.has(mesh));
+  }
+  scene.traverse(object => { if (isMesh(object)) unused.delete(object.geometry); });
+  unused.forEach(geometry => geometry.dispose());
+}
+
 function release(root: THREE.Object3D): void {
   const geometries = new Set<THREE.BufferGeometry>();
   const materials = new Set<THREE.Material>();
@@ -98,7 +147,11 @@ function release(root: THREE.Object3D): void {
   });
   geometries.forEach(geometry => geometry.dispose());
   materials.forEach(material => material.dispose());
-  textures.forEach(texture => texture.dispose());
+  for (const texture of textures) {
+    const image: unknown = texture.image;
+    texture.dispose();
+    if (typeof ImageBitmap !== "undefined" && image instanceof ImageBitmap) image.close();
+  }
 }
 
 export class SkylarkVisual {
@@ -153,6 +206,7 @@ export class SkylarkVisual {
       release(scene);
       throw new Error("Invalid Skylark model");
     }
+    batchMeshes(scene, parts, door);
     this.model = scene;
     this.parts = parts;
     for (const part of parts) for (const mesh of part.meshes) this.owners.set(mesh, part.key);
@@ -228,5 +282,9 @@ export class SkylarkVisual {
     this.outline.dispose();
     this.owners.clear();
     this.root.clear();
+    this.model = undefined;
+    this.parts = [];
+    this.mainRotor = this.tailRotor = this.door = undefined;
+    this.loading = undefined;
   }
 }

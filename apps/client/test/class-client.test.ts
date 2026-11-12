@@ -31,6 +31,33 @@ beforeEach(() => {
 afterEach(() => { for (const c of clients.splice(0)) c.close(); vi.useRealTimers(); vi.unstubAllGlobals(); vi.restoreAllMocks(); });
 
 describe("classroom client lifecycle", () => {
+  it("sends gameplay only after resync and skips positions on a backed-up socket", async () => {
+    const c = create(), connected = c.connect(), ws = Socket.instances[0]!;
+    const edit = { t: "k-edit", edits: [[0, 4, 0, 19, 0]] } as const;
+    const sendEdit = () => c.send({ t: edit.t, edits: [[...edit.edits[0]]] });
+    ws.open();
+    expect((JSON.parse(ws.sent[0]!) as { t: string }).t).toBe("k-host");
+    ws.receive(welcome());
+    await connected;
+    c.activate();
+    ws.close();
+    await vi.advanceTimersByTimeAsync(2000);
+    const retry = Socket.instances[1]!;
+    retry.open();
+    expect(c.connected).toBe(false);
+    expect(sendEdit()).toBe(false);
+    retry.receive(welcome("new", 1));
+    expect(sendEdit()).toBe(false);
+    retry.receive({ t: "s-k-world", edits: [[1, 4, 0, 17, 0]] });
+    expect(c.connected).toBe(true);
+    const move = { t: "k-move", pos: [0, 4, 0], yaw: 0, anim: "idle" } as const;
+    retry.bufferedAmount = 16 * 1024;
+    expect(c.send({ ...move, pos: [...move.pos] })).toBe(false);
+    expect(sendEdit()).toBe(true);
+    retry.bufferedAmount = 0;
+    expect(c.send({ ...move, pos: [...move.pos] })).toBe(true);
+    expect(retry.sent.map((raw) => (JSON.parse(raw) as { t: string }).t)).toEqual(["k-host", "k-edit", "k-move"]);
+  });
   it("replays the water cleanup barrier in order during a streamed join", async () => {
     const c = create(), connected = c.connect(), ws = Socket.instances[0]!; ws.open();
     ws.receive(welcome("old", 2));

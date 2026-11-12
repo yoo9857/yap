@@ -24,6 +24,7 @@ const LOD_MID_M = 45;
 const LOD_FAR_M = 80;
 /** Classmates' face textures are drawn at this fraction of the player's own (a quarter of the upload). */
 const REMOTE_FACE_RESOLUTION = 0.5;
+const RIGS_PER_FRAME = 1;
 /** Only this many nearest classmates get a shadow and the ink outline (each is another full pass). */
 const FULL_DETAIL = 10;
 /** Crowd detail is re-ranked this often (ms), not every frame. */
@@ -31,8 +32,13 @@ const DETAIL_RANK_MS = 300;
 /** Sent edits are remembered this long, so a refusal can be undone locally. */
 const PENDING_MS = 10_000;
 
+type SnapPlayer = Extract<ClassServerMessage, { t: "s-k-snap" }>["players"][number];
+
 interface Remote {
-  rig: CharacterRig;
+  rig: CharacterRig | null;
+  member: ClassMember;
+  latest: SnapPlayer;
+  drawnPresentation?: SnapPlayer;
   /** Latest reported position, absolute field coordinates. */
   target: THREE.Vector3;
   /** Smoothed render position, absolute. */
@@ -373,6 +379,7 @@ export class ClassSync {
       this.session.role = fresh.role;
       this.hud.setYou(fresh.you);
       for (const id of [...this.remotes.keys()]) this.dropRemote(id);
+      this.snapClock.reset();
       // the server restarted and the class was opened afresh: say so instead
       // of silently swapping everyone's buildings for an empty field
       if (fresh.edits.length === 0 && field.hasEdits()) hooks.toast(t("⚠️ 서버가 다시 시작되어 반이 새로 열렸어요", "⚠️ The server restarted, so the class was opened fresh"));
@@ -558,7 +565,7 @@ export class ClassSync {
   bonkTargets(): BonkCandidate[] {
     const out: BonkCandidate[] = [];
     for (const [id, remote] of this.remotes) {
-      if (!remote.rig.root.visible) continue;
+      if (!remote.rig?.root.visible) continue;
       const [x, z] = this.field.toGrid(remote.pos.x, remote.pos.z);
       out.push({ id, x, y: remote.pos.y, z });
     }
@@ -592,10 +599,13 @@ export class ClassSync {
 
   private applyBonk(msg: Extract<ClassServerMessage, { t: "s-k-bonk" }>): void {
     if (msg.target === this.session.you) this.hooks.bonked?.({ vx: msg.vx, vz: msg.vz, vy: msg.vy });
-    else this.remotes.get(msg.target)?.rig.flashHit();
-    if (msg.by !== this.session.you) this.remotes.get(msg.by)?.rig.performAction("hit", msg.seq, false);
-    const remote = this.remotes.get(msg.target);
-    remote?.rig.pop(-1.3);
+    else this.remotes.get(msg.target)?.rig?.flashHit();
+    const tapper = this.remotes.get(msg.by);
+    if (tapper?.rig?.root.visible) {
+      this.applyPresentation(tapper, tapper.rig);
+      tapper.rig.performAction("hit", msg.seq, false);
+    }
+    this.remotes.get(msg.target)?.rig?.pop(-1.3);
     const [x, z] = this.field.toGrid(msg.at[0], msg.at[2]);
     this.fx.burst(x, msg.at[1], z, msg.vx, msg.vz);
     // the tapper already heard it on their own swing's contact frame
@@ -603,7 +613,7 @@ export class ClassSync {
   }
 
   /** Per rendered frame: place remote robots in local grid space. */
-  render(frameDt: number): void {
+  render(frameDt: number, focus?: { x: number; z: number }): void {
     this.frameNo++;
     if (!this.started) {
       // the game is whole now: what arrived while it was being built happens here, in order
@@ -618,18 +628,21 @@ export class ClassSync {
       this.frustum.setFromProjectionMatrix(this.viewProj);
     }
     if (!this.online) {
-      for (const r of this.remotes.values()) r.rig.root.visible = false;
+      for (const r of this.remotes.values()) if (r.rig) r.rig.root.visible = false;
       this.fx.update(frameDt); // tap chips in flight finish instead of freezing mid-air
       return;
     }
     const k = 1 - Math.pow(0.0005, frameDt); // ~100 ms catch-up
     const now = performance.now();
+    const renderTime = this.snapClock.renderTime(now);
+    const focusX = focus?.x ?? this.meX, focusZ = focus?.z ?? this.meZ;
+    let rigsToCreate = RIGS_PER_FRAME;
     for (const r of this.remotes.values()) {
       if (now - r.seenAt > 3000) {
-        r.rig.root.visible = false;
+        if (r.rig) r.rig.root.visible = false;
         continue;
       }
-      if (!r.track.empty && r.track.draw(this.snapClock.renderTime(now), frameDt * 1000, this.pose)) {
+      if (!r.track.empty && r.track.draw(renderTime, frameDt * 1000, this.pose)) {
         // drawn a moment in the past, between two received samples: late or bunched
         // packets change nothing visible (craft/remoteTrack.ts)
         r.pos.set(this.pose.x, this.pose.y, this.pose.z);
@@ -644,19 +657,35 @@ export class ClassSync {
         r.speed = frameDt > 0 ? Math.hypot(r.pos.x - before.x, r.pos.z - before.z) / frameDt : 0;
       }
       const [x, z] = this.field.toGrid(r.pos.x, r.pos.z);
-      r.rig.root.position.set(x, r.pos.y, z);
       // Crowd culling: characters are skinned with frustum culling off (their bounds move
       // with the animation), so an off-screen classmate still cost its main, ink and shadow
       // passes. Cull here with a sphere that holds any pose; the path still advances.
       this.bounds.center.set(x, r.pos.y + 0.9, z);
       const onScreen = !camera || this.frustum.intersectsSphere(this.bounds);
-      r.rig.root.visible = onScreen;
       if (!onScreen) {
-        r.animDt = (r.animDt ?? 0) + frameDt;
+        if (r.rig) {
+          r.rig.root.visible = false;
+          r.animDt = (r.animDt ?? 0) + frameDt;
+        }
         continue;
       }
+      // A crowded join can deliver dozens of positions together. Allocate and
+      // upload avatars only as they enter view, spreading that work over frames.
+      if (!r.rig) {
+        if (rigsToCreate === 0) continue;
+        rigsToCreate--;
+        r.rig = new CharacterRig(r.latest.character ?? "mascot", REMOTE_FACE_RESOLUTION);
+        r.rig.setDetail(false);
+        r.fullDetail = false;
+        r.rig.root.add(nameTag(r.member.name, r.member.role === "teacher"));
+        this.scene.add(r.rig.root);
+      }
+      const rig = r.rig;
+      this.applyPresentation(r, rig);
+      rig.root.visible = true;
+      rig.root.position.set(x, r.pos.y, z);
       r.drawnYaw = turnToward(r.drawnYaw, r.yaw, frameDt, 0.06, 20);
-      r.rig.root.rotation.y = r.drawnYaw;
+      rig.root.rotation.y = r.drawnYaw;
       let toolTime: number | undefined;
       if (r.attacking && r.toolClock !== undefined) {
         const wait = Math.min(r.toolHold ?? 0, frameDt);
@@ -667,18 +696,18 @@ export class ClassSync {
       // Animation LOD: a skinned character costs the same CPU at 80 m as at 3 m. Far ones
       // pose every 3rd / 6th frame with the time they missed (positions still move every frame),
       // staggered by id so the work spreads across frames instead of landing together.
-      const dist = Math.hypot(x - this.meX, z - this.meZ);
+      const dist = Math.hypot(x - focusX, z - focusZ);
       const every = dist > LOD_FAR_M ? 3 : dist > LOD_MID_M ? 2 : 1;
       r.animDt = (r.animDt ?? 0) + frameDt;
       if (every === 1 || r.attacking || (this.frameNo + (r.lodSlot ??= Math.floor(Math.random() * 6))) % every === 0) {
-        r.rig.update(r.anim, r.speed, r.animDt,{swimming:r.swimming,toolTime});
+        rig.update(r.anim, r.speed, r.animDt, { swimming: r.swimming, toolTime });
         r.animDt = 0;
       }
-      this.remoteSounds(r, x, z, toolTime);
+      this.remoteSounds(r, rig, x, z, toolTime);
     }
     if (now - this.rankedAt > DETAIL_RANK_MS) {
       this.rankedAt = now;
-      this.rankDetail();
+      this.rankDetail(focusX, focusZ);
     }
     this.fx.update(frameDt);
   }
@@ -711,18 +740,23 @@ export class ClassSync {
    * outline; the rest of a big class are drawn plain (one pass instead of three). Changes
    * only flip flags and layers — no material or shader variant switches.
    */
-  private rankDetail(): void {
+  private rankDetail(focusX: number, focusZ: number): void {
     // hysteresis: whoever has full detail keeps it until someone is clearly (1.5 m) nearer — a
     // seated class stands at near-equal distances, and a plain ranking flipped their shadows
     // (and ink) on and off every frame as the viewer moved
-    const shown = [...this.remotes.values()].filter((r) => r.rig.root.visible)
-      .map((r) => ({ r, d: Math.hypot(r.rig.root.position.x - this.meX, r.rig.root.position.z - this.meZ) - (r.fullDetail ? 1.5 : 0) }))
-      .sort((a, b) => a.d - b.d);
-    shown.forEach(({ r }, i) => {
+    const shown = [];
+    for (const r of this.remotes.values()) {
+      const rig = r.rig;
+      if (!rig?.root.visible) continue;
+      const { x, z } = rig.root.position;
+      shown.push({ r, rig, d: Math.hypot(x - focusX, z - focusZ) - (r.fullDetail ? 1.5 : 0) });
+    }
+    shown.sort((a, b) => a.d - b.d);
+    shown.forEach(({ r, rig }, i) => {
       const full = i < FULL_DETAIL;
       if (r.fullDetail === full) return;
       r.fullDetail = full;
-      r.rig.setDetail(full);
+      rig.setDetail(full);
     });
   }
 
@@ -749,10 +783,10 @@ export class ClassSync {
    * that makes ours (CharacterRig.motionCue / the tool time): heard where they
    * stand, quieter with distance, panned by direction (CraftGame forwards to Sfx.at).
    */
-  private remoteSounds(r: Remote, gx: number, gz: number, toolTime: number | undefined): void {
+  private remoteSounds(r: Remote, rig: CharacterRig, gx: number, gz: number, toolTime: number | undefined): void {
     const sound = this.hooks.sound;
     if (!sound) return;
-    const cue = r.rig.motionCue;
+    const cue = rig.motionCue;
     const crossed = (prev: number | undefined, cur: number, at: number) => prev !== undefined && prev >= 0 && (prev <= cur ? prev < at && at <= cur : prev < at || at <= cur);
     if (cue?.gait && r.speed > 0.3 && !r.swimming && (r.anim === "run" || r.anim === "idle" || r.anim === "crawl")) {
       const plants = cue.gait === "crawl" ? [0.44, 0.94] : [0, 0.5];
@@ -775,7 +809,17 @@ export class ClassSync {
     } else r.toolT = undefined;
   }
 
-  private applySnap(players: Extract<ClassServerMessage, {t: "s-k-snap"}>["players"], ts?: number): void {
+  private applyPresentation(r: Remote, rig: CharacterRig): void {
+    const p = r.latest;
+    if (r.drawnPresentation === p) return;
+    rig.setCharacter(p.character ?? "mascot");
+    rig.setHeldItem(p.heldItem ?? null, p.toolOption ?? PICKAXE.defaultOption);
+    rig.setEmote(p.emote ?? "none", p.emoteSeq ?? 0);
+    rig.performAction(p.action ?? "none", p.actionSeq ?? 0, p.actionLoop ?? false);
+    r.drawnPresentation = p;
+  }
+
+  private applySnap(players: SnapPlayer[], ts?: number): void {
     const now = performance.now();
     const stamp = ts === undefined ? undefined : this.snapClock.observe(now, ts);
     for (const p of players) {
@@ -784,11 +828,10 @@ export class ClassSync {
       if (!r) {
         const member = this.members.find((m) => m.id === p.id);
         if (!member) continue;
-        const rig = new CharacterRig("mascot", REMOTE_FACE_RESOLUTION);
-        rig.root.add(nameTag(member.name, member.role === "teacher"));
-        this.scene.add(rig.root);
         r = {
-          rig,
+          rig: null,
+          member,
+          latest: p,
           target: new THREE.Vector3(...p.pos),
           pos: new THREE.Vector3(...p.pos),
           yaw: p.yaw,
@@ -800,11 +843,8 @@ export class ClassSync {
         };
         this.remotes.set(p.id, r);
       }
-      r.rig.setCharacter(p.character ?? "mascot");
-      r.rig.setHeldItem(p.heldItem??null,p.toolOption??PICKAXE.defaultOption);
+      r.latest = p;
       this.followSwing(r, !!p.heldItem && p.action === "interact", p.toolPhase ?? 0, p.toolOption);
-      r.rig.setEmote(p.emote ?? "none", p.emoteSeq ?? 0);
-      r.rig.performAction(p.action??"none",p.actionSeq??0,p.actionLoop??false);
       r.swimming=p.swimming;
       r.target.set(...p.pos);
       r.yaw = p.yaw;
@@ -875,8 +915,10 @@ export class ClassSync {
   private dropRemote(id: string): void {
     const r = this.remotes.get(id);
     if (!r) return;
-    this.scene.remove(r.rig.root);
-    disposeRig(r.rig.root);
+    if (r.rig) {
+      this.scene.remove(r.rig.root);
+      disposeRig(r.rig.root);
+    }
     this.remotes.delete(id);
   }
 
@@ -899,15 +941,15 @@ export class ClassSync {
       members: this.members.map((m) => ({ name: m.name, role: m.role, online: m.online })),
       remotes: [...this.remotes.entries()].map(([id, r]) => ({
         id,
-        name: this.members.find((m) => m.id === id)?.name,
-        visible: r.rig.root.visible,
+        name: r.member.name,
+        visible: r.rig?.root.visible ?? false,
         /** Meshes actually drawn inside the robot (a blink INSIDE the model shows here). */
-        meshes: (() => { let n = 0; r.rig.root.traverseVisible((o) => { if ((o as THREE.Mesh).isMesh) n++; }); return n; })(),
+        meshes: (() => { let n = 0; r.rig?.root.traverseVisible((o) => { if ((o as THREE.Mesh).isMesh) n++; }); return n; })(),
         abs: [r.target.x, r.target.y, r.target.z],
         drawn: [r.pos.x, r.pos.y, r.pos.z],
         // the upper-body layer it plays (homeRig.ts: "Upper/Interact" while digging); the model
         // inside CharacterRig's stable root carries it
-        upper: r.rig.root.children.find((c) => c.userData.upperMotion !== undefined)?.userData.upperMotion as string | undefined,
+        upper: r.rig?.root.children.find((c) => c.userData.upperMotion !== undefined)?.userData.upperMotion as string | undefined,
       })),
     };
   }

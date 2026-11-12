@@ -463,8 +463,7 @@ export class ClassRoom {
     if (existing) {
       if (existing.peer) return "teacher-taken";
       const keyOk = !!cred.hostKey && sameKey(cred.hostKey, existing.key);
-      const passOk = !!cred.password && checkPassword(cred.password, this.auth);
-      if (!keyOk && !passOk) return "bad-password";
+      if (!keyOk && !(cred.password && checkPassword(cred.password, this.auth))) return "bad-password";
       this.attach(existing, peer);
       return "ok";
     }
@@ -1390,8 +1389,12 @@ export class ClassRoom {
     this.lessonTick();
     const tick = ++this.snapTick;
     const entries: { m: Member; obj: SnapPlayer; json: string }[] = [];
+    let minX = Infinity, minZ = Infinity, maxX = -Infinity, maxZ = -Infinity;
     for (const m of this.byPeer.values()) {
       if (!m.pos) continue;
+      const [x, , z] = m.pos;
+      minX = Math.min(minX, x); maxX = Math.max(maxX, x);
+      minZ = Math.min(minZ, z); maxZ = Math.max(maxZ, z);
       const obj = compactSnap(m);
       entries.push({ m, obj, json: JSON.stringify(obj) });
     }
@@ -1401,16 +1404,35 @@ export class ClassRoom {
     }
     this.quietSnaps = 0;
     const farTick = tick % SNAP_FAR_EVERY === 0;
+    const allNearby = entries.length < 2 || (maxX - minX) ** 2 + (maxZ - minZ) ** 2 <= SNAP_NEAR_M ** 2;
+    // Dense rooms and full snapshots share one encoded list. Each recipient
+    // omits just its own row by taking the two surrounding slices.
+    let allRows = "";
+    const spans = new Map<Member, { start: number; end: number }>();
+    if (farTick || allNearby) {
+      for (const { m, json } of entries) {
+        const start = allRows.length;
+        allRows += (start === 0 ? "" : ",") + json;
+        spans.set(m, { start, end: allRows.length });
+      }
+    }
     // the real moment, not tick × 100 ms: timers drift, and clients interpolate on this clock
     const ts = Math.round(performance.now());
+    const header = `{"t":"s-k-snap","ts":${ts},"players":[`;
     for (const [peer, me] of this.byPeer) {
+      if (peer.sendSnap && (farTick || allNearby)) {
+        const own = spans.get(me);
+        const rows = own ? allRows.slice(0, own.start) + allRows.slice(own.end + Number(own.start === 0)) : allRows;
+        peer.sendSnap(header + rows + "]}");
+        continue;
+      }
       const picked = entries.filter(({ m }) => {
         if (m === me) return false;
-        if (farTick || !me.pos || !m.pos) return true;
+        if (farTick || allNearby || !me.pos || !m.pos) return true;
         const dx = m.pos[0] - me.pos[0], dz = m.pos[2] - me.pos[2];
         return dx * dx + dz * dz <= SNAP_NEAR_M * SNAP_NEAR_M;
       });
-      if (peer.sendSnap) peer.sendSnap(`{"t":"s-k-snap","ts":${ts},"players":[${picked.map((e) => e.json).join(",")}]}`);
+      if (peer.sendSnap) peer.sendSnap(header + picked.map((e) => e.json).join(",") + "]}");
       else peer.send({ t: "s-k-snap", ts, players: picked.map((e) => e.obj) });
     }
   }

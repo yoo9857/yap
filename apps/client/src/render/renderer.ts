@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import { HULL_LAYER, InkOutline } from "./inkOutline.js";
+import { WaterPipeline } from "./waterPipeline.js";
 import { DynamicResolution, effectiveFov, pixelRatioFor, qualityProfile, type QualityProfile } from "./display.js";
 import { onSettings, settings } from "../ui/settings.js";
 
@@ -31,6 +32,8 @@ export class GameRenderer {
   readonly sun: THREE.DirectionalLight;
   readonly hemi: THREE.HemisphereLight;
   private ink: InkOutline | null = null;
+  /** `?water2=1`: the frame is built round the water (render/waterPipeline.ts). */
+  waterPipeline: WaterPipeline | null = null;
 
   constructor(mount: HTMLElement) {
     this.renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -191,6 +194,12 @@ export class GameRenderer {
     this.sun.target.position.copy(snapped);
   }
 
+  /** Build the frame round the water from now on (a mode with water asks for it; WebGL2 only). */
+  enableWaterPipeline(): WaterPipeline | null {
+    if (!this.waterPipeline && this.renderer.capabilities.isWebGL2) this.waterPipeline = new WaterPipeline(this.renderer);
+    return this.waterPipeline;
+  }
+
   /** `?ink=hull`: draw the per-brick hull outlines (otherwise no outlines at all). */
   private readonly hulls: boolean;
 
@@ -207,6 +216,10 @@ export class GameRenderer {
     // full-screen composite through a render target does not survive that —
     // so the per-brick hulls come back for the duration.
     const presenting = this.renderer.xr.isPresenting;
+    if (this.waterPipeline && !presenting && !this.ink) {
+      this.waterPipeline.render(this.renderer, this.scene, this.camera);
+      return;
+    }
     if (!this.ink || presenting) {
       if (this.hulls) this.camera.layers.enable(HULL_LAYER);
       else this.camera.layers.disable(HULL_LAYER);
@@ -236,6 +249,9 @@ export class GameRenderer {
    * nothing else draws or a headset may (XR renders straight to it).
    */
   compileTargets(withXr = this.renderer.xr.enabled): (THREE.WebGLRenderTarget | null)[] {
+    // the water pipeline draws the scene into its target; only the water's surface and the
+    // composite go to the canvas, and the warm-up frames draw those themselves
+    if (this.waterPipeline && !this.ink) return [this.waterPipeline.compileTarget];
     if (!this.ink) return [null];
     const size = this.renderer.getDrawingBufferSize(this.tmpSize);
     this.ink.setSize(size.x, size.y);
@@ -246,6 +262,8 @@ export class GameRenderer {
   dispose(): void {
     this.ink?.dispose();
     this.ink = null;
+    this.waterPipeline?.dispose();
+    this.waterPipeline = null;
     window.removeEventListener("resize", this.onResize);
     window.visualViewport?.removeEventListener("resize", this.onResize);
     window.removeEventListener("orientationchange", this.onResize);

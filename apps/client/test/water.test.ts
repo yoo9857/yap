@@ -112,6 +112,20 @@ describe("swimming", () => {
     expect(waterDepthAt(w, 10.5, 7.5, 10.5)).toBeNull();
   });
 
+  it("water against a pond's wall beside an air pocket is still water (not a sheet)", () => {
+    const w = new VoxelWorld();
+    for (let x = 0; x < 30; x++) for (let z = 0; z < 30; z++) {
+      w.set(x, 0, z, STONE);
+      for (let y = 1; y <= 4; y++) w.set(x, y, z, x === 0 || z === 0 || x === 29 || z === 29 ? STONE : y === 4 ? WATER : WATER_FALLING);
+    }
+    // a dry cell against the wall at (1, 2, 5): the falling water at (1, 2, 4) has the wall on one
+    // side and that air on ANOTHER — block and air, but not across from each other
+    w.set(1, 2, 5, 0);
+    expect(waterBodyAt(w, 1, 2, 4)).toBe(WATER_FALLING);
+    expect(submersion(w, body(1.5, 1, 4.5))).toBe(1);
+    expect(pointInWater(w, 1.5, 2.5, 4.5)).toBe(true);
+  });
+
   it("is slower in water than on land", () => {
     const w = pool();
     const wet = body(11.5, 1, 15.5);
@@ -219,6 +233,20 @@ describe("continuous water boundary", () => {
     g.dispose();
   });
 
+  it("fills up to a block sunk in a pond: no square of surface in a gap under it", () => {
+    const w = pool(), cells: number[] = [];
+    for (let x = 10; x < 20; x++) for (let z = 10; z < 20; z++) { w.set(x, 3, z, WATER); cells.push(x, 2, z, x, 3, z); }
+    w.set(15, 3, 15, STONE); // in the pond's top layer, water all round it
+    const g = buildWaterGeometry(w, cells)!, p = g.getAttribute("position"), index = g.index!;
+    // no triangle lies under the block (the old gap face sat at y = 2.875 across its whole cell)
+    for (let i = 0; i < index.count; i += 3) {
+      let cx = 0, cy = 0, cz = 0;
+      for (let j = 0; j < 3; j++) { const k = index.getX(i + j); cx += p.getX(k) / 3; cy += p.getY(k) / 3; cz += p.getZ(k) / 3; }
+      expect(cx > 15.2 && cx < 15.8 && cz > 15.2 && cz < 15.8 && cy < 3.01).toBe(false);
+    }
+    g.dispose();
+  });
+
   it("is watertight through source, curved outlet, fall and receiving water (er/se1)", () => {
     const w = new VoxelWorld();
     for (let y = 3; y <= 8; y++) w.set(8, y, 8, y === 8 ? WATER : WATER_FALLING);
@@ -262,7 +290,8 @@ describe("continuous water boundary", () => {
     };
     expect(reach(8)).toBeLessThan(0.56);    // on the wall at x = 8: a third of the cell, rounded out to half at most
     expect(reach(8)).toBeGreaterThan(0.25);
-    expect(reach(20)).toBeGreaterThan(0.8); // nothing to run down: the column keeps its width
+    expect(reach(20)).toBeGreaterThan(0.7); // nothing to run down: a stream 0.6 m wide (FALL) in the cell's middle,
+    expect(reach(20)).toBeLessThan(0.97);   // neither a sheet nor the whole cell
   });
 
   it("runs water that fell onto a ramp down it as a film, not as a cell of water around it", () => {
@@ -359,9 +388,9 @@ describe("continuous water boundary", () => {
         const a = index.getX(i + j), b = index.getX(i + (j + 1) % 3);
         maxEdge = Math.max(maxEdge, Math.hypot(p.getX(a) - p.getX(b), p.getY(a) - p.getY(b), p.getZ(a) - p.getZ(b)));
       }
-      // a pool's level face beside a fall's foot runs from the sheet (a third into the landing cell)
-      // to the far side of the next cell: 1.66 × 1, and 2.01 across its corner
-      expect(maxEdge).toBeLessThan(2.1);
+      // a pool's level face beside a fall's foot runs from the sheet (a 0.09 m film at the landing
+      // cell's face) to the far side of the next cell: 1.91 × 1, and up to 2.22 across its corner
+      expect(maxEdge).toBeLessThan(2.3);
       const topology = new Map<string, number>();
       for (let i = 0; i < index.count; i += 3) for (let j = 0; j < 3; j++) {
         const a = index.getX(i + j), b = index.getX(i + (j + 1) % 3);

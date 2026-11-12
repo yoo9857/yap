@@ -14,7 +14,9 @@ const check = (label, ok, extra = "") => { console.log(`${ok ? "PASS" : "FAIL"} 
 try {
   const page = await browser.newPage();
   await page.setViewport({ width: 1100, height: 680 });
-  await page.goto(`${BASE}/?mode=field&reset=1`, { waitUntil: "load", timeout: 60000 });
+  page.on("pageerror", (e) => console.log("pageerror", e.message));
+  page.on("console", (m) => { if (m.type() === "error" || /WebGL|shader|GLSL/i.test(m.text())) console.log("console", m.text().slice(0, 300)); });
+  await page.goto(`${BASE}/?mode=field&reset=1${process.env.QUERY ?? ""}`, { waitUntil: "load", timeout: 60000 });
   await page.waitForFunction(() => !!globalThis.__roboCraft && document.getElementById("boot-overlay")?.classList.contains("hidden"), { timeout: 90000 });
   await page.addStyleTag({ content: ".craft-hint,.craft-hud,.game-menu{display:none!important}" });
   const frames = async (n) => { for (let i = 0; i < n; i++) await page.evaluate(() => new Promise((r) => requestAnimationFrame(r))); };
@@ -47,7 +49,8 @@ try {
     return state();
   };
   const deep = await at("deep", [cx + 0.5, Y - 2.9, cz + 4.5], Math.PI, 0.05);
-  check("well under the pond's surface the screen is underwater", deep.underwater && deep.on && deep.clip === "", JSON.stringify(deep).slice(0, 160));
+  const pipeline = await page.evaluate(() => globalThis.__roboCraft.water().pipeline);
+  check("well under the pond's surface the screen is underwater", deep.underwater && (pipeline || deep.on && deep.clip === ""), JSON.stringify(deep).slice(0, 160));
   // First person (the camera IS the eye), lowered through the surface a centimetre at a time: the
   // wash must cover a growing part of the screen on the way — never nothing and then everything.
   await page.evaluate(() => globalThis.__roboCraft.firstPerson(true));

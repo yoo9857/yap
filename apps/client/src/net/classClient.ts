@@ -242,6 +242,7 @@ export class ClassClient {
   private replacedWhileLoading = false;
   private terminal: Extract<ClassServerMessage, { t: "s-k-error" | "s-k-kicked" | "s-k-closed" }> | null = null;
   private pending: { session: ClassSession; expected: number } | null = null;
+  private joined = false;
   /** A reconnect that finished before the game called `activate()`: handed to onResync then. */
   private resynced: ClassSession | null = null;
   /** The server's keepalive promise (s) and when we last heard anything; null = no watchdog. */
@@ -266,12 +267,15 @@ export class ClassClient {
     });
   }
 
-  get connected(): boolean { return !this.ended && this.ws?.readyState === WebSocket.OPEN && !this.pending && !this.first; }
+  get connected(): boolean { return this.joined && !this.ended && this.ws?.readyState === WebSocket.OPEN; }
 
   send(msg: ClassClientMessage): boolean {
-    if (this.ws?.readyState !== WebSocket.OPEN) return false;
-    if (this.ws.bufferedAmount > 256 * 1024) { this.ws.close(1000, "backpressure"); return false; }
-    this.ws.send(JSON.stringify(msg)); return true;
+    const ws = this.ws;
+    if (!ws || !this.connected) return false;
+    if (ws.bufferedAmount > 256 * 1024) { ws.close(1000, "backpressure"); return false; }
+    // A later tick replaces this position. Leave room for edits and other reliable messages.
+    if (msg.t === "k-move" && ws.bufferedAmount >= 16 * 1024) return false;
+    ws.send(JSON.stringify(msg)); return true;
   }
 
   /** The game has installed its handlers and initial field. Reliable messages
@@ -348,11 +352,10 @@ export class ClassClient {
     ws.onopen = () => {
       if (this.ws !== ws || this.ended) return;
       const key = loadKey(this.join);
-      this.send(
-        this.join.role === "teacher"
+      const message: ClassClientMessage = this.join.role === "teacher"
           ? { t: "k-host", v: CLASS_PROTOCOL_VERSION, room: this.join.room, teacher: this.join.teacher, password: this.join.password, hostKey: key }
-          : { t: "k-join", v: CLASS_PROTOCOL_VERSION, room: this.join.room, student: this.join.student, seatKey: key },
-      );
+          : { t: "k-join", v: CLASS_PROTOCOL_VERSION, room: this.join.room, student: this.join.student, seatKey: key };
+      ws.send(JSON.stringify(message));
     };
     ws.onmessage = (e) => {
       if (this.ws !== ws || this.ended) return;
@@ -369,6 +372,7 @@ export class ClassClient {
   /** The socket is gone (closed, or declared dead by the watchdog): end, or reconnect. */
   private lost(ws: WebSocket, reason: string): void {
     if (this.ws !== ws) return;
+    this.joined = false;
     this.ws = null; this.clearLoadTimer(); this.stopWatchdog(); this.pending = null; this.early = []; this.earlyEdits = 0;
     // Our seat was taken over by our own key (the same class opened in another tab). Reconnecting
     // with that key would take it back, and the other tab would do the same, forever.
@@ -577,6 +581,7 @@ export class ClassClient {
     const p = this.pending;
     if (!p || p.session.edits.length < p.expected) return;
     this.pending = null;
+    this.joined = true;
     this.clearLoadTimer();
     if (this.first) {
       this.first.resolve(p.session);

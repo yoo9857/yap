@@ -1,5 +1,6 @@
 import * as THREE from "three";
-export { buildWaterGeometry, prepareWaterTransition } from "./waterGeometry.js";
+import { waterPipelineUniforms } from "../render/waterPipeline.js";
+export { buildWaterGeometry, prepareWaterTransition } from "./waterMesher.js";
 
 /** One periodic, mipmapped normal/foam texture, reused across mode switches. */
 let detailTexture: THREE.DataTexture | null = null;
@@ -42,6 +43,12 @@ const uniforms = {
   uTime: { value: 0 }, uOrigin: { value: new THREE.Vector2() },
   uWaterDetail: { value: null as THREE.DataTexture | null },
   uSky: { value: new THREE.Color(0xb9e4f2) }, uDeep: { value: new THREE.Color(0x126c83) },
+  /** `?waterdebug=1`: the water's SHAPE in flat colours, for finding what is wrong with it —
+   *  level faces blue, upright faces green, tilted panels red (the steeper the darker), each
+   *  triangle lit by its own flat normal so a bulge or a step shows as a facet. */
+  /** 1 = the simple, Minecraft-like water: its own short shading in the surface pass. */
+  uWaterSimple: { value: typeof location !== "undefined" && new URLSearchParams(location.search).get("watershape") === "net" ? 0 : 1 },
+  uWaterDebug: { value: typeof location !== "undefined" && new URLSearchParams(location.search).has("waterdebug") ? 1 : 0 },
 };
 const VERTEX_HEAD = /* glsl */ `
 attribute float aWave;
@@ -70,6 +77,13 @@ uniform vec3 uSky;
 uniform vec3 uDeep;
 uniform sampler2D uWaterDetail;
 uniform int uPass;
+uniform float uWaterDebug;
+uniform float uWaterSimple;
+uniform sampler2D tSceneDepth;
+uniform sampler2D tWaterFront;
+uniform sampler2D tWaterBack;
+uniform vec2 uScreen;
+uniform vec2 uNearFar;
 varying vec3 vWPos;
 varying vec3 vWNormal;
 varying vec3 vFlow;
@@ -85,8 +99,8 @@ vec4 waterNoise(vec2 p, vec2 drift) {
 `;
 
 /** Which part of the water a material draws (VoxelView.installWater draws all three, in this order). */
-export type WaterPass = "all" | "level" | "depth" | "steep";
-const PASS: Record<WaterPass, number> = { all: 0, level: 1, depth: 2, steep: 3 };
+export type WaterPass = "all" | "level" | "depth" | "steep" | "front" | "back" | "surface";
+const PASS: Record<WaterPass, number> = { all: 0, level: 1, depth: 2, steep: 3, front: 4, back: 5, surface: 6 };
 
 /**
  * Lit, shadowed, fogged water with no reflection camera or extra scene pass.
@@ -102,6 +116,12 @@ const PASS: Record<WaterPass, number> = { all: 0, level: 1, depth: 2, steep: 3 }
  * (dark overlaps, inner edges showing through) in whatever order the triangles happened to be
  * listed — which changed with every flow step, so the surface shimmered. (Nearest layer for ALL of
  * it was tried: the stream behind a sheet vanished, leaving a bright dry patch.)
+ *
+ * With the water pipeline (`?water2=1`, render/waterPipeline.ts) the same shader serves its three
+ * passes instead: `front` / `back` write the depth of the nearest front and back faces not hidden
+ * by the scene, and `surface` draws only what the surface adds — reflection, glints, foam — on the
+ * nearest layer, fading out where the water is thin. The water's body (tint, murk) is the
+ * pipeline's composite, which knows how much water each pixel looks through.
  */
 export function makeWaterMaterial(pass: WaterPass = "all"): THREE.MeshStandardMaterial {
   uniforms.uWaterDetail.value = waterDetail();
@@ -112,8 +132,14 @@ export function makeWaterMaterial(pass: WaterPass = "all"): THREE.MeshStandardMa
     forceSinglePass: true,
   });
   material.onBeforeCompile = (shader) => {
-    Object.assign(shader.uniforms, uniforms);
+    Object.assign(shader.uniforms, uniforms, waterPipelineUniforms);
     shader.uniforms.uPass = { value: PASS[pass] };
+    // A pass must not sample a texture it is being drawn into (a feedback loop: the draw is
+    // dropped). Only `surface` reads all three, on the canvas; `front`/`back` read the scene's
+    // depth while writing their own; every other pass reads none (the warm-up quad is in the scene).
+    const none = { value: null };
+    if (pass !== "surface") shader.uniforms.tWaterFront = shader.uniforms.tWaterBack = none;
+    if (pass !== "surface" && pass !== "front" && pass !== "back") shader.uniforms.tSceneDepth = none;
     shader.vertexShader = shader.vertexShader
       .replace("#include <common>", `#include <common>\n${VERTEX_HEAD}`)
       .replace("#include <begin_vertex>", /* glsl */ `#include <begin_vertex>
@@ -134,20 +160,59 @@ export function makeWaterMaterial(pass: WaterPass = "all"): THREE.MeshStandardMa
         float levelness = smoothstep(0.4, 0.85, abs(normalize(vWNormal).y));
         float share = uPass == 1 ? levelness : uPass == 3 ? 1.0 - levelness : 1.0;
         if (share < 0.004) discard;
+        // pipeline passes: nothing behind the scene, and (surface) only the nearest layer of water
+        // (waterThick: how much WATER the ray passes through here, front face to the nearest back
+        // face or the scene — a film is a few centimetres however far the scene behind it is)
+        float thin = 1.0, behindWater = 1.0e6, waterThick = 1.0e6;
+        if (uPass >= 4) {
+          vec2 screen = gl_FragCoord.xy / uScreen;
+          float sceneDepth = texture2D(tSceneDepth, screen).x;
+          if (gl_FragCoord.z > sceneDepth) discard;
+          if (uPass < 6) { gl_FragColor = vec4(0.0); return; }
+          float nearest = min(texture2D(tWaterFront, screen).x, texture2D(tWaterBack, screen).x);
+          if (gl_FragCoord.z > nearest + 0.00004) discard;
+          // how much water is behind this point of the surface: thin water has no visible surface
+          float behind = sceneDepth >= 1.0 ? 1.0e6 : -perspectiveDepthToViewZ(sceneDepth, uNearFar.x, uNearFar.y);
+          behindWater = behind + perspectiveDepthToViewZ(gl_FragCoord.z, uNearFar.x, uNearFar.y);
+          // (5 cm, not 14: water a hand deep on a block was half faded everywhere, in patches with
+          // straight edges where its sloping surface crossed that depth)
+          thin = smoothstep(0.0, 0.05, behindWater);
+          float backDepth = texture2D(tWaterBack, screen).x;
+          float backZ = backDepth >= 1.0 ? 1.0e6 : -perspectiveDepthToViewZ(backDepth, uNearFar.x, uNearFar.y);
+          waterThick = max(0.0, min(backZ, behind) + perspectiveDepthToViewZ(gl_FragCoord.z, uNearFar.x, uNearFar.y));
+        }
         // the depth pass writes no colour: skip the lighting, the texture reads and the foam
         if (uPass == 2) { gl_FragColor = vec4(0.0); return; }`)
       .replace("#include <dithering_fragment>", `#include <dithering_fragment>
-        gl_FragColor.a *= share;`)
+        gl_FragColor.a *= share * thin;`)
       .replace("#include <normal_fragment_maps>", /* glsl */ `#include <normal_fragment_maps>
         vec2 p = vWPos.xz + uOrigin;
-        bool curtain = vFlow.y > 0.5 && abs(vWNormal.y) < 0.5;
+        // Running water — a fall, a sheet, and the wedge where one lands on a block — is a film,
+        // whichever way its face points. (Only its upright faces were: the slanted and level ones
+        // beside them got a pond's surface, an opaque grey slab against the wall in a block's shadow.)
+        bool curtain = vFlow.y > 0.5 && abs(vWNormal.y) < 0.5 || vFlow.y > 0.3;
         vec2 drift = vec2(0.09, 0.035) + vFlow.xz * 0.55;
         vec4 detail;
         vec3 wn = normalize(vWNormal);
         if (curtain) {
-          float along = dot(p, vec2(-vWNormal.z, vWNormal.x));
-          detail = waterNoise(vec2(along * 0.5, vWPos.y * 0.0625), vec2(0.025, -1.2));
-          wn = normalize(wn + vec3(detail.r - 0.5, 0.0, detail.g - 0.5) * 0.14);
+          // The place ALONG the face, the same on every face and across every edge. (Taken from
+          // the vertex normal it bent inside each triangle — the normals are smoothed, so they
+          // differ corner to corner — and the rivulets came out as white zigzags, like feathers.)
+          // ... and not x + z either: on a face that LEANS (a sheet widening at its foot) that sum
+          // changes with height, and two such faces side by side made a chevron again. The face's
+          // own flat normal picks the horizontal axis it runs along.
+          vec3 faceNormal = cross(dFdx(vWPos), dFdy(vWPos));
+          float along = abs(faceNormal.x) > abs(faceNormal.z) ? p.y : p.x;
+          // (a level face of running water has no "down": laid along height, its streaks were
+          // level bands across it — there the pattern is taken from the ground plan)
+          bool lying = abs(vWNormal.y) > 0.6;
+          // (the simple water's falls run calmer: half the speed, mostly the broad streaks)
+          float calmFall = uWaterSimple > 0.5 ? 0.5 : 1.0;
+          detail = waterNoise(lying ? p * 0.3 : vec2(along * 0.5, vWPos.y * 0.0625), lying ? drift * 4.0 : vec2(0.025, -1.2 * calmFall));
+          // finer rivulets running faster than the broad ones
+          float fineShare = uWaterSimple > 0.5 ? 0.2 : 0.45;
+          detail.a = detail.a * (1.0 - fineShare) + waterNoise(lying ? p * 0.8 : vec2(along * 1.9, vWPos.y * 0.12), lying ? drift * 6.0 : vec2(0.01, -2.2 * calmFall)).a * fineShare;
+          wn = normalize(wn + vec3(detail.r - 0.5, 0.0, detail.g - 0.5) * 0.2);
         } else {
           detail = waterNoise(p * 0.0625, drift);
           vec2 fine = texture2D(uWaterDetail, p * 0.125 + vec2(-uTime * 0.004, uTime * 0.003)).rg;
@@ -177,21 +242,127 @@ export function makeWaterMaterial(pass: WaterPass = "all"): THREE.MeshStandardMa
         float impact = vWater.y * smoothstep(0.4, 0.68, detail.b) * 0.76;
         float shore = (1.0 - vWater.x) * smoothstep(0.48, 0.72, detail.a) * 0.26;
         float bubbles = max(impact, shore);
+        float threads = 0.0, curtainBody = 0.0;
         if (curtain) {
-          float threads = smoothstep(0.37, 0.7, detail.a);
-          outgoingLight = mix(outgoingLight, vec3(0.3, 0.64, 0.72), 0.42);
-          bubbles = threads * 0.26;
-          diffuseColor.a = 0.3 + threads * 0.16 + fresnel * 0.12;
+          // Water running down a face is a film ON it: the wall shows through, wet, and the water
+          // is seen as the rivulets running in it — not as a clear skin standing off the wall.
+          threads = smoothstep(0.42, 0.7, detail.a);
+          // (lit only a little: in a block's shadow the film went dark teal, a band under the block)
+          // ... and once it has left the wall (nothing close behind it) it is a sheet of WATER:
+          // blue, see-through, its streaks only a little lighter. Drawn like the film on a wall —
+          // nearly clear with white threads — a sheet in the air was a gauze curtain, wind not water.
+          float free = uPass == 6 ? smoothstep(0.15, 0.6, behindWater) : 0.0;
+          outgoingLight = mix(max(outgoingLight, vec3(0.34, 0.62, 0.72)), mix(vec3(0.52, 0.8, 0.9), vec3(0.24, 0.56, 0.84), free), 0.6 + free * 0.3);
+          bubbles = threads * mix(0.35, 0.2, free);
+          diffuseColor.a = mix(0.14, 0.46, free) + threads * mix(0.36, 0.16, free) + fresnel * 0.12;
+          curtainBody = diffuseColor.a;
         } else {
           // A narrow trickle/isolated source must remain visible, too.
           diffuseColor.a *= mix(0.68, 1.0, smoothstep(0.1, 0.95, vWater.x));
         }
         outgoingLight = mix(outgoingLight, vec3(0.86, 0.94, 0.95), bubbles);
         diffuseColor.a = max(diffuseColor.a, bubbles * 0.85);
+        if (uPass == 6) {
+          // The surface: its own light colour as a thin veil (so a stream a hand deep, or a sheet on
+          // a wall, still reads as water), the sky it mirrors at a glancing angle, the sun's glint,
+          // foam. The DEPTH of the water — tint and murk — is the composite's, which knows how much
+          // water lies behind each pixel; real clear water this shallow would be invisible.
+          float glint = dot(totalSpecular, vec3(0.3333));
+          // The light lines and the froth's pattern run WITH the flow (p − drift·t, like every other
+          // pattern here; they were p + drift·t: the one thing on the water that visibly moved ran
+          // back toward the spring). Two phases blended, so a flow that differs from cell to cell
+          // does not shear the pattern more and more as time goes on.
+          vec4 laced = waterNoise(p * 0.21, drift * 7.0);
+          float lace = laced.b * 0.6 + laced.a * 0.4;
+          if (uWaterSimple > 0.5) {
+            // The simple water: plainly WATER, like a toy's. Blue by how much of it there is —
+            // light and clear where it is shallow, deep blue where it is deep — the sky on it at a
+            // glancing angle, light lines running with it, froth where it meets something; a fall
+            // is white water streaking down over blue. Two texture reads, no branches per layer.
+            // One water everywhere: nearly the same blue and the same see-through whether a hand
+            // deep on a block or a metre deep beside it. (Coloured strongly by depth, the water on
+            // a block's top was clear next to opaque blue all round it — the block looked like a
+            // hole in the water.)
+            float deepK = smoothstep(0.4, 3.5, waterThick);
+            vec3 body = mix(vec3(0.27, 0.66, 0.92), vec3(0.1, 0.42, 0.8), deepK * 0.75);
+            // (a little of the scene's light, so a block's shadow still lies on the water)
+            float lit = clamp(dot(outgoingLight, vec3(0.3333)) * 1.7, 0.65, 1.08);
+            if (vFlow.y > 0.5) {
+              // falling: the same water, with faint lighter streaks drifting down it. (Strong white
+              // streaks racing down every wall were too much of a show — the owner, 2026-11-12.)
+              float streak = smoothstep(0.42, 0.82, detail.a);
+              outgoingLight = mix(body * lit, vec3(0.88, 0.95, 1.0), streak * 0.2);
+              diffuseColor.a = 0.6 + streak * 0.08;
+            } else {
+              outgoingLight = mix(body * lit, reflected, fresnel * 0.6);
+              float reach = behindWater * max(facing, 0.3);
+              float band = clamp(vWater.z * 0.3, 0.025, 0.13);
+              float contact = 1.0 - smoothstep(band * 0.15, band, reach);
+              float froth = contact * smoothstep(0.42, 0.6, lace + contact * 0.4);
+              float lines = smoothstep(0.62, 0.76, lace) * 0.24;
+              float white = max(froth * 0.92, lines);
+              outgoingLight = mix(outgoingLight, vec3(0.95, 0.98, 1.0), white);
+              diffuseColor.a = max(clamp(mix(0.58, 0.72, deepK) + fresnel * 0.3 + glint, 0.0, 0.96), white);
+              thin = max(thin, froth);
+            }
+          } else {
+          // (the veil grows with the water behind it: a hand of water over a brown block at the
+          // full veil, in that block's shadow, was a grey slab — the block must keep its colour)
+          // (not much: at 0.07 a stream on the grass was gone altogether)
+          float veil = mix(0.22, 0.3, smoothstep(0.25, 2.2, behindWater));
+          if (!curtain) outgoingLight = max(outgoingLight, vec3(0.16, 0.4, 0.5));
+          diffuseColor.a = clamp((curtain ? curtainBody : veil + fresnel * 0.6 + bubbles * 0.6) + glint, 0.0, 0.96);
+          // How much water lies under this point, roughly straight down (the pipeline knows what
+          // is behind the surface): where that runs out the water MEETS something — a bank, a
+          // wall, a block standing in it — and there it froths.
+          float reach = behindWater * max(facing, 0.3);
+          if (curtain) {
+            // A fall in the open is white water, not a pane of glass: streaks running down it,
+            // nearly opaque. A film on a face (little behind it) keeps showing the wall.
+            // (by the water's own thickness: by the distance to the scene behind, every thin sheet
+            // hanging in the air counted as a fall and went white and opaque)
+            float body = smoothstep(0.25, 0.55, waterThick) * (1.0 - smoothstep(0.6, 0.9, abs(vWNormal.y)));
+            float streak = smoothstep(0.3, 0.62, detail.a);
+            outgoingLight = mix(outgoingLight, vec3(0.9, 0.96, 0.98), body * (0.3 + streak * 0.55));
+            diffuseColor.a = mix(diffuseColor.a, 0.46 + streak * 0.44, body);
+          } else {
+            // (the band is narrower on shallow water: a puddle a hand deep is within 13 cm of the
+            // block under it everywhere, and frothed all over — a milky slab lying on the block)
+            float band = clamp(vWater.z * 0.3, 0.025, 0.13);
+            float contact = 1.0 - smoothstep(band * 0.15, band, reach);
+            float froth = contact * smoothstep(0.42, 0.6, lace + contact * 0.4);
+            // light running lines on open water, so it is seen to move
+            float lines = smoothstep(0.6, 0.74, lace) * 0.16 * smoothstep(0.1, 0.5, reach);
+            float white = max(froth * 0.92, lines);
+            outgoingLight = mix(outgoingLight, vec3(0.94, 0.98, 0.99), white);
+            diffuseColor.a = max(diffuseColor.a, white);
+            // (the foam IS the edge: it must not fade out with the thin water it marks)
+            thin = max(thin, froth);
+          }
+          }
+        }
+        if (uWaterDebug > 0.5) {
+          vec3 fn = normalize(cross(dFdx(vWPos), dFdy(vWPos)));
+          float up = abs(fn.y);
+          vec3 tint = up > 0.93 ? vec3(0.1, 0.45, 1.0) : up < 0.25 ? vec3(0.1, 0.8, 0.3) : mix(vec3(0.75, 0.0, 0.1), vec3(1.0, 0.55, 0.0), up);
+          float lit = 0.55 + 0.45 * abs(dot(fn, normalize(vec3(0.45, 0.7, 0.55))));
+          // triangle edges darker: the mesh itself can be read
+          vec3 bary = fwidth(vWPos);
+          outgoingLight = tint * lit;
+          diffuseColor.a = 0.92 + 0.0 * bary.x;
+        }
         #include <opaque_fragment>`);
   };
-  material.customProgramCacheKey = () => "craft-water-continuous-3";
+  material.customProgramCacheKey = () => "craft-water-continuous-9";
   if (pass === "depth") { material.colorWrite = false; material.depthWrite = true; }
+  if (pass === "front" || pass === "back") {
+    material.side = pass === "front" ? THREE.FrontSide : THREE.BackSide;
+    material.transparent = false;
+    material.forceSinglePass = false;
+    material.colorWrite = false;
+    material.depthWrite = true;
+  }
+  if (pass === "surface") { material.depthTest = false; material.fog = true; }
   return material;
 }
 

@@ -11,7 +11,8 @@ try {
   await page.waitForFunction(() => !!globalThis.__roboCraft, { timeout: 60000 });
   const result = await page.evaluate(async () => {
     const { VoxelWorld } = await import("/src/craft/voxelWorld.ts");
-    const { buildWaterGeometry } = await import("/src/craft/waterMesh.ts");
+    const { buildWaterGeometry, loadWaterEngine } = await import("/src/craft/waterMesher.ts");
+    await loadWaterEngine(); // the main thread's own copy of the Rust mesher
     const world = new VoxelWorld();
     const cells = [];
     for (let x = 16; x < 48; x++) for (let z = 16; z < 48; z++) {

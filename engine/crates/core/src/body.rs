@@ -55,6 +55,13 @@ impl BodyWorld for World {
     }
 }
 
+static BY_AMOUNT: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+/// fluid.ts `drawWaterByAmount`: finite water (`?water=finite`), whose flowing ids are amounts —
+/// the surface stands that high.
+pub fn draw_water_by_amount(on: bool) {
+    BY_AMOUNT.store(on, std::sync::atomic::Ordering::Relaxed);
+}
+
 /// fluid.ts `waterHeight`: a water cell's surface height in its cell.
 pub fn water_height(id: u8, covered: bool) -> f64 {
     if !is_water(id) {
@@ -67,6 +74,8 @@ pub fn water_height(id: u8, covered: bool) -> f64 {
     let level = water_level(id);
     if level == 0 {
         0.875
+    } else if BY_AMOUNT.load(std::sync::atomic::Ordering::Relaxed) {
+        0.875 * (8 - level) as f64 / 8.0
     } else {
         0.64 - level as f64 * 0.077
     }
@@ -137,22 +146,22 @@ fn fall_is_sheet<W: BodyWorld + ?Sized>(world: &W, x: i32, mut y: i32, z: i32) -
         if world.water_at(x, y, z) != WATER_FALLING {
             return false;
         }
-        let (mut air, mut block) = (false, false);
+        // open air on ONE side with a block straight across from it (voxelBody.ts)
+        let (mut faces, mut open) = (0, false);
         for (dx, dz) in [(1, 0), (-1, 0), (0, 1), (0, -1)] {
-            if is_water(world.water_at(x + dx, y, z + dz)) {
+            if is_water(world.water_at(x + dx, y, z + dz)) || world.is_blocked(x + dx, y, z + dz) {
                 continue;
             }
-            if world.is_blocked(x + dx, y, z + dz) {
-                block = true;
-            } else {
-                air = true;
+            open = true;
+            if world.is_blocked(x - dx, y, z - dz) {
+                faces += 1;
             }
         }
-        if !air {
-            return false;
-        }
-        if block {
+        if faces == 1 {
             return true;
+        }
+        if faces > 1 || !open {
+            return false;
         }
         y += 1;
     }

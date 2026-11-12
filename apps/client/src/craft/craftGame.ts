@@ -42,6 +42,7 @@ import type { ClassClient, ClassSession } from "../net/classClient.js";
 import { SWIM_DEPTH, pointInWater, waterDepthAt, stepBody, unstick, overlapsShapedVoxel, overlapsVoxel, wishFromInput, type Body } from "./voxelBody.js";
 import {SandSim} from "./sandSim.js";
 import { WaterSim } from "./waterSim.js";
+import type { WaterPipeline } from "../render/waterPipeline.js";
 import { classKey, seatLayout, WATER, WATER_SETTLED, drawWaterByAmount, isWater, emoteDef, lookDirection, pickBonk, bonkBlocked, tapBeatsDig, BONK_COOLDOWN_MS, BONK_DECAY, BONK_PUSH_CAP, type EmoteId, type CharacterId, type ClassAnim, type CharacterAction, type CharacterPresentation, postureTransition } from "@robo/shared";
 import { EmoteMenu } from "./emoteMenu.js";
 import { adoptPosture, moveScale, POSTURE_EYE, type Posture } from "./posture.js";
@@ -508,7 +509,7 @@ export class CraftGame {
     }
 
     this.workshop = new MachineWorkshop(this.renderer.scene, this.renderer.camera,
-      this.renderer.renderer.domElement, this.state.world, (active) => {
+      this.renderer.renderer, this.state.world, (active) => {
         this.keys.clear(); this.mining = this.placing = false;
         this.miningFrac = null; this.miningProgress = 0; this.miningTarget = null;
         this.hud.setWorkshopOpen(active);
@@ -553,11 +554,28 @@ export class CraftGame {
     // solo play runs the water itself; a classroom's water is the server's
     // `?engine=rust`: the same rules in the Rust engine (docs/ENGINE.md), loaded by main.ts
     const layout = this.state.furniture;
+    // The frame is built round the water — tint and murk by how much water each pixel looks
+    // through, above, at and under the surface alike (docs/WATER_DESIGN_KO.md, stages A and B).
+    // On by default where there is a mouse; a phone keeps the plain path until it is measured
+    // there (`?water2=1` forces it on, `?water2=0` off).
+    const water2 = new URLSearchParams(location.search).get("water2");
+    if (water2 === "1" || water2 !== "0" && !isTouchPlay()) {
+      this.waterPipeline = this.renderer.enableWaterPipeline();
+      if (this.waterPipeline) this.view.useWaterPipeline(this.waterPipeline);
+    }
     // `?water=finite` (solo): water is an amount — a bucket is one cell of it and a pool that is
     // opened runs out (packages/shared/src/fluidVolume.ts). Old poured water stays a spring.
     this.finiteWater = !this.sync && new URLSearchParams(location.search).get("water") === "finite";
     drawWaterByAmount(this.finiteWater);
     this.view.setFiniteWater(this.finiteWater);
+    // Water in the air — falls, lips, springs beside a wall — as films and streams, apart from the
+    // cells (`?falls=0`: the one lattice surface, as the native app still draws it). Not with
+    // finite water, whose flowing ids are amounts.
+    this.view.setWaterStreams(!this.finiteWater && new URLSearchParams(location.search).get("falls") !== "0");
+    // The water's shape: simple, like Minecraft — a box per cell, the surface sloping from cell to
+    // cell, falling water a whole cell (owner's call 2026-11-12). `?watershape=net` draws the
+    // surface net with its films instead (the earlier look, kept for comparison).
+    this.view.setWaterSimple(new URLSearchParams(location.search).get("watershape") !== "net");
     this.water = this.sync ? null : new WaterSim(this.state.world, this.view, this.field, {
       finite: this.finiteWater,
       rust: opts.rust ?? null,
@@ -579,6 +597,9 @@ export class CraftGame {
   private readonly water: WaterSim | null;
   /** Blue wash over the screen while the camera is underwater. */
   private readonly underwaterTint = document.createElement("div");
+  /** `?water2=1`: see where it is asked for. The pipeline draws the underwater look per pixel, so the
+   *  wash and the fog switch below are the plain path's alone. */
+  private waterPipeline: WaterPipeline | null = null;
   /** How much of the screen (from the bottom) is below the waterline, 0‒1. */
   private underwaterCover = 0;
   private underwater = false;
@@ -1503,6 +1524,7 @@ export class CraftGame {
   private characterAnimation(): ClassAnim {
     if (this.seated || this.posture === "sit") return "sit";
     if (this.posture === "lie") return "lie";
+    if (this.workshop?.active) return "idle";
     if (this.posture === "crawl") return "crawl";
     if (!this.body.grounded && (this.body.wet ?? 0) < SWIM_DEPTH) return this.body.vy > .1 ? "jump" : "fall";
     return Math.hypot(this.body.vx,this.body.vz) > .5 ? "run" : "idle";
@@ -2107,6 +2129,17 @@ export class CraftGame {
 
   private render(alpha: number, frameDt: number): void {
     this.syncLock();
+    this.hud.syncMenu(this.workshop.active || this.furniture.panelOpen || this.petShop.open || this.emoteMenu.open || this.science?.panelOpen === true || this.sync?.toolsOpen === true
+      || performance.now() < this.resumeUntil || document.querySelector(".class-ended") !== null);
+    if (this.workshop.previewing) {
+      const flightFocus = this.workshop.flightPreparationFocus;
+      if (flightFocus) {
+        this.detailFocus.copy(flightFocus);
+        this.perf.time("chunks", () => this.view.update(this.state.world, this.detailFocus));
+      }
+      this.renderWorkshop(frameDt);
+      return;
+    }
     const target=this.miningTarget,progress=this.miningFrac;
     if(this.debugMine){const t=this.debugMine.cell,def=blockById(this.state.world.get(...t));if(def){const shape=this.state.world.getShape(...t);this.miningEffects.setProgress(t,def,shape,this.debugMine.progress,()=>this.view.miningShape(shape,def.id,t,this.state.world));}}
     else if(this.locked&&(this.mining||this.itemAttack.active)&&!this.workshop.active&&target&&progress!==null&&!this.aimFurniture){
@@ -2114,8 +2147,6 @@ export class CraftGame {
     }else this.miningEffects.clearTarget();
     this.miningEffects.update(frameDt,this.state.world);
     const drawn = this.interpolatedBody(alpha);
-    this.hud.syncMenu(this.workshop.active || this.furniture.panelOpen || this.petShop.open || this.emoteMenu.open || this.science?.panelOpen === true || this.sync?.toolsOpen === true
-      || performance.now() < this.resumeUntil || document.querySelector(".class-ended") !== null);
     this.sky.update(this.renderer.camera);
     // integer steps keep the 1 m texture tiles aligned with the voxel grid
     this.fieldGround?.position.set(Math.round(this.body.x), FIELD_GROUND_Y, Math.round(this.body.z));
@@ -2125,19 +2156,7 @@ export class CraftGame {
     if (!this.workshop.active) this.detailFocus.set(drawn.x, drawn.y + EYE_HEIGHT, drawn.z);
     this.perf.time("chunks", () => this.view.update(this.state.world, this.detailFocus));
     if (this.workshop.active) {
-      this.rig.root.visible = false;
-      this.pet.setVisible(false);
-      this.petShop.setVisible(false);
-      this.furniture.setVisible(false);
-      this.ghost.visible = false;
-      this.view.setHighlight(null);
-      this.labAudio(frameDt);
-      if (this.workshop.scienceActive) { this.workshop.renderScience(frameDt); return; }
-      const target = this.workshop.render(frameDt);
-      this.detailFocus.copy(target);
-      this.renderer.trackTarget(target);
-      this.perf.time("render", () => this.renderer.render());
-      this.perf.update(this.renderer.renderer, frameDt);
+      this.renderWorkshop(frameDt);
       return;
     }
     this.ghost.visible = true;
@@ -2327,7 +2346,12 @@ export class CraftGame {
       const line = Math.abs(cos) > 0.05 ? (depth - camera.near * sin) / cos : depth > 0 ? Infinity : -Infinity;
       covered = THREE.MathUtils.clamp((line + half) / (2 * half), 0, 1);
     }
-    if (covered !== this.underwaterCover) {
+    if (this.waterPipeline) {
+      // the pipeline wants the row itself (clip space): what is under it and shows no water
+      // surface is looking from inside the water
+      this.waterPipeline.waterline = depth === null ? -2 : THREE.MathUtils.clamp(covered * 2 - 1, -2, 2) + (covered >= 1 ? 1 : covered <= 0 ? -1 : 0);
+      this.underwaterCover = covered;
+    } else if (covered !== this.underwaterCover) {
       this.underwaterCover = covered;
       this.underwaterTint.classList.toggle("on", covered > 0);
       this.underwaterTint.classList.toggle("split", covered > 0 && covered < 1);
@@ -2352,9 +2376,35 @@ export class CraftGame {
     if ((this.roomProbeIn -= frameDt) <= 0) { this.roomProbeIn = 0.25; this.sfx.setRoom(OPEN_AIR); }
   }
 
+  private renderWorkshop(frameDt: number): void {
+    if (this.workshop.scienceActive) {
+      this.labAudio(frameDt);
+      this.workshop.renderScience(frameDt);
+      return;
+    }
+    const target = this.workshop.render(frameDt);
+    if (target) {
+      this.rig.root.visible = false;
+      this.pet.setVisible(false);
+      this.petShop.setVisible(false);
+      this.furniture.setVisible(false);
+      this.ghost.visible = false;
+      this.view.setHighlight(null);
+      this.labAudio(frameDt);
+      if (!this.workshop.previewing) {
+        this.detailFocus.copy(target);
+        this.sync?.render(frameDt, target);
+      }
+      this.renderer.trackTarget(target);
+      this.perf.time("render", () => this.renderer.render());
+    }
+    this.perf.update(this.renderer.renderer, frameDt);
+  }
+
   private setUnderwater(under: boolean): void {
     this.underwater = under;
     this.sfx.setUnderwater(under);
+    if (this.waterPipeline) return; // the murk is per pixel there: the distance fog stays the air's
     const fog = this.renderer.scene.fog as THREE.Fog;
     if (under) {
       fog.color.set(UNDERWATER_FOG);
@@ -2464,7 +2514,7 @@ export class CraftGame {
           cells++;
           if (id === WATER) sources++;
         }
-        return { wet: this.body.wet ?? 0, underwater: this.underwater, cover: this.underwaterCover, cells, sources, y: this.body.y, selected: this.heldKey() };
+        return { wet: this.body.wet ?? 0, underwater: this.underwater, cover: this.underwaterCover, pipeline: this.waterPipeline !== null, cells, sources, y: this.body.y, selected: this.heldKey() };
       },
       /** The live scene — for resource audits (duplicate materials/geometries). */
       scene: () => this.renderer.scene,

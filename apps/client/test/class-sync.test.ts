@@ -21,7 +21,7 @@ vi.mock("../src/player/rig.js", async () => {
 });
 afterEach(() => vi.unstubAllGlobals());
 const member = (id: string, role: "teacher" | "student" = "student") => ({ id, role, name: id, online: true });
-function setup() {
+function setup(camera?: THREE.Camera) {
   vi.stubGlobal("document", { createElement: () => ({ getContext: () => ({ measureText: () => ({ width: 40 }), beginPath() {}, roundRect() {}, fill() {}, fillText() {} }) }) });
   const client = { connected: true, send: () => true, close: vi.fn(), activate: vi.fn() } as unknown as ClassClient;
   const field = new FieldWindow(), scene = new THREE.Scene();
@@ -32,7 +32,7 @@ function setup() {
   const impact = vi.fn();
   const sound = vi.fn();
   const sync = new ClassSync(client, session, field, { markDirty() {}, markCellDirty() {}, markWaterDirty() {}, drainWater() {} } as unknown as VoxelView,
-    scene, { teleport() {}, toast() {}, clearKeys() {}, worldChanged: changed, bonked, impact, sound }, new FurnitureLayout());
+    scene, { teleport() {}, toast() {}, clearKeys() {}, worldChanged: changed, bonked, impact, sound, camera: camera && (() => camera) }, new FurnitureLayout());
   return { client, field, scene, session, sync, changed, bonked, impact, sound };
 }
 const robots = (scene: THREE.Scene) => scene.children.filter((child) => child.name !== "CraftYap bonk");
@@ -72,12 +72,14 @@ describe("classroom player synchronisation", () => {
   it("hides disconnected remotes immediately and frees them on class end", () => {
     const { client, scene, sync } = setup();
     client.onSnap!([{ id: "other", pos: [0, 4, 0], yaw: 0, anim: "idle" }]);
+    sync.render(1 / 60);
     client.onConnection!(false); sync.render(1 / 60); expect(robots(scene)[0]!.visible).toBe(false);
     client.onEnded!("closed"); expect(robots(scene)).toHaveLength(0); sync.dispose();
   });
   it("shoves the local player and flashes a classmate who was tapped", () => {
     const { client, scene, sync, bonked, impact } = setup();
     client.onSnap!([{ id: "other", pos: [2, 4, 0], yaw: 0, anim: "idle" }]);
+    sync.render(1 / 60);
     const friend = robots(scene)[0]!;
     client.onBonk!({ t: "s-k-bonk", by: "other", target: "old", seq: 3, vx: 4, vz: 0, vy: 3, at: [1, 5.05, 0] });
     expect(bonked).toHaveBeenCalledWith({ vx: 4, vz: 0, vy: 3 });
@@ -87,6 +89,30 @@ describe("classroom player synchronisation", () => {
     expect(friend.userData).toMatchObject({ flashed: 1, popped: 1, action: "hit", actionSeq: 3 });
     expect(scene.getObjectByName("CraftYap bonk")!.children.some((chip) => chip.visible)).toBe(true);
     sync.dispose();
+  });
+  it("builds one visible avatar per frame and defers off-screen avatars", () => {
+    const camera = new THREE.PerspectiveCamera(60, 1, 0.1, 30);
+    const { client, field, scene, sync } = setup(camera);
+    const [ax, az] = field.toAbsolute(0, 0);
+    camera.position.set(0, 5, 0);
+    client.onMembers!([member("old", "teacher"), member("one"), member("two"), member("behind")]);
+    client.onSnap!([
+      { id: "one", pos: [ax, 4, az - 8], yaw: 0, anim: "idle" },
+      { id: "two", pos: [ax + 1, 4, az - 8], yaw: 0, anim: "idle" },
+      { id: "behind", pos: [ax, 4, az + 8], yaw: 0, anim: "idle" },
+    ]);
+    expect(robots(scene)).toHaveLength(0);
+    sync.render(1 / 60);
+    expect(robots(scene)).toHaveLength(1);
+    sync.render(1 / 60);
+    sync.render(1 / 60);
+    expect(robots(scene)).toHaveLength(2);
+    expect(sync.debug().remotes.find((r) => r.id === "behind")?.visible).toBe(false);
+    camera.rotation.y = Math.PI;
+    sync.render(1 / 60);
+    expect(sync.debug().remotes.find((r) => r.id === "behind")?.visible).toBe(true);
+    sync.dispose();
+    expect(robots(scene)).toHaveLength(0);
   });
   it("shows a classmate's actual equipped item and removes it on a block switch",()=>{
     const {client,scene,sync}=setup();client.onSnap!([{id:"other",pos:[2,4,0],yaw:0,anim:"idle",heldItem:"pickaxe-basic",toolOption:"precise-tip",toolPhase:.58,action:"interact",actionSeq:7,actionLoop:true}]);sync.render(1/60);const friend=robots(scene)[0]!;expect(friend.userData).toMatchObject({heldItem:"pickaxe-basic",toolOption:"precise-tip",action:"interact"});expect((friend.userData.motionContext as {toolTime:number}).toolTime).toBeGreaterThan(0);

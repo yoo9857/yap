@@ -197,23 +197,41 @@ function runsAway(world: FluidWorld, x: number, y: number, z: number, id: number
   return (seal & (FACE_PY | FACE_NY)) === FACE_NY && back !== 0 && (back & (back - 1)) === 0 && back !== faceBit(dx, 0, dz);
 }
 
+/**
+ * The most cells of one layer a basin may have and still be RETAINED water (standing, full cells).
+ * Small on purpose where the layer is open to the sky: one bucket must not flood a walled yard,
+ * or a student's whole plot, a cell deep.
+ */
+export const BASIN_CELLS = 256;
+/**
+ * The same for a layer that is SUBMERGED — no cell of it has open air above (water, a roof, or a
+ * roofed cavity over every one): the inside of a pond, under its surface. That may be much bigger (64 × 64). Held to
+ * 256, a wide pond's inside stayed columns of falling water, which does not spread sideways: every
+ * cavity under a ledge stayed AIR (a swimmer pressed into a wall's corner dropped out of the water)
+ * and the floor was a shallow stream.
+ */
+export const BASIN_SUBMERGED = 4096;
+
 /** A fed depression with a closed rim and no lower outlet can retain water.
  *  The traversal is bounded: large lakes/open ground keep the normal flow rule. */
 function settledBasin(world: FluidWorld, x: number, y: number, z: number, memo: Map<VoxelKey, boolean>): boolean {
   const start = voxelKey(x, y, z), cached = memo.get(start);
   if (cached !== undefined) return cached;
   const cells: [number, number][] = [[x, z]], seen = new Set([start]);
-  let contained = true, fed = false;
+  let contained = true, fed = false, sky = false;
   for (let i = 0; i < cells.length; i++) {
     const [cx, cz] = cells[i]!;
     if (!onReservoir(world, cx, y, cz) && falls(world, cx, y, cz)) contained = false;
+    // open air over this cell: two clear cells (one clear cell under a roof is a cavity inside the
+    // pond, and must not keep the layer below it from settling)
+    if (world.get(cx, y + 1, cz) === 0 && world.get(cx, y + 2, cz) === 0) sky = true;
     fed ||= reservoir(world.get(cx, y, cz)) || isWater(world.get(cx, y + 1, cz)) && passes(world, cx, y, cz, 0, 1, 0);
     for (const [dx, dz] of N4) {
       const nx = cx + dx, nz = cz + dz, k = voxelKey(nx, y, nz);
       if (seen.has(k) || !holds(world, nx, y, nz) || !passes(world, cx, y, cz, dx, 0, dz)) continue;
       seen.add(k); cells.push([nx, nz]);
     }
-    if (cells.length > 256) { contained = false; break; }
+    if (cells.length > (sky ? BASIN_CELLS : BASIN_SUBMERGED)) { contained = false; break; }
   }
   const result = contained && fed;
   for (const [cx, cz] of cells) memo.set(voxelKey(cx, y, cz), result);

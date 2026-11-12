@@ -14,6 +14,11 @@ class Peer implements ClassPeer {
   send(msg: ClassServerMessage): void {
     this.inbox.push(msg);
   }
+  sendSnap(raw: string): void {
+    const message = decodeClassServer(raw);
+    if (message?.t !== "s-k-snap") throw new Error("Invalid snapshot");
+    this.send(message);
+  }
   close(reason: string): void {
     this.closed = reason;
   }
@@ -447,13 +452,18 @@ describe("ClassRoom", () => {
 
   it("snapshots carry every connected player's position", () => {
     const { room, teacher } = classWithTeacher();
-    const a = new Peer();
+    const a = new Peer(), b = new Peer(), observer = new Peer();
     room.joinStudent(a, "Minji");
+    room.joinStudent(b, "Bomi");
+    room.joinStudent(observer, "Observer");
     room.handle(teacher, { t: "k-move", pos: [1, 4, 1], yaw: 0, anim: "idle" });
     room.handle(a, { t: "k-move", pos: [3, 4, 3], yaw: 1, anim: "run" });
+    room.handle(b, { t: "k-move", pos: [5, 4, 5], yaw: 1, anim: "run" });
     room.snapshot();
-    // everyone else, never your own echo
-    expect(a.last("s-k-snap")!.players.map((p) => p.pos)).toEqual([[1, 4, 1]]);
+    expect(teacher.last("s-k-snap")!.players.map((p) => p.pos)).toEqual([[3, 4, 3], [5, 4, 5]]);
+    expect(a.last("s-k-snap")!.players.map((p) => p.pos)).toEqual([[1, 4, 1], [5, 4, 5]]);
+    expect(b.last("s-k-snap")!.players.map((p) => p.pos)).toEqual([[1, 4, 1], [3, 4, 3]]);
+    expect(observer.last("s-k-snap")!.players.map((p) => p.pos)).toEqual([[1, 4, 1], [3, 4, 3], [5, 4, 5]]);
   });
 
   it("far players arrive at a lower rate, near ones every snapshot", () => {

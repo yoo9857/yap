@@ -14,7 +14,7 @@ const ONLY = process.env.ONLY ? process.env.ONLY.split(",") : null;
 const browser = await puppeteer.launch({ executablePath: "C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe", headless: "new", args: ["--enable-unsafe-swiftshader", "--no-sandbox"] });
 try {
   const page = await browser.newPage();
-  await page.setViewport({ width: 1100, height: 680 });
+  await page.setViewport({ width: Number(process.env.W ?? 1100), height: Number(process.env.H ?? 680) });
   const errors = [];
   page.on("pageerror", (e) => errors.push(e.message));
   await page.goto(`${BASE}/?mode=field&reset=1${QUERY}`, { waitUntil: "load", timeout: 60000 });
@@ -39,6 +39,17 @@ try {
     { name: "corner", cx: X - 10, cz: Z + 34 },
     { name: "float", cx: X + 10, cz: Z + 34 },
     { name: "pool", cx: X + 30, cz: Z + 34 },
+    { name: "over-wall", cx: X - 30, cz: Z + 52 },
+    { name: "under-block", cx: X - 10, cz: Z + 52 },
+    { name: "mid-fall", cx: X + 10, cz: Z + 52 },
+    { name: "pond-block", cx: X + 30, cz: Z + 52 },
+    { name: "foot", cx: X + 45, cz: Z + 34 },
+    { name: "tree", cx: X + 45, cz: Z + 16 },
+    { name: "sides", cx: X + 45, cz: Z + 52 },
+    { name: "high", cx: X - 45, cz: Z + 16 },
+    { name: "scatter", cx: X - 45, cz: Z + 40 },
+    { name: "wall-sides", cx: X + 45, cz: Z - 12 },
+    { name: "notch", cx: X - 45, cz: Z - 12 },
   ];
   await page.evaluate((scenes, Y) => {
     const c = globalThis.__roboCraft;
@@ -46,6 +57,13 @@ try {
     const water = (x, y, z) => { c.give("water", 1); c.placeAt(x, y, z, "water"); };
     const shape = (piece, rot, tilt, x, y, z, k) => { c.setPieceShape(piece, rot, tilt); c.give(k, 2); c.placePiece(x, y, z, k); };
     for (const { name, cx, cz } of scenes) {
+      if (name === "notch") {
+        // an inside corner: a row of blocks with two arms, a notch between them, water on top
+        // (films must come down EVERY wall of the notch and join the films outside it)
+        for (let x = cx - 2; x <= cx + 2; x++) for (let y = Y; y <= Y + 1; y++) put(x, y, cz, "dirt");
+        for (const x of [cx - 2, cx - 1, cx + 1, cx + 2]) for (let y = Y; y <= Y + 1; y++) put(x, y, cz + 1, "dirt");
+        water(cx, Y + 2, cz);
+      }
       if (name === "wall") {
         for (let x = cx - 5; x <= cx + 5; x++) for (let y = Y; y <= Y + 2; y++) put(x, y, cz - 2, "red-bricks");
         for (let z = cz - 1; z <= cz + 4; z++) for (let y = Y; y <= Y + 1; y++) put(cx + 3, y, z, "red-bricks");
@@ -114,6 +132,57 @@ try {
         for (let x = cx - 2; x <= cx; x++) put(x, Y + 1, cz, "oak-planks");
         put(cx + 2, Y + 1, cz, "dirt"); put(cx + 2, Y + 2, cz + 1, "oak-planks"); put(cx + 1, Y, cz + 2, "cobblestone");
         water(cx - 1, Y + 2, cz); water(cx + 2, Y + 3, cz + 1);
+      } else if (name === "over-wall") {
+        // a spring on top of a free-standing wall: water goes over every edge and down every face
+        for (let x = cx - 2; x <= cx + 2; x++) for (let y = Y; y <= Y + 3; y++) put(x, y, cz, "red-bricks");
+        water(cx, Y + 4, cz);
+      } else if (name === "under-block") {
+        // blocks put over a stream on the ground (one and two cells up) and one standing in it
+        put(cx + 2, Y + 1, cz, "oak-planks"); put(cx - 2, Y + 2, cz, "oak-planks"); put(cx, Y, cz + 2, "oak-planks");
+        water(cx, Y, cz);
+      } else if (name === "pond-block") {
+        // a pond with blocks over it: one lying on the surface, one sunk a cell, one a cell above it
+        for (let x = cx - 3; x <= cx + 3; x++) for (let z = cz - 3; z <= cz + 3; z++) for (let y = Y - 3; y <= Y - 1; y++) c.mineAt(x, y, z);
+        for (let x = cx - 3; x <= cx + 3; x++) for (let z = cz - 3; z <= cz + 3; z++) water(x, Y - 1, z);
+        put(cx - 2, Y, cz, "oak-planks"); put(cx, Y - 1, cz, "oak-planks"); put(cx + 2, Y + 1, cz, "oak-planks");
+        put(cx, Y, cz - 2, "oak-planks"); put(cx + 1, Y, cz - 2, "oak-planks");
+      } else if (name === "foot") {
+        // a thin fall off a hanging block lands beside a block on the ground; and a block standing
+        // in the stream diagonally from a fall (the water must reach both blocks, no gap beside them)
+        put(cx - 1, Y + 2, cz, "oak-planks"); put(cx + 1, Y, cz, "cobblestone"); put(cx + 1, Y, cz + 2, "cobblestone");
+        water(cx, Y + 3, cz);
+      } else if (name === "tree") {
+        // a built tree with water poured on its top, low walls and loose blocks round its foot —
+        // seen from close by (views p, q, r), where a sheet's texture and thickness show
+        for (let y = Y; y <= Y + 4; y++) put(cx, y, cz, "dirt");
+        put(cx - 1, Y + 3, cz, "oak-leaves"); put(cx + 1, Y + 2, cz, "oak-leaves"); put(cx, Y + 3, cz - 1, "oak-leaves");
+        for (let x = cx + 2; x <= cx + 4; x++) put(x, Y, cz + 1, "cobblestone");
+        put(cx + 2, Y + 1, cz + 1, "cobblestone"); put(cx + 3, Y, cz - 1, "cobblestone"); put(cx + 3, Y + 1, cz - 1, "cobblestone");
+        put(cx + 1, Y, cz + 2, "dirt"); put(cx - 1, Y, cz + 1, "dirt"); put(cx, Y, cz + 1, "dirt");
+        water(cx, Y + 5, cz);
+      } else if (name === "high") {
+        // a long drop: a spring free in the air, one on a tall wall's face (a lantern), blocks under them
+        for (let y = Y; y <= Y + 8; y++) for (let x = cx + 1; x <= cx + 3; x++) put(x, y, cz - 1, "red-bricks");
+        water(cx + 2, Y + 7, cz); water(cx - 2, Y + 8, cz);
+        put(cx - 2, Y + 3, cz, "oak-planks"); put(cx - 3, Y + 1, cz, "cobblestone"); put(cx + 2, Y + 2, cz, "oak-planks");
+      } else if (name === "scatter") {
+        // blocks at random round a fall from a spring in the air
+        let seed = 7; const r = () => (seed = (seed * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff;
+        for (let i = 0; i < 16; i++) put(cx - 3 + Math.floor(r() * 7), Y + Math.floor(r() * 5), cz - 3 + Math.floor(r() * 7), i % 3 ? "oak-planks" : "cobblestone");
+        water(cx, Y + 6, cz); water(cx + 2, Y + 5, cz - 1);
+      } else if (name === "sides") {
+        // springs put against a pillar's four faces, half way up (not on top of it)
+        for (let y = Y; y <= Y + 4; y++) put(cx, y, cz, "oak-planks");
+        water(cx + 1, Y + 3, cz); water(cx - 1, Y + 3, cz); water(cx, Y + 3, cz + 1); water(cx, Y + 3, cz - 1);
+      } else if (name === "wall-sides") {
+        // springs against both faces of a wall at different heights, one at its end
+        for (let x = cx - 3; x <= cx + 3; x++) for (let y = Y; y <= Y + 4; y++) put(x, y, cz, "red-bricks");
+        water(cx - 2, Y + 3, cz + 1); water(cx + 1, Y + 2, cz + 1); water(cx, Y + 4, cz - 1); water(cx + 4, Y + 3, cz);
+      } else if (name === "mid-fall") {
+        // a fall down a pillar with blocks put into it half way
+        for (let y = Y; y <= Y + 5; y++) put(cx, y, cz - 1, "red-bricks");
+        put(cx, Y + 3, cz, "oak-planks"); put(cx + 1, Y + 2, cz - 1, "oak-planks");
+        water(cx, Y + 6, cz - 1);
       } else if (name === "pool") {
         // a pit three deep with a fall into it, a glass wall beside it and a ramp and a chair in the water
         for (let x = cx - 3; x <= cx + 3; x++) for (let z = cz - 3; z <= cz + 3; z++) for (let y = Y - 3; y <= Y - 1; y++) c.mineAt(x, y, z);
@@ -170,15 +239,27 @@ try {
       ["f", [cx - 0.5, Y + 0.2, cz + 3.4], Math.PI, 0.12],
       ["g", [cx + 3.6, Y + 0.3, cz + 2.4], Math.PI + 1.1, 0.1],
       ["h", [cx - 1.0, Y + 0.4, cz - 0.4], Math.PI - 1.2, 0.05],
+      ["k", [cx + 2.6, Y + 5.6, cz + 3.4], Math.PI + 0.55, -0.55], // close on a block's top corner
       ["u", [cx + 0.5, Y - 2.6, cz + 1.5], Math.PI, 0.35],
       ["v", [cx + 2.5, Y - 2.2, cz + 2.5], Math.PI + 0.8, 0.1],
       ["i", [cx + 1.2, Y + 2.2, cz + 2.2], Math.PI + 0.5, -0.35],
+      ["p", [cx + 2.3, Y + 1.7, cz + 1.9], Math.PI + 0.85, 0.25], // close, looking up a face
+      ["q", [cx - 1.4, Y + 1.2, cz + 2.4], Math.PI - 0.55, 0.3],
+      ["r", [cx + 0.5, Y + 2.6, cz + 2.6], Math.PI, -0.1],
     ];
 
+    // ORBIT=1: eight views round the scene instead (what changes with the angle it is seen from)
+    if (process.env.ORBIT === "1") {
+      views.length = 0;
+      for (let k = 0; k < 8; k++) {
+        const a = k * Math.PI / 4, r = Number(process.env.ORBIT_R ?? 6.5);
+        views.push([`o${k}`, [cx + 0.5 + Math.sin(a) * r, Y + Number(process.env.ORBIT_H ?? 3.2), cz + 0.5 + Math.cos(a) * r], a + Math.PI, -0.32]);
+      }
+    }
     for (const [tag, pos, yaw, pitch] of views) {
       const now = await origin();
       pos[0] += o[0] - now[0]; pos[2] += o[1] - now[1];
-      await page.evaluate(([p, y, pi]) => { const c = globalThis.__roboCraft; c.teleport(...p); c.look(y, pi); }, [pos, yaw, pitch]);
+      await page.evaluate(([p, y, pi, fp]) => { const c = globalThis.__roboCraft; c.teleport(...p); c.look(y, pi); c.firstPerson?.(fp); }, [pos, yaw, pitch, process.env.FIRST === "1"]);
       await frames(40);
       await page.screenshot({ path: `${OUT}/${name}-${tag}.png` });
     }

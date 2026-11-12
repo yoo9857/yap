@@ -41,6 +41,7 @@ function withWater(room: ClassRoom): ClassRoom {
 import { checkPassword, hashPassword, sameKey, type ClassStore } from "./classStore.js";
 
 const SNAPSHOT_MS = 100; // 10 Hz is plenty for walking robots
+const SNAPSHOT_SLICE_MS = 4;
 const HEARTBEAT_MS = 10_000;
 const JOIN_TIMEOUT_MS = 10_000;
 /** A class nobody is connected to survives this long (teacher's coffee break). */
@@ -221,6 +222,7 @@ export class ClassManager {
   private readonly savedAt = new WeakMap<ClassRoom, number>();
   private readonly sockets = new Set<ClassSocket>();
   private readonly timers: NodeJS.Timeout[] = [];
+  private snapshotContinuation: NodeJS.Immediate | null = null;
   private fluidCursor = 0;
   /** classKey → failed password attempts and the lock they earned. A 4-character password must not be guessable at socket speed. */
   /** Is `code` a live hub room? Set by the server; unset (tests) means any code. */
@@ -507,7 +509,25 @@ export class ClassManager {
   }
 
   private snapshot(): void {
-    for (const room of this.classes.values()) this.guard(room, "snapshot", () => room.snapshot());
+    if (this.snapshotContinuation) return;
+    const rooms = [...this.classes.values()];
+    let next = 0;
+    const step = () => {
+      this.snapshotContinuation = null;
+      const start = performance.now();
+      while (next < rooms.length) {
+        const room = rooms[next++]!;
+        if (!room.closed && this.classes.get(room.key) === room) {
+          this.guard(room, "snapshot", () => room.snapshot());
+        }
+        // Give queued player input and other I/O a turn between busy rooms.
+        if (next < rooms.length && performance.now() - start >= SNAPSHOT_SLICE_MS) {
+          this.snapshotContinuation = setImmediate(step);
+          return;
+        }
+      }
+    };
+    step();
   }
 
   /**
@@ -602,6 +622,8 @@ export class ClassManager {
    */
   shutdown(): void {
     for (const t of this.timers) clearInterval(t);
+    if (this.snapshotContinuation) clearImmediate(this.snapshotContinuation);
+    this.snapshotContinuation = null;
     for (const room of this.classes.values()) this.persist(room);
     this.classes.clear();
     for (const socket of this.sockets) socket.close("server shutdown");

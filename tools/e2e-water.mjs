@@ -94,7 +94,12 @@ try {
   });
   await page.keyboard.press("KeyV"); // eye-level camera for the underwater check
   await until(page, () => globalThis.__roboCraft.water().wet > 0.35 && globalThis.__roboCraft.water().underwater);
-  check("entering deep water switches swimming physics and underwater tint", await page.$eval(".craft-underwater", (el) => el.classList.contains("on")));
+  // the underwater look: the blue wash on the plain path; with the water pipeline the frame itself
+  // is drawn through the water (no wash), and the eye is fully under the waterline
+  check("entering deep water switches swimming physics and underwater tint", await page.evaluate(() => {
+    const w = globalThis.__roboCraft.water();
+    return w.pipeline ? w.cover === 1 : document.querySelector(".craft-underwater").classList.contains("on");
+  }));
   const low = (await state(page)).y;
   // the body floats at the surface and bobs there: wait for the camera to come out (up to 4 s)
   // instead of sampling one instant, which caught it mid-bob about half the time
@@ -111,6 +116,8 @@ try {
   await until(page, () => !!globalThis.__roboCraft);
   await until(page, (n) => globalThis.__roboCraft.water().sources >= n, saved);
   check("reload restores the saved water", (await state(page)).sources >= saved);
+  // (the worker is made with the first batch: right after a reload the queue is empty before it)
+  await until(page, () => { const s = globalThis.__roboCraft.waterStats(); return s.worker && s.queued + s.pending === 0; }, undefined, 8000).catch(() => {});
   await until(page, () => globalThis.__roboCraft.waterStats().queued + globalThis.__roboCraft.waterStats().pending === 0);
   check("background meshing finishes and stays available", (await page.evaluate(() => globalThis.__roboCraft.waterStats())).worker);
 

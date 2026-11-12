@@ -4,6 +4,7 @@ import * as THREE from "three";
 import { AimOutline } from "../aimOutline.js";
 import { castsInstancedShadow } from "../../render/instancedDepth.js";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
+import { settings } from "../../ui/settings.js";
 import {
   DIRECTIONS,
   PARTS,
@@ -34,11 +35,18 @@ export class MachineAssets {
    * something actually awaits it rather than during island boot.
    */
   get ready(): Promise<void> {
-    return (this.promise ??= this.load());
+    return this.promise ??= this.load().catch(error => {
+      this.release();
+      this.promise = null;
+      throw error;
+    });
   }
 
   private load(): Promise<void> {
-    const low = window.matchMedia("(max-width: 700px)").matches;
+    const memory = (navigator as Navigator & { deviceMemory?: number }).deviceMemory;
+    const limitedDevice = navigator.hardwareConcurrency <= 4 || (memory !== undefined && memory <= 4);
+    const low = window.matchMedia("(max-width: 700px)").matches || settings.graphics === "low" ||
+      (settings.graphics === "auto" && limitedDevice);
     return new GLTFLoader()
       .loadAsync(`/models/machines/machine-kit${low ? "-lod1" : ""}.glb?v=2.0.0`)
       .then((gltf) => {
@@ -80,8 +88,13 @@ export class MachineAssets {
         if (value instanceof THREE.Texture) textures.add(value);
       m.dispose();
     }
-    for (const texture of textures) texture.dispose();
+    for (const texture of textures) {
+      const image: unknown = texture.image;
+      texture.dispose();
+      if (typeof ImageBitmap !== "undefined" && image instanceof ImageBitmap) image.close();
+    }
     this.templates.clear();
+    this.loaded = false;
   }
   dispose(): void {
     this.disposed = true;
@@ -131,11 +144,12 @@ export class MachineVisual {
     const mount=this.mounts.get(index);
     return role==="wheel-fixed"?mount!.fixed:role==="wheel-strut"?mount!.strut:role==="wheel-hub"?mount!.hub:this.transforms[index]!;
   }
-  rebuild(blueprint: Blueprint): void {
+  rebuild(blueprint: Blueprint, onlyPart?: number): void {
     this.clear();
     this.blueprint = blueprint;
     const occupied=new Map(blueprint.parts.map(p=>[p.cell.join(","),p]));
     blueprint.parts.forEach((p,index)=>{
+      if (onlyPart !== undefined && index !== onlyPart) return;
       this.position.fromArray(p.cell);this.rotation.identity();this.scale.set(1,1,1);
       if(PARTS[p.kind].directional)this.rotation.setFromUnitVectors(this.up,this.direction.fromArray(DIRECTIONS[p.direction]!.vector));
       if(p.kind==="wing"){const f=Math.sqrt(wingArea(p)/AIR.wingArea);this.scale.set(f,1,f);}
@@ -149,6 +163,7 @@ export class MachineVisual {
       for(const template of templates){
         const role=template.role??"body";
         const indices=blueprint.parts.flatMap((p,i)=>{
+          if (onlyPart !== undefined && i !== onlyPart) return [];
           if(p.kind!==kind)return [];
           if(role.startsWith("wheel-")&&!this.mounts.get(i)?.side)return [];
           if(role==="studs"){
@@ -177,7 +192,7 @@ export class MachineVisual {
         mesh.computeBoundingSphere();this.meshes.push(mesh);this.root.add(mesh);
       }
     }
-    const count = blueprint.parts.filter((p) => p.kind === "thruster").length;
+    const count = onlyPart === undefined ? blueprint.parts.filter((p) => p.kind === "thruster").length : 0;
     if (count) {
       this.exhaust = new THREE.InstancedMesh(
         this.exhaustGeometry,

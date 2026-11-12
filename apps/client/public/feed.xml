@@ -6,7 +6,14 @@
     <atom:link href="https://craftyap.com/feed.xml" rel="self" type="application/rss+xml" />
     <description>크래프트얍(CraftYap) 패치 노트와 개발 이야기</description>
     <language>ko</language>
-    <lastBuildDate>Tue, 10 Nov 2026 15:00:00 +0000</lastBuildDate>
+    <lastBuildDate>Wed, 11 Nov 2026 15:00:00 +0000</lastBuildDate>
+    <item>
+      <title>11월 12일 패치 노트 — 물을 단순하고 또렷하게 다시 만들었어요</title>
+      <link>https://craftyap.com/note/patch-2026-11-12/</link>
+      <guid isPermaLink="true">https://craftyap.com/note/patch-2026-11-12/</guid>
+      <pubDate>Wed, 11 Nov 2026 15:00:00 +0000</pubDate>
+      <description>물이 조각조각 유리판처럼 보이던 것을 마인크래프트처럼 단순하게 바꿨어요. 샘에서 끝까지 한 줄기로 이어지고, 폭포는 칸을 채워 내려오고, 색도 또렷한 파랑이에요. 물 그리는 엔진도 하나로 합쳤어요.</description>
+    </item>
     <item>
       <title>11월 11일 패치 노트 ④ — 오늘 수업에서 나온 요청을 반영했어요</title>
       <link>https://craftyap.com/note/patch-2026-11-11-4/</link>
@@ -139,13 +146,6 @@
       <guid isPermaLink="true">https://craftyap.com/note/patch-2026-11-04-3/</guid>
       <pubDate>Tue, 03 Nov 2026 15:00:00 +0000</pubDate>
       <description>오늘 바꾼 조준 테두리의 검은색과 흰색이 너무 세게 부딪혀 보이고, 화면을 돌릴 때 흰 선이 깜빡이던 문제를 고쳤어요. 이제 흰 선에 옅은 그림자만 깔아 어떤 블록 위에서도 차분하고 또렷해요.</description>
-    </item>
-    <item>
-      <title>11월 4일 패치 노트 (2) — 붙인 블록은 한 면으로, 조준과 윤곽선은 또렷하게</title>
-      <link>https://craftyap.com/note/patch-2026-11-04-2/</link>
-      <guid isPermaLink="true">https://craftyap.com/note/patch-2026-11-04-2/</guid>
-      <pubDate>Tue, 03 Nov 2026 15:00:00 +0000</pubDate>
-      <description>블록을 붙여 쌓으면 블록마다 검은 줄이 생겨 바둑판처럼 보이던 문제, 조준 테두리가 1픽셀이라 잘 안 보이고 붙은 면에서 끊기거나 부수는 동안 연해지던 문제, 캐릭터와 펫의 검은 윤곽선이 너무 두꺼워 발과 팔이 까맣게 뭉개지던 문제를 고쳤어요.</description>
     </item>
   </channel>
 </rss>

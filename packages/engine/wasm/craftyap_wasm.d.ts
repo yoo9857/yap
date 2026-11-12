@@ -132,12 +132,42 @@ export class WasmWater {
 }
 
 /**
+ * The water surface for the web's mesh worker: one snapshot of the grid, meshed chunk by chunk
+ * (waterWorker.ts). `cells`/`outside` as `water_mesh`; `marks` is the sparse profile list the
+ * worker gets: flat [cell index, mark]*.
+ */
+export class WaterMesher {
+    free(): void;
+    [Symbol.dispose](): void;
+    /**
+     * One 16 × 16 chunk at (x, z), layers min_y..=max_y. Returns `water_mesh`'s array with two
+     * more numbers in front: [min y, max y of the cells meshed (56, -1 when none), vertex count,
+     * index count, …]; [min, max, 0, 0] when nothing is drawn, [min, max, -1, 0] where the
+     * TypeScript would throw.
+     */
+    chunk(x: number, z: number, min_y: number, max_y: number): Float32Array;
+    constructor(cells: Uint8Array | number[], outside: Uint8Array | number[], marks: Int32Array | number[], streams: boolean);
+}
+
+/**
  * `stepBody` on the Rust core (`body.rs`), for the parity test (rust-body.test.ts): the island of
  * `seed` with `edits` applied ([x, y, z, block, shape, wet] each), a body at `start`
  * ([x, y, z, w, h, jumpSpeed], NaN = default) unstuck, then one tick per `inputs` entry
  * ([wishX, wishZ, jump, pushX, pushZ]). Returns [x, y, z, vx, vy, vz, grounded, wet] per tick.
  */
 export function body_trace(seed: number, edits: Float64Array | number[], start: Float64Array | number[], inputs: Float64Array | number[], dt: number): Float64Array;
+
+/**
+ * Finite water (`?water=finite`): flowing ids are amounts and stand that high (fluid.ts
+ * `drawWaterByAmount`). A switch for the whole module, like the TypeScript one.
+ */
+export function draw_water_by_amount(on: boolean): void;
+
+/**
+ * The simple, Minecraft-like water (the default: a box per cell, corners shared) or the surface
+ * net with its films (`false`). A switch for the whole module.
+ */
+export function draw_water_simple(on: boolean): void;
 
 /**
  * `generateIsland(seed)` on the Rust core (`world.rs`): the cells, for the parity test.
@@ -182,9 +212,10 @@ export function surface_style(key: string): Float64Array;
  * [vertex count, index count, position (3n), normal (3n), wave, wet, foam, depth (n each),
  * flow (3n), impact (3n), grid (4n), indices]; [0, 0] when nothing is drawn, [-1, 0] when the
  * TypeScript would throw. `profile` (same layout as `cells`, or empty): the top of each shaped
- * block holding water (waterlog.ts `shapeProfile`).
+ * block holding water (waterlog.ts `shapeProfile`). `streams`: water in the air as films and
+ * streams (waterGeometry.ts `drawWaterAsStreams`).
  */
-export function water_mesh(cells: Uint8Array | number[], outside: Uint8Array | number[], list: Int32Array | number[], profile: Uint8Array | number[]): Float32Array;
+export function water_mesh(cells: Uint8Array | number[], outside: Uint8Array | number[], list: Int32Array | number[], profile: Uint8Array | number[], streams: boolean): Float32Array;
 
 export type InitInput = RequestInfo | URL | Response | BufferSource | WebAssembly.Module;
 
@@ -194,7 +225,10 @@ export interface InitOutput {
     readonly __wbg_wasmfluid_free: (a: number, b: number) => void;
     readonly __wbg_wasmscanner_free: (a: number, b: number) => void;
     readonly __wbg_wasmwater_free: (a: number, b: number) => void;
+    readonly __wbg_watermesher_free: (a: number, b: number) => void;
     readonly body_trace: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number) => [number, number];
+    readonly draw_water_by_amount: (a: number) => void;
+    readonly draw_water_simple: (a: number) => void;
     readonly generate_island: (a: number) => [number, number];
     readonly kit_cells_geometry: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number, j: number) => [number, number];
     readonly material_maps: (a: number, b: number, c: number) => [number, number];
@@ -237,7 +271,9 @@ export interface InitOutput {
     readonly wasmwater_step: (a: number, b: number) => [number, number];
     readonly wasmwater_touch: (a: number, b: number, c: number, d: number) => void;
     readonly wasmwater_write: (a: number, b: number, c: number, d: number, e: number) => void;
-    readonly water_mesh: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number) => [number, number];
+    readonly water_mesh: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number) => [number, number];
+    readonly watermesher_chunk: (a: number, b: number, c: number, d: number, e: number) => [number, number];
+    readonly watermesher_new: (a: number, b: number, c: number, d: number, e: number, f: number, g: number) => number;
     readonly __wbindgen_externrefs: WebAssembly.Table;
     readonly __wbindgen_malloc: (a: number, b: number) => number;
     readonly __wbindgen_free: (a: number, b: number, c: number) => void;

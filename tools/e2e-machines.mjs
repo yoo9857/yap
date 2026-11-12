@@ -27,6 +27,8 @@ try {
     { waitUntil: "networkidle2", timeout: 60000 },
   );
   await page.waitForFunction(() => !!window.__roboCraft, { timeout: 60000 });
+  // the loading screen covers the chip until the boot warm-up is done: a click before that is lost
+  await page.waitForFunction(() => document.getElementById("boot-overlay")?.classList.contains("hidden"), { timeout: 90000 });
   await page.click(".machine-launch");
   await page.waitForFunction(() => window.__roboCraft.machine().active);
   // First visit shows the coach strip; dismiss it so it never covers a control.
@@ -65,9 +67,15 @@ try {
   assert.equal((await machine()).editor.scope.mode, 'paired');
   assert.equal((await machine()).editor.scope.indices.length, 2);
   assert.equal(await page.$eval('.mw-mirror-note', element => element.dataset.scope), 'paired');
+  const waitForThumbnail = (previous = '') => page.waitForFunction(before => {
+    const src = document.querySelector('.mw-inspected-heading img')?.src;
+    return src?.startsWith('data:image/') && src !== before;
+  }, {}, previous);
+  await waitForThumbnail();
   const originalThumbnail = await page.$eval('.mw-inspected-heading img', element => element.src);
   assert.ok(originalThumbnail.startsWith('data:image/'), 'the selected block uses a real rendered thumbnail');
   await page.click('[data-custom-option="color"][data-value="coral"]');
+  await waitForThumbnail(originalThumbnail);
   const paintedThumbnail = await page.$eval('.mw-inspected-heading img', element => element.src);
   assert.notEqual(paintedThumbnail, originalThumbnail, 'the thumbnail follows the paint colour');
   assert.equal((await machine()).blueprint.parts.filter(part => part.custom?.color === 'coral').length, 2, 'mirror applies the selected colour to the opposite wheel');
@@ -76,6 +84,7 @@ try {
   assert.equal(await page.$('[data-custom-option="color"]'), null, 'colour and performance have separate editing sections');
   await page.click('[data-custom-option="radius"][data-value="large"]');
   assert.equal((await machine()).blueprint.parts[wheelIndex].custom.radius, 'large');
+  await waitForThumbnail(paintedThumbnail);
   assert.notEqual(await page.$eval('.mw-inspected-heading img', element => element.src), paintedThumbnail, 'the thumbnail follows the wheel size');
   await screen('library');
   await screen('tune');

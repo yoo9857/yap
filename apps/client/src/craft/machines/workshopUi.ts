@@ -95,7 +95,7 @@ export interface BuildHandlers {
   close(): void;
   science(): void;
   saveSlot(): void;
-  thumbnail(blueprint: Blueprint, index?: number): string | null;
+  thumbnail(blueprint: Blueprint, index?: number): Promise<string | null>;
   replaceSlot(id: string): boolean;
   loadSlot(id: string): void;
   deleteSlot(id: string): void;
@@ -603,8 +603,7 @@ ${part.detail}`)}">
     }
     this.element.classList.toggle("driving", view.running);
     if (this.screen === "tune" && view.assetsReady && view.inspected >= 0) {
-      const image = this.handlers.thumbnail(blueprint, view.inspected);
-      if (image) this.q<HTMLImageElement>(".mw-inspected-heading img").src = image;
+      this.loadThumbnail(this.q<HTMLImageElement>(".mw-inspected-heading img"), blueprint, view.inspected);
     }
     this.syncRunButton();
     if (document.activeElement !== this.nameField)
@@ -725,7 +724,7 @@ ${part.detail}`)}">
     message.textContent = view.message;
     message.hidden = !view.message;
     message.className = `mw-message ${view.tone === "info" ? "" : view.tone}`;
-    this.renderSlots(view.entries, view.recovery, view.assetsReady && this.screen === "library");
+    if (this.screen === "library") this.renderSlots(view.entries, view.recovery, view.assetsReady);
     this.renderMissions(view.record);
     if (!this.shareField.matches(":focus"))
       this.shareField.placeholder = t("CYM으로 시작하는 공유 코드 전체", "The full share code starting with CYM");
@@ -756,9 +755,22 @@ ${part.detail}`)}">
         : t("차체는 다른 모델 부품이 연결되는 기준 부품입니다.", "The airframe is the root of the model assembly."));
   }
 
+  private loadThumbnail(image: HTMLImageElement, blueprint: Blueprint, index?: number): void {
+    if (image.dataset.thumbnailRequested) return;
+    image.dataset.thumbnailRequested = "true";
+    void this.handlers.thumbnail(blueprint, index).then(src => {
+      if (src && image.isConnected) image.src = src;
+      else delete image.dataset.thumbnailRequested;
+    });
+  }
+
   private renderSlots(entries: LibraryEntry[], recovery: LibraryEntry[], thumbnailsReady: boolean): void {
     const signature = JSON.stringify([entries, recovery, thumbnailsReady]);
-    if (signature === this.lastEntries) return;
+    const slots = this.q('[data-id="slots"]');
+    if (signature === this.lastEntries) {
+      if (thumbnailsReady) this.loadSlotThumbnails(slots, entries);
+      return;
+    }
     this.lastEntries = signature;
     const focused = document.activeElement instanceof HTMLButtonElement ? document.activeElement : null;
     const slotFocus = focused?.dataset.slot;
@@ -766,18 +778,18 @@ ${part.detail}`)}">
     const actionFocus = focused?.dataset.action;
     this.text("slot-count", `${entries.length} / ${LIBRARY_SLOTS}`);
     this.text("recovery-count", String(recovery.length));
-    const slots = this.q('[data-id="slots"]');
     slots.innerHTML = entries.length
       ? entries
           .map(
             (e) => `<div class="mw-slot">
-              <button class="mw-btn" data-slot="${escapeHtml(e.id)}" data-action="load">${thumbnailsReady ? `<img src="${this.handlers.thumbnail(e.blueprint) ?? "/ui/machines/frame.webp"}" alt="" width="64" height="48">` : ""}<span><b>${escapeHtml(e.blueprint.name)}</b><small>${usesSkylarkModel(e.blueprint) ? t(`모델 부품 ${SKYLARK_PART_ORDER.length}개`, `${SKYLARK_PART_ORDER.length} components`) : `${e.blueprint.parts.length} ${t("블록", "blocks")}`}</small></span></button>
+              <button class="mw-btn" data-slot="${escapeHtml(e.id)}" data-action="load"><img src="/ui/machines/${usesSkylarkModel(e.blueprint) ? "skylark" : "frame"}.webp" alt="" width="64" height="48"><span><b>${escapeHtml(e.blueprint.name)}</b><small>${usesSkylarkModel(e.blueprint) ? t(`모델 부품 ${SKYLARK_PART_ORDER.length}개`, `${SKYLARK_PART_ORDER.length} components`) : `${e.blueprint.parts.length} ${t("블록", "blocks")}`}</small></span></button>
               <button class="mw-btn mw-slot-replace" data-slot="${escapeHtml(e.id)}" data-action="replace" aria-label="${escapeHtml(t(`${e.blueprint.name} 교체 저장`, `Replace ${e.blueprint.name}`))}">${t("교체…", "Replace…")}</button>
               <button class="mw-btn mw-icon" data-slot="${escapeHtml(e.id)}" data-action="delete" aria-label="${escapeHtml(t(`${e.blueprint.name} 복구함으로 이동`, `Move ${e.blueprint.name} to recovery`))}">${strokeIcon(ICONS.trash)}</button>
             </div>`,
           )
           .join("")
       : `<div class="mw-library-empty">${strokeIcon(ICONS.library)}<p>${t("아직 저장한 설계도가 없어요.", "No saved blueprints yet.")}<small>${t("마음에 드는 기계를 만들면 위 버튼으로 저장하세요.", "Save a machine you like with the button above.")}</small></p></div>`;
+    if (thumbnailsReady) this.loadSlotThumbnails(slots, entries);
     this.q('[data-id="recovery-list"]').innerHTML = recovery.length
       ? recovery.map(entry => `<div class="mw-recovery-row"><div><b>${escapeHtml(entry.blueprint.name)}</b><small>${entry.blueprint.parts.length} ${t("블록", "blocks")}</small></div><button class="mw-btn" data-restore="${escapeHtml(entry.id)}">${t("복구", "Restore")}</button></div>`).join("")
       : `<p>${t("복구할 설계도가 없습니다.", "No blueprints to recover.")}</p>`;
@@ -787,6 +799,12 @@ ${part.detail}`)}">
         : `[data-restore="${CSS.escape(restoreFocus!)}"]`;
       (this.element.querySelector<HTMLElement>(selector) ?? this.q<HTMLElement>('[data-id="recovery"] > summary')).focus({ preventScroll: true });
     }
+  }
+
+  private loadSlotThumbnails(slots: HTMLElement, entries: LibraryEntry[]): void {
+    slots.querySelectorAll<HTMLImageElement>('[data-action="load"] img').forEach((image, index) => {
+      this.loadThumbnail(image, entries[index]!.blueprint);
+    });
   }
 
   private renderMissions(record: MissionRecord): void {

@@ -29,9 +29,9 @@ const CLOCK_CREEP_MS = 0.4; // per snapshot: how fast the offset may rise after 
 const RESYNC_MS = 5000;
 /** A sample this far before the newest one starts a new timeline instead of being ignored. */
 const CLOCK_RESET_MS = 2000;
-/** The jitter buffer: a lateness peak decays this much per sample (~3 ms/s at 10 Hz), and is
+/** The jitter buffer: a lateness peak decays by this fraction of elapsed time, and is
  *  covered with this margin; the buffer never grows past MAX_EXTRA_MS. */
-const LATE_DECAY_MS = 0.3;
+const LATE_DECAY = 0.06;
 const LATE_MARGIN_MS = 40;
 const MAX_EXTRA_MS = 600;
 /** Time constant (ms) over which a correction (path jump) is blended out instead of shown. */
@@ -96,22 +96,32 @@ export class RemoteTrack {
    * the track then draws them further back so they are still bracketed when drawn.
    */
   push(t: number, x: number, y: number, z: number, yaw: number, age = 0): void {
-    this.latePeak = Math.max(age, this.latePeak - LATE_DECAY_MS);
-    let last = this.samples[this.samples.length - 1];
+    const last = this.samples[this.samples.length - 1];
     // the clock went back (the server restarted, or the player came back on a new page):
     // a new timeline — keeping the old samples would refuse every new one until it caught up
-    if (last && t < last.t - CLOCK_RESET_MS) { this.samples.length = 0; last = undefined; }
-    if (last && t <= last.t) {
+    const clockReset = last !== undefined && t < last.t - CLOCK_RESET_MS;
+    if (!clockReset && last && t <= last.t) {
       // a duplicate / reordered snapshot: keep the newest data for that moment only
       if (t === last.t) Object.assign(last, { x, y, z, yaw });
       return;
     }
-    if (last && Math.hypot(x - last.x, z - last.z, y - last.y) > TELEPORT_M) this.samples.length = 0; // a jump: no path between
-    else if (last) {
-      const gap = Math.min(t - last.t, 1000);
-      // the first gap sets the pace outright; later ones only nudge it
-      this.interval = this.samples.length === 1 ? gap : this.interval + (gap - this.interval) * 0.3;
+    if (clockReset || (last && Math.hypot(x - last.x, z - last.z, y - last.y) > TELEPORT_M)) {
+      this.samples.length = 0;
+      this.interval = SNAP_MS;
+      this.extra = this.latePeak = this.errX = this.errY = this.errZ = 0;
+      this.lastQuery = this.drawnX = Number.NaN;
+    } else if (last) {
+      const gap = t - last.t;
+      // The first gap sets the pace; an interruption longer than the normal
+      // near or far cadence shouldn't be mistaken for a slower stream.
+      if (gap <= 1000) {
+        this.interval = this.samples.length === 1 ? gap : this.interval + (gap - this.interval) * 0.3;
+      }
+      this.latePeak -= Math.min(gap, 1000) * LATE_DECAY;
     }
+    // Repeated positions from a stalled sender carry an ever-increasing age. Only new
+    // positions describe transit jitter and should contribute to the interpolation delay.
+    this.latePeak = Math.max(Math.min(age, MAX_EXTRA_MS + RENDER_DELAY_MS), this.latePeak, 0);
     this.samples.push({ t, x, y, z, yaw });
     if (this.samples.length > HISTORY) this.samples.shift();
   }

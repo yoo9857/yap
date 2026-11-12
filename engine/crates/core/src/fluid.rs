@@ -190,12 +190,16 @@ fn settled_basin<W: FluidWorld>(w: &W, x: i32, y: i32, z: i32, memo: &mut HashMa
     let mut cells: Vec<(i32, i32)> = vec![(x, z)];
     let mut seen: HashSet<(i32, i32)> = HashSet::default();
     seen.insert((x, z));
-    let (mut contained, mut fed) = (true, false);
+    let (mut contained, mut fed, mut sky) = (true, false, false);
     let mut i = 0;
     while i < cells.len() {
         let (cx, cz) = cells[i];
         if !on_reservoir(w, cx, y, cz) && falls(w, cx, y, cz) {
             contained = false;
+        }
+        // open air over this cell: two clear cells (fluid.ts)
+        if w.get(cx, y + 1, cz) == 0 && w.get(cx, y + 2, cz) == 0 {
+            sky = true;
         }
         fed = fed || reservoir(w.get(cx, y, cz)) || (is_water(w.get(cx, y + 1, cz)) && passes(w, cx, y, cz, 0, 1, 0));
         for (dx, dz) in N4 {
@@ -206,7 +210,7 @@ fn settled_basin<W: FluidWorld>(w: &W, x: i32, y: i32, z: i32, memo: &mut HashMa
             seen.insert((nx, nz));
             cells.push((nx, nz));
         }
-        if cells.len() > 256 {
+        if cells.len() > if sky { BASIN_CELLS } else { BASIN_SUBMERGED } {
             contained = false;
             break;
         }
@@ -218,6 +222,11 @@ fn settled_basin<W: FluidWorld>(w: &W, x: i32, y: i32, z: i32, memo: &mut HashMa
     }
     result
 }
+
+/// The most cells of one layer a retained basin may have where it is open to the sky, and where
+/// the whole layer is submerged (fluid.ts `BASIN_CELLS`, `BASIN_SUBMERGED`).
+pub const BASIN_CELLS: usize = 256;
+pub const BASIN_SUBMERGED: usize = 4096;
 
 /// Water that fell onto a ramp or a step leaves only by the face opposite the block's back
 /// (fluid.ts `runsAway`). `(dx, dz)` points from the cell being fed to this neighbour.

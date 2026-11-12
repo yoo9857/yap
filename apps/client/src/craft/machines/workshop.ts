@@ -153,7 +153,7 @@ export class MachineWorkshop {
   private readonly hud = new DriveHud();
   private readonly stage = new GarageStage();
   private readonly selectionOutline = new PartSelection();
-  private readonly thumbnails = new GarageThumbnails(this.assets);
+  private readonly thumbnails: GarageThumbnails;
   private readonly partMatrix = new THREE.Matrix4();
   private readonly previewBounds = new THREE.Box3();
   private readonly previewPartBounds = new THREE.Box3();
@@ -184,12 +184,16 @@ export class MachineWorkshop {
   private elevation = 0.5;
   private distance = 10.5;
   private previewViewport = "";
+  private previewDirty = true;
+  private physicsWarmup: number | undefined;
   private camera3rd: CameraMode = "chase";
   private chaseReady = false;
   private baseFov = 0;
   private baseCameraLayers = 1;
   private shake = 0;
   private lastVerticalSpeed = 0;
+  private hudUpdateIn = 0;
+  private readonly driveAngles = new THREE.Euler(0, 0, 0, "YXZ");
 
   private drag: {
     x: number;
@@ -208,14 +212,17 @@ export class MachineWorkshop {
   private messageTimeout: number | undefined;
   private tone: MessageTone = "info";
   private saveFailed = false;
+  private readonly canvas: HTMLCanvasElement;
 
   constructor(
     private readonly scene: THREE.Scene,
     private readonly camera: THREE.PerspectiveCamera,
-    private readonly canvas: HTMLCanvasElement,
+    private readonly renderer: THREE.WebGLRenderer,
     private readonly voxels: VoxelWorld,
     private readonly onActive: (active: boolean) => void,
   ) {
+    const canvas = this.canvas = renderer.domElement;
+    this.thumbnails = new GarageThumbnails(this.assets, renderer);
     try {
       this.blueprint =
         parseBlueprint(localStorage.getItem(BLUEPRINT_KEY)) ?? this.blueprint;
@@ -364,6 +371,7 @@ export class MachineWorkshop {
       "visibilitychange",
       () => {
         if (document.hidden) this.keys.clear();
+        else this.previewDirty = true;
       },
       { signal },
     );
@@ -391,6 +399,7 @@ export class MachineWorkshop {
           if (Math.hypot(e.clientX - this.drag.x, e.clientY - this.drag.y) > 4)
             this.drag.moved = true;
           if (this.drag.moved) {
+            this.previewDirty = true;
             this.theta -= (e.clientX - this.drag.lastX) * 0.008;
             this.elevation = THREE.MathUtils.clamp(
               this.elevation + (e.clientY - this.drag.lastY) * 0.006,
@@ -445,6 +454,7 @@ export class MachineWorkshop {
           5,
           38,
         );
+        this.previewDirty = true;
       },
       { signal, passive: false },
     );
@@ -815,6 +825,9 @@ export class MachineWorkshop {
       this.panel.dismissOverlays();
       this.stop();
       this.save();
+      this.thumbnails.release();
+      window.clearTimeout(this.physicsWarmup);
+      this.physicsWarmup = undefined;
     }
     this.active = !this.active;
     this.stage.root.visible = this.active;
@@ -838,7 +851,7 @@ export class MachineWorkshop {
       const showModel = usesSkylarkModel(this.blueprint);
       this.panel.showScreen(showModel ? "model" : "parts");
       if (showModel) this.theta = .93;
-      this.loadAssets();
+      this.assetFailure = "";
       this.baseFov ||= this.camera.fov;
       this.entries = this.store.entries();
       this.record = this.store.record();
@@ -859,13 +872,14 @@ export class MachineWorkshop {
     this.assetsRequested = true;
     void this.assets.ready
       .then(() => {
-        if (this.disposed) return;
+        if (this.disposed || !this.active) return;
         this.rebuild();
         this.frameCamera();
         this.ghost.set(this.selected, this.direction);
         this.refresh();
       })
       .catch(() => {
+        this.assetsRequested = false;
         this.assetFailure =
           t("기계 에셋을 불러오지 못했습니다. 새로고침해 주세요.", "Couldn't load the machine parts. Please refresh.");
         if (!this.disposed) this.say(this.assetFailure, "bad");
@@ -1086,9 +1100,14 @@ export class MachineWorkshop {
   }
 
   private refresh(): void {
+    this.previewDirty = true;
     if (this.panel.showingModel && !this.detailedSkylark) this.panel.showScreen("parts");
     if (this.panel.showingModel) this.coach.element.hidden = true;
+    const needsBlockThumbnails = this.panel.element.dataset.screen === "library" &&
+      this.entries.some(entry => !usesSkylarkModel(entry.blueprint));
+    if (this.active && !this.assetFailure && (!this.detailedSkylark || this.panel.canEdit || needsBlockThumbnails)) this.loadAssets();
     this.refreshSkylark();
+    this.schedulePhysicsWarmup();
     this.stage.root.visible = this.active && !this.physics;
     this.marker.visible = this.active && !this.physics && this.showCenter && !this.skylark.root.visible;
     const view: BuildView = {
@@ -1173,6 +1192,7 @@ export class MachineWorkshop {
       this.visual.highlight(-1, HIGHLIGHT);
       return;
     }
+    this.previewDirty = true;
     this.aimRay(x, y);
     const hit = this.ray.intersectObjects(this.visual.meshes, false)[0];
     const index = hit ? this.visual.partIndex(hit) : undefined;
@@ -1215,6 +1235,7 @@ export class MachineWorkshop {
   }
 
   private frameCamera(elevation = .42): void {
+    this.previewDirty = true;
     this.elevation = elevation;
     if (this.previewBounds.isEmpty()) { this.distance = 10.5; return; }
     // Fit the real geometry into the clear stage above the workbench.
@@ -1284,8 +1305,7 @@ export class MachineWorkshop {
     try {
       const [rapier] = await Promise.all([
         loadPhysics(),
-        this.assets.ready,
-        this.detailedSkylark ? this.skylark.ready : undefined,
+        this.detailedSkylark ? this.skylark.ready : this.assets.ready,
       ]);
       if (generation !== this.generation || !this.active) return;
       this.settleOrigin();
@@ -1303,6 +1323,7 @@ export class MachineWorkshop {
       this.chaseReady = false;
       this.shake = 0;
       this.lastVerticalSpeed = 0;
+      this.hudUpdateIn = 0;
       this.keys.clear();
       this.dust.clear();
       this.audio.start();
@@ -1323,6 +1344,7 @@ export class MachineWorkshop {
   }
 
   private stop(): void {
+    if (!this.physics && !this.loading) return;
     this.generation++;
     this.loading = false;
     if (this.run) {
@@ -1428,21 +1450,53 @@ export class MachineWorkshop {
 
   // -------------------------------------------------------------- render
 
-  render(dt = 1 / 60): THREE.Vector3 {
+  get previewing(): boolean {
+    return this.active && !this.physics && !this.scienceActive;
+  }
+
+  /** Prepare nearby terrain in the existing chunk budget while the test screen is open. */
+  get flightPreparationFocus(): THREE.Vector3 | null {
+    const ready = this.detailedSkylark ? this.skylark.loaded : this.assets.loaded;
+    return this.loading || (ready && this.flightScreen) ? this.origin : null;
+  }
+
+  private get flightScreen(): boolean {
+    return this.panel.showingModel || this.panel.element.dataset.screen === "missions";
+  }
+
+  private schedulePhysicsWarmup(): void {
+    const ready = this.detailedSkylark ? this.skylark.loaded : this.assets.loaded;
+    if (!this.active || !this.flightScreen || !ready || physicsModule || this.loading) {
+      window.clearTimeout(this.physicsWarmup);
+      this.physicsWarmup = undefined;
+      return;
+    }
+    if (this.physicsWarmup !== undefined) return;
+    this.physicsWarmup = window.setTimeout(() => {
+      this.physicsWarmup = undefined;
+      void loadPhysics().catch(() => undefined); // The actual test can retry a failed warm-up.
+    }, 350);
+  }
+
+  render(dt = 1 / 60): THREE.Vector3 | null {
     const step = Math.min(0.05, Math.max(0.001, dt));
-    if (this.physics) this.renderDriving(step);
-    else this.renderBuilding();
-    this.dust.update(step);
+    if (this.physics) {
+      this.renderDriving(step);
+      this.dust.update(step);
+    } else if (!this.renderBuilding()) return null;
     return this.target;
   }
 
-  private renderBuilding(): void {
-    this.camera.layers.set(GARAGE_LAYER);
-    const viewport = `${window.innerWidth}:${window.innerHeight}:${this.panel.previewWidth}:${this.panel.previewHeight}:${this.panel.balanceLane}`;
+  private renderBuilding(): boolean {
+    const { previewWidth, previewHeight, previewOffsetY, balanceLane } = this.panel;
+    const viewport = `${this.canvas.width}:${this.canvas.height}:${previewWidth}:${previewHeight}:${previewOffsetY}:${balanceLane}:${this.camera.fov}:${this.renderer.shadowMap.enabled}`;
     if (viewport !== this.previewViewport) {
       this.previewViewport = viewport;
       this.frameCamera(this.elevation);
     }
+    if (!this.previewDirty) return false;
+    this.previewDirty = false;
+    this.camera.layers.set(GARAGE_LAYER);
     this.target.copy(this.previewFocus);
     this.orbitCamera(this.distance * this.panel.previewZoom);
     // Leave space for the tool palette without skewing the machine itself.
@@ -1454,14 +1508,15 @@ export class MachineWorkshop {
       window.innerWidth,
       window.innerHeight,
     );
+    return true;
   }
 
   private renderDriving(dt: number): void {
     this.camera.layers.mask = this.baseCameraLayers;
     const physics = this.physics!;
-    const p = physics.body.translation(),
-      q = physics.body.rotation();
-    this.group.position.copy(p);
+    const state = physics.snapshot();
+    const q = state.rotation;
+    this.group.position.copy(state.position);
     this.group.quaternion.set(q.x, q.y, q.z, q.w);
     this.bodyQuaternion.set(q.x, q.y, q.z, q.w);
     physics.wheelParts.forEach((partIndex, i) => {
@@ -1475,21 +1530,27 @@ export class MachineWorkshop {
     this.visual.flushWheels();
     const lift = Math.max(
       Number(this.keys.has("Space")),
-      physics.snapshot().hoverThrottle,
+      state.hoverThrottle,
     );
     const boost = this.keys.has("ShiftLeft") || this.keys.has("ShiftRight");
     if (this.detailedSkylark) this.skylark.step(dt, lift);
     else this.visual.thrust(lift, boost, performance.now() / 1000);
 
-    const state = physics.snapshot();
     this.spawnDust(physics, state.speed);
     const throttle =
       Number(this.keys.has("KeyW")) - Number(this.keys.has("KeyS"));
     this.audio.update(throttle, state.speed, lift || (boost ? 1 : 0));
-    const euler = new THREE.Euler().setFromQuaternion(
-      this.bodyQuaternion,
-      "YXZ",
-    );
+    this.hudUpdateIn -= dt;
+    if (this.hudUpdateIn <= 0) {
+      this.hudUpdateIn = .08;
+      this.updateDriveHud(state, throttle, lift, boost);
+    }
+    this.target.copy(this.group.position);
+    this.driveCamera(dt, state.speed);
+  }
+
+  private updateDriveHud(state: ReturnType<MachinePhysics["snapshot"]>, throttle: number, lift: number, boost: boolean): void {
+    const euler = this.driveAngles.setFromQuaternion(this.bodyQuaternion);
     this.hud.update({
       speed: state.speed,
       altitude: Math.max(0, state.altitude),
@@ -1517,8 +1578,6 @@ export class MachineWorkshop {
         progress.topSpeed,
       );
     }
-    this.target.copy(this.group.position);
-    this.driveCamera(dt, state.speed);
   }
 
   private spawnDust(physics: MachinePhysics, speed: number): void {
@@ -1678,6 +1737,7 @@ export class MachineWorkshop {
 
   dispose(): void {
     window.clearTimeout(this.messageTimeout);
+    window.clearTimeout(this.physicsWarmup);
     this.restoreCamera();
     this.stage.dispose();
     this.selectionOutline.dispose();

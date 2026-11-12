@@ -14,6 +14,9 @@ export default defineConfig({
       },
     },
   },
+  // the water worker loads the Rust engine with a dynamic import (its own chunk + the .wasm), and
+  // only ES-module workers can be code-split (it is created with { type: "module" })
+  worker: { format: "es" },
   build: {
     target: "es2022",
     rollupOptions: {

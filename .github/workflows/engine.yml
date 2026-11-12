@@ -62,8 +62,8 @@ jobs:
         run: pnpm --filter @robo/client exec vitest run test/rust-kit.test.ts
       - name: The chunk scan on Rust = TypeScript (whole views, near and far, every mesh)
         run: pnpm --filter @robo/client exec vitest run test/rust-scan.test.ts
-      - name: Parity (Rust water surface = waterGeometry.ts)
-        run: pnpm --filter @robo/client exec vitest run test/rust-water-mesh.test.ts
+      - name: The water surface (Rust only since 2026-11-12) — shapes, holes, closed streams, the view
+        run: pnpm --filter @robo/client exec vitest run test/water.test.ts test/water-slant.test.ts test/water-fuzz.test.ts test/water-streams.test.ts test/water-view.test.ts
       - name: World generation on Rust = generateIsland (every cell, several seeds)
         run: pnpm --filter @robo/client exec vitest run test/rust-world.test.ts
       - name: Block surfaces on Rust = blockMaterials.ts (families, every map byte)

@@ -4,8 +4,46 @@
   <link href="https://craftyap.com/note/" />
   <link rel="self" href="https://craftyap.com/note/feed.xml" />
   <id>https://craftyap.com/note/</id>
-  <updated>2026-11-11T00:00:00+09:00</updated>
+  <updated>2026-11-12T00:00:00+09:00</updated>
   <author><name>크래프트얍(CraftYap)</name></author>
+  <entry xml:base="https://craftyap.com/">
+    <title>11월 12일 패치 노트 — 물을 단순하고 또렷하게 다시 만들었어요</title>
+    <link href="https://craftyap.com/note/patch-2026-11-12/" />
+    <id>https://craftyap.com/note/patch-2026-11-12/</id>
+    <published>2026-11-12T00:00:00+09:00</published>
+    <updated>2026-11-12T00:00:00+09:00</updated>
+    <summary>물이 조각조각 유리판처럼 보이던 것을 마인크래프트처럼 단순하게 바꿨어요. 샘에서 끝까지 한 줄기로 이어지고, 폭포는 칸을 채워 내려오고, 색도 또렷한 파랑이에요. 물 그리는 엔진도 하나로 합쳤어요.</summary>
+    <content type="html">&lt;h2&gt;한눈에 보기&lt;/h2&gt;
+&lt;p&gt;물의 &lt;strong&gt;모양을 단순하게&lt;/strong&gt; 다시 만들었어요. 물 한 칸이 블록 하나이고, 옆 칸과 높이를 맞춰서 &lt;strong&gt;샘에서 끝까지 한 줄기로&lt;/strong&gt; 이어져요. 벽을 타던 얇은 유리판 같은 물막은 없애고, 폭포는 &lt;strong&gt;칸을 채워서&lt;/strong&gt; 내려와요. 색도 얕든 깊든 &lt;strong&gt;또렷한 파랑&lt;/strong&gt;으로 맞췄어요.&lt;/p&gt;
+&lt;h2&gt;BEFORE / AFTER&lt;/h2&gt;
+&lt;p&gt;&lt;img src=&quot;/note/assets/20261112-water-steps-ba.webp&quot; alt=&quot;계단을 흐르는 물 비교: 이전에는 단마다 얇은 유리판과 띠가 따로 놓인 것처럼 보였고, 업데이트 후에는 위에서 아래까지 파란 물이 한 줄기로 이어진다&quot;&gt;&lt;/p&gt;
+&lt;p&gt;&lt;img src=&quot;/note/assets/20261112-water-fall-ba.webp&quot; alt=&quot;높은 곳에서 떨어지는 물 비교: 이전에는 블록을 감싼 얇은 유리판과 뾰족한 기둥이었고, 업데이트 후에는 칸을 채운 파란 물기둥이 벽을 따라 내려온다&quot;&gt;&lt;/p&gt;
+&lt;h2&gt;개선&lt;/h2&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;물이 한 줄기로 이어져요&lt;/strong&gt; — 물 칸의 네 모서리 높이를 옆 칸과 함께 써서, 샘 옆은 두껍고 끝으로 갈수록 얇아지는 하나의 경사로 흘러요. 칸 사이에 틈이나 턱이 없어요.&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;폭포가 칸을 채워 내려와요&lt;/strong&gt; — 공중에 놓은 물은 아래로 곧게 떨어지고, 벽 옆에서는 벽에 붙어 내려와요. 블록 모서리마다 따로 놀던 얇은 막·띠·커튼은 없앴어요.&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;물 색이 또렷해졌어요&lt;/strong&gt; — 얕은 물도 깊은 물도 비슷한 파랑으로 보여요. 블록 위의 얕은 물이 투명해서 구멍처럼 보이던 것이 사라졌어요.&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;폭포의 줄무늬가 차분해졌어요&lt;/strong&gt; — 흰 줄이 빠르게 쏟아지던 연출을 옅고 느리게 줄였어요.&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;샘이 상자가 아니라 둔덕이에요&lt;/strong&gt; — 물을 처음 놓은 자리가 네모난 뚜껑 대신 살짝 솟은 둥근 모양이에요.&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;물 그리는 엔진을 하나로 합쳤어요&lt;/strong&gt; — 웹과 앱이 같은 엔진(Rust) 하나로 물 모양을 만들어요. 앞으로 물을 고칠 때 한 곳만 고치면 돼요.&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;교실 연결이 더 튼튼해졌어요&lt;/strong&gt; — 연결이 잠깐 끊겼다 돌아올 때와 통신이 밀릴 때, 친구들의 움직임과 블록 놓기가 덜 꼬여요.&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;기계 작업실 부품 그림&lt;/strong&gt; — 고른 부품의 미리보기 그림이 칠한 색과 바꾼 크기를 그대로 따라가요.&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2&gt;버그 수정&lt;/h2&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;물 위의 밝은 선이 거꾸로 흐르던 문제&lt;/strong&gt;를 고쳤어요. 이제 물이 흘러가는 쪽으로 움직여요.&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;꺾인 자리에서 물이 끊겨 보이던 문제&lt;/strong&gt;와 &lt;strong&gt;위에서 볼 때 각진 판이 겹쳐 보이던 문제&lt;/strong&gt;를 고쳤어요.&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;계단을 흐르는 물에 삼각형 조각이 끼어 보이던 문제&lt;/strong&gt;를 고쳤어요.&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2&gt;알려진 문제&lt;/h2&gt;
+&lt;ul&gt;
+&lt;li&gt;휴대폰·태블릿에서는 물 &lt;strong&gt;모양&lt;/strong&gt;만 새 방식이고, 색은 예전 그대로예요.&lt;/li&gt;
+&lt;li&gt;안드로이드 앱은 다음 앱 업데이트부터 새 물 모양으로 보여요.&lt;/li&gt;
+&lt;li&gt;물이 여러 면에서 한꺼번에 떨어지면 물기둥이 기둥이나 나무를 통째로 감싸 보여요.&lt;/li&gt;
+&lt;li&gt;사진의 BEFORE는 어제 버전을, AFTER는 오늘 버전을 같은 장면에서 따로 띄워 찍었어요.&lt;/li&gt;
+&lt;/ul&gt;
+</content>
+  </entry>
   <entry xml:base="https://craftyap.com/">
     <title>11월 11일 패치 노트 ④ — 오늘 수업에서 나온 요청을 반영했어요</title>
     <link href="https://craftyap.com/note/patch-2026-11-11-4/" />
@@ -741,32 +779,6 @@
 &lt;h2&gt;개선&lt;/h2&gt;
 &lt;ul&gt;
 &lt;li&gt;&lt;strong&gt;조준 테두리 색&lt;/strong&gt; — 검은색과 흰색이 세게 부딪혀 보이던 것을, 흰 선 아래 옅은 그림자만 까는 방식으로 바꿨어요. 흰 블록 위에서는 그림자가, 어두운 블록 위에서는 흰 선이 테두리를 보여 줘요. 기계 작업실 조립 커서도 같아요.&lt;/li&gt;
-&lt;/ul&gt;
-&lt;h2&gt;알려진 문제&lt;/h2&gt;
-&lt;ul&gt;
-&lt;li&gt;이미 열려 있던 탭은 &lt;strong&gt;새로고침&lt;/strong&gt;해야 바뀐 화면이 보여요.&lt;/li&gt;
-&lt;/ul&gt;
-</content>
-  </entry>
-  <entry xml:base="https://craftyap.com/">
-    <title>11월 4일 패치 노트 (2) — 붙인 블록은 한 면으로, 조준과 윤곽선은 또렷하게</title>
-    <link href="https://craftyap.com/note/patch-2026-11-04-2/" />
-    <id>https://craftyap.com/note/patch-2026-11-04-2/</id>
-    <published>2026-11-04T00:00:00+09:00</published>
-    <updated>2026-11-04T00:00:00+09:00</updated>
-    <summary>블록을 붙여 쌓으면 블록마다 검은 줄이 생겨 바둑판처럼 보이던 문제, 조준 테두리가 1픽셀이라 잘 안 보이고 붙은 면에서 끊기거나 부수는 동안 연해지던 문제, 캐릭터와 펫의 검은 윤곽선이 너무 두꺼워 발과 팔이 까맣게 뭉개지던 문제를 고쳤어요.</summary>
-    <content type="html">&lt;h2&gt;한눈에 보기&lt;/h2&gt;
-&lt;p&gt;블록을 이어 붙이면 &lt;strong&gt;블록마다 굵은 검은 줄이 생겨 벽과 바닥이 바둑판처럼&lt;/strong&gt; 보였어요. 이제 붙인 블록은 &lt;strong&gt;하나의 면&lt;/strong&gt;으로 이어져 보여요. 바라보는 블록의 &lt;strong&gt;조준 테두리는 두 색의 굵은 선&lt;/strong&gt;으로 바꿔서 어떤 블록 위에서도 잘 보이고, 캐릭터와 펫의 &lt;strong&gt;검은 윤곽선은 절반 두께&lt;/strong&gt;로 깔끔해졌어요.&lt;/p&gt;
-&lt;h2&gt;BEFORE / AFTER&lt;/h2&gt;
-&lt;p&gt;&lt;strong&gt;위: 양털 바닥과 조약돌 바닥 위의 캐릭터와 펫&lt;/strong&gt; — 이전에는 블록마다 검은 격자가 생기고, 윤곽선이 두꺼워서 펫의 발이 까맣게 뭉개졌어요. &lt;strong&gt;아래: 이어 붙인 벽과 바닥을 바라볼 때&lt;/strong&gt; — 이전에는 조준 테두리가 1픽셀이라 거의 보이지 않았어요.&lt;/p&gt;
-&lt;p&gt;&lt;img src=&quot;/note/assets/20261104-block-borders-ba.webp&quot; alt=&quot;블록 테두리 비교: 왼쪽 위는 블록마다 검은 격자와 두꺼운 윤곽선이 있는 이전 화면, 오른쪽 위는 이어진 바닥과 가는 윤곽선의 새 화면, 왼쪽 아래는 조준선이 거의 보이지 않는 이전 화면, 오른쪽 아래는 두 색 조준 테두리가 또렷한 새 화면&quot;&gt;&lt;/p&gt;
-&lt;h2&gt;버그 수정&lt;/h2&gt;
-&lt;ul&gt;
-&lt;li&gt;&lt;strong&gt;붙인 블록 사이의 검은 줄&lt;/strong&gt; — 블록 그림마다 아이콘용 검은 테두리가 그려져 있어서, 모양은 하나로 합쳐져도 1 m마다 굵은 검은 줄이 생겼어요. 이제 월드에서는 그 테두리를 빼고, 블록 그림이 이음매 없이 이어지게 해요. 가방과 단축칸의 블록 아이콘은 그대로예요.&lt;/li&gt;
-&lt;li&gt;&lt;strong&gt;조준 테두리가 잘 안 보이고 크기가 안 맞던 문제&lt;/strong&gt; — 1픽셀 선이라 무늬 많은 블록 위에서 사라졌고, 붙어 있는 블록과 맞닿은 모서리는 옆 블록에 묻혀 끊겨 보였어요. 이제 &lt;strong&gt;어두운 테두리 + 밝은 심&lt;/strong&gt;의 두 색 선이 거리와 관계없이 같은 굵기로 그려지고, 모든 모서리가 보여요.&lt;/li&gt;
-&lt;li&gt;&lt;strong&gt;블록을 부수기 시작하면 조준 테두리가 연해지던 문제&lt;/strong&gt; — 부수는 동안 블록이 금 간 조각으로 바뀌면서 조각이 조금씩 벌어지는데, 그 조각이 테두리를 덮어서 선이 흐려졌어요. 이제 부수는 동안에도 테두리가 조각 위에 또렷하게 남아요.&lt;/li&gt;
-&lt;li&gt;&lt;strong&gt;기계 작업실 조립 커서&lt;/strong&gt;도 같은 두 색 테두리로 바꿨어요. 1픽셀 선이라 부품 사이에서 잘 안 보였어요.&lt;/li&gt;
-&lt;li&gt;&lt;strong&gt;캐릭터·펫 윤곽선이 너무 두껍던 문제&lt;/strong&gt; — 윤곽선이 몸 바깥뿐 아니라 안쪽에도 한 번 더 그려져 두께가 두 배였어요. 그래서 가는 발이나 팔은 통째로 까맣게 보였어요. 이제 &lt;strong&gt;몸 바깥에만&lt;/strong&gt; 가늘게 그려요.&lt;/li&gt;
 &lt;/ul&gt;
 &lt;h2&gt;알려진 문제&lt;/h2&gt;
 &lt;ul&gt;

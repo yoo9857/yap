@@ -166,6 +166,24 @@ describe("fluid", () => {
     expect(w.get(0, 1, 0)).toBe(WATER);
   });
 
+  it("a pond 20 × 20 is retained water all the way down, a cavity under a ledge included", () => {
+    // sources poured over a walled pit; a ledge sticks out of one corner two up from the floor.
+    // (Past the old 256-cell limit this was columns of falling water, the cavity stayed AIR and a
+    // swimmer pressed into that corner dropped out of the water.)
+    const w = makeWorld(), sim = new FluidSim(), size = 20;
+    for (let x = -1; x <= size; x++) for (let z = -1; z <= size; z++) for (let y = 1; y <= 4; y++)
+      if (x < 0 || z < 0 || x === size || z === size) w.set(x, y, z, 3);
+    for (let x = 0; x <= 1; x++) for (let z = 0; z <= 1; z++) w.set(x, 3, z, 3);
+    for (let x = 0; x < size; x++) for (let z = 0; z < size; z++) if (w.get(x, 4, z) === 0) { w.set(x, 4, z, WATER); sim.touch(x, 4, z); }
+    settle(sim, w, 800);
+    expect(sim.busy).toBe(false);
+    for (const [x, z] of [[5, 5], [0, 0], [1, 1], [2, 0]] as const) for (let y = 1; y <= 2; y++) expect(w.get(x, y, z)).toBe(WATER_SETTLED);
+    expect(w.get(5, 3, 5)).toBe(WATER_SETTLED);
+    // it is still a basin: open a wall at the floor and it drains
+    w.set(-1, 1, 5, 0); sim.touch(-1, 1, 5); settle(sim, w, 800);
+    expect(w.get(5, 1, 5)).not.toBe(WATER_SETTLED);
+  });
+
   it("drains retained water when a previously closed basin is broken open", () => {
     const w = makeWorld(), sim = new FluidSim();
     for (let x = -2; x <= 2; x++) for (let z = -2; z <= 2; z++)

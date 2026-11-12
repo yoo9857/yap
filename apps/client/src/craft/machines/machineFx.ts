@@ -57,9 +57,11 @@ export class DustField {
       i * 3,
     );
     this.life[i] = 0.35 + strength * 0.65;
+    this.points.visible = true;
   }
 
   update(dt: number): void {
+    if (!this.points.visible) return;
     let alive = false;
     for (let i = 0; i < MAX_PUFFS; i++) {
       if (this.life[i]! <= 0) {
@@ -123,7 +125,11 @@ export class MachineAudio {
   private engineGain: GainNode | null = null;
   private engineFilter: BiquadFilterNode | null = null;
   private thrustSource: AudioBufferSourceNode | null = null;
+  private thrustFilter: BiquadFilterNode | null = null;
   private thrustGain: GainNode | null = null;
+  private thrustBuffer: AudioBuffer | null = null;
+  private nextUpdate = 0;
+  private readonly tones = new Map<OscillatorNode, GainNode>();
   private failed = false;
 
   private ensure(): boolean {
@@ -146,7 +152,7 @@ export class MachineAudio {
   start(): void {
     if (!this.ensure() || this.engine) return;
     const ctx = this.ctx!;
-    void ctx.resume();
+    void ctx.resume().catch(() => undefined);
     this.engine = ctx.createOscillator();
     this.engine.type = "sawtooth";
     this.engine.frequency.value = 60;
@@ -161,14 +167,16 @@ export class MachineAudio {
       .connect(ctx.destination);
     this.engine.start();
 
-    const frames = Math.floor(ctx.sampleRate * 0.5);
-    const buffer = ctx.createBuffer(1, frames, ctx.sampleRate);
-    const data = buffer.getChannelData(0);
-    for (let i = 0; i < frames; i++) data[i] = (Math.random() * 2 - 1) * 0.6;
+    if (!this.thrustBuffer) {
+      const frames = Math.floor(ctx.sampleRate * 0.5);
+      this.thrustBuffer = ctx.createBuffer(1, frames, ctx.sampleRate);
+      const data = this.thrustBuffer.getChannelData(0);
+      for (let i = 0; i < frames; i++) data[i] = (Math.random() * 2 - 1) * 0.6;
+    }
     this.thrustSource = ctx.createBufferSource();
-    this.thrustSource.buffer = buffer;
+    this.thrustSource.buffer = this.thrustBuffer;
     this.thrustSource.loop = true;
-    const band = ctx.createBiquadFilter();
+    const band = this.thrustFilter = ctx.createBiquadFilter();
     band.type = "bandpass";
     band.frequency.value = 700;
     band.Q.value = 0.8;
@@ -185,6 +193,8 @@ export class MachineAudio {
   update(load: number, speed: number, thrust: number): void {
     if (!this.ctx || !this.engine) return;
     const now = this.ctx.currentTime;
+    if (now < this.nextUpdate) return;
+    this.nextUpdate = now + .05;
     const target = (Math.min(1, Math.abs(load)) * 0.055 + (speed > 0.6 ? 0.012 : 0)) * settings.sfx;
     this.engine.frequency.setTargetAtTime(58 + speed * 7.5, now, 0.08);
     this.engineFilter?.frequency.setTargetAtTime(360 + speed * 48, now, 0.12);
@@ -207,7 +217,7 @@ export class MachineAudio {
     osc.frequency.exponentialRampToValueAtTime(48, ctx.currentTime + 0.18);
     gain.gain.setValueAtTime(Math.min(0.14, force * 0.14) * settings.sfx, ctx.currentTime);
     gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.25);
-    osc.connect(gain).connect(ctx.destination);
+    this.connectTone(osc, gain);
     osc.start();
     osc.stop(ctx.currentTime + 0.26);
   }
@@ -225,10 +235,20 @@ export class MachineAudio {
       gain.gain.setValueAtTime(0.0001, at);
       gain.gain.exponentialRampToValueAtTime(Math.max(0.09 * settings.sfx, 0.0001), at + 0.02);
       gain.gain.exponentialRampToValueAtTime(0.0001, at + 0.22);
-      osc.connect(gain).connect(ctx.destination);
+      this.connectTone(osc, gain);
       osc.start(at);
       osc.stop(at + 0.24);
     });
+  }
+
+  private connectTone(osc: OscillatorNode, gain: GainNode): void {
+    this.tones.set(osc, gain);
+    osc.connect(gain).connect(this.ctx!.destination);
+    osc.onended = () => {
+      osc.disconnect();
+      gain.disconnect();
+      this.tones.delete(osc);
+    };
   }
 
   stop(): void {
@@ -238,16 +258,33 @@ export class MachineAudio {
     } catch {
       /* already stopped */
     }
+    this.engine?.disconnect();
+    this.engineFilter?.disconnect();
+    this.engineGain?.disconnect();
+    this.thrustSource?.disconnect();
+    this.thrustFilter?.disconnect();
+    this.thrustGain?.disconnect();
     this.engine = null;
     this.engineGain = null;
     this.engineFilter = null;
     this.thrustSource = null;
+    this.thrustFilter = null;
     this.thrustGain = null;
+    for (const [osc, gain] of this.tones) {
+      osc.onended = null;
+      osc.stop();
+      osc.disconnect();
+      gain.disconnect();
+    }
+    this.tones.clear();
+    this.nextUpdate = 0;
+    void this.ctx?.suspend().catch(() => undefined);
   }
 
   dispose(): void {
     this.stop();
     void this.ctx?.close().catch(() => undefined);
     this.ctx = null;
+    this.thrustBuffer = null;
   }
 }

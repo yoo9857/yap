@@ -143,6 +143,22 @@ describe("timestamps: when the server RECEIVED a move, not when it snapshotted i
 });
 
 describe("adaptive jitter buffer", () => {
+  it("does not increase interpolation delay when a stalled sender repeats an old position", () => {
+    const track = new RemoteTrack(), out = pose();
+    track.push(0, 0, 4, 0, 0);
+    track.push(100, 0.4, 4, 0, 0);
+    track.sample(100, out);
+    for (let now = 200; now <= 5000; now += 100) {
+      track.push(100, 0.4, 4, 0, 0, now - 100);
+      track.sample(now - RENDER_DELAY_MS, out);
+    }
+    track.push(5000, 0.4, 4, 0, 0);
+    for (let t = 5100; t <= 6200; t += 100) {
+      track.push(t, 0.4 + (t - 5000) * 0.004, 4, 0, 0);
+      track.sample(t - RENDER_DELAY_MS, out);
+    }
+    expect(out.x).toBeGreaterThan(4.6);
+  });
   it("measured-time positions on a 0–200 ms link: no stalls, no leaps once the buffer has grown", () => {
     const clock = new SnapClock();
     const track = new RemoteTrack();

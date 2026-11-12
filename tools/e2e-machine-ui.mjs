@@ -12,6 +12,22 @@ const browser = await puppeteer.launch({
 try {
   await mkdir("output/garage-ui-refined", { recursive: true });
   const page = await browser.newPage(), errors = [];
+  await page.evaluateOnNewDocument(() => {
+    window.machineGl = { contexts: 0, draws: 0 };
+    const getContext = HTMLCanvasElement.prototype.getContext;
+    HTMLCanvasElement.prototype.getContext = function (type, ...args) {
+      const context = getContext.call(this, type, ...args);
+      if (context && type.startsWith('webgl')) window.machineGl.contexts++;
+      return context;
+    };
+    for (const name of ['drawElements', 'drawArrays', 'drawElementsInstanced', 'drawArraysInstanced']) {
+      const draw = WebGL2RenderingContext.prototype[name];
+      WebGL2RenderingContext.prototype[name] = function (...args) {
+        window.machineGl.draws++;
+        return draw.apply(this, args);
+      };
+    }
+  });
   page.on("pageerror", error => errors.push(error.message));
   page.on("console", message => {
     if (message.type() === "error" && /THREE.WebGLProgram|Shader Error|WebGL: INVALID/.test(message.text())) errors.push(message.text());
@@ -19,6 +35,8 @@ try {
   await page.setViewport({ width: 1600, height: 900 });
   await page.goto(`${process.env.BASE_URL ?? "http://127.0.0.1:5173"}/?mode=craft`, { waitUntil: "networkidle2", timeout: 60000 });
   await page.waitForFunction(() => !!window.__roboCraft);
+  // the loading screen covers the chip until the boot warm-up is done: a click before that is lost
+  await page.waitForFunction(() => document.getElementById("boot-overlay")?.classList.contains("hidden"), { timeout: 90000 });
   await page.click(".machine-launch");
   await page.click('.machine-coach [data-id="skip"]');
   await page.waitForFunction(() => window.__roboCraft.machine().assetsLoaded);
@@ -34,7 +52,11 @@ try {
   await page.click('[data-custom-option="color"][data-value="coral"]');
   await page.click('.mw-section[data-screen="library"]');
   await page.click('[data-id="save"]');
-  assert.equal(await page.$$eval('[data-action="load"] img', images => images.every(image => image.src.startsWith('data:image/'))), true);
+  await page.waitForFunction(() => {
+    const images = [...document.querySelectorAll('[data-action="load"] img')];
+    return images.length === 4 && images.every(image => image.src.startsWith('data:image/'));
+  });
+  assert.equal(await page.evaluate(() => window.machineGl.contexts), 1, 'thumbnails use the game WebGL context');
   const savedId = await page.$eval('[data-action="replace"]', element => element.dataset.slot);
   await page.click(`[data-action="replace"][data-slot="${savedId}"]`);
   await page.screenshot({ path: 'output/garage-ui-refined/replace-review.png' });
@@ -109,6 +131,37 @@ try {
     }
     console.log(`PASS ${width}×${height}: five readable screens, preview and actions clear`);
   }
+  await page.setViewport({ width: 1280, height: 720 });
+  await page.click('.mw-section[data-screen="library"]');
+  await page.click('[data-preset="skylark"]');
+  await page.waitForFunction(() => window.__roboCraft.machine().editor.skylark?.visible);
+  await page.click('[data-id="skylark-explode"]');
+  await page.click('[data-skylark-part="PART_MainRotor"]');
+  const { skylark } = await page.evaluate(() => window.__roboCraft.machine().editor);
+  assert.equal(skylark.parts, 10);
+  assert.equal(skylark.exploded, true);
+  assert.equal(skylark.selected, 'PART_MainRotor');
+  await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+  const idleDraws = await page.evaluate(async () => {
+    const initial = window.machineGl.draws;
+    for (let i = 0; i < 12; i++) await new Promise(resolve => requestAnimationFrame(resolve));
+    return window.machineGl.draws - initial;
+  });
+  assert.equal(idleDraws, 0, 'an unchanged Skylark preview does not issue draw calls');
+  await page.click('[data-id="skylark-explode"]');
+  await page.waitForFunction(() => !window.__roboCraft.machine().editor.skylark.exploded);
+  const kitRequests = [];
+  page.on('request', request => {
+    if (/\/machine-kit(?:-lod1)?\.glb/.test(request.url())) kitRequests.push(request.url());
+  });
+  await page.reload({ waitUntil: 'networkidle2' });
+  await page.waitForFunction(() => !!window.__roboCraft);
+  await page.click('.machine-launch');
+  await page.waitForFunction(() => window.__roboCraft.machine().editor.skylark?.visible);
+  assert.equal(kitRequests.length, 0, 'opening a saved Skylark only loads its own model');
+  await page.click('.mw-section[data-screen="tune"]');
+  await page.waitForFunction(() => window.__roboCraft.machine().assetsLoaded);
+  assert.equal(kitRequests.length, 1, 'block customization requests the kit when needed');
   assert.deepEqual(errors, []);
   console.log("PASS clean browser console");
 } finally {
