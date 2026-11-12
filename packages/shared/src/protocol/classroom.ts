@@ -91,14 +91,14 @@ export const classWetSchema = z.tuple([
 export type ClassWet = z.infer<typeof classWetSchema>;
 
 /** Exact furniture value, including colour and open/closed state. */
-const furnitureBase = z.tuple([
+const furnitureItems = [
   z.string().min(1).max(48), coordSchema,
   z.number().int().min(0).max(CLASS_MAX_Y), coordSchema,
   z.number().int().min(0).max(3), z.number().int().min(0).max(32),
-]);
+] as const;
 export const classFurnitureSchema = z.union([
-  furnitureBase,
-  z.tuple([...furnitureBase.items, z.number().int().min(0).max(1)]),
+  z.tuple([...furnitureItems]),
+  z.tuple([...furnitureItems, z.number().int().min(0).max(1)]),
 ]);
 export type ClassFurniture = z.infer<typeof classFurnitureSchema>;
 

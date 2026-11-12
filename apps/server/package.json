@@ -11,12 +11,12 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@robo/engine": "workspace:*",
     "@robo/shared": "workspace:*",
     "better-sqlite3": "^12.11.1",
     "pino": "^9.6.0",
     "ws": "^8.18.2",
-    "zod": "^3.24.4",
-    "@robo/engine": "workspace:*"
+    "zod": "^4.6.7"
   },
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.13",

@@ -34,7 +34,7 @@ RUN mkdir -p apps/server \
     && npm init -y >/dev/null 2>&1 \
     && npm pkg set type=module \
     && npm install --omit=dev --no-audit --no-fund \
-        better-sqlite3@12.11.1 pino@9.14.0 ws@8.21.1 zod@3.25.76
+        better-sqlite3@12.11.1 pino@9.14.0 ws@8.21.1 zod@4.6.7
 COPY --from=build /app/apps/server/dist ./apps/server/dist
 COPY --from=build /app/apps/client/dist ./apps/client/dist
 # SQLite lives here; bind-mount a host dir over it in compose for persistence
