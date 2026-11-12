@@ -44,6 +44,7 @@ node tools/e2e-field.mjs          # education: category screen, endless field, s
 node tools/e2e-plants-class.mjs [shotdir]   # science mode in a class (v15): a student's plant for everyone, owner-only, teacher may help, build lock, forged change refused, late joiner, field reset
 node tools/e2e-plants.mjs [shotdir]   # science mode (T): lay/refuse, item sockets bottom-up (aim, middle-click pick), parts after the frame, won't run incomplete, switch on, status board, beacon arrow, reload, X take-back
 node tools/e2e-party.mjs          # hub rooms: create/list/join/ready/start into build, mid-game join by code, seat back from the game, tower party room
+node tools/e2e-class-water.mjs [shotdir]  # the teacher's tools against the class's water (teacher + student browsers): seats, pours, a plot drained, all drained, seats cleared, a plot reset — both screens hold the same water and DRAW exactly it (server twin: apps/server/test/classroom-water-tools.test.ts, both engines, no orphaned water)
 node tools/e2e-class-tools.mjs    # teacher's per-student tools: one plot drained / reset (a buried student lifted, the neighbour untouched), plants lock, pets off, back to the surface
 node tools/e2e-classroom.mjs      # classroom: teacher + 2 students in separate browsers — join/errors, shared building, late join, locks, chat, gather, kick, reconnect, end
 node tools/shot-class-tools.mjs <outdir>  # teacher F2 console (main, timer, announce) + a student's frozen/announced screen, 1600×900
