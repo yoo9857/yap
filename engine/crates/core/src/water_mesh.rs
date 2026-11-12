@@ -1338,6 +1338,11 @@ impl<G: Fn(i32, i32, i32) -> u8> Builder<'_, G> {
     fn tuck(&self, cx: i32, level: i32, cz: i32, both: bool) -> (f64, f64) {
         // (toward the block on x / on z, and which way the blocks pushing on the OTHER axis lie)
         let (mut sx, mut sz, mut ex, mut ez) = (0.0, 0.0, 0.0, 0.0);
+        // (...and away from a block's corner that water stands against on BOTH sides with open air
+        // past it: the two sides meet round the corner. Drawn into the block there, they crossed
+        // inside it and the block's own edge stood out of the water — a bright line down every
+        // pillar's corner.)
+        let (mut ox, mut oz) = (0.0, 0.0);
         for y in (if both { level - 1 } else { level })..=level {
             for dx in -1..=0 {
                 for dz in -1..=0 {
@@ -1345,11 +1350,18 @@ impl<G: Fn(i32, i32, i32) -> u8> Builder<'_, G> {
                         continue;
                     }
                     let (px, pz) = (dx as f64 + 0.5, dz as f64 + 0.5);
-                    if is_water(self.get(cx - 1 - dx, y, cz + dz)) {
+                    let (on_x, on_z) = (is_water(self.get(cx - 1 - dx, y, cz + dz)), is_water(self.get(cx + dx, y, cz - 1 - dz)));
+                    let past = self.get(cx - 1 - dx, y, cz - 1 - dz);
+                    if on_x && on_z && !is_water(past) && !SOLID[past as usize] {
+                        ox -= px;
+                        oz -= pz;
+                        continue;
+                    }
+                    if on_x {
                         sx += px;
                         ez += pz;
                     }
-                    if is_water(self.get(cx + dx, y, cz - 1 - dz)) {
+                    if on_z {
                         sz += pz;
                         ex += px;
                     }
@@ -1357,6 +1369,9 @@ impl<G: Fn(i32, i32, i32) -> u8> Builder<'_, G> {
             }
         }
         let toward = |v: f64, by: f64| if v > 0.0 { by } else if v < 0.0 { -by } else { 0.0 };
+        if ox != 0.0 || oz != 0.0 {
+            return (toward(ox, TUCK_END), toward(oz, TUCK_END));
+        }
         (if sx != 0.0 { toward(sx, TUCK) } else { toward(ex, TUCK_END) }, if sz != 0.0 { toward(sz, TUCK) } else { toward(ez, TUCK_END) })
     }
 

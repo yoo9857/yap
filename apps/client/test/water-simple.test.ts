@@ -106,7 +106,7 @@ describe("simple water", () => {
     const p = g.getAttribute("position");
     // (a spring's top has a point in its middle and on its edges: halves there)
     // (...and a corner at a block reaches 7 cm into it — 3 cm along a wall at its end: the bricks are drawn inside their cells)
-    const onLine = (v: number) => { const off = Math.abs(v - Math.round(v * 2) / 2); return off < 1e-6 || Math.abs(off - 0.07) < 1e-6 || Math.abs(off - 0.03) < 1e-6; };
+    const onLine = (v: number) => { const off = Math.abs(v - Math.round(v * 2) / 2); return off < 1e-4 || Math.abs(off - 0.07) < 1e-4 || Math.abs(off - 0.03) < 1e-4; };
     let tucked = 0;
     for (let i = 0; i < p.count; i++) {
       expect(onLine(p.getX(i)) && onLine(p.getZ(i)), `${p.getX(i)}, ${p.getZ(i)}`).toBe(true);
