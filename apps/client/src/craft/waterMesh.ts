@@ -315,7 +315,9 @@ export function makeWaterMaterial(pass: WaterPass = "all"): THREE.MeshStandardMa
               outgoingLight = mix(body * lit, vec3(0.88, 0.95, 1.0), streak * 0.2);
               diffuseColor.a = 0.6 + streak * 0.08;
             } else {
-              outgoingLight = mix(body * lit, reflected, fresnel * 0.6);
+              // (the sky on it only faintly: at 0.6, seen from up high at a slant, the water went to a
+              // white glare that broke off wherever its slope changed — it read as water cut in pieces)
+              outgoingLight = mix(body * lit, reflected, fresnel * 0.28);
               float reach = behindWater * max(facing, 0.3);
               float band = clamp(vWater.z * 0.3, 0.025, 0.13);
               float contact = 1.0 - smoothstep(band * 0.15, band, reach);
@@ -323,7 +325,7 @@ export function makeWaterMaterial(pass: WaterPass = "all"): THREE.MeshStandardMa
               float lines = smoothstep(0.62, 0.76, lace) * 0.24;
               float white = max(froth * 0.92, lines);
               outgoingLight = mix(outgoingLight, vec3(0.95, 0.98, 1.0), white);
-              diffuseColor.a = max(clamp(mix(0.58, 0.72, deepK) + fresnel * 0.3 + glint, 0.0, 0.96), white);
+              diffuseColor.a = max(clamp(mix(0.58, 0.72, deepK) + fresnel * 0.12 + glint * 0.4, 0.0, 0.96), white);
               thin = max(thin, froth);
             }
           } else {

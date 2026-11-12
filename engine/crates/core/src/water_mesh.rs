@@ -1403,6 +1403,7 @@ impl<G: Fn(i32, i32, i32) -> u8> Builder<'_, G> {
         // stands at its own height and a corner that no other water shares is drawn in and down,
         // so a spring is a mound the water runs off (it was a rectangle with a flat lid).
         let standing = water_level(id) == 0 && id != WATER_FALLING && !is_water(up) && !SOLID[up as usize];
+        let mut lone = false;
         for (k, [dx, dz]) in at.into_iter().enumerate() {
             let (cx, cz) = (x + dx, z + dz);
             let (mut h, wet) = self.corner_height(cx, y, cz).unwrap_or((water_height(id, false), 1.0));
@@ -1412,6 +1413,7 @@ impl<G: Fn(i32, i32, i32) -> u8> Builder<'_, G> {
             let alone = standing && wet == 1.0 && !walled;
             if alone {
                 h *= SPRING_DROP;
+                lone = true;
             }
             // the surface's slope here, from the corners either side (their own height where they have none)
             let side = |b: &Self, ox: i32, oz: i32| b.corner_height(cx + ox, y, cz + oz).map_or(h, |v| v.0);
@@ -1425,7 +1427,11 @@ impl<G: Fn(i32, i32, i32) -> u8> Builder<'_, G> {
             let n = if alone { normalize([(dx as f64 - 0.5) * 1.2, 1.0, (dz as f64 - 0.5) * 1.2]) } else { normalize([-gx, 1.0, -gz]) };
             tops[k] = Corner { p, n, wave: if h >= 1.0 || h <= 0.0 || alone { 0.0 } else { corner_swell(h) }, wet: wet / 4.0 };
         }
-        if standing {
+        // (a standing cell level with everything round it — the inside of a pond's surface — has no
+        // mound to draw: one quad like any other top, a quarter of the vertices)
+        let own_height = water_height(id, false);
+        let mound = standing && (lone || own_height - tops.iter().map(|c| c.p[1] - yf).sum::<f64>() / 4.0 > 1e-9);
+        if mound {
             // four quads round the middle: (middle, the edge's midpoint before, the corner, the one after)
             let own = water_height(id, false);
             let mean = tops.iter().map(|c| c.p[1] - yf).sum::<f64>() / 4.0;
@@ -1439,7 +1445,7 @@ impl<G: Fn(i32, i32, i32) -> u8> Builder<'_, G> {
                 let next = tops[(k + 1) % 4];
                 self.simple_quad([x, y, z], 6 + k as u32, [centre, tops[k], next, next], flow, s.depth, foam, impact);
             }
-        } else if !is_water(up) {
+        } else if !is_water(up) || standing {
             let closing = SOLID[up as usize] && tops.iter().all(|c| c.p[1] >= yf + 1.0);
             // The top folds along the diagonal whose two ends stand most alike. Always folded
             // along the same one, a cell with ONE corner high (beside a fall, where streams of two

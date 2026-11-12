@@ -46,6 +46,22 @@ export function waterBodyAt(world: VoxelWorld, x: number, y: number, z: number):
   return isWater(id) ? id : 0;
 }
 
+/** The drawn top's height at the lattice corner (px, pz) of layer cy (water_mesh.rs `corner_height`). */
+function cornerHeight(world: VoxelWorld, px: number, cy: number, pz: number): number {
+  let sum = 0, n = 0, lips = 0, open = false;
+  for (let dx = -1; dx <= 0; dx++) for (let dz = -1; dz <= 0; dz++) {
+    const id = waterBodyAt(world, px + dx, cy, pz + dz);
+    if (id === 0) { open ||= !world.isSolid(px + dx, cy, pz + dz); continue; }
+    if (waterBodyAt(world, px + dx, cy + 1, pz + dz) !== 0) return 1;
+    // (a corner only lips share — running water over a fall — stands at the cell's floor, and
+    // so does the one two lips turn round at open air)
+    if (id > WATER && id < WATER_FALLING && waterBodyAt(world, px + dx, cy - 1, pz + dz) === WATER_FALLING) lips++;
+    sum += waterHeight(id, false);
+    n++;
+  }
+  return lips === n || lips >= 2 && open ? 0 : sum / n;
+}
+
 /**
  * How far a point is below the water's surface (m; negative: above it), measured against the
  * surface that is DRAWN — the top of the highest water cell over the point — or null where there
@@ -64,21 +80,7 @@ export function waterDepthAt(world: VoxelWorld, x: number, y: number, z: number)
   // cells round them (water_mesh.rs `corner_height` — full where one of the four has water over
   // it, else the mean of their heights) and the top is two triangles over them. Measured against the flat height, the eye beside a fall or on a stream's slope was
   // "under" a surface that is drawn well away from it, and the view behind turned to water.
-  const corner = (px: number, pz: number): number => {
-    let sum = 0, n = 0, lips = 0, open = false;
-    for (let dx = -1; dx <= 0; dx++) for (let dz = -1; dz <= 0; dz++) {
-      const id = waterBodyAt(world, px + dx, cy, pz + dz);
-      if (id === 0) { open ||= !world.isSolid(px + dx, cy, pz + dz); continue; }
-      if (waterBodyAt(world, px + dx, cy + 1, pz + dz) !== 0) return 1;
-      // (a corner only lips share — running water over a fall — stands at the cell's floor, and
-      // so does the one two lips turn round at open air)
-      if (id > WATER && id < WATER_FALLING && waterBodyAt(world, px + dx, cy - 1, pz + dz) === WATER_FALLING) lips++;
-      sum += waterHeight(id, false);
-      n++;
-    }
-    return lips === n || lips >= 2 && open ? 0 : sum / n;
-  };
-  const h0 = corner(cx, cz), h1 = corner(cx, cz + 1), h2 = corner(cx + 1, cz + 1), h3 = corner(cx + 1, cz);
+  const h0 = cornerHeight(world, cx, cy, cz), h1 = cornerHeight(world, cx, cy, cz + 1), h2 = cornerHeight(world, cx + 1, cy, cz + 1), h3 = cornerHeight(world, cx + 1, cy, cz);
   const u = x - cx, v = z - cz;
   // (folded along the diagonal whose ends stand most alike, as the mesher folds it)
   const top = Math.abs(h0 - h2) <= Math.abs(h1 - h3)
