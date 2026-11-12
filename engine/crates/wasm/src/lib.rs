@@ -419,17 +419,14 @@ pub fn surface_style(key: &str) -> Vec<f64> {
     vec![s.roughness, s.metalness, s.normal, s.clearcoat]
 }
 
-/// The water surface (`water_mesh.rs`, a port of waterGeometry.ts `buildWaterGeometry`) over a
-/// 160 × 56 × 160 grid (`cells`, the VoxelWorld layout, waterlogged shapes already handed over AS
-/// their water) and the column beyond it (`outside`, empty = air). Returns one Float32Array:
-/// [vertex count, index count, position (3n), normal (3n), wave, wet, foam, depth (n each),
-/// flow (3n), impact (3n), grid (4n), indices]; [0, 0] when nothing is drawn, [-1, 0] when the
-/// TypeScript would throw. `profile` (same layout as `cells`, or empty): the top of each shaped
-/// block holding water (waterlog.ts `shapeProfile`). `streams`: water in the air as films and
-/// streams (waterGeometry.ts `drawWaterAsStreams`).
+/// The water surface (`water_mesh.rs`) over a 160 × 56 × 160 grid (`cells`, the VoxelWorld layout,
+/// waterlogged shapes already handed over AS their water) and the column beyond it (`outside`,
+/// empty = air). Returns one Float32Array: [vertex count, index count, position (3n), normal (3n),
+/// wave, wet, foam, depth (n each), flow (3n), impact (3n), grid (4n), indices]; [0, 0] when
+/// nothing is drawn. The indices are the drawn faces, then the closing faces against blocks
+/// (`aWet` -1 on their vertices: the shader keeps them out of every pass but the count).
 #[wasm_bindgen]
-pub fn water_mesh(cells: &[u8], outside: &[u8], list: &[i32], profile: &[u8], streams: bool) -> Vec<f32> {
-    use craftyap_core::water_mesh::build_water_mesh_streams;
+pub fn water_mesh(cells: &[u8], outside: &[u8], list: &[i32]) -> Vec<f32> {
     use craftyap_core::world::{WORLD_X, WORLD_Y, WORLD_Z};
     let get = |x: i32, y: i32, z: i32| -> u8 {
         if !(0..WORLD_Y).contains(&y) {
@@ -441,57 +438,43 @@ pub fn water_mesh(cells: &[u8], outside: &[u8], list: &[i32], profile: &[u8], st
         outside.get(y as usize).copied().unwrap_or(0)
     };
     let points: Vec<[i32; 3]> = list.as_chunks::<3>().0.to_vec();
-    let top = |x: i32, y: i32, z: i32| -> u8 {
-        if (0..WORLD_Y).contains(&y) && (0..WORLD_X).contains(&x) && (0..WORLD_Z).contains(&z) {
-            return profile.get(((y * WORLD_Z + z) * WORLD_X + x) as usize).copied().unwrap_or(0);
-        }
-        0
+    let mut out = Vec::new();
+    pack_water(&mut out, craftyap_core::water_mesh::build_water_mesh(&get, &points));
+    out
+}
+
+fn pack_water(out: &mut Vec<f32>, mesh: Option<craftyap_core::water_mesh::WaterMesh>) {
+    let Some(m) = mesh else {
+        out.extend([0.0, 0.0]);
+        return;
     };
-    match build_water_mesh_streams(&get, &top, &points, streams) {
-        Err(_) => vec![-1.0, 0.0],
-        Ok(None) => vec![0.0, 0.0],
-        Ok(Some(m)) => {
-            let mut out = vec![(m.position.len() / 3) as f32, (m.indices.len() + m.closure.len()) as f32];
-            for part in [&m.position, &m.normal, &m.wave, &m.wet, &m.foam, &m.depth, &m.flow, &m.impact, &m.grid] {
-                out.extend_from_slice(part);
-            }
-            // (the closing faces after the drawn ones: the shader keeps them out of every pass but the count)
-            out.extend(m.indices.iter().chain(m.closure.iter()).map(|&i| i as f32));
-            out
-        }
+    out.extend([(m.position.len() / 3) as f32, (m.indices.len() + m.closure.len()) as f32]);
+    for part in [&m.position, &m.normal, &m.wave, &m.wet, &m.foam, &m.depth, &m.flow, &m.impact, &m.grid] {
+        out.extend_from_slice(part);
     }
+    out.extend(m.indices.iter().chain(m.closure.iter()).map(|&i| i as f32));
 }
 
 /// The water surface for the web's mesh worker: one snapshot of the grid, meshed chunk by chunk
-/// (waterWorker.ts). `cells`/`outside` as `water_mesh`; `marks` is the sparse profile list the
-/// worker gets: flat [cell index, mark]*.
+/// (waterWorker.ts). `cells`/`outside` as `water_mesh`.
 #[wasm_bindgen]
 pub struct WaterMesher {
     cells: Vec<u8>,
     outside: Vec<u8>,
-    marks: std::collections::HashMap<i32, u8>,
-    streams: bool,
 }
 
 #[wasm_bindgen]
 impl WaterMesher {
     #[wasm_bindgen(constructor)]
-    pub fn new(cells: &[u8], outside: &[u8], marks: &[i32], streams: bool) -> WaterMesher {
-        WaterMesher {
-            cells: cells.to_vec(),
-            outside: outside.to_vec(),
-            marks: marks.as_chunks::<2>().0.iter().map(|&[i, m]| (i, m as u8)).collect(),
-            streams,
-        }
+    pub fn new(cells: &[u8], outside: &[u8]) -> WaterMesher {
+        WaterMesher { cells: cells.to_vec(), outside: outside.to_vec() }
     }
 
     /// One 16 × 16 chunk at (x, z), layers min_y..=max_y. Returns `water_mesh`'s array with two
     /// more numbers in front: [min y, max y of the cells meshed (56, -1 when none), vertex count,
-    /// index count, …]; [min, max, 0, 0] when nothing is drawn, [min, max, -1, 0] where the
-    /// TypeScript would throw.
+    /// index count, …]; [min, max, 0, 0] when nothing is drawn.
     pub fn chunk(&self, x: i32, z: i32, min_y: i32, max_y: i32) -> Vec<f32> {
         use craftyap_core::blocks_gen::SOLID;
-        use craftyap_core::water_mesh::build_water_mesh_streams;
         use craftyap_core::world::{WORLD_X, WORLD_Y, WORLD_Z};
         let get = |x: i32, y: i32, z: i32| -> u8 {
             if !(0..WORLD_Y).contains(&y) {
@@ -501,12 +484,6 @@ impl WaterMesher {
                 return self.cells.get(((y * WORLD_Z + z) * WORLD_X + x) as usize).copied().unwrap_or(0);
             }
             self.outside.get(y as usize).copied().unwrap_or(0)
-        };
-        let top = |x: i32, y: i32, z: i32| -> u8 {
-            if !self.marks.is_empty() && (0..WORLD_Y).contains(&y) && (0..WORLD_X).contains(&x) && (0..WORLD_Z).contains(&z) {
-                return self.marks.get(&((y * WORLD_Z + z) * WORLD_X + x)).copied().unwrap_or(0);
-            }
-            0
         };
         let mut points: Vec<[i32; 3]> = Vec::new();
         let (mut lo, mut hi) = (WORLD_Y, -1);
@@ -523,22 +500,7 @@ impl WaterMesher {
             }
         }
         let mut out = vec![lo as f32, hi as f32];
-        if points.is_empty() {
-            out.extend([0.0, 0.0]);
-            return out;
-        }
-        match build_water_mesh_streams(&get, &top, &points, self.streams) {
-            Err(_) => out.extend([-1.0, 0.0]),
-            Ok(None) => out.extend([0.0, 0.0]),
-            Ok(Some(m)) => {
-                out.extend([(m.position.len() / 3) as f32, (m.indices.len() + m.closure.len()) as f32]);
-                for part in [&m.position, &m.normal, &m.wave, &m.wet, &m.foam, &m.depth, &m.flow, &m.impact, &m.grid] {
-                    out.extend_from_slice(part);
-                }
-                // (the closing faces after the drawn ones: the shader keeps them out of every pass but the count)
-            out.extend(m.indices.iter().chain(m.closure.iter()).map(|&i| i as f32));
-            }
-        }
+        pack_water(&mut out, if points.is_empty() { None } else { craftyap_core::water_mesh::build_water_mesh(&get, &points) });
         out
     }
 }
@@ -548,11 +510,4 @@ impl WaterMesher {
 #[wasm_bindgen]
 pub fn draw_water_by_amount(on: bool) {
     craftyap_core::body::draw_water_by_amount(on);
-}
-
-/// The simple, Minecraft-like water (the default: a box per cell, corners shared) or the surface
-/// net with its films (`false`). A switch for the whole module.
-#[wasm_bindgen]
-pub fn draw_water_simple(on: bool) {
-    craftyap_core::water_mesh::draw_water_simple(on);
 }

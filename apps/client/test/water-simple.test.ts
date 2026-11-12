@@ -1,17 +1,15 @@
-// The simple water the game draws by default (water_mesh.rs `build_simple`, the owner's call
+// The water the game draws (water_mesh.rs, the owner's call
 // 2026-11-12: "simple, like Minecraft — water that runs down"): a box per water cell, the corners
 // of its top shared with the cells round it. So the surface has no cracks — every top vertex at
 // one lattice corner of one layer stands at the same height — it falls from the spring to the
 // last cell, falling water and water under water are full cells, and nothing is drawn against a
 // block or more water.
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 import { FluidSim, WATER, WATER_FALLING, isWater, type FluidWorld } from "@robo/shared";
 import { VoxelWorld } from "../src/craft/voxelWorld.js";
-import { buildWaterGeometry, drawWaterSimple } from "../src/craft/waterMesher.js";
+import { buildWaterGeometry } from "../src/craft/waterMesher.js";
 import { blockByKey } from "../src/craft/blocks.js";
 
-beforeAll(() => drawWaterSimple(true));
-afterAll(() => drawWaterSimple(false));
 const S = blockByKey("stone")!.id, Y = 3, C = 40;
 
 function flow(build: (w: VoxelWorld) => number[][]) {

@@ -46,8 +46,6 @@ const uniforms = {
   /** `?waterdebug=1`: the water's SHAPE in flat colours, for finding what is wrong with it —
    *  level faces blue, upright faces green, tilted panels red (the steeper the darker), each
    *  triangle lit by its own flat normal so a bulge or a step shows as a facet. */
-  /** 1 = the simple, Minecraft-like water: its own short shading in the surface pass. */
-  uWaterSimple: { value: typeof location !== "undefined" && new URLSearchParams(location.search).get("watershape") === "net" ? 0 : 1 },
   uWaterDebug: { value: typeof location !== "undefined" && new URLSearchParams(location.search).has("waterdebug") ? 1 : 0 },
 };
 const VERTEX_HEAD = /* glsl */ `
@@ -79,7 +77,6 @@ uniform vec3 uDeep;
 uniform sampler2D uWaterDetail;
 uniform int uPass;
 uniform float uWaterDebug;
-uniform float uWaterSimple;
 uniform sampler2D tSceneDepth;
 uniform sampler2D tWaterFront;
 uniform sampler2D tWaterBack;
@@ -228,10 +225,10 @@ export function makeWaterMaterial(pass: WaterPass = "all"): THREE.MeshStandardMa
           // level bands across it — there the pattern is taken from the ground plan)
           bool lying = abs(vWNormal.y) > 0.6;
           // (the simple water's falls run calmer: half the speed, mostly the broad streaks)
-          float calmFall = uWaterSimple > 0.5 ? 0.5 : 1.0;
+          float calmFall = 0.5;
           detail = waterNoise(lying ? p * 0.3 : vec2(along * 0.5, vWPos.y * 0.0625), lying ? drift * 4.0 : vec2(0.025, -1.2 * calmFall));
           // finer rivulets running faster than the broad ones
-          float fineShare = uWaterSimple > 0.5 ? 0.2 : 0.45;
+          float fineShare = 0.2;
           detail.a = detail.a * (1.0 - fineShare) + waterNoise(lying ? p * 0.8 : vec2(along * 1.9, vWPos.y * 0.12), lying ? drift * 6.0 : vec2(0.01, -2.2 * calmFall)).a * fineShare;
           wn = normalize(wn + vec3(detail.r - 0.5, 0.0, detail.g - 0.5) * 0.2);
         } else {
@@ -295,8 +292,8 @@ export function makeWaterMaterial(pass: WaterPass = "all"): THREE.MeshStandardMa
           // does not shear the pattern more and more as time goes on.
           vec4 laced = waterNoise(p * 0.21, drift * 7.0);
           float lace = laced.b * 0.6 + laced.a * 0.4;
-          if (uWaterSimple > 0.5) {
-            // The simple water: plainly WATER, like a toy's. Blue by how much of it there is —
+          {
+            // The water: plainly WATER, like a toy's. Blue by how much of it there is —
             // light and clear where it is shallow, deep blue where it is deep — the sky on it at a
             // glancing angle, light lines running with it, froth where it meets something; a fall
             // is white water streaking down over blue. Two texture reads, no branches per layer.
@@ -328,40 +325,6 @@ export function makeWaterMaterial(pass: WaterPass = "all"): THREE.MeshStandardMa
               diffuseColor.a = max(clamp(mix(0.58, 0.72, deepK) + fresnel * 0.12 + glint * 0.4, 0.0, 0.96), white);
               thin = max(thin, froth);
             }
-          } else {
-          // (the veil grows with the water behind it: a hand of water over a brown block at the
-          // full veil, in that block's shadow, was a grey slab — the block must keep its colour)
-          // (not much: at 0.07 a stream on the grass was gone altogether)
-          float veil = mix(0.22, 0.3, smoothstep(0.25, 2.2, behindWater));
-          if (!curtain) outgoingLight = max(outgoingLight, vec3(0.16, 0.4, 0.5));
-          diffuseColor.a = clamp((curtain ? curtainBody : veil + fresnel * 0.6 + bubbles * 0.6) + glint, 0.0, 0.96);
-          // How much water lies under this point, roughly straight down (the pipeline knows what
-          // is behind the surface): where that runs out the water MEETS something — a bank, a
-          // wall, a block standing in it — and there it froths.
-          float reach = behindWater * max(facing, 0.3);
-          if (curtain) {
-            // A fall in the open is white water, not a pane of glass: streaks running down it,
-            // nearly opaque. A film on a face (little behind it) keeps showing the wall.
-            // (by the water's own thickness: by the distance to the scene behind, every thin sheet
-            // hanging in the air counted as a fall and went white and opaque)
-            float body = smoothstep(0.25, 0.55, waterThick) * (1.0 - smoothstep(0.6, 0.9, abs(vWNormal.y)));
-            float streak = smoothstep(0.3, 0.62, detail.a);
-            outgoingLight = mix(outgoingLight, vec3(0.9, 0.96, 0.98), body * (0.3 + streak * 0.55));
-            diffuseColor.a = mix(diffuseColor.a, 0.46 + streak * 0.44, body);
-          } else {
-            // (the band is narrower on shallow water: a puddle a hand deep is within 13 cm of the
-            // block under it everywhere, and frothed all over — a milky slab lying on the block)
-            float band = clamp(vWater.z * 0.3, 0.025, 0.13);
-            float contact = 1.0 - smoothstep(band * 0.15, band, reach);
-            float froth = contact * smoothstep(0.42, 0.6, lace + contact * 0.4);
-            // light running lines on open water, so it is seen to move
-            float lines = smoothstep(0.6, 0.74, lace) * 0.16 * smoothstep(0.1, 0.5, reach);
-            float white = max(froth * 0.92, lines);
-            outgoingLight = mix(outgoingLight, vec3(0.94, 0.98, 0.99), white);
-            diffuseColor.a = max(diffuseColor.a, white);
-            // (the foam IS the edge: it must not fade out with the thin water it marks)
-            thin = max(thin, froth);
-          }
           }
         }
         if (uWaterDebug > 0.5) {

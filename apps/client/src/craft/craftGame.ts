@@ -42,7 +42,7 @@ import type { ClassClient, ClassSession } from "../net/classClient.js";
 import { SWIM_DEPTH, pointInWater, waterDepthAt, stepBody, unstick, overlapsShapedVoxel, overlapsVoxel, wishFromInput, type Body } from "./voxelBody.js";
 import {SandSim} from "./sandSim.js";
 import { WaterSim } from "./waterSim.js";
-import { INSIDE_W, INSIDE_H, type WaterPipeline } from "../render/waterPipeline.js";
+import type { WaterPipeline } from "../render/waterPipeline.js";
 import { classKey, seatLayout, WATER, WATER_SETTLED, drawWaterByAmount, isWater, emoteDef, lookDirection, pickBonk, bonkBlocked, tapBeatsDig, BONK_COOLDOWN_MS, BONK_DECAY, BONK_PUSH_CAP, type EmoteId, type CharacterId, type ClassAnim, type CharacterAction, type CharacterPresentation, postureTransition } from "@robo/shared";
 import { EmoteMenu } from "./emoteMenu.js";
 import { adoptPosture, moveScale, POSTURE_EYE, type Posture } from "./posture.js";
@@ -81,6 +81,8 @@ import { isFrameKey } from "./science/frames.js";
 import { isPartKey } from "./science/parts.js";
 import type { PlacedFurniture } from "./furniture/types.js";
 
+/** The grid the near plane is measured on for how much of the screen is under water (updateUnderwater). */
+const INSIDE_W = 16, INSIDE_H = 9;
 const DEFAULT_SEED = 20260718;
 const SAVE_INTERVAL_MS = 5000;
 const REACH = 6;
@@ -568,17 +570,6 @@ export class CraftGame {
     this.finiteWater = !this.sync && new URLSearchParams(location.search).get("water") === "finite";
     drawWaterByAmount(this.finiteWater);
     this.view.setFiniteWater(this.finiteWater);
-    // Water in the air — falls, lips, springs beside a wall — as films and streams, apart from the
-    // cells (`?falls=0`: the one lattice surface, as the native app still draws it). Not with
-    // finite water, whose flowing ids are amounts.
-    this.view.setWaterStreams(!this.finiteWater && new URLSearchParams(location.search).get("falls") !== "0");
-    // The water's shape: simple, like Minecraft — a box per cell, the surface sloping from cell to
-    // cell, falling water a whole cell (owner's call 2026-11-12). `?watershape=net` draws the
-    // surface net with its films instead (the earlier look, kept for comparison).
-    const simpleWater = new URLSearchParams(location.search).get("watershape") !== "net";
-    this.view.setWaterSimple(simpleWater);
-    // (only the simple water is a closed volume: the pipeline counts faces to know the eye is in it)
-    if (this.waterPipeline) this.waterPipeline.exact = simpleWater;
     this.water = this.sync ? null : new WaterSim(this.state.world, this.view, this.field, {
       finite: this.finiteWater,
       rust: opts.rust ?? null,
@@ -2350,22 +2341,19 @@ export class CraftGame {
     for (let dy = -1; dy <= 1 && !atWater; dy++) for (let dz = -1; dz <= 1 && !atWater; dz++) for (let dx = -1; dx <= 1; dx++) {
       if (isWater(world.waterAt(ex + dx, ey + dy, ez + dz))) { atWater = true; break; }
     }
-    const mask = this.waterPipeline?.inside;
     let covered = 0;
     if (atWater) {
       const half = camera.near * Math.tan(THREE.MathUtils.degToRad(camera.fov) / 2), wide = half * camera.aspect;
-      let wet = 0, i = 0;
-      for (let row = 0; row < INSIDE_H; row++) for (let col = 0; col < INSIDE_W; col++, i++) {
+      let wet = 0;
+      for (let row = 0; row < INSIDE_H; row++) for (let col = 0; col < INSIDE_W; col++) {
         const p = this.nearCorner.set(((col + 0.5) / INSIDE_W * 2 - 1) * wide, ((row + 0.5) / INSIDE_H * 2 - 1) * half, -camera.near).applyMatrix4(camera.matrixWorld);
         const depth = waterDepthAt(world, p.x, p.y, p.z) ?? -1;
         if (depth > 0) wet++;
-        if (mask) mask[i] = THREE.MathUtils.clamp(Math.round(128 + depth * 2550), 0, 255);
       }
       covered = wet / (INSIDE_W * INSIDE_H);
     }
     if (this.waterPipeline) {
       this.waterPipeline.atWater = atWater;
-      if (atWater) this.waterPipeline.insideChanged();
       this.underwaterCover = covered;
     } else if (covered !== this.underwaterCover) {
       this.underwaterCover = covered;

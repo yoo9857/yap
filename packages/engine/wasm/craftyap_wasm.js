@@ -547,8 +547,7 @@ if (Symbol.dispose) WasmWater.prototype[Symbol.dispose] = WasmWater.prototype.fr
 
 /**
  * The water surface for the web's mesh worker: one snapshot of the grid, meshed chunk by chunk
- * (waterWorker.ts). `cells`/`outside` as `water_mesh`; `marks` is the sparse profile list the
- * worker gets: flat [cell index, mark]*.
+ * (waterWorker.ts). `cells`/`outside` as `water_mesh`.
  */
 export class WaterMesher {
     __destroy_into_raw() {
@@ -564,8 +563,7 @@ export class WaterMesher {
     /**
      * One 16 × 16 chunk at (x, z), layers min_y..=max_y. Returns `water_mesh`'s array with two
      * more numbers in front: [min y, max y of the cells meshed (56, -1 when none), vertex count,
-     * index count, …]; [min, max, 0, 0] when nothing is drawn, [min, max, -1, 0] where the
-     * TypeScript would throw.
+     * index count, …]; [min, max, 0, 0] when nothing is drawn.
      * @param {number} x
      * @param {number} z
      * @param {number} min_y
@@ -581,26 +579,20 @@ export class WaterMesher {
     /**
      * @param {Uint8Array | number[]} cells
      * @param {Uint8Array | number[]} outside
-     * @param {Int32Array | number[]} marks
-     * @param {boolean} streams
      */
-    constructor(cells, outside, marks, streams) {
-        const val4 = +streams;
-        let ptr0, len0, ptr1, len1, ptr2, len2;
+    constructor(cells, outside) {
+        let ptr0, len0, ptr1, len1;
         try {
             ptr0 = passArray8ToWasm0(cells, wasm.__wbindgen_malloc);
             len0 = WASM_VECTOR_LEN;
             ptr1 = passArray8ToWasm0(outside, wasm.__wbindgen_malloc);
             len1 = WASM_VECTOR_LEN;
-            ptr2 = passArray32ToWasm0(marks, wasm.__wbindgen_malloc);
-            len2 = WASM_VECTOR_LEN;
         } catch (e) {
-            if (ptr2) { wasm.__wbindgen_free(ptr2, len2 * 4, 4); }
             if (ptr1) { wasm.__wbindgen_free(ptr1, len1 * 1, 1); }
             if (ptr0) { wasm.__wbindgen_free(ptr0, len0 * 1, 1); }
             throw e;
         }
-        const ret = wasm.watermesher_new(ptr0, len0, ptr1, len1, ptr2, len2, val4);
+        const ret = wasm.watermesher_new(ptr0, len0, ptr1, len1);
         this.__wbg_ptr = ret;
         WaterMesherFinalization.register(this, this.__wbg_ptr, this);
         return this;
@@ -650,15 +642,6 @@ export function body_trace(seed, edits, start, inputs, dt) {
  */
 export function draw_water_by_amount(on) {
     wasm.draw_water_by_amount(on);
-}
-
-/**
- * The simple, Minecraft-like water (the default: a box per cell, corners shared) or the surface
- * net with its films (`false`). A switch for the whole module.
- * @param {boolean} on
- */
-export function draw_water_simple(on) {
-    wasm.draw_water_simple(on);
 }
 
 /**
@@ -792,24 +775,19 @@ export function surface_style(key) {
 }
 
 /**
- * The water surface (`water_mesh.rs`, a port of waterGeometry.ts `buildWaterGeometry`) over a
- * 160 × 56 × 160 grid (`cells`, the VoxelWorld layout, waterlogged shapes already handed over AS
- * their water) and the column beyond it (`outside`, empty = air). Returns one Float32Array:
- * [vertex count, index count, position (3n), normal (3n), wave, wet, foam, depth (n each),
- * flow (3n), impact (3n), grid (4n), indices]; [0, 0] when nothing is drawn, [-1, 0] when the
- * TypeScript would throw. `profile` (same layout as `cells`, or empty): the top of each shaped
- * block holding water (waterlog.ts `shapeProfile`). `streams`: water in the air as films and
- * streams (waterGeometry.ts `drawWaterAsStreams`).
+ * The water surface (`water_mesh.rs`) over a 160 × 56 × 160 grid (`cells`, the VoxelWorld layout,
+ * waterlogged shapes already handed over AS their water) and the column beyond it (`outside`,
+ * empty = air). Returns one Float32Array: [vertex count, index count, position (3n), normal (3n),
+ * wave, wet, foam, depth (n each), flow (3n), impact (3n), grid (4n), indices]; [0, 0] when
+ * nothing is drawn. The indices are the drawn faces, then the closing faces against blocks
+ * (`aWet` -1 on their vertices: the shader keeps them out of every pass but the count).
  * @param {Uint8Array | number[]} cells
  * @param {Uint8Array | number[]} outside
  * @param {Int32Array | number[]} list
- * @param {Uint8Array | number[]} profile
- * @param {boolean} streams
  * @returns {Float32Array}
  */
-export function water_mesh(cells, outside, list, profile, streams) {
-    const val5 = +streams;
-    let ptr0, len0, ptr1, len1, ptr2, len2, ptr3, len3;
+export function water_mesh(cells, outside, list) {
+    let ptr0, len0, ptr1, len1, ptr2, len2;
     try {
         ptr0 = passArray8ToWasm0(cells, wasm.__wbindgen_malloc);
         len0 = WASM_VECTOR_LEN;
@@ -817,19 +795,16 @@ export function water_mesh(cells, outside, list, profile, streams) {
         len1 = WASM_VECTOR_LEN;
         ptr2 = passArray32ToWasm0(list, wasm.__wbindgen_malloc);
         len2 = WASM_VECTOR_LEN;
-        ptr3 = passArray8ToWasm0(profile, wasm.__wbindgen_malloc);
-        len3 = WASM_VECTOR_LEN;
     } catch (e) {
-        if (ptr3) { wasm.__wbindgen_free(ptr3, len3 * 1, 1); }
         if (ptr2) { wasm.__wbindgen_free(ptr2, len2 * 4, 4); }
         if (ptr1) { wasm.__wbindgen_free(ptr1, len1 * 1, 1); }
         if (ptr0) { wasm.__wbindgen_free(ptr0, len0 * 1, 1); }
         throw e;
     }
-    const ret = wasm.water_mesh(ptr0, len0, ptr1, len1, ptr2, len2, ptr3, len3, val5);
-    var v6 = getArrayF32FromWasm0(ret[0], ret[1]).slice();
+    const ret = wasm.water_mesh(ptr0, len0, ptr1, len1, ptr2, len2);
+    var v4 = getArrayF32FromWasm0(ret[0], ret[1]).slice();
     wasm.__wbindgen_free(ret[0], ret[1] * 4, 4);
-    return v6;
+    return v4;
 }
 function __wbg_get_imports() {
     const import0 = {

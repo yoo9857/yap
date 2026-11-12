@@ -1,4 +1,3 @@
-import * as THREE from "three";
 import { describe, expect, it } from "vitest";
 import { WATER, WATER_FALLING, flowingWater } from "@robo/shared";
 import { blockByKey } from "../src/craft/blocks.js";
@@ -163,21 +162,6 @@ describe("swimming", () => {
 });
 
 
-function edges(g: THREE.BufferGeometry): Map<string, number> {
-  const p = g.getAttribute("position"), index = g.index!;
-  const name = (i: number) => `${p.getX(i).toFixed(6)},${p.getY(i).toFixed(6)},${p.getZ(i).toFixed(6)}`;
-  const result = new Map<string, number>();
-  for (let i = 0; i < index.count; i += 3) {
-    const ids = [index.getX(i), index.getX(i + 1), index.getX(i + 2)];
-    for (let j = 0; j < 3; j++) {
-      const a = name(ids[j]!), b = name(ids[(j + 1) % 3]!);
-      if (a === b) continue;
-      const key = a < b ? `${a}/${b}` : `${b}/${a}`;
-      result.set(key, (result.get(key) ?? 0) + 1);
-    }
-  }
-  return result;
-}
 const allWater = (w: VoxelWorld, lo = 4, hi = 13): number[] => {
   const cells: number[] = [];
   for (let y = 0; y < 15; y++) for (let z = lo; z <= hi; z++) for (let x = lo; x <= hi; x++)
@@ -185,150 +169,7 @@ const allWater = (w: VoxelWorld, lo = 4, hi = 13): number[] => {
   return cells;
 };
 
-describe("continuous water boundary", () => {
-  it("closes every local arrangement of eight water/air cells", () => {
-    for (let pattern = 1; pattern < 256; pattern++) {
-      const w = new VoxelWorld(), cells: number[] = [];
-      for (let i = 0; i < 8; i++) if (pattern & 1 << i) {
-        const x = 8 + (i & 1), y = 4 + (i >> 1 & 1), z = 8 + (i >> 2 & 1);
-        w.set(x, y, z, WATER); cells.push(x, y, z);
-      }
-      const g = buildWaterGeometry(w, cells)!, index = g.index!, topology = new Map<string, number>();
-      for (let i = 0; i < index.count; i += 3) for (let j = 0; j < 3; j++) {
-        const a = index.getX(i + j), b = index.getX(i + (j + 1) % 3), key = a < b ? `${a}/${b}` : `${b}/${a}`;
-        topology.set(key, (topology.get(key) ?? 0) + 1);
-      }
-      expect([...topology.values()].every((n) => n === 2), `pattern ${pattern}`).toBe(true);
-      g.dispose();
-    }
-  });
-
-  it("bounds isolated-droplet geometry without opening its surface", () => {
-    const w = new VoxelWorld(), cells: number[] = [];
-    for (let y = 8; y < 16; y++) for (let z = 32; z < 48; z++) for (let x = 32; x < 48; x++)
-      if ((x + y + z) % 2 === 0) { w.set(x, y, z, WATER); cells.push(x, y, z); }
-    const g = buildWaterGeometry(w, cells)!;
-    const bytes = Object.values(g.attributes).reduce((n, a) => n + a.array.byteLength, g.index!.array.byteLength);
-    expect(bytes).toBeLessThan(2_200_000);
-    expect([...edges(g).values()].every((n) => n === 2)).toBe(true);
-    g.dispose();
-  });
-
-  it("keeps alternating droplets closed across independently built chunks", () => {
-    const w = new VoxelWorld(), left: number[] = [], right: number[] = [];
-    for (let y = 8; y < 12; y++) for (let z = 14; z < 18; z++) for (let x = 14; x < 18; x++)
-      if ((x + y + z) % 2 === 0) { w.set(x, y, z, WATER); (x < 16 ? left : right).push(x, y, z); }
-    const a = buildWaterGeometry(w, left)!, b = buildWaterGeometry(w, right)!, joined = edges(a);
-    for (const [key, count] of edges(b)) joined.set(key, (joined.get(key) ?? 0) + count);
-    expect([...joined.values()].every((n) => n === 2)).toBe(true);
-    a.dispose(); b.dispose();
-  });
-
-  it("draws only the exposed pool surface and shares its vertices", () => {
-    const w = pool(), cells: number[] = [];
-    for (let x = 10; x < 20; x++) for (let z = 10; z < 20; z++) for (let y = 1; y <= 2; y++) cells.push(x, y, z);
-    const g = buildWaterGeometry(w, cells)!;
-    expect(g.getAttribute("position").count).toBeLessThan(300);
-    const p = g.getAttribute("position");
-    for (let i = 0; i < p.count; i++) expect(p.getY(i)).toBeCloseTo(2.875, 5);
-    expect(g.index!.count).toBeLessThanOrEqual(1200);
-    g.dispose();
-  });
-
-  it("retains water below a hovering block, including the visible air gap", () => {
-    const w = pool(), cells: number[] = [];
-    w.set(15, 3, 15, STONE);
-    for (let x = 10; x < 20; x++) for (let z = 10; z < 20; z++) cells.push(x, 2, z);
-    const g = buildWaterGeometry(w, cells)!;
-    const p = g.getAttribute("position");
-    expect(Array.from({ length: p.count }, (_, i) => p.getY(i)).every((y) => y > 2.7 && y < 3)).toBe(true);
-    expect(g.index!.count).toBeGreaterThanOrEqual(600);
-    g.dispose();
-  });
-
-  it("fills up to a block sunk in a pond: no square of surface in a gap under it", () => {
-    const w = pool(), cells: number[] = [];
-    for (let x = 10; x < 20; x++) for (let z = 10; z < 20; z++) { w.set(x, 3, z, WATER); cells.push(x, 2, z, x, 3, z); }
-    w.set(15, 3, 15, STONE); // in the pond's top layer, water all round it
-    const g = buildWaterGeometry(w, cells)!, p = g.getAttribute("position"), index = g.index!;
-    // no triangle lies under the block (the old gap face sat at y = 2.875 across its whole cell)
-    for (let i = 0; i < index.count; i += 3) {
-      let cx = 0, cy = 0, cz = 0;
-      for (let j = 0; j < 3; j++) { const k = index.getX(i + j); cx += p.getX(k) / 3; cy += p.getY(k) / 3; cz += p.getZ(k) / 3; }
-      expect(cx > 15.2 && cx < 15.8 && cz > 15.2 && cz < 15.8 && cy < 3.01).toBe(false);
-    }
-    g.dispose();
-  });
-
-  it("is watertight through source, curved outlet, fall and receiving water (er/se1)", () => {
-    const w = new VoxelWorld();
-    for (let y = 3; y <= 8; y++) w.set(8, y, 8, y === 8 ? WATER : WATER_FALLING);
-    for (let x = 6; x <= 10; x++) for (let z = 6; z <= 10; z++) w.set(x, 2, z, WATER);
-    w.set(7, 8, 8, flowingWater(1));
-    const g = buildWaterGeometry(w, allWater(w))!;
-    expect([...edges(g).values()].every((n) => n === 2)).toBe(true);
-    const impact = g.getAttribute("aImpact");
-    expect(Array.from({ length: impact.count }, (_, i) => impact.getZ(i)).some((n) => n > 0)).toBe(true);
-    g.dispose();
-  });
-
-  it("draws a falling column straight: as wide halfway up a block as at its joints", () => {
-    const w = new VoxelWorld();
-    for (let y = 2; y <= 12; y++) w.set(8, y, 8, WATER_FALLING);
-    const g = buildWaterGeometry(w, allWater(w))!, p = g.getAttribute("position");
-    // the widest point at each height, well away from the column's two ends
-    const reach = new Map<number, number>();
-    for (let i = 0; i < p.count; i++) {
-      const y = Math.round(p.getY(i) * 4) / 4;
-      if (y < 5 || y > 10) continue;
-      reach.set(y, Math.max(reach.get(y) ?? 0, Math.hypot(p.getX(i) - 8.5, p.getZ(i) - 8.5)));
-    }
-    const widths = [...reach.values()];
-    expect(widths.length).toBeGreaterThan(8); // joints AND the faces between them
-    // the face centres used to sit 10 cm inside the edges: a column pinched once per block
-    expect(Math.max(...widths) - Math.min(...widths)).toBeLessThan(0.02);
-    expect(Math.min(...widths)).toBeGreaterThan(0.3);
-    g.dispose();
-  });
-
-  it("draws a fall beside a wall as a sheet on that wall, and a free fall as a whole column", () => {
-    const w = new VoxelWorld();
-    for (let y = 2; y <= 12; y++) { w.set(8, y, 8, WATER_FALLING); w.set(7, y, 8, STONE); w.set(20, y, 8, WATER_FALLING); }
-    const reach = (x0: number) => {
-      const g = buildWaterGeometry(w, Array.from({ length: 11 }, (_, i) => [x0, i + 2, 8]).flat())!, p = g.getAttribute("position");
-      let far = 0;
-      for (let i = 0; i < p.count; i++) if (p.getY(i) > 5 && p.getY(i) < 10) far = Math.max(far, p.getX(i) - x0);
-      g.dispose();
-      return far;
-    };
-    expect(reach(8)).toBeLessThan(0.56);    // on the wall at x = 8: a third of the cell, rounded out to half at most
-    expect(reach(8)).toBeGreaterThan(0.25);
-    expect(reach(20)).toBeGreaterThan(0.7); // nothing to run down: a stream 0.6 m wide (FALL) in the cell's middle,
-    expect(reach(20)).toBeLessThan(0.97);   // neither a sheet nor the whole cell
-  });
-
-  it("runs water that fell onto a ramp down it as a film, not as a cell of water around it", () => {
-    const w = new VoxelWorld();
-    w.set(8, 3, 8, WATER_FALLING);
-    for (let x = 6; x <= 10; x++) for (let z = 6; z <= 10; z++) w.set(x, 2, z, STONE);
-    // the ramp's top: the cell's full height at z = 8, the floor at z = 9 (shapeProfile's form)
-    const ramp = 3 | 3 << 2 | 1 << 4 | 1 << 6;
-    const top = (profile: number) => {
-      const g = buildWaterGeometry({ get: (x, y, z) => w.get(x, y, z), profile: (x, y, z) => (x === 8 && y === 3 && z === 8 ? profile : 0) }, [8, 3, 8])!;
-      const p = g.getAttribute("position");
-      let back = 0, front = 0;
-      for (let i = 0; i < p.count; i++) {
-        if (p.getZ(i) < 8.3) back = Math.max(back, p.getY(i));
-        if (p.getZ(i) > 8.7) front = Math.max(front, p.getY(i));
-      }
-      g.dispose();
-      return { back, front };
-    };
-    expect(top(ramp).front).toBeLessThan(3.4);                      // over the ramp: a film at its foot…
-    expect(top(ramp).back).toBeGreaterThan(top(ramp).front + 0.4);  // …rising to its top edge
-    expect(top(0).front).toBeGreaterThan(top(ramp).front + 0.3);    // plain falling water: the whole cell
-  });
-
+describe("the water surface", () => {
   it("a fall meets the water below it in a line, not in a skirt half a cell high and a cell wide", () => {
     const w = new VoxelWorld();
     for (let y = 3; y <= 8; y++) w.set(8, y, 8, WATER_FALLING);
@@ -340,33 +181,6 @@ describe("continuous water boundary", () => {
       spread = Math.max(spread, Math.abs(p.getX(i) - 8.5), Math.abs(p.getZ(i) - 8.5));
     expect(spread).toBeLessThan(0.62); // was 0.75: the foot reached half way into the next cell, 0.3 m up
     g.dispose();
-  });
-
-  it("keeps diagonal disconnected streams separate and closed", () => {
-    const w = new VoxelWorld(); w.set(8, 4, 8, WATER); w.set(9, 5, 9, WATER);
-    const g = buildWaterGeometry(w, allWater(w))!;
-    expect([...edges(g).values()].every((n) => n === 2)).toBe(true);
-    g.dispose();
-  });
-
-  it("shares positions, normals, animation and impacts across independent chunks", () => {
-    const w = new VoxelWorld(), left: number[] = [], right: number[] = [];
-    for (let x = 12; x <= 20; x++) for (let z = 12; z <= 20; z++) {
-      w.set(x, 0, z, STONE); w.set(x, 1, z, flowingWater(Math.min(7, x - 11)));
-      (x < 16 ? left : right).push(x, 1, z);
-    }
-    const a = buildWaterGeometry(w, left)!, b = buildWaterGeometry(w, right)!;
-    const nodes = (g: THREE.BufferGeometry) => {
-      const ids = g.getAttribute("aGrid"), map = new Map<string, number[]>();
-      for (let i = 0; i < ids.count; i++) map.set([ids.getX(i), ids.getY(i), ids.getZ(i), ids.getW(i)].join(","),
-        ["position", "normal", "aWave", "aWet", "aDepth", "aFlow", "aImpact"].flatMap((name) => {
-          const attr = g.getAttribute(name); return Array.from({ length: attr.itemSize }, (_, c) => attr.array[i * attr.itemSize + c]!);
-        }));
-      return map;
-    };
-    const na = nodes(a), nb = nodes(b); let shared = 0;
-    for (const [key, value] of na) if (nb.has(key)) { expect(nb.get(key)).toEqual(value); shared++; }
-    expect(shared).toBeGreaterThan(5); a.dispose(); b.dispose();
   });
 
   it("interpolates an interrupted level change from its displayed position", () => {

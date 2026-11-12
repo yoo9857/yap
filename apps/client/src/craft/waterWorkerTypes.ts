@@ -1,15 +1,8 @@
 export type WaterWorkerRequest = { t: "cancel"; id: number } | {
   t: "build"; id: number; cells: Uint8Array; outside: Uint8Array | null;
-  /** Shaped blocks holding water in the chunks being built: flat [cell index, profile mark]*
-   *  (shapeProfile / WATER_HELD). Sparse: a second whole-grid copy per build was 1.4 MB of garbage. */
-  profile: Int32Array;
   jobs: { id: number; x: number; z: number; minY: number; maxY: number }[];
   /** Finite water: the flowing ids are amounts, drawn that high (fluid.ts drawWaterByAmount). */
   finite: boolean;
-  /** Water in the air drawn as films and streams (waterMesher.ts drawWaterAsStreams). */
-  streams: boolean;
-  /** The simple, Minecraft-like water (waterMesher.ts drawWaterSimple). */
-  simple: boolean;
 };
 export interface WaterWorkerResult {
   id: number; minY: number; maxY: number;

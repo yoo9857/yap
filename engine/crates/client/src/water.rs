@@ -48,13 +48,8 @@ pub fn mesh_water(world: &World, cx: i32, cz: i32) -> Vec<WaterVertex> {
     if cells.is_empty() {
         return Vec::new();
     }
-    let mesh = match build_water_mesh(&get, &cells) {
-        Ok(Some(m)) => m,
-        Ok(None) => return Vec::new(),
-        Err(_) => {
-            log::warn!("water: chunk {cx},{cz} has a broken surface component (skipped, like the web)");
-            return Vec::new();
-        }
+    let Some(mesh) = build_water_mesh(&get, &cells) else {
+        return Vec::new();
     };
     log::debug!("water: chunk {cx},{cz}: {} cells, {} triangles", cells.len(), mesh.indices.len() / 3);
     mesh.indices

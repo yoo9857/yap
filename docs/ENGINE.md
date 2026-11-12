@@ -46,7 +46,7 @@ the engine grows beside it. Each part is swapped in only once it is proven ident
 | 1c'' | Make Rust the default on both sides after a release with no regressions | next |
 | 1d | Chunk meshing in Rust. **1d-1 (flag):** the joined brick shells (`kit.rs` + `earcut.rs`), bit-identical. **1d-2 (everyone, TS):** far → near flips built in budgeted steps. **1d-3 (flag):** the chunk scan (`scan.rs`): near lists, seam backing, far merged faces and baked shapes, studs, water cells. Next: a worker | **1d-1…3 done** |
 | 1e | Voxel body physics (AABB sweeps, step-up), raycast | |
-| 1e | **The water surface is Rust only** (`water_mesh.rs` through `WaterMesher`, in the web's water worker; the app uses the same code). The TypeScript mesher `waterGeometry.ts` was DELETED 2026-11-12 (owner: one implementation, no twins) — docs/WATER.md, "Stage 2" | **done** |
+| 1e | **The water surface is Rust only** (`water_mesh.rs` through `WaterMesher`, in the web's water worker; the app uses the same code). The TypeScript mesher `waterGeometry.ts` was DELETED 2026-11-12 (owner: one implementation, no twins) — docs/WATER.md, "Stage 2"; the surface net it ported was deleted 2026-11-13 (one water: a box per cell) | **done** |
 | 2 | Native client: wgpu renderer (Vulkan / Metal / DirectX / WebGPU) on the same core. **The Android app ships on it (no WebView), decided 2026-11-05.** Milestones N0–N6 in `docs/ANDROID.md` | **N0–N1 done**: Android + desktop shell, lifecycle, recovery, quality presets |
 | 3 | (decide later) user-made games: scripting (Lua/Luau) over the engine's data | |
 

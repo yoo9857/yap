@@ -750,3 +750,15 @@ surface, sideways into a fall), `shot-water-wall.mjs`, `shot-water-meet.mjs` (`S
 `apps/server/test/classroom-water-tools.test.ts` (the teacher's tools: both screens hold and draw
 exactly the server's water). Not reproduced: "in teacher mode the water stops and only the middle
 sticks up" — the rules, the messages and the drawn cells all agree through that sequence.
+
+## One water: the surface net is gone (2026-11-13)
+
+At the owner's word the older water — the surface net on the voxel-centre lattice with its sheets,
+films, lips, curtains and streams, everything above from "Running water: sheets, films…" to
+"Stage 2" — was deleted: `water_mesh.rs` went from 1502 lines to 374 and the committed WASM from
+328 KB to 246 KB. Those sections stay as the record of why the simple water is what it is; the
+code is in git history. Gone with it: `?watershape=net`, `?falls=0`, `drawWaterAsStreams`,
+`drawWaterSimple`, the shape profile handed to the mesher, the pipeline's measured fallback
+(`tInside`), the old surface look in the shader, and the tests that judged the net
+(`water-streams`, `water-slant`, the lattice half of `water.test.ts`). The plain path (touch
+devices) keeps its own shading of the same mesh. Do not bring a second shape back behind a flag.

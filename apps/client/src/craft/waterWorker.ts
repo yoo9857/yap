@@ -19,8 +19,8 @@ scope.onmessage = (event) => {
     try {
       const rust = await (loading ??= loadRustEngine());
       if (latest !== request.id) return;
-      rust.draw_water_by_amount(request.finite); rust.draw_water_simple(request.simple);
-      mesher = new rust.WaterMesher(request.cells, request.outside ?? new Uint8Array(0), request.profile, request.streams);
+      rust.draw_water_by_amount(request.finite);
+      mesher = new rust.WaterMesher(request.cells, request.outside ?? new Uint8Array(0));
       for (let j = 0; j < request.jobs.length; j++) {
         if (latest !== request.id) return;
         const job = request.jobs[j]!;

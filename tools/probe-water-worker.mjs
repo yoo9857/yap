@@ -46,7 +46,7 @@ try {
         for (const v of r.attributes.position.array) sum += v;
         resolve({ vertices: r.attributes.position.array.length / 3, indices: r.index.length, sum, sphere: r.sphere, ms: e.data.ms });
       };
-      worker.postMessage({ t: "build", id: 1, cells, outside: null, profile: new Int32Array(0), finite: false, streams: true, simple: true,
+      worker.postMessage({ t: "build", id: 1, cells, outside: null, finite: false,
         jobs: [{ id: 7, x: 16, z: 16, minY: 0, maxY: 10 }] });
     });
     return { first: await ask(), again: await ask() };

@@ -36,7 +36,7 @@ const SWIM_SPEED = 0.6;
 
 /**
  * The water a body is IN at this cell (its id), or 0: every water cell, falling water included.
- * The game draws falling water as whole cells (water_mesh.rs `build_simple`), so a fall beside a
+ * The game draws falling water as whole cells (water_mesh.rs), so a fall beside a
  * wall is water to swim in like any other. (While falls beside a wall were drawn as thin sheets
  * this let a body walk through them; left in after the shape changed, the robot stood inside a
  * column of water without swimming and the screen stayed dry.)

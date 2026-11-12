@@ -10,16 +10,14 @@ import { WORLD_X, WORLD_Y, WORLD_Z } from "./voxelWorld.js";
 import type { WaterWorkerResult } from "./waterWorkerTypes.js";
 
 type V3 = [number, number, number];
-export type WaterEngine = Pick<RustEngine, "water_mesh" | "draw_water_by_amount" | "draw_water_simple" | "WaterMesher">;
+export type WaterEngine = Pick<RustEngine, "water_mesh" | "draw_water_by_amount" | "WaterMesher">;
 export interface WaterSource {
   get(x: number, y: number, z: number): number;
-  /** The top of a shaped block holding water (waterlog.ts shapeProfile); 0 = none. */
-  profile?(x: number, y: number, z: number): number;
 }
 
 let engine: WaterEngine | null = null;
 let loading: Promise<boolean> | null = null;
-let streams = false, finite = false, simple = true;
+let finite = false;
 /** Hand over a started engine (tests: the Node build; the browser uses `loadWaterEngine`). */
 export function setWaterEngine(e: WaterEngine | null): void { engine = e; }
 export function hasWaterEngine(): boolean { return engine !== null; }
@@ -28,12 +26,6 @@ export function loadWaterEngine(): Promise<boolean> {
   return loading ??= import("@robo/engine/browser").then((m) => m.loadRustEngine())
     .then((e) => { engine = e; return true; }, () => false);
 }
-/** Water in the AIR — a fall, the lip over an edge, a spring beside a wall — drawn as films and
- *  streams apart from the lying water (water_mesh.rs `draw_streams`). */
-export function drawWaterAsStreams(on: boolean): void { streams = on; }
-/** The simple, Minecraft-like water (the default: a box per cell whose top's corners are shared
- *  with its neighbours, falling water a whole cell) or the surface net with its films (false). */
-export function drawWaterSimple(on: boolean): void { simple = on; }
 /** Finite water: flowing ids are amounts and stand that high (fluid.ts drawWaterByAmount). */
 export function drawWaterFinite(on: boolean): void { finite = on; }
 
@@ -45,7 +37,6 @@ const LAYOUT: [string, number][] = [["position", 3], ["normal", 3], ["aWave", 1]
  *  nothing is drawn; throws where the surface has a missing component. */
 function unpack(out: Float32Array, at: number): Pick<WaterWorkerResult, "attributes" | "index" | "sphere"> | null {
   const n = out[at]!, count = out[at + 1]!;
-  if (n < 0) throw new Error("Missing connected water surface component");
   if (n === 0 || count === 0) return null;
   at += 2;
   const attributes: NonNullable<WaterWorkerResult["attributes"]> = {};
@@ -85,8 +76,7 @@ export function geometryFromResult(result: Pick<WaterWorkerResult, "attributes" 
   return geometry;
 }
 
-let grid: Uint8Array | null = null, marks: Uint8Array | null = null;
-const NONE = new Uint8Array(0);
+let grid: Uint8Array | null = null;
 /**
  * The water surface over `cells` (flat x, y, z), on THIS thread: the worker's fallback and the
  * tests. The engine reads a whole grid, so the columns round the cells are copied into one first
@@ -101,24 +91,22 @@ export function buildWaterGeometry(world: WaterSource, cells: readonly number[])
   }
   x0 = Math.max(0, x0 - 3); x1 = Math.min(WORLD_X - 1, x1 + 3); z0 = Math.max(0, z0 - 3); z1 = Math.min(WORLD_Z - 1, z1 + 3);
   grid ??= new Uint8Array(WORLD_X * WORLD_Y * WORLD_Z);
-  const profile = world.profile ? marks ??= new Uint8Array(WORLD_X * WORLD_Y * WORLD_Z) : null;
   const outside = new Uint8Array(WORLD_Y);
   for (let y = 0; y < WORLD_Y; y++) {
     outside[y] = world.get(-1, y, -1);
     for (let z = z0; z <= z1; z++) for (let x = x0; x <= x1; x++) {
       const i = (y * WORLD_Z + z) * WORLD_X + x;
       grid[i] = world.get(x, y, z);
-      if (profile) profile[i] = world.profile!(x, y, z);
     }
   }
   let out: Float32Array;
   try {
-    engine.draw_water_by_amount(finite); engine.draw_water_simple(simple);
-    out = engine.water_mesh(grid, outside, Int32Array.from(cells), profile ?? NONE, streams);
+    engine.draw_water_by_amount(finite);
+    out = engine.water_mesh(grid, outside, Int32Array.from(cells));
   } finally {
     for (let y = 0; y < WORLD_Y; y++) for (let z = z0; z <= z1; z++) {
       const i = (y * WORLD_Z + z) * WORLD_X;
-      grid.fill(0, i + x0, i + x1 + 1); profile?.fill(0, i + x0, i + x1 + 1);
+      grid.fill(0, i + x0, i + x1 + 1);
     }
   }
   const parts = unpack(out, 0);

@@ -10,7 +10,7 @@ import {BlockMaterialLibrary,linkSurfaceTwin,materialFaceGroups,needsCatalogText
 import { castsInstancedShadow } from "../render/instancedDepth.js";
 import { BLOCKS, SOLID_ID, blockById, textureUrl, type BlockDef } from "./blocks.js";
 import { animateWater, buildWaterGeometry, makeWaterMaterial, prepareWaterTransition } from "./waterMesh.js";
-import { drawWaterAsStreams, drawWaterFinite, drawWaterSimple, hasWaterEngine, loadWaterEngine } from "./waterMesher.js";
+import { drawWaterFinite, hasWaterEngine, loadWaterEngine } from "./waterMesher.js";
 import type { WaterWorkerRequest, WaterWorkerResponse } from "./waterWorkerTypes.js";
 import { loadTexture } from "../render/textures.js";
 import { WORLD_X, WORLD_Y, WORLD_Z, type VoxelWorld } from "./voxelWorld.js";
@@ -93,7 +93,7 @@ interface Staging {
 interface WaterBatch {
   id: number;
   waiting: boolean;
-  world: Pick<VoxelWorld, "get"> & { profile(x: number, y: number, z: number): number };
+  world: Pick<VoxelWorld, "get">;
   jobs: [number, [number, number]][];
   cursor: number;
   results: { id: number; geometry: THREE.BufferGeometry | null; minY: number; maxY: number }[];
@@ -501,12 +501,6 @@ export class VoxelView {
   private finiteWater = false;
   /** Finite water is drawn by amount; the worker has its own copy of that switch. */
   setFiniteWater(on: boolean): void { this.finiteWater = on; drawWaterFinite(on); }
-  private waterSimple = true;
-  /** The simple, Minecraft-like water (default) or the surface net (waterMesher.ts). */
-  setWaterSimple(on: boolean): void { this.waterSimple = on; drawWaterSimple(on); }
-  private waterStreams = false;
-  /** Water in the air as films and streams (waterMesher.ts); the worker is told with each build. */
-  setWaterStreams(on: boolean): void { this.waterStreams = on; drawWaterAsStreams(on); }
   private waterBuildPeak = 0;
   /** Main-thread cost of a water generation: handing it to the worker / installing its meshes (ms). */
   private waterCost = { snapshotPeak: 0, snapshotSum: 0, installPeak: 0, installSum: 0, vertices: 0 };
@@ -579,19 +573,16 @@ export class VoxelView {
         return { id, x: chunkX(id) * CHUNK, z: chunkZ(id) * CHUNK,
           minY: Math.max(0, Math.min(c.waterMinY, range[0])), maxY: Math.min(WORLD_Y - 1, Math.max(c.waterMaxY, range[1])) };
       });
-      const marks: number[] = [];
-      this.lastWaterlog = waterlogSnapshot(snapshot, world.wet, spans, world.shapes, profile, world.cells, marks);
+      this.lastWaterlog = waterlogSnapshot(snapshot, world.wet, spans, world.shapes, profile, world.cells);
       const outside = world.outsideColumn?.slice();
       const frozen = { get: (x: number, y: number, z: number) =>
         x >= 0 && x < WORLD_X && z >= 0 && z < WORLD_Z && y >= 0 && y < WORLD_Y
           ? snapshot[(y * WORLD_Z + z) * WORLD_X + x]!
-          : y >= 0 && y < WORLD_Y ? outside?.[y] ?? 0 : 0,
-        profile: (x: number, y: number, z: number) =>
-          x >= 0 && x < WORLD_X && z >= 0 && z < WORLD_Z && y >= 0 && y < WORLD_Y ? profile[(y * WORLD_Z + z) * WORLD_X + x]! : 0 };
+          : y >= 0 && y < WORLD_Y ? outside?.[y] ?? 0 : 0 };
       this.waterBatch = { id: ++this.waterSerial, waiting: false, world: frozen, jobs, cursor: 0, results: [] };
       const worker = this.ensureWaterWorker();
       if (worker) {
-        const request: WaterWorkerRequest = { t: "build", id: this.waterBatch.id, cells: snapshot, profile: Int32Array.from(marks), finite: this.finiteWater, streams: this.waterStreams, simple: this.waterSimple,
+        const request: WaterWorkerRequest = { t: "build", id: this.waterBatch.id, cells: snapshot, finite: this.finiteWater,
           outside: outside ?? null, jobs: spans };
         // Keep the immutable snapshot for bounded main-thread fallback if a
         // worker is unavailable; all result buffers return by transfer.
