@@ -20,6 +20,49 @@ const ESSENTIALS = (): KeyHelp[] => [
   { keys: [MOUSE_RIGHT], label: t("블록 놓기", "Place block") },
 ];
 
+/** The fire drill's controls: walking, getting low, and using what the badges mark. */
+const FIRE_ESSENTIALS = (): KeyHelp[] => [
+  { keys: [KEY_WASD], label: t("걷기", "Walk") },
+  { keys: ["Shift"], label: t("달리기", "Run") },
+  { keys: ["E"], label: t("표시된 물건 사용하기", "Use a marked object") },
+  { keys: [MOUSE_LEFT], label: t("소화기 뿌리기 (꾹)", "Spray the extinguisher (hold)") },
+  { keys: ["Z"], label: t("몸 낮추기 / 일어나기", "Get low / stand up") },
+];
+
+function fireHelpGroups(): HelpGroup[] {
+  return [
+    {
+      title: t("화재 체험", "Fire drill"),
+      items: [
+        { keys: ["E", MOUSE_RIGHT], label: t("동그란 표시가 있는 물건 사용하기 (경보기 · 전화 · 소화기 · 수건)", "Use an object with a round badge (alarm, phone, extinguisher, towel)") },
+        { keys: [MOUSE_LEFT], label: t("소화기를 들고 꾹 눌러 뿌리기 — 불의 아래쪽을 겨냥해요", "Hold to spray the extinguisher — aim at the base of the fire") },
+        { keys: ["Z"], label: t("몸 낮추기 (연기 아래로) / 일어나기", "Get low (under the smoke) / stand up") },
+        { keys: ["Tab"], label: t("반에서: 진행판 — 조와 친구들의 진행 상황", "In a class: the board — teams and everyone's progress") },
+        { keys: ["F2"], label: t("선생님: 수업 도구 — 조 편성 · 출발 · 멈춤", "Teacher: class tools — teams, start, stop") },
+      ],
+    },
+    {
+      title: t("움직이기", "Moving"),
+      items: [
+        { keys: [KEY_WASD], label: t("걷기", "Walk") },
+        { keys: ["Shift"], label: t("달리기", "Run") },
+        { keys: ["Space"], label: t("점프 · 일어나기", "Jump · stand up") },
+        { keys: [MOUSE_MOVE], label: t("둘러보기", "Look around") },
+        { keys: ["V"], label: t("1인칭 / 3인칭 시점", "First / third person") },
+        { keys: ["C"], label: t("감정표현 · 캐릭터", "Emotes · character") },
+      ],
+    },
+    {
+      title: t("기타", "Other"),
+      items: [
+        { keys: ["M"], label: t("음악 켜기 / 끄기", "Music on / off") },
+        { keys: ["H"], label: t("조작법 열기", "Open controls") },
+        { keys: ["Esc"], label: t("마우스 풀기 · 메뉴", "Free mouse · menu") },
+      ],
+    },
+  ];
+}
+
 function helpGroups(furniture: boolean, science = false): HelpGroup[] {
   return [
     {
@@ -130,6 +173,8 @@ export class CraftHud {
       furniture?: boolean;
       /** Science mode (T) exists here: list it, and tilt moves to Shift+T. */
       science?: boolean;
+      /** The fire-drill theme: its own controls on the pause card (the building keys do nothing there). */
+      fire?: boolean;
       creative?: boolean;
       mode?: string;
       onResume: () => void;
@@ -186,8 +231,8 @@ export class CraftHud {
 
     this.menu = new GameMenu(parent, {
       mode: opts.mode ?? "Craft Island",
-      essentials: ESSENTIALS(),
-      help: helpGroups(opts.furniture !== false, opts.science === true),
+      essentials: opts.fire ? FIRE_ESSENTIALS() : ESSENTIALS(),
+      help: opts.fire ? fireHelpGroups() : helpGroups(opts.furniture !== false, opts.science === true),
       onResume: opts.onResume,
     });
   }

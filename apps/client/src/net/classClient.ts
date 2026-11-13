@@ -11,11 +11,12 @@ import {
   type ClassRole,
   type ClassServerMessage,
   type ClassSettings,
+  type ClassTheme,
 } from "@robo/shared";
 import { t } from "../ui/i18n.js";
 
 export type ClassJoin =
-  | { role: "teacher"; room: string; teacher: string; password?: string }
+  | { role: "teacher"; room: string; teacher: string; password?: string; /** The lesson picked for this opening (absent: the one the class had last). */ theme?: ClassTheme }
   | { role: "student"; room: string; student: string };
 
 /** What `peekClass` learns about a class name before joining it. */
@@ -24,6 +25,7 @@ export interface ClassPeek {
   exists: boolean;
   open: boolean;
   teacher?: string;
+  theme?: ClassTheme;
 }
 
 /** Everything the game needs at the moment it enters the class. */
@@ -37,6 +39,8 @@ export interface ClassSession {
   /** The shared field as it stands, absolute coordinates. */
   edits: ClassEdit[];
   furniture: ClassFurniture[];
+  /** The class's learning theme: the sandbox, or the fire drill. */
+  theme: ClassTheme;
 }
 
 /** Getters, so each message is in the player's language when it is shown (not when this module loads). */
@@ -91,6 +95,8 @@ export function reloadIntoClass(join: ClassJoin): boolean {
   }
   if (join.role === "teacher") p.set("host", join.teacher);
   else p.set("student", join.student);
+  // a class not saved yet comes back as the theme it was opened with
+  if (join.role === "teacher" && join.theme && join.theme !== "craft") p.set("theme", join.theme);
   const lang = new URLSearchParams(location.search).get("lang");
   if (lang) p.set("lang", lang);
   location.replace(`${location.pathname}?${p.toString()}`);
@@ -148,7 +154,7 @@ export function peekClass(room: string, busyLeft = BUSY_RETRIES): Promise<ClassP
     ws.onopen = () => ws.send(JSON.stringify({ t: "k-peek", v: CLASS_PROTOCOL_VERSION, room } satisfies ClassClientMessage));
     ws.onmessage = (e) => {
       const msg = decodeClassServer(e.data);
-      if (msg?.t === "s-k-room") finish(() => resolve({ room: msg.room, exists: msg.exists, open: msg.open, teacher: msg.teacher }));
+      if (msg?.t === "s-k-room") finish(() => resolve({ room: msg.room, exists: msg.exists, open: msg.open, teacher: msg.teacher, theme: msg.theme }));
       else if (msg?.t === "s-k-error") finish(() => reject(msg.code));
     };
     ws.onclose = (e) => {
@@ -217,6 +223,8 @@ export class ClassClient {
   onAnnounce: ((text: string) => void) | null = null;
   /** Power plants (science mode): the whole list on joining, then changed rows. */
   onPlants: ((msg: Extract<ClassServerMessage, { t: "s-k-plants" }>) => void) | null = null;
+  /** The fire drill as the teacher runs it (teams, who is set off, progress). */
+  onDrill: ((msg: Extract<ClassServerMessage, { t: "s-k-drill" }>) => void) | null = null;
   /** When each s-k-lesson arrived (it may be replayed seconds later, after the field loaded). */
   private readonly arrivedAt = new WeakMap<object, number>();
   onSettings: ((settings: ClassSettings) => void) | null = null;
@@ -317,7 +325,7 @@ export class ClassClient {
     const ws = this.ws; this.ws = null;
     if (ws) { ws.onopen = ws.onmessage = ws.onclose = ws.onerror = null; ws.close(1000, "left"); }
     this.onMembers = this.onSnap = this.onEdit = this.onWet = this.onFurniture = this.onReject = this.onChat = null;
-    this.onLesson = this.onAnnounce = this.onPlants = null;
+    this.onLesson = this.onAnnounce = this.onPlants = this.onDrill = null;
     this.onGather = this.onSeats = this.onBonk = this.onSettings = this.onResync = this.onWorldReset = this.onWaterDrained = this.onEnded = this.onConnection = null;
   }
 
@@ -353,7 +361,7 @@ export class ClassClient {
       if (this.ws !== ws || this.ended) return;
       const key = loadKey(this.join);
       const message: ClassClientMessage = this.join.role === "teacher"
-          ? { t: "k-host", v: CLASS_PROTOCOL_VERSION, room: this.join.room, teacher: this.join.teacher, password: this.join.password, hostKey: key }
+          ? { t: "k-host", v: CLASS_PROTOCOL_VERSION, room: this.join.room, teacher: this.join.teacher, password: this.join.password, hostKey: key, ...(this.join.theme ? { theme: this.join.theme } : {}) /* the lesson picked — "craft" too: it is what turns a class back from a fire drill */ }
           : { t: "k-join", v: CLASS_PROTOCOL_VERSION, room: this.join.room, student: this.join.student, seatKey: key };
       ws.send(JSON.stringify(message));
     };
@@ -418,6 +426,7 @@ export class ClassClient {
             settings: msg.settings,
             edits: [],
             furniture: msg.furniture,
+            theme: msg.theme ?? "craft",
           },
           expected: msg.editCount,
         };
@@ -525,6 +534,9 @@ export class ClassClient {
         return;
       case "s-k-plants":
         this.onPlants?.(msg);
+        return;
+      case "s-k-drill":
+        this.onDrill?.(msg);
         return;
       case "s-k-bonk":
         this.onBonk?.(msg);

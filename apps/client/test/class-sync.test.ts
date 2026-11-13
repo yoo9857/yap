@@ -26,7 +26,7 @@ function setup(camera?: THREE.Camera) {
   const client = { connected: true, send: () => true, close: vi.fn(), activate: vi.fn() } as unknown as ClassClient;
   const field = new FieldWindow(), scene = new THREE.Scene();
   const session: ClassSession = { you: "old", role: "teacher", room: "Test", teacher: "Teacher", members: [member("old", "teacher"), member("other")],
-    settings: { buildLocked: false, chatLocked: false }, edits: [], furniture: [] };
+    settings: { buildLocked: false, chatLocked: false }, edits: [], furniture: [], theme: "craft" };
   const changed = vi.fn();
   const bonked = vi.fn();
   const impact = vi.fn();

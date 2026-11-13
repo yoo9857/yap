@@ -742,6 +742,7 @@ export class VoxelView {
         if (!chunks.has(chunkId(cx, cz))) this.queue.add(chunkId(cx, cz));
       }
     }
+    this.applyVisibility(); // the chunks stand somewhere else now: what is covered (setCovered) or too far is asked again
     this.studsDirty = true;
   }
 
@@ -904,7 +905,7 @@ export class VoxelView {
     chunk.isFar = far;
     chunk.stale = false;
     this.scanChunk(world, chunk, cx, cz, far, rebuildWater);
-    chunk.hidden = this.hasFocus && this.distSqTo(id) > this.renderDistance * this.renderDistance;
+    chunk.hidden = this.hiddenNow(id);
     this.showForm(chunk);
     return true;
   }
@@ -926,10 +927,32 @@ export class VoxelView {
     this.applyVisibility();
   }
 
+  /**
+   * Chunks that something else covers completely (imported scenery standing on the field: the
+   * fire drill's campus has its own ground) are not drawn — they were three quarters of that
+   * scene's triangles, studs and all, under a floor nobody sees through. `covered(cx, cz)` is
+   * asked in GRID chunk coordinates and has to answer for where the window is NOW (it is asked
+   * again after every field scroll). `cell(x, z)` says the same for one column (grid cells): a
+   * chunk only partly under the scenery is still drawn, but the STUDS of its covered tops are not
+   * — studs are most of a flat field's triangles.
+   */
+  setCovered(covered: ((cx: number, cz: number) => boolean) | null, cell: ((x: number, z: number) => boolean) | null = null): void {
+    this.covered = covered;
+    this.coveredCell = cell;
+    this.studsDirty = true;
+    this.applyVisibility();
+  }
+  private covered: ((cx: number, cz: number) => boolean) | null = null;
+  private coveredCell: ((x: number, z: number) => boolean) | null = null;
+  /** Past the render distance, or under something that covers it: built, but not drawn. */
+  private hiddenNow(id: number): boolean {
+    if (this.covered?.(Math.floor(id / 256) - 64, (id % 256) - 64)) return true;
+    return this.hasFocus && this.distSqTo(id) > this.renderDistance * this.renderDistance;
+  }
+
   private applyVisibility(): void {
-    const limit = this.renderDistance * this.renderDistance;
     for (const [id, chunk] of this.chunks) {
-      const hidden = this.hasFocus && this.distSqTo(id) > limit;
+      const hidden = this.hiddenNow(id);
       if (hidden === chunk.hidden) continue;
       chunk.hidden = hidden;
       this.showForm(chunk);
@@ -1530,7 +1553,7 @@ export class VoxelView {
     }
     const matrix = new THREE.Matrix4();
     // a top's form: 0 = Stud_HQ, 1 = Stud_LOD1, -1 = out of range (no focus: every top, original)
-    const formOf = (list: number[], i: number): number => (!eye ? 0 : this.withinRange(list, i, eye, hqRange) ? 0 : this.withinRange(list, i, eye, range) ? 1 : -1);
+    const formOf = (list: number[], i: number): number => (this.coveredCell?.(list[i]!, list[i + 2]!) ? -1 : !eye ? 0 : this.withinRange(list, i, eye, hqRange) ? 0 : this.withinRange(list, i, eye, range) ? 1 : -1);
     for (const def of BLOCKS) for (const style of [0, 1]) for (const form of [0, 1]) {
       const key = (((def.id << 1) | style) << 1) | form;
       const bucket = near.get((def.id << 1) | style) ?? [];

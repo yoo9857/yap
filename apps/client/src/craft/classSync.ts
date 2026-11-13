@@ -106,6 +106,8 @@ export interface ClassSyncHooks {
   chime?(kind: "announce" | "time"): void;
   /** Power plants from the server (science mode), in arrival order once the game runs. */
   plants?(msg: Extract<ClassServerMessage, { t: "s-k-plants" }>): void;
+  /** The fire drill's class state (teams, who is set off, progress), once the game runs. */
+  drill?(msg: Extract<ClassServerMessage, { t: "s-k-drill" }>): void;
   /** A classmate's sound at a grid position (their steps, digs, blows, bricks). */
   sound?: (kind: ClassmateSound, family: string, x: number, y: number, z: number, wet?: boolean) => void;
 }
@@ -326,6 +328,7 @@ export class ClassSync {
     };
     // after the first frame, in order: science mode draws them over the world the game has built
     client.onPlants = (msg) => this.whenStarted(() => hooks.plants?.(msg));
+    client.onDrill = (msg) => this.whenStarted(() => hooks.drill?.(msg));
     client.onAnnounce = (text) => {
       this.lesson.announce(text);
       this.hud.chat("", "teacher", `📢 ${text}`, true);
@@ -463,6 +466,16 @@ export class ClassSync {
   /** Our own name in the class (plants are owned by name). */
   get myName(): string {
     return this.members.find((m) => m.id === this.session.you)?.name ?? "";
+  }
+
+  /** The fire drill: the teacher's teams / start / stop, or our own progress for the board. */
+  sendDrill(msg: Extract<ClassClientMessage, { t: "k-drill" | "k-drill-report" }>): void {
+    this.client.send(msg);
+  }
+
+  /** The students online right now, by name (the fire drill's board lists them). */
+  onlineStudents(): string[] {
+    return this.members.filter((m) => m.role === "student" && m.online).map((m) => m.name);
   }
 
   /** A power-plant change for the server (science mode). */

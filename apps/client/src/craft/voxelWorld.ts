@@ -1,6 +1,7 @@
 import { isFullCubeShape, raycastBlockShape } from "./shapes.js";
 import { holdsWaterlog, isBlockShape, isWater, shapeSeal } from "@robo/shared";
 import { AIR, SOLID_ID, blockByKey } from "./blocks.js";
+import type { StaticScene } from "./staticScene.js";
 
 /**
  * The craft island — a fixed-size voxel grid (Uint8Array of block ids).
@@ -46,6 +47,9 @@ export interface RayHit {
 }
 
 export class VoxelWorld {
+  /** Imported metre-accurate scenery; it never changes the block grid or face culling. */
+  staticScene: StaticScene | null = null;
+  staticCameraScene: StaticScene | null = null;
   readonly cells = new Uint8Array(WORLD_X * WORLD_Y * WORLD_Z);
   /** Stable per-cell shape code, shared by rendering, collision, aiming and saves.
    *  Cleared to 0 whenever a plain cube/air is written. */
@@ -174,6 +178,27 @@ export class VoxelWorld {
    *  `props` also stops at furniture (`isBlocked`), for the player's aim;
    *  `fluids` also stops at water (scooping it up with the bucket). */
   raycast(
+    ox:number,oy:number,oz:number,dx:number,dy:number,dz:number,maxDist:number,props=false,fluids=false,
+  ):RayHit|null {
+    return this.castScene(this.staticScene,ox,oy,oz,dx,dy,dz,maxDist,props,fluids);
+  }
+  raycastCamera(ox:number,oy:number,oz:number,dx:number,dy:number,dz:number,maxDist:number):RayHit|null {
+    return this.castScene(this.staticCameraScene??this.staticScene,ox,oy,oz,dx,dy,dz,maxDist,true,false);
+  }
+  private castScene(scene:StaticScene|null,ox:number,oy:number,oz:number,dx:number,dy:number,dz:number,maxDist:number,props:boolean,fluids:boolean):RayHit|null {
+    const scenery=scene?.raycast([ox,oy,oz],[dx,dy,dz],maxDist);
+    const block=this.raycastVoxels(ox,oy,oz,dx,dy,dz,scenery?.dist??maxDist,props,fluids);
+    if(block&&(!scenery||block.dist<=scenery.dist))return block;
+    if(!scenery)return null;
+    const n=scenery.normal,p=scenery.point;
+    const voxel:[number,number,number]=[Math.floor(p[0]-n[0]*1e-4),Math.floor(p[1]-n[1]*1e-4),Math.floor(p[2]-n[2]*1e-4)];
+    const before:[number,number,number]=[...voxel];
+    const axis=Math.abs(n[1])>=Math.abs(n[0])&&Math.abs(n[1])>=Math.abs(n[2])?1:Math.abs(n[0])>=Math.abs(n[2])?0:2;
+    before[axis]=before[axis]+Math.sign(n[axis]);
+    return {voxel,before,dist:scenery.dist};
+  }
+
+  private raycastVoxels(
     ox: number,
     oy: number,
     oz: number,

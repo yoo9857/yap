@@ -8,6 +8,7 @@ import { selectMode } from "./app/modeSelect.js";
 import { initMenuBackground } from "./app/menuBackground.js";
 import { t } from "./ui/i18n.js";
 import type { ClassEntry } from "./app/classLobby.js";
+import type { ClassTheme } from "@robo/shared";
 
 const overlay = document.getElementById("boot-overlay");
 const messageEl = document.getElementById("boot-message");
@@ -123,7 +124,7 @@ async function bootBuilder(mount: HTMLElement): Promise<void> {
   hideOverlay();
 }
 
-async function bootCraft(mount: HTMLElement, field = false, classroom: ClassEntry | null = null): Promise<void> {
+async function bootCraft(mount: HTMLElement, field = false, classroom: ClassEntry | null = null, theme: ClassTheme = "craft"): Promise<void> {
   overlay?.classList.remove("hidden");
   setBootMessage(t("세상을 만드는 중…", "Building the world…"));
   const { CraftGame } = await import("./craft/craftGame.js");
@@ -134,7 +135,7 @@ async function bootCraft(mount: HTMLElement, field = false, classroom: ClassEntr
     const { loadRustEngine } = await import("./engine/rustEngine.js");
     rust = await loadRustEngine().catch((err: unknown) => { console.warn("Rust engine unavailable, using TypeScript", err); return null; });
   }
-  const game = new CraftGame(mount, { field, classroom: classroom ?? undefined, rust });
+  const game = new CraftGame(mount, { field, classroom: classroom ?? undefined, rust, theme });
   // shaders and uploads behind the overlay, so play never opens slow and
   // catches up (see warmupGpuAsync); best-effort — never block play on it
   await withTimeout(game.prepare(setBootMessage), 20_000, "graphics warmup").catch(() => {});
@@ -191,11 +192,20 @@ async function boot(): Promise<void> {
     .then(({ preloadCharacter }) => withTimeout(preloadCharacter(), 12_000, "character assets"))
     .catch(() => {});
   let classroom: ClassEntry | null = null;
+  // the learning theme: a class has its own; solo play picks one (deep link: &theme=fire)
+  let theme: ClassTheme = "craft";
   if (mode === "field") {
     // a deep link plays solo unless it names a class (?host= / ?teacher=&student=);
     // from the menu, education mode asks: teacher, student or solo
     const { chooseClass, classFromUrl } = await import("./app/classLobby.js");
-    classroom = params.get("mode") === "field" ? await classFromUrl() : await chooseClass(document.body);
+    if (params.get("mode") === "field") {
+      classroom = await classFromUrl();
+      theme = classroom?.session.theme ?? (params.get("theme") === "fire" ? "fire" : "craft");
+    } else {
+      const choice = await chooseClass(document.body);
+      classroom = choice.classroom;
+      theme = choice.theme;
+    }
   }
   overlay?.classList.remove("hidden");
   if (mode === "craft" || mode === "field") showTip();
@@ -206,7 +216,7 @@ async function boot(): Promise<void> {
   } else if (mode === "craft") {
     await bootCraft(mount);
   } else if (mode === "field") {
-    await bootCraft(mount, true, classroom);
+    await bootCraft(mount, true, classroom, theme);
   } else if (mode === "battle") {
     await bootBattle(mount);
   } else if (mode === "cinematic") {

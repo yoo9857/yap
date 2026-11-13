@@ -479,3 +479,12 @@
   .lesson-announce b { font-size: 22px; }
   .lesson-freeze-card b { font-size: 21px; }
 }
+
+/* A learning theme's own controls (the fire drill's teams / start / stop), first in the console. */
+.ct-theme[hidden] { display: none; }
+.ct-theme .fb-controls, .ct-theme .fb-team { border: 2px solid #d9deea; border-radius: 14px; box-shadow: none; }
+.ct-theme .fb-controls { margin-bottom: 8px; }
+.ct-theme .fb-note { font-size: 12.5px; }
+/* A lesson whose field is the theme's own: plot, building and water tools are put away, and a group left empty goes with them. */
+.ct-fixed .ct-grid > [hidden], .ct-fixed [data-field] { display: none !important; }
+.ct-fixed .ct-group:has(.ct-grid):not(:has(.ct-grid > :not([hidden]))) { display: none; }

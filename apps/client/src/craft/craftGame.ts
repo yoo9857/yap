@@ -76,6 +76,9 @@ import { FurnitureLayout } from "./furniture/layout.js";
 import type { RustEngine } from "../engine/rustEngine.js";
 import { FurnitureController, PICKUP_TIME } from "./furniture/controller.js";
 import { ScienceMode, itemLabel } from "./science/scienceMode.js";
+import { FireDrill, type FireSound } from "./fire/fireDrill.js";
+import { fireSchoolCollision } from "./fire/fireSchoolView.js";
+import { FIRE_CAMPUS, fireSchool, type ClassTheme } from "@robo/shared";
 import { loadItemModels } from "./science/itemModels.js";
 import { isFrameKey } from "./science/frames.js";
 import { isPartKey } from "./science/parts.js";
@@ -102,6 +105,10 @@ const VIEW_NAMES = ["Short", "Normal", "Far"];
 const viewName = (i: number): string => [t("가깝게", "Short"), t("보통", "Normal"), t("멀리", "Far")][i] ?? "";
 /** After placing (or while mining) the body faces the crosshair this long (s). */
 const ACTION_FACE_TIME = 0.6;
+/** The fire drill's sounds, as the shared synth's names. */
+const FIRE_SOUNDS = { alarm: "alarm", spray: "spray", cough: "cough", good: "clear", step: "checkpoint", oof: "oof", click: "click", pickup: "pickup", crackle: "fire-crackle", roar: "fire-roar", hiss: "fire-hiss" } as const satisfies Record<FireSound, string>;
+/** Keys the fire drill leaves alone: nothing is built, crafted, adopted or driven there. */
+const FIRE_OFF_KEYS = new Set(["b", "t", "g", "i", "q", "y", "p", "f", "r", "x", "tab"]);
 /** No walls anywhere: the room echo goes dry. */
 const OPEN_AIR = { enclosure: 0, size: 14 } as const;
 
@@ -143,6 +150,15 @@ export class CraftGame {
   private readonly furniture: FurnitureController;
   /** Science mode (T): power-plant blueprints. Solo education field only for now (W1). */
   private readonly science: ScienceMode | null = null;
+  /** The field's learning theme: the sandbox, or the fire drill (its school is the whole field,
+   *  nothing is built, and `fire` runs the lesson). */
+  private readonly theme: ClassTheme;
+  private readonly fire: FireDrill | null = null;
+  /** Dev hooks: run the drill without a captured mouse / hold the spray button. */
+  private debugFirePlay = false;
+  private debugFireSpray = false;
+  private readonly firePlayer = { x: 0, y: 0, z: 0, facing: 0, speed: 0, eye: 0, opacity: 1 };
+  private readonly fireLook = { yaw: 0, pitch: 0 };
   /** Dev only (solo field, F2): sample classroom plots with stand-in students, to see 자리 배치
    *  without a class. */
   private samples: { view: SeatingView; rigs: { rig: CharacterRig; pos: [number, number, number]; yaw: number }[] } | null = null;
@@ -245,8 +261,11 @@ export class CraftGame {
 
   constructor(
     mount: HTMLElement,
-    opts: { field?: boolean; classroom?: { client: ClassClient; session: ClassSession }; rust?: RustEngine | null } = {},
+    opts: { field?: boolean; classroom?: { client: ClassClient; session: ClassSession }; rust?: RustEngine | null; theme?: ClassTheme } = {},
   ) {
+    // a class has its own theme; solo play is told one (only the education field has themes)
+    this.theme = opts.classroom ? opts.classroom.session.theme : opts.field ? opts.theme ?? "craft" : "craft";
+    const fireTheme = this.theme === "fire";
     this.renderer = new GameRenderer(mount);
     this.renderer.scene.fog = new THREE.Fog(FOG_COLOR, 95, 245);
     this.sky = new SkyDome(this.renderer.scene, SKY_TOP, FOG_COLOR);
@@ -254,6 +273,21 @@ export class CraftGame {
     // ?blocks=classic draws the pre-v4 surfaces, for comparison
     this.view = new VoxelView(this.renderer.scene, { generatedSurfaces: new URLSearchParams(location.search).get("blocks") !== "classic" });
     this.view.useRustShells(opts.rust ?? null);
+    if (fireTheme) {
+      // the campus has its own ground: the field's chunks wholly under it are not drawn
+      const [x0, x1, z0, z1] = FIRE_CAMPUS.bounds;
+      this.view.setCovered((cx, cz) => {
+        const field = this.field;
+        if (!field) return false;
+        const ax = cx * 16 + field.absOriginX, az = cz * 16 + field.absOriginZ;
+        return ax >= x0 && ax + 16 <= x1 && az >= z0 && az + 16 <= z1;
+      }, (x, z) => {
+        const field = this.field;
+        if (!field) return false;
+        const ax = x + field.absOriginX, az = z + field.absOriginZ;
+        return ax >= x0 && ax < x1 && az >= z0 && az < z1;
+      });
+    }
     this.skyEnvironment = createSkyEnvironment(this.renderer.renderer, SKY_TOP, FOG_COLOR, 0x9a8f78);
     this.view.setEnvironment(this.skyEnvironment.texture);
     this.miningEffects=new MiningEffects(this.renderer.scene,cell=>this.view.setMiningHidden(cell));
@@ -271,10 +305,13 @@ export class CraftGame {
     });
     this.hud = new CraftHud(document.body, (recipe, many) => this.handleCraft(recipe, many), {
       furniture: true,
-      science: opts.field === true || opts.classroom !== undefined,
+      science: !fireTheme && (opts.field === true || opts.classroom !== undefined),
+      fire: fireTheme,
       creative: opts.field === true || opts.classroom !== undefined,
       mode: opts.classroom
-        ? t(`교실 · ${opts.classroom.session.room}`, `Class · ${opts.classroom.session.room}`)
+        ? fireTheme ? t(`화재 체험 · ${opts.classroom.session.room}`, `Fire drill · ${opts.classroom.session.room}`)
+          : t(`교실 · ${opts.classroom.session.room}`, `Class · ${opts.classroom.session.room}`)
+        : fireTheme ? t("화재 체험 · 대피 훈련", "Fire drill")
         : opts.field ? t("교육 모드 · 들판", "Education field") : "Craft Island",
       onResume: () => this.resumePlay(),
       onRecipesClose: () => this.resumePlay(),
@@ -303,11 +340,30 @@ export class CraftGame {
         hotbar: readStoredHotbar(browserStorage(), CLASS_HOTBAR_KEY, fieldStarterHotbar),
         // back where this seat last stood (a refresh, or the automatic reload after a deploy);
         // a first visit spreads arrivals out so a whole class doesn't land in one cell
-        player: this.rememberedClassPos(opts.classroom.session.room, opts.classroom.session.you)
+        // (the fire drill starts over in its classroom every visit)
+        player: fireTheme ? this.fireSpawn()
+          : this.rememberedClassPos(opts.classroom.session.room, opts.classroom.session.you)
           ?? { x: spawn.x + (Math.random() - 0.5) * 8, y: spawn.y, z: spawn.z + (Math.random() - 0.5) * 8 },
         pet: "dog",
         furniture: new FurnitureLayout(),
       };
+      this.buildFieldGround();
+    } else if (opts.field && fireTheme) {
+      // the fire drill alone: the school stamped on an empty field; nothing is saved (and the
+      // sandbox field's own save is never read or written)
+      this.field = new FieldWindow();
+      const school = fireSchool();
+      this.field.replaceAll(school.edits);
+      this.state = {
+        seed: 0,
+        world: this.field.world,
+        inventory: {},
+        hotbar: fieldStarterHotbar(),
+        player: this.fireSpawn(),
+        pet: "dog",
+        furniture: new FurnitureLayout(),
+      };
+      this.state.furniture.load(school.furniture);
       this.buildFieldGround();
     } else if (opts.field) {
       if (reset) clearFieldSave(browserStorage());
@@ -365,9 +421,10 @@ export class CraftGame {
         this.hud.hideRecipes();
       },
     }, true);
+    if(fireTheme&&this.field){const field=this.field;this.state.world.staticScene=fireSchoolCollision(()=>[field.absOriginX,field.absOriginZ]);this.state.world.staticCameraScene=fireSchoolCollision(()=>[field.absOriginX,field.absOriginZ],true);}
     this.body = { ...this.state.player, vx: 0, vy: 0, vz: 0, grounded: false };
     unstick(this.state.world, this.body); // never spawn embedded in a block
-    if (this.field) {
+    if (this.field && !fireTheme) {
       const field = this.field;
       const classroom = opts.classroom !== undefined;
       this.science = new ScienceMode({
@@ -470,7 +527,7 @@ export class CraftGame {
           resumePlay: () => this.resumePlay(),
           viewYaw: () => this.yaw,
           panelBusy: () => this.workshop.active || this.furniture.panelOpen || this.petShop.open || this.emoteMenu.open
-            || this.hud.recipesOpen || this.science?.panelOpen === true,
+            || this.hud.recipesOpen || this.science?.panelOpen === true || this.fire?.panelOpen === true,
           furnitureMoved: () => {
             // a classmate's sofa can land on us (the server judges bodies at 10 Hz) or on the pet
             if (!this.seated) {
@@ -488,6 +545,7 @@ export class CraftGame {
           bonked: (push) => this.receiveBonk(push),
           chime: (kind) => this.sfx.play(kind === "time" ? "clear" : "checkpoint"),
           plants: (msg) => this.science?.applyNet(msg),
+          drill: (msg) => this.fire?.applyClass(msg),
           impact: (x, y, z) => x === undefined ? this.sfx.play("bonk") : this.sfx.at(x, y!, z!, () => this.sfx.play("bonk")),
           sound: (kind, family, x, y, z, wet) => this.sfx.at(x, y, z, () => {
             if (kind === "step") this.sfx.step(family, wet, 0.8);
@@ -508,6 +566,48 @@ export class CraftGame {
         }, this.state.furniture);
       unstick(this.state.world, this.body);
       this.view.markDirty(); // the class's field replaced the empty one
+    }
+
+    if (fireTheme && this.field) {
+      if(this.fieldGround)this.fieldGround.visible=false;
+      const field = this.field;
+      this.emptyHands = true; // nothing is held or placed here
+      this.yaw = this.viewYaw = this.facing = fireSchool().spawnYaw;
+      this.pitch = this.viewPitch = -0.12;
+      const sync = this.sync;
+      this.fire = new FireDrill({
+        // a class: the teacher runs the drill (briefing, teams, start); alone it starts at once
+        net: sync ? {
+          role: sync.role,
+          myName: () => sync.myName,
+          students: () => sync.onlineStudents(),
+          drill: (op) => sync.sendDrill({ t: "k-drill", ...op }),
+          quizReport: (step, answered, score) => sync.sendDrill({ t: "k-drill-report", step, quiz: answered, quizScore: score }),
+          mountTools: (title, content) => sync.hud.mountToolsSection(title, content, true), // the school is the theme's: no plot / build / water tools
+          report: (step, stars, seconds) => sync.sendDrill({ t: "k-drill-report", step, ...(stars !== undefined ? { stars } : {}), ...(seconds !== undefined ? { seconds } : {}) }),
+        } : undefined,
+        scene: this.renderer.scene,
+        pipeline: () => this.renderer.waterPipeline,
+        characterRoot:()=>this.rig.root,
+        firstPerson:()=>this.camera.firstPerson,
+        characterVariant:()=>this.character,
+        obstacle:(from,dir,range)=>this.state.world.raycastCamera(from.x,from.y,from.z,dir.x,dir.y,dir.z,range)?.dist??range,
+        shadowsEnabled: () => this.renderer.renderer.shadowMap.enabled,
+        originX: () => field.absOriginX,
+        originZ: () => field.absOriginZ,
+        toast: (text) => this.hud.toast(text),
+        sound: (name) => this.sfx.play(FIRE_SOUNDS[name]),
+        // from where it burns (absolute → the scene's coordinates): further is quieter, and it has a side
+        soundAt: (name, x, y, z) => this.sfx.at(x - field.absOriginX, y, z - field.absOriginZ, () => this.sfx.play(FIRE_SOUNDS[name])),
+        openPanel: () => {
+          this.keys.clear(); this.mining = this.placing = false; this.rightHeld = false;
+          if (document.pointerLockElement) document.exitPointerLock();
+        },
+        resumePlay: () => this.resumePlay(),
+        teleport: (x, y, z, yaw) => this.teleportAbs(x, y, z, yaw),
+        touch: isTouchPlay(),
+        toggleLow: () => { if (this.locked) this.changePosture(this.posture === "stand" || this.posture === "sit" ? "crawl" : "stand"); },
+      });
     }
 
     this.workshop = new MachineWorkshop(this.renderer.scene, this.renderer.camera,
@@ -615,7 +715,67 @@ export class CraftGame {
     !(this.sync?.canEditAt(x, z) ?? true);
 
   /** The teacher turned pets off for this class: no pet, no adoption chip, and P / Y do nothing. */
-  private petsOff(): boolean { return this.sync?.petsOff ?? false; }
+  private petsOff(): boolean { return this.theme === "fire" || (this.sync?.petsOff ?? false); }
+
+  /** A free spot in the fire drill's classroom, in this window's grid coordinates. */
+  private fireSpawn(): { x: number; y: number; z: number } {
+    const spawns = fireSchool().spawns;
+    const s = spawns[Math.floor(Math.random() * spawns.length)]!;
+    const [gx, gz] = this.field!.toGrid(s[0], s[2]);
+    return { x: gx, y: s[1], z: gz };
+  }
+
+  /** Stand at ABSOLUTE (x, y, z) on the field, optionally looking along `yaw` (the fire drill's retry and restart). */
+  private teleportAbs(ax: number, y: number, az: number, yaw?: number): void {
+    if (!this.field) return;
+    if (this.seated) this.standUp();
+    if (this.posture !== "stand") this.changePosture("stand", false);
+    const [gx, gz] = this.field.toGrid(ax, az);
+    this.body.x = gx; this.body.y = y; this.body.z = gz;
+    this.body.vx = this.body.vy = this.body.vz = 0;
+    this.knockX = this.knockZ = 0;
+    this.scrollField();
+    unstick(this.state.world, this.body);
+    this.prevBody.set(this.body.x, this.body.y, this.body.z);
+    this.seatBlend = 0;
+    if (yaw !== undefined) { this.yaw = this.facing = yaw; this.pitch = -0.12; }
+  }
+
+  /** A student waiting through the fire drill's briefing (or for their team's turn) stays in the classroom. */
+  private keepInFireRoom(): void {
+    const box = this.fire?.confineBox();
+    if (!box || !this.field) return;
+    const half = (this.body.w ?? 0.6) / 2 + 0.05, ox = this.field.absOriginX, oz = this.field.absOriginZ;
+    const x0 = box[0] - ox + half, x1 = box[1] - ox - half, z0 = box[2] - oz + half, z1 = box[3] - oz - half;
+    let hit = false;
+    // far outside (a rejoin, a stopped run): the drill's own teleport brings them back, not this wall
+    if (this.body.x < x0 - 3 || this.body.x > x1 + 3 || this.body.z < z0 - 3 || this.body.z > z1 + 3) return;
+    if (this.body.x < x0) { this.body.x = x0; if (this.body.vx < 0) this.body.vx = 0; hit = true; }
+    if (this.body.x > x1) { this.body.x = x1; if (this.body.vx > 0) this.body.vx = 0; hit = true; }
+    if (this.body.z < z0) { this.body.z = z0; if (this.body.vz < 0) this.body.vz = 0; hit = true; }
+    if (this.body.z > z1) { this.body.z = z1; if (this.body.vz > 0) this.body.vz = 0; hit = true; }
+    const now = performance.now();
+    if (hit && now - this.fenceToldAt > 6000) {
+      this.fenceToldAt = now;
+      this.hud.toast(t("🧑‍🏫 지금은 교실에서 선생님 설명을 들어요 — 출발 신호를 기다려요", "🧑‍🏫 Stay in the classroom for the briefing — wait for the go"));
+    }
+  }
+
+  /** The fire drill's tick: where we stand, where we look, and whether the spray button is held. */
+  private tickFire(dt: number): void {
+    if (!this.fire || !this.field) return;
+    const [dx, dy, dz] = lookDirection(this.yaw, this.pitch);
+    const playing = this.locked || this.debugFirePlay;
+    this.fire.tick(dt, {
+      playing,
+      x: this.body.x + this.field.absOriginX, y: this.body.y, z: this.body.z + this.field.absOriginZ,
+      eyeY: this.body.y + POSTURE_EYE[this.seated ? "sit" : this.posture],
+      dx, dy, dz,
+      blockDist: this.aim?.dist ?? Infinity,
+      spraying: playing && (this.mining || this.debugFireSpray),
+    });
+    if (this.fire.sprayingNow) this.actionHold = ACTION_FACE_TIME; // the body faces what it sprays
+  }
 
   /**
    * The teacher's 땅 위로 올라오기 (F2): dug in and stuck. Up to the nearest place ABOVE where they
@@ -744,7 +904,7 @@ export class CraftGame {
   async prepare(setMessage: (text: string) => void = () => {}): Promise<void> {
     setMessage(t("텍스처 불러오는 중…", "Loading textures…"));
     // the Blender studs too: the first frame shows them, not the code twin
-    await Promise.all([texturesReady(),preloadHeldItemsWithin(8000),loadBlockStuds(),
+    await Promise.all([texturesReady(),preloadHeldItemsWithin(8000),loadBlockStuds(),this.fire?.ready,
       this.science ? Promise.race([loadItemModels(), new Promise((r) => setTimeout(r, 6000))]) : null]);
     if(!this.disposed)this.rig.setHeldItem(this.heldTool(),this.toolOption);
     if (this.disposed || this.started) return; // timed out (main.ts): start() warmed up its own way
@@ -902,6 +1062,7 @@ export class CraftGame {
     this.petShop.dispose();
     this.furniture.dispose();
     this.science?.dispose();
+    this.fire?.dispose();
     this.bgm.dispose();
     this.sfx.dispose();
     this.perf.dispose();
@@ -954,6 +1115,7 @@ export class CraftGame {
       if (e.button === 2) this.secondaryDown();
       if (e.button === 1) {
         e.preventDefault(); // no autoscroll cursor
+        if (this.fire) return; // nothing to pick up in the drill
         const socketItem = this.science?.pickAimed();
         if (socketItem) { this.assignToHotbar(this.selected, socketItem, false, true); this.emptyHands = false; }
         else if (this.aimFurniture) this.furniture.pickKind(this.aimFurniture);
@@ -966,7 +1128,7 @@ export class CraftGame {
     });
     on("contextmenu", (e) => e.preventDefault());
     on("wheel", (e) => {
-      if (!this.locked) return;
+      if (!this.locked || this.fire) return;
       if (this.furniture.handleWheel(e.deltaY > 0)) return;
       this.selected = (this.selected + (e.deltaY > 0 ? 1 : this.state.hotbar.length - 1)) % this.state.hotbar.length;
       this.emptyHands = false; // picking a block means "let me build"
@@ -978,6 +1140,22 @@ export class CraftGame {
       if (e.code === "KeyC" && !e.ctrlKey && !e.metaKey && !this.workshop.active) {
         e.preventDefault(); if (e.repeat) return;
         this.openEmotes(); return;
+      }
+      if (this.fire) {
+        // the drill: E uses what is under the crosshair; a lesson card owns the keys while it is up
+        if (key === "escape" && this.fire.panelOpen) { this.fire.closePanels(true); return; }
+        // Tab: the class's board — teams and progress (the teacher's has the buttons)
+        if (key === "tab") {
+          e.preventDefault();
+          if (!e.repeat && !this.sync?.toolsOpen && (this.locked || this.fire.boardOpen)) this.fire.toggleBoard();
+          return;
+        }
+        if (this.fire.panelOpen) return;
+        if (key === "e" && !e.ctrlKey && !e.metaKey && !e.altKey && !this.sync?.toolsOpen) {
+          if (!e.repeat && this.locked && this.fire.interact()) this.beginWork("place");
+          return;
+        }
+        if (FIRE_OFF_KEYS.has(key) || (key >= "0" && key <= "9")) return;
       }
       if (key === "b" && !e.repeat && !e.ctrlKey && !e.metaKey && !e.altKey) { this.workshop.toggle(); return; }
       if (this.workshop.active) return;
@@ -1088,7 +1266,8 @@ export class CraftGame {
 
   /** Left mouse / ⛏: a classmate under the crosshair is tapped, whatever is in hand; otherwise the pickaxe swings or the hand digs. */
   private primaryDown(): void {
-    if (this.tryBonk()) return;
+    // with an extinguisher in hand the button sprays: no tap on a classmate standing in the way
+    if (!this.fire?.holding && this.tryBonk()) return;
     if(!this.emptyHands&&toolByKey(this.heldKey())){const key=this.attackIdentity();if(key)this.itemAttack.request(key);}
     this.mining = true;
   }
@@ -1154,6 +1333,7 @@ export class CraftGame {
     if (this.seated && this.stepSeated()) {
       this.perf.time("pet", () => this.pet.fixedUpdate(this.state.world, dt, this.body));
       this.perf.time("aim", () => this.updateAim());
+      this.tickFire(dt);
       this.stepInteraction(dt);
       if (this.placing) {
         this.tryPlace();
@@ -1201,6 +1381,7 @@ export class CraftGame {
     this.prevVy = this.body.vy;
     this.perf.time("physics", () => stepBody(this.state.world, this.body, dt, wishX, wishZ, !frozen && this.locked && this.posture === "stand" && this.postureDelay <= 0 && !this.rig.postureBusy && this.jumpHeld(), this.knockX, this.knockZ));
     this.keepInPlot();
+    this.keepInFireRoom();
     const knockKeep = Math.exp(-BONK_DECAY * dt);
     this.knockX *= knockKeep;
     this.knockZ *= knockKeep;
@@ -1235,6 +1416,7 @@ export class CraftGame {
     this.perf.time("pet", () => this.pet.fixedUpdate(this.state.world, dt, this.body));
 
     this.perf.time("aim", () => this.updateAim());
+    this.tickFire(dt);
     this.stepInteraction(dt);
     if (this.placing) {
       this.tryPlace();
@@ -1704,6 +1886,8 @@ export class CraftGame {
    */
   private tryPlace(): void {
     this.actionHold = ACTION_FACE_TIME; // face what you are building on
+    // the fire drill: a right click (the 🧱 touch button) uses the station under the crosshair
+    if (this.fire?.interact()) { this.beginWork("place"); return; }
     // right click ON a door/gate/curtain opens or closes it, whatever you hold
     if (this.aimFurniture && this.furniture.interact(this.aimFurniture)) { this.beginWork("place"); return; }
     // ...and on a chair, sofa or bed you sit down — unless you are placing
@@ -1776,6 +1960,7 @@ export class CraftGame {
   private plotEditToldAt = -Infinity;
 
   private canBuild(): boolean {
+    if (this.theme === "fire") return false; // the drill's school is not for building
     return this.sync ? this.sync.canBuild() : true;
   }
 
@@ -1953,6 +2138,7 @@ export class CraftGame {
 
   private persist(): void {
     this.lastSaveAt = Date.now();
+    if (this.theme === "fire") return; // the drill starts over every visit: nothing to keep
     if (this.sync) { this.rememberClassPos(); return; } // the class's field lives on the server; our spot is ours
     if (this.savedElsewhere) return; // another tab owns the save now
     // standing still with no edits: nothing to write, skip the serialise +
@@ -2100,6 +2286,7 @@ export class CraftGame {
     if (locked) {
       // back in play: a panel left open would sit over the view, unusable
       this.science?.closePanels();
+      this.fire?.closePanels();
       this.furniture.closePanel();
       this.petShop.setOpen(false);
       this.hud.hideRecipes();
@@ -2118,12 +2305,12 @@ export class CraftGame {
   private touchPaused(): boolean {
     const typing = document.activeElement instanceof HTMLInputElement || document.activeElement instanceof HTMLTextAreaElement;
     return document.hidden || typing || this.workshop.active || this.hud.recipesOpen || this.furniture.panelOpen || this.petShop.open
-      || this.emoteMenu.open || this.science?.panelOpen === true || this.sync?.toolsOpen === true || document.querySelector(".class-ended") !== null;
+      || this.emoteMenu.open || this.science?.panelOpen === true || this.fire?.panelOpen === true || this.sync?.toolsOpen === true || document.querySelector(".class-ended") !== null;
   }
 
   private render(alpha: number, frameDt: number): void {
     this.syncLock();
-    this.hud.syncMenu(this.workshop.active || this.furniture.panelOpen || this.petShop.open || this.emoteMenu.open || this.science?.panelOpen === true || this.sync?.toolsOpen === true
+    this.hud.syncMenu(this.workshop.active || this.furniture.panelOpen || this.petShop.open || this.emoteMenu.open || this.science?.panelOpen === true || this.fire?.panelOpen === true || this.sync?.toolsOpen === true
       || performance.now() < this.resumeUntil || document.querySelector(".class-ended") !== null);
     if (this.workshop.previewing) {
       const flightFocus = this.workshop.flightPreparationFocus;
@@ -2167,7 +2354,8 @@ export class CraftGame {
     // While that cell is breaking, the cracking block IS the feedback: the box steps aside and
     // comes back when the dig stops or the next block is aimed at (players found a box drawn over
     // the shards distracting).
-    const aimed = this.aim && !this.aimFurniture ? this.aim.voxel : null;
+    // (the fire drill frames no block: nothing there is dug or built on)
+    const aimed = this.aim && !this.aimFurniture && !this.fire ? this.aim.voxel : null;
     const breaking = !!aimed && this.miningEffects.breaking(aimed);
     const aimBounds = aimed && !breaking ? shapeBounds(this.state.world.getShape(...aimed)) : undefined;
     this.view.setHighlight(this.warming ? [0, -1000, 0] : breaking ? null : aimed, false, aimBounds);
@@ -2224,6 +2412,13 @@ export class CraftGame {
     this.perf.phase("camera", performance.now() - t0);
     this.perf.time("furniture", () => this.furniture.render(this.aim, this.yaw, this.locked && !this.mining, this.ghostOk, this.ghostBad));
     this.perf.time("science", () => this.science?.render(this.aim, this.renderer.camera, this.locked && !this.mining));
+    if (this.fire) {
+      const p = this.firePlayer, look = this.fireLook;
+      p.x = drawn.x; p.y = drawn.y; p.z = drawn.z; p.facing = this.facing;
+      p.speed = planar; p.eye = eye.y; p.opacity = robotOpacity;
+      look.yaw = this.viewYaw; look.pitch = this.viewPitch;
+      this.perf.time("fire", () => this.fire!.render(frameDt, this.renderer.camera, p, look));
+    }
     if (this.science?.active) this.hud.setPiece(t("🌬️ 풍력 발전기 설계도 · R 돌리기", "🌬️ Wind turbine blueprint · R to turn"), 0, 0, "🔬");
     else if (!this.furniture.active) {
       if(this.heldTool())this.hud.setPiece(this.toolLabel(),0,0,"⛏️");
@@ -2274,7 +2469,9 @@ export class CraftGame {
    */
   private updateFacing(frameDt: number): void {
     this.actionHold = Math.max(0, this.actionHold - frameDt);
-    if (this.mining) this.actionHold = ACTION_FACE_TIME;
+    // (spraying is an action like mining: the body turns to the crosshair for it, and is the keys' again after —
+    // held to the view for as long as the extinguisher was carried, the robot only ever showed its back)
+    if (this.mining || this.fire?.sprayingNow) this.actionHold = ACTION_FACE_TIME;
     if (this.seated) {
       this.facing = this.seated.yaw;
       return;
@@ -2441,6 +2638,25 @@ export class CraftGame {
 
   private installDebugHooks(): void {
     const hooks = {
+      /** The fire drill (theme "fire"): its state, the aimed station, the open card. */
+      fire: () => this.fire?.debug() ?? null,
+      /** Run the drill's clock without a captured mouse (headless checks). */
+      firePlay: (on = true) => { this.debugFirePlay = on; },
+      /** Hold the spray button. */
+      fireSpray: (on = true) => { this.debugFireSpray = on; },
+      /** Use a station by kind, without aiming at it. */
+      fireUse: (kind: import("@robo/shared").FireStationKind) => this.fire?.debugUse(kind),
+      /** The real E / right-click path: use what is under the crosshair. */
+      fireInteract: () => this.fire?.interact() ?? false,
+      /** Finish the open lesson card. */
+      fireSolve: () => this.fire?.debugSolve() ?? false,
+      fireQuiz: (right: boolean) => this.fire?.debugQuiz(right) ?? false,
+      fireSet: (patch: Parameters<FireDrill["debugSet"]>[0]) => this.fire?.debugSet(patch),
+      fireRestart: () => this.fire?.restart(),
+      /** Tab: the class's drill board (teams, progress; the teacher's has the buttons). */
+      fireBoard: () => this.fire?.toggleBoard(),
+      /** Stand at ABSOLUTE field coordinates. */
+      teleportAbs: (x: number, y: number, z: number, yaw?: number) => this.teleportAbs(x, y, z, yaw),
       /** Science mode (T): sites with their build %, the live preview. */
       science: () => this.science?.debug() ?? null,
       /** Toggle science mode without a key press. */

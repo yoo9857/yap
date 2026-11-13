@@ -78,6 +78,28 @@ type View = "main" | "timer" | "announce";
  * Pure DOM: every decision goes back through `actions`.
  */
 export class ClassTools {
+  /** A learning theme's own controls, first in the console (the fire drill's teams / start / stop): see `mountSection`. */
+  private readonly themeSection = el("section", "ct-group ct-theme");
+
+  /**
+   * The lesson's own master controls go here (owner 2026-11-13: F2 is where a teacher is told to
+   * look, for everything). `content` is the theme's element; null takes the section away.
+   */
+  mountSection(title: string, content: HTMLElement | null, fixedField = false): void {
+    this.themeSection.replaceChildren();
+    this.themeSection.hidden = !content;
+    if (content) this.themeSection.append(el("h3", "", title), content);
+    // a lesson whose field is the theme's own (the fire drill's school): the tools for plots,
+    // building, water and plants have nothing to act on there, so they are put away
+    this.fixedField = fixedField && !!content;
+    this.root.classList.toggle("ct-fixed", this.fixedField);
+    for (const id of ["seat", "gather", "clear", "roam", "build", "plants", "pets"]) {
+      const tile = this.tiles.get(id);
+      if (tile) tile.root.hidden = this.fixedField;
+    }
+  }
+  private fixedField = false;
+
   readonly root = el("div", "ct");
   private readonly card = el("div", "ct-card");
   private readonly chips = el("div", "ct-chips");
@@ -144,6 +166,7 @@ export class ClassTools {
         this.tile("plants", -1, "lock-build", () => this.actions.settings({ ...this.settings, plantsLocked: !this.settings.plantsLocked }), true),
         this.tile("pets", -1, "lock-taps", () => this.actions.settings({ ...this.settings, petsOff: !this.settings.petsOff }), true)),
     );
+    this.main.prepend(this.themeSection);
     this.buildTimerView();
     this.buildAnnounceView();
     const left = el("div", "ct-left");
@@ -182,6 +205,7 @@ export class ClassTools {
     end.addEventListener("click", () => {
       if (confirm(t("수업을 끝낼까요? 모든 학생의 연결이 끊어져요.", "End the class? Every student will be disconnected."))) this.run(() => this.actions.end());
     });
+    rescue.dataset.field = drain.dataset.field = reset.dataset.field = "1"; // hidden where the field is a theme's own (.ct-fixed)
     foot.append(rescue, drain, reset, end, keys);
     this.card.append(head, body, foot);
     this.root.append(this.card);
@@ -467,7 +491,7 @@ export class ClassTools {
     if (this.settings.tapsLocked) chips.push(["lock", t("👋 밀기 꺼짐", "👋 Taps off")]);
     if (this.settings.plantsLocked) chips.push(["lock", t("⚡ 발전소 잠김", "⚡ Plants locked")]);
     if (this.settings.petsOff) chips.push(["lock", t("🐾 펫 꺼짐", "🐾 Pets off")]);
-    if (chips.length === 0) chips.push(["calm", t("지금은 자유롭게 짓는 중이에요", "Free building right now")]);
+    if (chips.length === 0 && !this.fixedField) chips.push(["calm", t("지금은 자유롭게 짓는 중이에요", "Free building right now")]);
     this.chips.replaceChildren(...chips.map(([kind, text]) => {
       const c = el("span", `ct-chip ct-chip-${kind}`, text);
       if (kind === "timer") c.append(el("b", "ct-clock"));

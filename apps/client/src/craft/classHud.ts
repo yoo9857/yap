@@ -190,6 +190,11 @@ export class ClassHud {
     if (this.role === "student" && lesson.frozen) this.closeInput();
   }
 
+  /** A learning theme's master controls, shown first in the teacher's F2 console (nothing happens for a student). */
+  mountToolsSection(title: string, content: HTMLElement | null, fixedField = false): void {
+    this.tools?.mountSection(title, content, fixedField);
+  }
+
   get toolsOpen(): boolean {
     return this.tools?.open ?? false;
   }

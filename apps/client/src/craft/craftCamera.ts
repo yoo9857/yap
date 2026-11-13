@@ -43,6 +43,7 @@ export class CraftCamera {
   firstPerson = false;
 
   private dist = MAX_DIST;
+  private nearClear = NEAR_CLEAR;
   private shoulder = 0;
   private fov = settings.fov;
   private shakeAmp = 0;
@@ -70,7 +71,7 @@ export class CraftCamera {
    * physically fits) is tried first: the smoothed eye only lags into a block after a step.
    */
   private freePivot(world: VoxelWorld, eye: THREE.Vector3, bodyEyeY?: number): void {
-    const free = (y: number) => !world.isBlocked(Math.floor(eye.x), Math.floor(y), Math.floor(eye.z));
+    const free = (y: number) => !this.boxBlocked(world,this.look.set(eye.x,y,eye.z));
     if (bodyEyeY !== undefined && Number.isFinite(bodyEyeY) && free(bodyEyeY)) { this.pivot.y = bodyEyeY; return; }
     for (let k = 1; k <= 6; k++) {
       for (const dy of [k * 0.25, -k * 0.25]) {
@@ -93,22 +94,25 @@ export class CraftCamera {
    * close by (open air, a cliff edge) — nothing to lift over.
    */
   private floorUnder(world: VoxelWorld, p: THREE.Vector3): number {
+    const scenery=(world.staticCameraScene??world.staticScene)?.floorBelow(p.x,p.y,p.z)??-Infinity;
     const x = Math.floor(p.x);
     const z = Math.floor(p.z);
     let y = Math.floor(p.y);
     if (world.isBlocked(x, y, z)) {
       for (let i = 0; i < 8 && world.isBlocked(x, y, z); i++) y++;
-      return y;
+      return Math.max(y,scenery);
     }
     for (let i = 0; i < 3; i++) {
-      if (world.isBlocked(x, y - 1, z)) return y;
+      if (world.isBlocked(x, y - 1, z)) return Math.max(y,scenery);
       y--;
     }
-    return -Infinity;
+    return scenery;
   }
 
   private boxBlocked(world: VoxelWorld, p: THREE.Vector3): boolean {
-    for (const dx of [-NEAR_CLEAR, NEAR_CLEAR]) for (const dy of [-NEAR_CLEAR, NEAR_CLEAR]) for (const dz of [-NEAR_CLEAR, NEAR_CLEAR]) {
+    const clear=this.nearClear;
+    if((world.staticCameraScene??world.staticScene)?.intersects([p.x-clear,p.y-clear,p.z-clear],[p.x+clear,p.y+clear,p.z+clear]))return true;
+    for (const dx of [-this.nearClear, this.nearClear]) for (const dy of [-this.nearClear, this.nearClear]) for (const dz of [-this.nearClear, this.nearClear]) {
       if (world.isBlocked(Math.floor(p.x + dx), Math.floor(p.y + dy), Math.floor(p.z + dz))) return true;
     }
     return false;
@@ -137,12 +141,16 @@ export class CraftCamera {
     /** The body's unsmoothed eye height: the escape when the smoothed eye lags into a block. */
     bodyEyeY?: number,
   ): number {
+    const fov=effectiveFov(settings.fov+(running&&!this.firstPerson?RUN_FOV_EXTRA:0),this.camera.aspect);
+    const near=this.camera.near,tan=Math.tan(fov*Math.PI/360);
+    this.nearClear=Math.max(NEAR_CLEAR,near*Math.hypot(1,tan,tan*this.camera.aspect)+.02);
     const ease = (rate: number) => 1 - Math.pow(rate, dt);
     this.dir.set(Math.sin(yaw) * Math.cos(pitch), Math.sin(pitch), Math.cos(yaw) * Math.cos(pitch));
     this.right.set(-Math.cos(yaw), 0, Math.sin(yaw));
     this.up.crossVectors(this.right, this.dir).normalize();
 
     // shoulder collapses in first person and scales away with lost distance
+    if(this.firstPerson)this.dist=0;
     const distRatio = this.dist / MAX_DIST;
     const wantShoulder = this.firstPerson ? 0 : SHOULDER * Math.min(1, distRatio * 1.4);
     this.shoulder += (wantShoulder - this.shoulder) * ease(0.005);
@@ -153,10 +161,10 @@ export class CraftCamera {
     // over the head, a crawl under a ledge. Every probe below would then start inside the
     // block and the camera would open it from within (de2). Look from the nearest free
     // spot instead: straight up first (a head through a ceiling), then the sides.
-    if (!this.firstPerson && world.isBlocked(Math.floor(eye.x), Math.floor(eye.y), Math.floor(eye.z))) this.freePivot(world, eye, bodyEyeY);
+    if (this.boxBlocked(world,eye)) this.freePivot(world, eye, bodyEyeY);
     if (this.shoulder > 1e-3) {
-      const side = world.raycast(eye.x, eye.y, eye.z, this.right.x, this.right.y, this.right.z, this.shoulder + 0.2);
-      const allowed = side ? Math.max(0, side.dist - 0.2) : this.shoulder;
+      const side = world.raycastCamera(this.pivot.x, this.pivot.y, this.pivot.z, this.right.x, this.right.y, this.right.z, this.shoulder + this.nearClear + .02);
+      const allowed = side ? Math.max(0, side.dist - this.nearClear - .02) : this.shoulder;
       this.pivot.addScaledVector(this.right, Math.min(this.shoulder, allowed));
     }
 
@@ -174,7 +182,7 @@ export class CraftCamera {
           .addScaledVector(this.right, sx * (PROBE / MAX_DIST))
           .addScaledVector(this.up, sy * (PROBE / MAX_DIST))
           .normalize();
-        const hit = world.raycast(
+        const hit = world.raycastCamera(
           this.pivot.x, this.pivot.y, this.pivot.z,
           this.probeDir.x, this.probeDir.y, this.probeDir.z,
           MAX_DIST,
@@ -182,7 +190,7 @@ export class CraftCamera {
         // the GROUND does not pull the camera in: looking up, the probes behind run down into it,
         // and the camera came in (fading the robot) and out again with every jump — a flicker.
         // A hit entered through a block's top face is floor; the camera is lifted over it below.
-        if (hit && CraftCamera.isFloorHit(hit)) floorTop = Math.max(floorTop, hit.voxel[1] + 1);
+        if (hit && CraftCamera.isFloorHit(hit)) floorTop = Math.max(floorTop, this.pivot.y+this.probeDir.y*hit.dist);
         else if (hit) clear = Math.min(clear, hit.dist);
       }
       // MIN_DIST is a preference, never a reason to sit inside the wall: with the back
@@ -222,7 +230,7 @@ export class CraftCamera {
       const len = this.los.length();
       if (len > 1e-3) {
         this.los.divideScalar(len);
-        const hit = world.raycast(this.pivot.x, this.pivot.y, this.pivot.z, this.los.x, this.los.y, this.los.z, len);
+        const hit = world.raycastCamera(this.pivot.x, this.pivot.y, this.pivot.z, this.los.x, this.los.y, this.los.z, len);
         if (hit) {
           const keep = Math.max(0, hit.dist - HARD_MARGIN);
           this.camera.position.copy(this.pivot).addScaledVector(this.los, keep);

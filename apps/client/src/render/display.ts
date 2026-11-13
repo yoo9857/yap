@@ -36,24 +36,30 @@ export interface QualityProfile {
   minScale: number;
   shadows: boolean;
   shadowMapSize: number;
+  /**
+   * Draw imported scenery (the fire drill's school) with the cheapest lit material: no gloss, no
+   * clear coat — a phone's GPU pays for every one of those on every pixel of every wall. True on
+   * the low preset and on touch devices.
+   */
+  lite: boolean;
 }
 
 export function qualityProfile(preset: GraphicsPreset, touch = false): QualityProfile {
   switch (preset) {
     case "low":
-      return { maxPixelRatio: 0.85, minScale: 1, shadows: false, shadowMapSize: 1024 };
+      return { maxPixelRatio: 0.85, minScale: 1, shadows: false, shadowMapSize: 1024, lite: true };
     case "medium":
-      return { maxPixelRatio: 1.25, minScale: 1, shadows: true, shadowMapSize: 1024 };
+      return { maxPixelRatio: 1.25, minScale: 1, shadows: true, shadowMapSize: 1024, lite: false };
     case "high":
-      return { maxPixelRatio: 2, minScale: 1, shadows: true, shadowMapSize: 2048 };
+      return { maxPixelRatio: 2, minScale: 1, shadows: true, shadowMapSize: 2048, lite: false };
     case "auto":
     default:
       // a phone or tablet: a 3x screen at 1.5 with 2048 shadows ran hot and slow before the
       // governor caught up, so a touch device starts at 1.25 with 1024 shadows
-      if (touch) return { maxPixelRatio: 1.25, minScale: 0.6, shadows: true, shadowMapSize: 1024 };
+      if (touch) return { maxPixelRatio: 1.25, minScale: 0.6, shadows: true, shadowMapSize: 1024, lite: true };
       // the long-standing default (1.5x, soft 2048 shadows), with the governor allowed to trade
       // resolution down to 60% before anything stutters
-      return { maxPixelRatio: 1.5, minScale: 0.6, shadows: true, shadowMapSize: 2048 };
+      return { maxPixelRatio: 1.5, minScale: 0.6, shadows: true, shadowMapSize: 2048, lite: false };
   }
 }
 

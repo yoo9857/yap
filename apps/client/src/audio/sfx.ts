@@ -24,7 +24,13 @@ type SfxName =
   | "splash"
   | "pour"
   | "tap"
-  | "bonk";
+  | "bonk"
+  | "alarm"
+  | "spray"
+  | "cough"
+  | "fire-crackle"
+  | "fire-roar"
+  | "fire-hiss";
 
 /** A decoded recording with where its sound actually starts and where it is loudest (seconds). */
 export interface Clip {
@@ -516,6 +522,30 @@ export class Sfx {
         this.beep(ctx, 520, 0.05, "triangle", 0.055, 160);
         this.noise(ctx, 0.04, 0.02);
         break;
+      // the fire drill (craft/fire): kept quiet — the bell repeats for the whole drill
+      case "alarm": // an electric bell: a second of fast two-tone ringing
+        for (let i = 0; i < 12; i++) this.beep(ctx, i % 2 ? 1180 : 1480, 0.05, "square", 0.014, i % 2 ? 1180 : 1480, i * 0.075);
+        break;
+      case "spray": // powder under pressure
+        this.filtered(ctx, "highpass", 2600, 4200, 0.7, 0.16, 0.05);
+        break;
+      case "fire-crackle": { // sap popping: a dry tick, now and then with a snap after it — never two alike
+        const f = 1700 + Math.random() * 3900;
+        this.filtered(ctx, "bandpass", f, f * 0.55, 2.2 + Math.random() * 2, 0.012 + Math.random() * 0.03, 0.05 + Math.random() * 0.1);
+        if (Math.random() < 0.3) this.filtered(ctx, "highpass", 3200, 5200, 0.8, 0.02, 0.045, 0.03 + Math.random() * 0.06);
+        break;
+      }
+      case "fire-roar": // the body of a fire: a low rush of air; played overlapping, so it never stops
+        this.rumble(ctx, 190 + Math.random() * 90, 1.2, 0.5);
+        this.rumble(ctx, 560 + Math.random() * 240, 1.2, 0.07);
+        break;
+      case "fire-hiss": // powder on the flames
+        this.filtered(ctx, "bandpass", 5200, 2300, 0.9, 0.34, 0.05);
+        break;
+      case "cough":
+        this.filtered(ctx, "bandpass", 700, 380, 1.4, 0.09, 0.09);
+        this.filtered(ctx, "bandpass", 620, 340, 1.4, 0.11, 0.08, 0.16);
+        break;
     }
   }
 
@@ -567,6 +597,27 @@ export class Sfx {
     if (this.voices >= (this.remote ? Sfx.REMOTE_VOICES : Sfx.MAX_VOICES)) return false;
     this.voices++;
     return true;
+  }
+
+  /** Low noise that swells and dies away (a fire's roar): no attack to hear, so overlapping ones make one sound. */
+  private rumble(ctx: AudioContext, cutoff: number, dur: number, vol: number): void {
+    if (!this.noiseBuffer || !this.claim()) return;
+    const t0 = ctx.currentTime;
+    const src = ctx.createBufferSource();
+    src.buffer = this.noiseBuffer;
+    src.loop = true;
+    const filter = ctx.createBiquadFilter();
+    filter.type = "lowpass";
+    filter.Q.value = 0.7;
+    filter.frequency.value = cutoff;
+    const gain = ctx.createGain();
+    gain.gain.setValueAtTime(0.0001, t0);
+    gain.gain.linearRampToValueAtTime(Math.max(vol * settings.sfx, 0.0001), t0 + dur * 0.5);
+    gain.gain.linearRampToValueAtTime(0.0001, t0 + dur);
+    src.connect(filter).connect(gain).connect(this.bus ?? this.out ?? ctx.destination);
+    src.onended = () => this.voices--;
+    src.start(t0, Math.random() * Math.max(0, this.noiseBuffer.duration - 0.1));
+    src.stop(t0 + dur + 0.02);
   }
 
   /** Unfiltered noise that fades out (splash, pour). */

@@ -99,6 +99,12 @@ export class WaterPipeline {
   private readonly quadCamera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
   private readonly composite: THREE.ShaderMaterial;
   private readonly clearColor = new THREE.Color();
+  /**
+   * Passes drawn over the finished frame (the screen is the target, nothing is cleared): they may
+   * read the scene's depth (`waterPipelineUniforms.tSceneDepth`), which nothing drawn INTO the
+   * scene's target can. The fire drill's volumetric smoke is one (craft/fire/smokeVolume.ts).
+   */
+  readonly after: ((renderer: THREE.WebGLRenderer, camera: THREE.PerspectiveCamera) => void)[] = [];
   private width = 1;
   private height = 1;
   /** The water's three materials for the extra passes (waterMesh.ts): nearest front face, nearest
@@ -211,6 +217,11 @@ export class WaterPipeline {
         renderer.autoClear = false;
         scene.overrideMaterial = this.materials.surface;
         renderer.render(scene, camera);
+      }
+      if (this.after.length > 0) {
+        renderer.autoClear = false;
+        scene.overrideMaterial = override;
+        for (const pass of this.after) pass(renderer, camera);
       }
     } finally {
       camera.layers.mask = layers;

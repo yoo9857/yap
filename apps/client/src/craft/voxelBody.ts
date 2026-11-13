@@ -157,6 +157,7 @@ export function wishFromInput(yaw: number, fwd: number, strafe: number): [number
 function collides(world: VoxelWorld, body: Body): boolean {
   const { x, y, z } = body;
   const half = halfOf(body);
+  if(world.staticScene?.intersects([x-half,y,z-half],[x+half,y+heightOf(body)+.3,z+half]))return true;
   const x0 = Math.floor(x - half);
   const x1 = Math.floor(x + half - EPS);
   const y0 = Math.floor(y);
@@ -213,7 +214,7 @@ export function overlapsVoxel(body: Body, vx: number, vy: number, vz: number): b
 /** Body/shape test used by both the placement ghost and the actual stamp. */
 export function overlapsShapedVoxel(body:Body,x:number,y:number,z:number,shape:number):boolean {const half=halfOf(body);return shapeIntersectsBox(shape,{min:[body.x-half-x,body.y-y,body.z-half-z],max:[body.x+half-x,body.y+heightOf(body)-y,body.z+half-z]});}
 function nearbyRampFloor(world:VoxelWorld,body:Body):number|null {
- const half=halfOf(body);let highest=-Infinity;
+ const half=halfOf(body);let highest=world.staticScene?.rampFloor(body.x,body.y,body.z,half)??-Infinity;
  for(let y=Math.floor(body.y-.15);y<=Math.floor(body.y+.15);y++)for(let x=Math.floor(body.x-half);x<=Math.floor(body.x+half-EPS);x++)for(let z=Math.floor(body.z-half);z<=Math.floor(body.z+half-EPS);z++){
   if(!world.isSolid(x,y,z))continue;const shape=world.getShape(x,y,z);
   const x0=Math.max(0,body.x-half-x),x1=Math.min(1,body.x+half-x),z0=Math.max(0,body.z-half-z),z1=Math.min(1,body.z+half-z);

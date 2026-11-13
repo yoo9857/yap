@@ -1,11 +1,26 @@
 import { CLASS_ERROR_TEXT, ClassClient, peekClass, takeReloadPassword, type ClassJoin, type ClassSession } from "../net/classClient.js";
 import "../craft/classroom.css";
+import "../craft/fire/fire.css"; // the theme picker
 import { t } from "../ui/i18n.js";
+import type { ClassTheme } from "@robo/shared";
 
 export interface ClassEntry {
   client: ClassClient;
   session: ClassSession;
 }
+
+/** What the lobby settled: the live class (null: solo play) and the learning theme to play. */
+export interface LobbyChoice {
+  classroom: ClassEntry | null;
+  theme: ClassTheme;
+}
+
+/** The learning themes a teacher (or a solo player) picks from. */
+const THEMES = (): { id: ClassTheme; name: string; note: string }[] => [
+  { id: "craft", name: t("🧱 크래프트 모드", "🧱 Craft mode"), note: t("끝없는 들판에서 함께 만들기", "Build together on an endless field") },
+  { id: "fire", name: t("🔥 화재 체험", "🔥 Fire drill"), note: t("소화기 사용법 · 119 신고 · 대피 훈련", "Extinguisher, calling 119, evacuation") },
+];
+const themeName = (theme: ClassTheme): string => THEMES().find((x) => x.id === theme)?.name ?? "";
 
 const LAST_KEY = "craftyap-class-last";
 
@@ -53,7 +68,7 @@ export async function classFromUrl(): Promise<ClassEntry | null> {
   const room = p.get("room") ?? host ?? p.get("teacher");
   const join: ClassJoin | null =
     host && room
-      ? { role: "teacher", room, teacher: host, password: p.get("pass") ?? takeReloadPassword() }
+      ? { role: "teacher", room, teacher: host, password: p.get("pass") ?? takeReloadPassword(), theme: p.get("theme") === "fire" ? "fire" : undefined }
       : room && student
         ? { role: "student", room, student }
         : null;
@@ -93,7 +108,7 @@ function guide(photo: "teacher" | "student", steps: string[]): string {
             </aside>`;
 }
 
-export function chooseClass(parent: HTMLElement): Promise<ClassEntry | null> {
+export function chooseClass(parent: HTMLElement): Promise<LobbyChoice> {
   return new Promise((resolve) => {
     const last = remembered();
     const screen = document.createElement("div");
@@ -139,10 +154,22 @@ export function chooseClass(parent: HTMLElement): Promise<ClassEntry | null> {
             ${guide("teacher", [
               t("<b>반 이름</b>과 비밀번호를 정해요", "Choose a <b>class name</b> and a password"),
               t("학생들에게 <b>반 이름</b>을 알려줘요", "Tell your students the <b>class name</b>"),
-              t("만든 것은 서버에 저장돼요. 다음 수업에 같은 반 이름으로 열면 이어서 해요", "What the class builds is saved. Open the same class name next lesson to carry on"),
+              // what the third step says depends on the lesson picked (see the theme radios' listener)
+              `<span data-theme-note="craft">${t("만든 것은 서버에 저장돼요. 다음 수업에 같은 반 이름으로 열면 이어서 해요", "What the class builds is saved. Open the same class name next lesson to carry on")}</span>`
+              + `<span data-theme-note="fire" hidden>${t("수업은 <b>설명 시간</b>으로 시작해요. 설명이 끝나면 <b>F2</b>(수업 도구)에서 <b>🔥 모두 출발</b>을 눌러요", "The lesson starts with a <b>briefing</b>. When you have explained it, press <b>F2</b> (class tools) and <b>🔥 Everyone go</b>")}</span>`,
             ])}
             <div class="board-paper">
               <div class="class-form">
+                <label id="cl-theme-label">${t("학습 테마", "Learning theme")}</label>
+                <div class="theme-pick" role="radiogroup" aria-labelledby="cl-theme-label">
+                  ${THEMES().map((th, i) => `<label><input type="radio" name="theme" value="${th.id}"${i === 0 ? " checked" : ""} /><b>${th.name}</b><small>${th.note}</small></label>`).join("")}
+                </div>
+                <label for="cl-teams" data-theme-note="fire" hidden>${t("조 편성 (수업 중 F2에서 바꿀 수 있어요)", "Teams (change any time under F2)")}</label>
+                <select id="cl-teams" data-theme-note="fire" hidden>
+                  <option value="0">${t("조 없이: 반 전체가 한 번에", "None: the whole class at once")}</option>
+                  <option value="4">${t("4인 1조", "Teams of four")}</option>
+                  <option value="5">${t("5인 1조", "Teams of five")}</option>
+                </select>
                 <label for="cl-host-room">${t("반 이름", "Class name")}</label>
                 <input id="cl-host-room" name="room" maxlength="20" autocomplete="off" required placeholder="${t("예: 햇살반, 3학년 2반", "e.g. Sunshine, Class 3-2")}" />
                 <label for="cl-host">${t("선생님 이름", "Teacher name")}</label>
@@ -176,6 +203,16 @@ export function chooseClass(parent: HTMLElement): Promise<ClassEntry | null> {
             </div>
           </div>
         </form>
+        <div class="mode-step" data-step="solo" hidden>
+          ${stepBar(t("무엇을 할까요?", "What would you like to do?"), "mode-back")}
+          <div class="board-notes">
+          ${THEMES().map((th) => `<button class="mode-btn board-note" data-solo="${th.id}" type="button">
+            <span class="board-photo"><img src="/home/${th.id === "fire" ? "teacher" : "solo"}.webp" width="640" height="480" alt="" /></span>
+            <span class="mode-text"><b>${th.name}</b><small>${th.note}</small></span>
+            <span class="board-go">${t("시작하기", "Start")} <span aria-hidden="true">&rarr;</span></span>
+          </button>`).join("")}
+          </div>
+        </div>
         <div class="mode-step class-form-step" data-step="confirm" hidden>
           ${stepBar(t("이 반이 맞나요?", "Is this your class?"), "", 'data-id="confirm-no"')}
           <div class="class-layout">
@@ -216,13 +253,17 @@ export function chooseClass(parent: HTMLElement): Promise<ClassEntry | null> {
       connecting = null;
       client?.close();
     };
-    const done = (entry: ClassEntry | null) => {
+    const done = (entry: ClassEntry | null, soloTheme: ClassTheme = "craft") => {
       if (!entry) cancelConnect();
       screen.remove();
-      resolve(entry);
+      resolve({ classroom: entry, theme: entry ? entry.session.theme : soloTheme });
     };
     screen.querySelectorAll<HTMLButtonElement>("[data-go]").forEach((btn) =>
-      btn.addEventListener("click", () => (btn.dataset.go === "solo" ? done(null) : show(btn.dataset.go!))),
+      btn.addEventListener("click", () => show(btn.dataset.go!)),
+    );
+    // solo: which theme?
+    screen.querySelectorAll<HTMLButtonElement>("[data-solo]").forEach((btn) =>
+      btn.addEventListener("click", () => done(null, btn.dataset.solo === "fire" ? "fire" : "craft")),
     );
     /** Bumped whenever a class lookup's answer would no longer be wanted. */
     let peekSeq = 0;
@@ -277,6 +318,13 @@ export function chooseClass(parent: HTMLElement): Promise<ClassEntry | null> {
 
     // --- teacher: open the class
     const teacherForm = screen.querySelector<HTMLFormElement>('[data-step="teacher"]')!;
+    // the guide beside the form speaks for the lesson that is picked
+    const themeNotes = (): void => {
+      const picked = teacherForm.querySelector<HTMLInputElement>('input[name="theme"]:checked')?.value ?? "craft";
+      teacherForm.querySelectorAll<HTMLElement>("[data-theme-note]").forEach((el) => { el.hidden = el.dataset.themeNote !== picked; });
+    };
+    teacherForm.querySelectorAll<HTMLInputElement>('input[name="theme"]').forEach((radio) => radio.addEventListener("change", themeNotes));
+    themeNotes();
     teacherForm.addEventListener("submit", (e) => {
       e.preventDefault();
       const join: ClassJoin = {
@@ -284,11 +332,18 @@ export function chooseClass(parent: HTMLElement): Promise<ClassEntry | null> {
         room: input("cl-host-room").value.trim(),
         teacher: input("cl-host").value.trim(),
         password: input("cl-pass").value || undefined,
+        theme: teacherForm.querySelector<HTMLInputElement>('input[name="theme"]:checked')?.value === "fire" ? "fire" : "craft",
       };
       if (!namesOk(join)) {
         teacherForm.querySelector<HTMLElement>('[data-id="error"]')!.textContent = CLASS_ERROR_TEXT["bad-name"];
         return;
       }
+      // the fire drill's teams, asked for here, are sent by the drill once the class is open (fireDrill.presetTeams)
+      try {
+        const size = Number(teacherForm.querySelector<HTMLSelectElement>("#cl-teams")?.value ?? 0);
+        if (join.theme === "fire" && size > 0) sessionStorage.setItem("craftyap-fire-teams", JSON.stringify({ size, at: Date.now() }));
+        else sessionStorage.removeItem("craftyap-fire-teams");
+      } catch { /* no storage: teams are made under F2 */ }
       void connect(teacherForm, join);
     });
 
@@ -325,7 +380,8 @@ export function chooseClass(parent: HTMLElement): Promise<ClassEntry | null> {
           confirmStep.querySelector<HTMLElement>('[data-id="confirm-card"]')!.innerHTML = `
             <div class="class-confirm-room">🏫 ${escapeHtml(info.room)}</div>
             <div class="class-confirm-teacher">👩‍🏫 ${t(`<b>${escapeHtml(info.teacher ?? "")}</b> 선생님 반`, `<b>${escapeHtml(info.teacher ?? "")}</b>'s class`)}</div>
-            <div class="class-confirm-me">🧒 ${t(`나는 <b>${escapeHtml(join.student)}</b> (으)로 들어가요`, `Joining as <b>${escapeHtml(join.student)}</b>`)}</div>`;
+            <div class="class-confirm-me">🧒 ${t(`나는 <b>${escapeHtml(join.student)}</b> (으)로 들어가요`, `Joining as <b>${escapeHtml(join.student)}</b>`)}</div>
+            ${info.theme && info.theme !== "craft" ? `<div class="class-confirm-theme">${t("오늘의 수업", "Today's lesson")}: ${themeName(info.theme)}</div>` : ""}`;
           confirmStep.querySelector<HTMLElement>('[data-id="error"]')!.textContent = "";
           show("confirm");
         })

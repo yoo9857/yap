@@ -2,7 +2,9 @@ import js from "@eslint/js";
 import tseslint from "typescript-eslint";
 
 export default tseslint.config(
-  { ignores: ["**/dist/**", "**/node_modules/**", "legacy/**", "tmp/**", "output/**", "engine/target/**", "engine/pkg*/**", "packages/engine/wasm/**"] },
+  { ignores: ["**/dist/**", "**/node_modules/**", "legacy/**", "tmp/**", "output/**", "engine/target/**", "engine/pkg*/**", "packages/engine/wasm/**",
+    // generated from the Blender export's collision data (float32 values printed in full): data, not code
+    "packages/shared/src/fireCampusGeometry.ts"] },
   js.configs.recommended,
   ...tseslint.configs.recommendedTypeChecked,
   {
