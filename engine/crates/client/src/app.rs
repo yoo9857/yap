@@ -11,6 +11,8 @@
 //! (the core's voxel body at 60 Hz) -> `FollowCamera` (craftCamera.ts) -> the overlay (`ui.rs`).
 //! `CRAFTYAP_VIEW` (web <-> native comparison shots) still pins a fixed camera instead;
 //! `CRAFTYAP_TOUCH=1` shows the touch controls on a desktop (checking the phone layout).
+// Dense one-line layout on purpose (`…}if …`, `x=!y`): these are not a lost `else` or a mistyped `!=`.
+#![allow(clippy::possible_missing_else, clippy::suspicious_assignment_formatting)]
 
 use crate::building::{self, Dig, Hotbar};
 use crate::character::{self, Animator, CharVertex, Kind, Motion, Posture};
@@ -319,6 +321,9 @@ struct App {
     own_anim: Animator,
     /// The furniture layout version and window origin last baked (re-bake when either changes).
     drawn_furniture: Option<(u64, i32, i32)>,
+    fire:Option<crate::fire::Training>,
+    fire_solo:bool,
+    drawn_fire:Option<(i32,i32)>,
     remote_anims: HashMap<String, Animator>,
     /// The overlay font and its glyph atlas (text.rs).
     text: Text,
@@ -445,6 +450,7 @@ impl App {
             hud_size: (0.0, 0.0),
             own_anim: Animator::new(7),
             drawn_furniture: None,
+            fire:None,fire_solo:false,drawn_fire:None,
             remote_anims: HashMap::new(),
             text: Text::new(),
             // CRAFTYAP_VIEW (comparison shots) starts straight in the world, no menus
@@ -472,7 +478,7 @@ impl App {
                 }
                 self.renderer = Some(r);
                 // and none of the furniture, nor the live face
-                self.drawn_furniture = None;
+                self.drawn_furniture = None;self.drawn_fire=None;
                 self.face_live = false;
                 if let Some(f) = &mut self.face {
                     f.mark_dirty();
@@ -624,6 +630,68 @@ impl App {
         }
     }
 
+    fn start_fire_solo(&mut self){
+        self.save_island();self.field=Some(FieldWindow::new());self.fire_solo=true;self.in_menu=false;self.setup_fire(true);
+    }
+    fn setup_fire(&mut self,solo:bool){
+        let Some(field)=self.field.as_mut()else{return};
+        for &(x,y,z,b,shape)in &crate::fire::scenario().edits{field.apply(x,y as i32,z,b,shape);}
+        let w=Arc::make_mut(&mut field.world);w.static_scene=Some(crate::fire::collision());w.static_camera_scene=Some(crate::fire::camera_collision());w.static_origin=[field.origin_x as f64,field.origin_z as f64];
+        let index=self.menu.profile.name.bytes().map(usize::from).sum::<usize>()%crate::fire::scenario().spawns.len();let s=crate::fire::scenario().spawns[index];
+        let (x,z)=field.to_grid(s[0],s[2]);let world=field.world.clone();
+        self.set_world(world,[x,s[1],z],crate::fire::scenario().spawn_yaw);
+        self.menu.focus=None;self.fire=Some(crate::fire::Training::new(solo));self.drawn_fire=None;self.posture=Posture::Stand;self.pet=None;self.pet_open=false;self.emote_open=false;self.bag.open=false;self.dig.stop();self.aim=None;
+        if let Some(r)=&mut self.renderer{r.set_pets(&[]);r.set_ghost(&[]);}
+        self.remesh_all();log::info!("fire: entered imported 2F campus (solo={solo})");
+    }
+    fn clear_fire(&mut self){
+        self.fire=None;self.fire_solo=false;self.drawn_fire=None;self.input.fire_training=false;
+        if let Some(field)=self.field.as_mut(){let w=Arc::make_mut(&mut field.world);w.static_scene=None;w.static_camera_scene=None;}
+        if let Some(r)=&mut self.renderer{r.set_campus(&[],&[]);r.set_fire_fx(&[]);r.set_fire_props(&[]);}
+        self.input.release_all();
+    }
+    fn prepare_fire(&mut self){
+        if self.fire.is_none(){return;}
+        if self.fire.as_ref().is_some_and(|f|f.panel_open())&&self.input.captured(){self.capture(false);}
+        let name=self.menu.profile.name.clone();let cls=self.menu.class_mut().map(|c|(c.drill.clone(),c.teacher));
+        let f=self.fire.as_mut().expect("fire");if !f.solo{f.apply_class(cls.as_ref().and_then(|c|c.0.as_ref()),cls.as_ref().is_some_and(|c|c.1),&name);}
+        let command=f.command.take();let report=f.report.take();let reset=std::mem::take(&mut f.reset_requested);let low=std::mem::take(&mut f.low_requested);let exit=std::mem::take(&mut f.exit_requested);let teleport=f.teleport.take();
+        if let Some(c)=self.menu.class_mut(){if let Some((op,size,team))=command{c.drill_command(op,size,team);}if let Some((step,stars,seconds))=report{c.drill_report(step,stars,seconds);}}
+        if low{if self.posture==Posture::Crawl{let view=crate::building::WithProps{world:&self.world,props:&self.props};if craftyap_core::body::can_occupy(&view,&self.player.body,1.8){self.posture=Posture::Stand;}}else{self.posture=Posture::Crawl;}}
+        let target=if reset{self.posture=Posture::Stand;let i=name.bytes().map(usize::from).sum::<usize>()%crate::fire::scenario().spawns.len();Some(crate::fire::scenario().spawns[i])}else{teleport};
+        if let (Some(at),Some(field))=(target,self.field.as_ref()){let(x,z)=field.to_grid(at[0],at[2]);self.player.teleport(&self.world,[x,at[1],z]);}
+        if exit{if !self.fire_solo{self.menu.leave_class();}self.clear_fire();self.in_menu=true;}
+    }
+    fn tick_fire(&mut self,dt:f64){
+        let Some(field)=self.field.as_ref()else{return};let origin=(field.origin_x,field.origin_z);
+        let Some(f)=self.fire.as_mut()else{return};let b=&self.player.body;let pos=[b.x+origin.0 as f64,b.y,b.z+origin.1 as f64];
+        let eye_y=b.y+if self.posture==Posture::Crawl{1.02}else{EYE_HEIGHT};let(yaw,pitch)=(self.player.yaw,self.player.pitch);
+        let dir=DVec3::new(yaw.sin()*pitch.cos(),pitch.sin(),yaw.cos()*pitch.cos());
+        let blocked=self.world.raycast(b.x,eye_y,b.z,dir.x,dir.y,dir.z,6.,false).map_or(f64::INFINITY,|h|h.dist);
+        if std::mem::take(&mut self.place_clicks)>0{f.use_requested=true;}
+        let spray=self.mouse_dig||self.input.dig_held();f.tick(dt.min(0.1),pos,eye_y,dir,blocked,spray);self.input.fire_training=true;
+        if f.waiting&&!f.teacher{let room=crate::fire::scenario().classroom;let x=pos[0].clamp(room[0]+0.35,room[3]-0.35);let z=pos[2].clamp(room[2]+0.35,room[5]-0.35);if(x-pos[0]).abs()>0.001||(z-pos[2]).abs()>0.001||pos[1]<8.35{let(gx,gz)=field.to_grid(x,z);self.player.teleport(&self.world,[gx,8.4,gz]);}}
+        if self.drawn_fire!=Some(origin){let(opaque,glass)=crate::fire::campus(origin);if let Some(r)=&mut self.renderer{r.set_campus(&opaque,&glass);}self.drawn_fire=Some(origin);}
+    }
+
+    fn render_fire(&mut self,dt:f64,visibility:f64){
+        let Some(field)=&self.field else{return};let Some(f)=&mut self.fire else{return};
+        let origin=(field.origin_x,field.origin_z);
+        let feet=Vec3::from_array(self.player.drawn().map(|v|v as f32));
+        let aspect=self.window.as_ref().map_or(16.0/9.0,|w|{let size=w.inner_size();size.width as f32/size.height.max(1)as f32});
+        let view_scale=(crate::scene::effective_fov(self.follow.fov as f32,aspect).to_radians()*0.5).tan()/35_f32.to_radians().tan();
+        let frame=crate::fire_carry::Frame{
+            camera:self.follow.eye.as_vec3(),view:(self.follow.target-self.follow.eye).normalize_or_zero().as_vec3(),feet,
+            facing:self.player.facing as f32,view_yaw:self.player.view_yaw as f32,pitch:self.player.view_pitch as f32,
+            dt:dt as f32,first:self.follow.first_person()||visibility<=0.5,rabbit:self.menu.profile.character=="tt",
+            sway:f.carry_pose(0.,self.player.body.vx.hypot(self.player.body.vz) as f32,self.player.view_pitch as f32).sway,
+            eye_height:if self.posture==Posture::Crawl{1.02}else{EYE_HEIGHT as f32},
+            view_scale,
+        };
+        let props=f.props(origin,&self.world,frame);let fx=f.effects(origin,self.follow.eye,dt);
+        if let Some(r)=&mut self.renderer{r.set_fire_props(&props);r.set_fire_fx(&fx);}
+    }
+
     /// The menu says we are in a field: make sure the game is too, then play it.
     fn field_frame(&mut self, dt: f64) {
         let now = self.started.elapsed().as_secs_f64();
@@ -635,8 +703,8 @@ impl App {
             self.set_world(world, spawn, std::f64::consts::PI);
             log::info!("field: entered");
         }
-        self.menu.update(now, LoadProgress { art: 1.0, world: 1.0 });
-        if !self.menu.in_field() {
+        if !self.fire_solo{self.menu.update(now, LoadProgress { art: 1.0, world: 1.0 });}
+        if !self.menu.in_field() && !self.fire_solo {
             return; // left (or the session ended) this frame
         }
         if let Some(edit) = self.menu.focused_edit() {
@@ -711,8 +779,11 @@ impl App {
         if self.menu.focus.is_some() {
             self.input.release_all();
         }
+        let fire_theme=self.fire_solo||self.menu.class_mut().is_some_and(|c|c.theme=="fire");
+        if fire_theme&&self.fire.is_none(){self.setup_fire(self.fire_solo);}
+        self.prepare_fire();
         let visible = self.step_player(dt);
-        self.step_pet(dt);
+        if self.fire.is_none(){self.step_pet(dt);}else if let Some(r)=&mut self.renderer{r.set_pets(&[]);}
         // the window follows the player in whole chunks
         if let Some(field) = self.field.as_mut() {
             if let Some((dx, dz)) = field.recenter(self.player.body.x, self.player.body.z) {
@@ -725,6 +796,8 @@ impl App {
                 self.remesh_all();
             }
         }
+        // Upload the campus only after its window origin settled, in this same frame.
+        self.tick_fire(dt);
         // the furniture, baked again when the server changed it or the window scrolled
         if let (Some(field), Some(c)) = (self.field.as_ref(), self.menu.class_mut()) {
             let key = (c.furniture_version, field.origin_x, field.origin_z);
@@ -743,9 +816,9 @@ impl App {
         self.input.build_buttons = self.menu.focus.is_none();
         // classmates where they are drawn (grid coordinates): no block goes inside one
         let classmates: Vec<craftyap_core::body::Body> = self.menu.class_mut().map(|c| c.remotes.values().filter_map(|r| r.last_drawn).map(|g| craftyap_core::body::Body::at(g[0], g[1], g[2])).collect()).unwrap_or_default();
-        let locked = self.menu.class_mut().is_some_and(|c| !c.teacher && (c.frozen || c.settings.as_ref().is_some_and(|s| s.build_locked)));
+        let locked = self.fire.is_some()||self.menu.class_mut().is_some_and(|c| !c.teacher && (c.frozen || c.settings.as_ref().is_some_and(|s| s.build_locked)));
         let edits = if locked { self.dig.stop(); Vec::new() } else { self.build_frame(dt, &classmates) };
-        self.update_ghost(&classmates);
+        if self.fire.is_none(){self.update_ghost(&classmates);}
         if !edits.is_empty() {
             self.apply_field_edits(&edits);
         }
@@ -766,7 +839,9 @@ impl App {
         let (facing, py) = (self.player.facing, self.player.body.y);
         // classmates: where the server says they were RENDER_DELAY ago
         let mut meshes: [Vec<CharVertex>; 4] = [Vec::new(), Vec::new(), Vec::new(), Vec::new()];
+        if let Some(f)=&mut self.fire{f.hands=[None,None];}
         self.own_character(dt, visible, &mut meshes);
+        self.render_fire(dt,visible);
         let mut tags: Vec<([f32; 3], String, bool)> = Vec::new();
         let mut seen: Vec<String> = Vec::new();
         let tt = self.menu.profile.character == "tt";
@@ -844,11 +919,15 @@ impl App {
             p.name_plate(&mut self.text, &label, sx, sy, *teacher);
         }
         if let (None, Some(hud)) = (self.menu.focus, &hud) {
-            draw_play_hud(&mut p, &mut self.text, hud);
+            if self.fire.is_none(){draw_play_hud(&mut p, &mut self.text, hud);}else{
+                let mut touch=hud.touch;touch.build=false;p.touch_controls(&touch,0);p.crosshair(hud.w/2.,hud.h/2.);
+                if touch.visible {let(dx,dy)=touch.dig_centre;p.disc(dx as f32,dy as f32,38.,[243,171,34,240]);p.text(&mut self.text,"분사",dx as f32,dy as f32-8.,crate::ui::TextStyle::new(15.,[31,42,68,255],crate::ui::Align::Center));}
+            }
         }
         let touch = cfg!(target_os = "android") || self.input.touch_mode;
         let mut ui = Ui { p: &mut p, t: &mut self.text, ptr: pointer, enabled: true, time: now as f32 };
-        self.menu.draw(&mut ui, touch);
+        if !self.fire_solo{ui.enabled=!self.fire.as_ref().is_some_and(|f|f.panel_open());self.menu.draw(&mut ui, touch);ui.enabled=true;}
+        if let Some(f)=&mut self.fire{f.draw(&mut ui,dt,self.player.yaw);}
         r.set_overlay(&p.vertices, &p.segments, &self.text.take_uploads());
         self.end_pointer_frame();
         self.sync_ime_window();
@@ -1112,6 +1191,8 @@ impl App {
 
     /// One menu frame: the server state ticks, the top screen draws over the art.
     fn menu_frame(&mut self) {
+        let debug_fire=std::env::var("CRAFTYAP_FIRE").is_ok()||crate::profile::data_dir().is_some_and(|d|d.join("fire-drill").exists());
+        if debug_fire&&self.fire.is_none(){self.start_fire_solo();return;}
         let scale = self.scale();
         let loaded = self.art_sizes[..ALL_ART.len()].iter().filter(|s| s.is_some()).count() as f32 / ALL_ART.len() as f32;
         let world = self.renderer.as_ref().map_or(0.0, |r| r.chunk_count() as f32 / (CHUNKS_X * CHUNKS_Z) as f32).min(1.0);
@@ -1140,6 +1221,7 @@ impl App {
                 r.world_visible = true;
             }
         }
+        if outcome==Outcome::PlayFire{self.start_fire_solo();}
         self.sync_ime_window();
     }
 
@@ -1154,11 +1236,12 @@ impl App {
 
     /// The menu screens own the pointer and keys (not the field, which is the game with a HUD).
     fn menu_owns_input(&self) -> bool {
-        self.in_menu && !self.menu.in_field()
+        self.fire.as_ref().is_some_and(|f|f.panel_open())||(self.in_menu && !self.menu.in_field()&&!self.fire_solo)
     }
 
     /// Back (Android) / Escape: the menu goes back a screen; in play, back to the menu.
     fn back(&mut self) {
+        if let Some(f)=&mut self.fire{if f.panel_open(){f.panel=crate::fire::Panel::None;return;}if self.fire_solo{self.fire_solo=false;self.in_menu=true;self.clear_fire();return;}}
         if self.in_menu {
             self.menu.back();
         } else {
@@ -1234,6 +1317,7 @@ impl App {
             let family = crate::sound::family_of_block(self.world.get(fx, fy, fz));
             self.sound.step(family, wet);
         }
+        let fire_pose=self.fire.as_mut().map(|f|f.carry_pose(dt as f32,motion.speed,self.player.view_pitch as f32));
         if visible <= 0.5 {
             return;
         }
@@ -1246,6 +1330,12 @@ impl App {
         let [m0, m1, m2, m3] = meshes;
         // drawn with the live face once it is on the GPU, the model's own texture until then
         let body = if self.face_live { m3 } else if kind == Kind::Home { m0 } else { m1 };
+        if let (Some(f),Some(pose))=(&mut self.fire,fire_pose){
+            if pose.strength>0.001{
+                f.hands=model.skin_fire(&entries,&upper,pose,at,self.player.facing as f32,body);
+            }else{model.skin_layered(&entries,&upper,at,self.player.facing as f32,body);}
+            return;
+        }
         match (item, grip) {
             (Some(item), Some(grip)) => {
                 let phase = self.attack.active().then(|| self.attack.time() / item.cycle());
@@ -1615,7 +1705,7 @@ impl App {
             intent.strafe = 0.0;
             intent.jump = false;
         }
-        if self.posture != Posture::Stand {
+        if self.posture != Posture::Stand && self.posture!=Posture::Crawl {
             if intent.forward != 0.0 || intent.strafe != 0.0 || intent.jump {
                 self.posture = Posture::Stand;
                 if let Some(f) = &mut self.face {
@@ -1626,10 +1716,15 @@ impl App {
                 intent.jump = false;
             }
         }
+        if self.fire.as_ref().is_some_and(|f|f.panel_open()){intent.forward=0.;intent.strafe=0.;intent.jump=false;intent.look=(0.,0.);}
+        self.player.body.h=if self.posture==Posture::Crawl{Some(1.35)}else{None};
+        if self.posture==Posture::Crawl{intent.amount*=1.25/2.7;intent.run=false;intent.jump=false;}
+        if self.fire.as_ref().is_some_and(|fire|fire.drill.extinguisher){self.player.action_hold=0.20;}
         self.player.update(&self.world, &self.props, &intent, dt);
         let feet = self.player.drawn();
-        let eye = DVec3::new(feet[0], feet[1] + EYE_HEIGHT, feet[2]);
-        let visible = self.follow.update(&self.world, eye, self.player.body.y + EYE_HEIGHT, self.player.view_yaw, self.player.view_pitch, self.player.running, dt);
+        let eye_height=if self.posture==Posture::Crawl{1.02}else{EYE_HEIGHT};
+        let eye = DVec3::new(feet[0], feet[1] + eye_height, feet[2]);
+        let visible = self.follow.update(&self.world, eye, self.player.body.y + eye_height, self.player.view_yaw, self.player.view_pitch, self.player.running, dt);
         self.camera.follow = Some((self.follow.eye.as_vec3(), self.follow.target.as_vec3(), self.follow.fov as f32));
         self.camera.focus = Vec3::new(feet[0] as f32, feet[1] as f32, feet[2] as f32);
         visible
@@ -1643,7 +1738,7 @@ impl App {
         }
         // back from a field: the island again
         if self.field.take().is_some() {
-            self.drawn_furniture = None;
+            self.drawn_furniture = None;self.drawn_fire=None;
             if let Some(r) = &mut self.renderer {
                 r.set_furniture(&[]);
             }
@@ -1803,7 +1898,7 @@ impl ApplicationHandler for App {
                     }
                 }
             }
-            WindowEvent::MouseInput { state, button: MouseButton::Left, .. } if self.menu_owns_input() || (self.menu.in_field() && !self.input.captured() && (self.menu.hud_hit(self.pointer.pos.0, self.pointer.pos.1) || state == ElementState::Released && self.pointer.down)) => {
+            WindowEvent::MouseInput { state, button: MouseButton::Left, .. } if self.menu_owns_input() || ((self.menu.in_field()||self.fire_solo) && !self.input.captured() && (self.menu.hud_hit(self.pointer.pos.0, self.pointer.pos.1)||self.fire.as_ref().is_some_and(|f|f.ui_hit(self.pointer.pos.0,self.pointer.pos.1,self.hud_size.0,self.hud_size.1)) || state == ElementState::Released && self.pointer.down)) => {
                 let (x, y) = self.pointer.pos;
                 if state == ElementState::Pressed {
                     self.pointer_down(x, y);
@@ -1812,7 +1907,7 @@ impl ApplicationHandler for App {
                 }
             }
             // in play with the mouse captured: left digs (held), right places
-            WindowEvent::MouseInput { state, button, .. } if self.input.captured() => match button {
+            WindowEvent::MouseInput { state, button, .. } if self.input.captured()&&!self.menu_owns_input() => match button {
                 MouseButton::Left => self.mouse_dig = state == ElementState::Pressed,
                 MouseButton::Right if state == ElementState::Pressed => self.place_clicks += 1,
                 _ => {}
@@ -1823,7 +1918,7 @@ impl ApplicationHandler for App {
                     self.bag_tap(x, y);
                     return;
                 }
-                if !self.menu_owns_input() && self.pet_tap(x, y) {
+                if self.fire.is_none() && !self.menu_owns_input() && self.pet_tap(x, y) {
                     return;
                 }
                 if !self.input.touch_mode {
@@ -1858,6 +1953,15 @@ impl ApplicationHandler for App {
             WindowEvent::KeyboardInput { event, .. } => {
                 if let PhysicalKey::Code(code) = event.physical_key {
                     let pressed = event.state == ElementState::Pressed;
+                    if self.fire.is_some(){
+                        if pressed&&!event.repeat{match code{
+                            KeyCode::KeyE=>{if let Some(f)=&mut self.fire{f.use_requested=true;}return;},
+                            KeyCode::KeyZ=>{if let Some(f)=&mut self.fire{f.low_requested=true;}return;},
+                            KeyCode::Tab=>{if let Some(f)=&mut self.fire{f.panel=crate::fire::Panel::Board;}return;},
+                            _=>{}
+                        }}
+                        if !matches!(code,KeyCode::KeyW|KeyCode::KeyA|KeyCode::KeyS|KeyCode::KeyD|KeyCode::ShiftLeft|KeyCode::ShiftRight|KeyCode::Space|KeyCode::KeyV|KeyCode::Escape|KeyCode::ArrowUp|KeyCode::ArrowDown|KeyCode::ArrowLeft|KeyCode::ArrowRight){return;}
+                    }
                     // 1–9, 0: the hotbar's slots (the web's keys)
                     let digits = [KeyCode::Digit1, KeyCode::Digit2, KeyCode::Digit3, KeyCode::Digit4, KeyCode::Digit5, KeyCode::Digit6, KeyCode::Digit7, KeyCode::Digit8, KeyCode::Digit9, KeyCode::Digit0];
                     if let (true, Some(slot)) = (pressed, digits.iter().position(|d| *d == code)) {
@@ -1916,7 +2020,8 @@ impl ApplicationHandler for App {
             WindowEvent::Touch(Touch { id, phase, location, .. }) => {
                 let k = self.scale();
                 let (x, y) = (location.x / k, location.y / k);
-                let hud = self.menu.in_field() && (self.menu_finger == Some(id) || phase == TouchPhase::Started && self.menu_finger.is_none() && self.menu.hud_hit(x as f32, y as f32));
+                let fire_hud=self.fire.as_ref().is_some_and(|f|f.ui_hit(x as f32,y as f32,self.hud_size.0,self.hud_size.1));
+                let hud = fire_hud || self.menu.in_field() && (self.menu_finger == Some(id) || phase == TouchPhase::Started && self.menu_finger.is_none() && self.menu.hud_hit(x as f32, y as f32));
                 // a tap on a hotbar slot picks it
                 if self.bag.open && !self.menu_owns_input() && !hud {
                     let (fx, fy) = (x as f32, y as f32);
@@ -1944,10 +2049,10 @@ impl ApplicationHandler for App {
                     }
                     return;
                 }
-                if !self.menu_owns_input() && phase == TouchPhase::Started && !hud && self.pet_tap(x as f32, y as f32) {
+                if !self.menu_owns_input() && phase == TouchPhase::Started && !hud && self.fire.is_none() && self.pet_tap(x as f32, y as f32) {
                     return;
                 }
-                if !self.menu_owns_input() && phase == TouchPhase::Started && !hud {
+                if self.fire.is_none() && !self.menu_owns_input() && phase == TouchPhase::Started && !hud {
                     let (w, h) = self.hud_size;
                     if let Some(slot) = Painter::hotbar_rects(w, h, true).iter().position(|r| r.contains(x as f32, y as f32)) {
                         self.hotbar.select(slot);
@@ -1984,7 +2089,7 @@ impl ApplicationHandler for App {
                 self.take_art();
                 self.sound.volume = self.menu.profile.settings.sfx as f32;
                 self.sound.frame();
-                if self.menu.in_field() {
+                if self.menu.in_field()||self.fire_solo {
                     self.in_menu = true; // leaving the field returns to the menu
                     self.field_frame(dt as f64);
                 } else if self.in_menu {

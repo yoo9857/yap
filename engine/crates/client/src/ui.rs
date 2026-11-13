@@ -1,3 +1,4 @@
+#![allow(clippy::possible_missing_else)] // (the polygon clipper is written on one line: its `}if` is two statements)
 //! The screen overlay (ui.wgsl draws it): touch controls and the crosshair, in the web's brick
 //! look (gameMenu.css): white faces, a thick ink outline (#1f1f1f), and an ink "lift" under
 //! buttons that goes away when pressed, so a press reads as pushing the brick down.
@@ -263,6 +264,22 @@ impl Painter {
         let v = |px: f32, py: f32| UiVertex { ndc: [(cx + px) / self.size.0 * 2.0 - 1.0, 1.0 - (cy + py) / self.size.1 * 2.0], local: [px, py], shape, color };
         let (a, b2, c, d) = (v(-l, -t), v(r, -t), v(r, b), v(-l, b));
         self.vertices.extend_from_slice(&[a, b2, c, a, c, d]);
+    }
+
+    /// An opaque projected mesh triangle in dp; it uses the existing plain shape pipeline.
+    pub fn triangle(&mut self,points:[[f32;2];3],color:[u8;4]){
+        for [x,y] in points{self.vertices.push(UiVertex{ndc:[x*self.scale/self.size.0*2.-1.,1.-y*self.scale/self.size.1*2.],local:[0.,0.],shape:[3.,2.,2.,0.],color});}
+    }
+
+    /// Clip a projected preview triangle to its card before emitting it.
+    pub fn triangle_in(&mut self,rect:Rect,points:[[f32;2];3],color:[u8;4]){
+        let mut polygon=points.to_vec();
+        for(axis,edge,greater)in[(0,rect.x,true),(0,rect.x+rect.w,false),(1,rect.y,true),(1,rect.y+rect.h,false)]{
+            let input=std::mem::take(&mut polygon);if input.is_empty(){return;}
+            let mut before=*input.last().expect("polygon");let inside=|p:[f32;2]|if greater{p[axis]>=edge}else{p[axis]<=edge};
+            for point in input{let(a,b)=(inside(before),inside(point));if a!=b{let t=(edge-before[axis])/(point[axis]-before[axis]);polygon.push([before[0]+(point[0]-before[0])*t,before[1]+(point[1]-before[1])*t]);}if b{polygon.push(point);}before=point;}
+        }
+        for i in 1..polygon.len().saturating_sub(1){self.triangle([polygon[0],polygon[i],polygon[i+1]],color);}
     }
 
     pub fn disc(&mut self, x: f32, y: f32, radius: f32, color: [u8; 4]) {

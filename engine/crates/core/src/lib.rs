@@ -13,3 +13,4 @@ pub mod body;
 pub mod surface;
 pub mod water_mesh;
 pub mod world;
+pub mod static_scene;

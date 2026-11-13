@@ -214,6 +214,8 @@ pub struct WithProps<'a> {
 }
 
 impl BodyWorld for WithProps<'_> {
+    fn static_blocked(&self,min:[f64;3],max:[f64;3])->bool{self.world.static_intersects(min,max)}
+    fn static_ramp(&self,x:f64,y:f64,z:f64,half:f64)->Option<f64>{self.world.static_ramp_floor(x,y,z,half)}
     fn is_solid(&self, x: i32, y: i32, z: i32) -> bool {
         self.world.is_solid(x, y, z)
     }

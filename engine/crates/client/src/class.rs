@@ -108,7 +108,12 @@ pub enum Ended {
     Lost(CloseWhy),
 }
 
+#[derive(Clone,Debug,Default)]
+#[allow(dead_code)] // `size` is the server's word kept whole: the app does not show the team size yet
+pub struct DrillState {pub size:u32,pub teams:Vec<(String,u32)>,pub go:Vec<u32>,pub run:u32,pub reports:Vec<DrillProgress>}
 pub struct ClassSession {
+    pub theme:String,
+    pub drill:Option<DrillState>,
     link: Link,
     pub room: String,
     pub title: String,
@@ -149,6 +154,7 @@ pub struct ClassSession {
 impl ClassSession {
     pub fn new(link: Link, room: String, title: String, teacher: bool, party: bool) -> Self {
         ClassSession {
+            theme:"craft".into(),drill:None,
             link,
             room,
             title,
@@ -220,7 +226,8 @@ impl ClassSession {
 
     fn receive(&mut self, msg: ClassServer, now: f64) {
         match msg {
-            ClassServer::Welcome { you, key, members, settings, edit_count, keepalive, furniture, .. } => {
+            ClassServer::Welcome { you, key, members, settings, edit_count, keepalive, furniture, theme, .. } => {
+                self.theme=theme.unwrap_or_else(||"craft".into());
                 self.furniture = furniture;
                 self.furniture_version += 1;
                 self.you = you;
@@ -312,6 +319,7 @@ impl ClassSession {
             ClassServer::Wet { cells } => self.pending_wet.extend(cells),
             // taps arrive later
             // power plants are web-only for now: the app neither draws nor builds them
+            ClassServer::Drill{size,teams,go,run,reports,..}=>{self.drill=Some(DrillState{size,teams,go,run,reports});}
             ClassServer::Bonk { .. } | ClassServer::Room { .. } | ClassServer::Seats { .. } | ClassServer::Plants { .. } => {}
         }
     }
@@ -363,6 +371,8 @@ impl ClassSession {
     pub fn send_chat(&mut self, text: String) {
         self.link.send(encode(&ClassClient::Chat { text }));
     }
+    pub fn drill_command(&mut self,op:&str,size:Option<u32>,team:Option<u32>){self.link.send(encode(&ClassClient::Drill{op:op.into(),size,team}));}
+    pub fn drill_report(&mut self,step:u32,stars:Option<u32>,seconds:Option<u32>){self.link.send(encode(&ClassClient::DrillReport{step,stars,seconds,quiz:None,quiz_score:None}));}
 }
 
 #[cfg(test)]

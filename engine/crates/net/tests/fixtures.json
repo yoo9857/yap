@@ -1,7 +1,7 @@
 {
  "versions": {
   "party": 1,
-  "class": 16
+  "class": 19
  },
  "partyClient": [
   {
@@ -146,34 +146,35 @@
  "classClient": [
   {
    "t": "k-host",
-   "v": 16,
+   "v": 19,
    "room": "햇살반",
    "teacher": "김선생",
    "password": "1234",
-   "hostKey": "hk"
+   "hostKey": "hk",
+   "theme": "fire"
   },
   {
    "t": "k-host",
-   "v": 16,
+   "v": 19,
    "room": "햇살반",
    "teacher": "김선생"
   },
   {
    "t": "k-join",
-   "v": 16,
+   "v": 19,
    "room": "햇살반",
    "student": "Mina",
    "seatKey": "sk"
   },
   {
    "t": "k-join",
-   "v": 16,
+   "v": 19,
    "room": "햇살반",
    "student": "Mina"
   },
   {
    "t": "k-peek",
-   "v": 16,
+   "v": 19,
    "room": "햇살반"
   },
   {
@@ -283,6 +284,44 @@
   },
   {
    "t": "k-gather"
+  },
+  {
+   "t": "k-drill",
+   "op": "teams",
+   "size": 5
+  },
+  {
+   "t": "k-drill",
+   "op": "start",
+   "team": 2
+  },
+  {
+   "t": "k-drill",
+   "op": "stop"
+  },
+  {
+   "t": "k-drill",
+   "op": "quiz"
+  },
+  {
+   "t": "k-drill",
+   "op": "quiz-stop"
+  },
+  {
+   "t": "k-drill-report",
+   "step": 7,
+   "stars": 3,
+   "seconds": 95
+  },
+  {
+   "t": "k-drill-report",
+   "step": 2
+  },
+  {
+   "t": "k-drill-report",
+   "step": 7,
+   "quiz": 5,
+   "quizScore": 4
   },
   {
    "t": "k-arrange"
@@ -421,7 +460,8 @@
      1
     ]
    ],
-   "keepalive": 2.5
+   "keepalive": 2.5,
+   "theme": "fire"
   },
   {
    "t": "s-k-welcome",
@@ -470,7 +510,8 @@
    "room": "햇살반",
    "exists": true,
    "open": true,
-   "teacher": "김선생"
+   "teacher": "김선생",
+   "theme": "fire"
   },
   {
    "t": "s-k-room",
@@ -613,6 +654,65 @@
    "name": "Mina",
    "role": "student",
    "text": "네"
+  },
+  {
+   "t": "s-k-drill",
+   "size": 4,
+   "teams": [
+    [
+     "민지",
+     1
+    ],
+    [
+     "Jun",
+     2
+    ]
+   ],
+   "go": [
+    0,
+    2
+   ],
+   "run": 3,
+   "reports": [
+    {
+     "name": "민지",
+     "step": 7,
+     "stars": 2,
+     "seconds": 120
+    },
+    {
+     "name": "Jun",
+     "step": 1
+    }
+   ]
+  },
+  {
+   "t": "s-k-drill",
+   "size": 0,
+   "teams": [],
+   "go": [],
+   "run": 0,
+   "reports": []
+  },
+  {
+   "t": "s-k-drill",
+   "size": 0,
+   "teams": [],
+   "go": [
+    0
+   ],
+   "run": 1,
+   "reports": [
+    {
+     "name": "민지",
+     "step": 7,
+     "stars": 3,
+     "seconds": 88,
+     "quiz": 3,
+     "quizScore": 2
+    }
+   ],
+   "quiz": 2
   },
   {
    "t": "s-k-seats",

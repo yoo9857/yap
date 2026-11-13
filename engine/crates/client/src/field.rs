@@ -135,6 +135,9 @@ impl FieldWindow {
     /// The window from scratch: the flat field plus every edit inside it.
     fn fill(&mut self) {
         let mut w = craftyap_core::world::generate_field();
+        w.static_scene=self.world.static_scene.clone();
+        w.static_camera_scene=self.world.static_camera_scene.clone();
+        w.static_origin=[self.origin_x as f64,self.origin_z as f64];
         for (&(x, y, z), &(block, shape)) in &self.edits {
             let (gx, gz) = (x - self.origin_x, z - self.origin_z);
             if World::in_bounds(gx, y, gz) {

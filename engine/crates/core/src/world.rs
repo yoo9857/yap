@@ -21,6 +21,10 @@ pub fn id(key: &str) -> u8 {
 
 #[derive(Clone)]
 pub struct World {
+    pub static_scene: Option<std::sync::Arc<crate::static_scene::StaticScene>>,
+    /// Absolute field coordinate of local grid (0,0), for imported scenery.
+    pub static_origin: [f64; 2],
+    pub static_camera_scene: Option<std::sync::Arc<crate::static_scene::StaticScene>>,
     pub cells: Vec<u8>,
     pub shapes: Vec<u8>,
     /// The water a shaped block holds (`VoxelWorld.wet`, waterlog.ts): flow state, never saved.
@@ -32,11 +36,23 @@ pub struct World {
 impl Default for World {
     fn default() -> Self {
         let n = (WORLD_X * WORLD_Y * WORLD_Z) as usize;
-        Self { cells: vec![0; n], shapes: vec![0; n], wet: vec![0; n], outside_column: None }
+        Self { cells: vec![0; n], shapes: vec![0; n], wet: vec![0; n], outside_column: None,static_scene:None,static_origin:[0.0;2],static_camera_scene:None }
     }
 }
 
 impl World {
+    pub fn camera_intersects(&self,mut min:[f64;3],mut max:[f64;3])->bool{
+        let Some(s)=self.static_camera_scene.as_ref().or(self.static_scene.as_ref())else{return false};
+        for(k,offset)in[(0,self.static_origin[0]),(2,self.static_origin[1])]{min[k]+=offset;max[k]+=offset;}s.intersects(min,max)
+    }
+    pub fn static_intersects(&self,mut min:[f64;3],mut max:[f64;3])->bool{
+        let Some(s)=&self.static_scene else{return false};
+        for (k,offset)in [(0,self.static_origin[0]),(2,self.static_origin[1])]{min[k]+=offset;max[k]+=offset;}
+        s.intersects(min,max)
+    }
+    pub fn static_ramp_floor(&self,x:f64,y:f64,z:f64,half:f64)->Option<f64>{
+        self.static_scene.as_ref()?.ramp_floor([x+self.static_origin[0],y,z+self.static_origin[1]],half)
+    }
     #[inline]
     pub fn in_bounds(x: i32, y: i32, z: i32) -> bool {
         (0..WORLD_X).contains(&x) && (0..WORLD_Y).contains(&y) && (0..WORLD_Z).contains(&z)
@@ -677,6 +693,24 @@ impl World {
     /// in the core world yet); `fluids` also stops at water.
     #[allow(clippy::too_many_arguments)]
     pub fn raycast(&self, ox: f64, oy: f64, oz: f64, dx: f64, dy: f64, dz: f64, max_dist: f64, fluids: bool) -> Option<RayHit> {
+        self.cast_scene(self.static_scene.as_deref(),ox,oy,oz,dx,dy,dz,max_dist,fluids)
+    }
+    #[allow(clippy::too_many_arguments)]
+    pub fn raycast_camera(&self,ox:f64,oy:f64,oz:f64,dx:f64,dy:f64,dz:f64,max_dist:f64)->Option<RayHit>{
+        self.cast_scene(self.static_camera_scene.as_deref().or(self.static_scene.as_deref()),ox,oy,oz,dx,dy,dz,max_dist,false)
+    }
+    #[allow(clippy::too_many_arguments)]
+    fn cast_scene(&self,scene:Option<&crate::static_scene::StaticScene>,ox:f64,oy:f64,oz:f64,dx:f64,dy:f64,dz:f64,max_dist:f64,fluids:bool)->Option<RayHit>{
+        let hit=scene.and_then(|s|s.raycast([ox+self.static_origin[0],oy,oz+self.static_origin[1]],[dx,dy,dz],max_dist));
+        let voxel=self.raycast_voxels(ox,oy,oz,dx,dy,dz,hit.map_or(max_dist,|h|h.dist),fluids);
+        if voxel.is_some_and(|v|hit.is_none_or(|s|v.dist<=s.dist)){return voxel;}
+        let h=hit?;let p=[ox+dx*h.dist,oy+dy*h.dist,oz+dz*h.dist];let n=h.normal;
+        let voxel=[(p[0]-n[0]*1e-4).floor()as i32,(p[1]-n[1]*1e-4).floor()as i32,(p[2]-n[2]*1e-4).floor()as i32];
+        let axis=if n[1].abs()>=n[0].abs()&&n[1].abs()>=n[2].abs(){1}else if n[0].abs()>=n[2].abs(){0}else{2};
+        let mut before=voxel;before[axis]+=n[axis].signum()as i32;Some(RayHit{voxel,before,dist:h.dist})
+    }
+    #[allow(clippy::too_many_arguments)] // a ray: origin, direction, reach — the same list `raycast` takes
+    fn raycast_voxels(&self, ox: f64, oy: f64, oz: f64, dx: f64, dy: f64, dz: f64, max_dist: f64, fluids: bool) -> Option<RayHit> {
         use crate::shapes::{is_full_cube_shape, raycast_block_shape};
         let (mut x, mut y, mut z) = (ox.floor() as i32, oy.floor() as i32, oz.floor() as i32);
         let step_x = if dx > 0.0 { 1 } else { -1 };

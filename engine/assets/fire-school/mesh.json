@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "stride": 28,
+  "opaqueVertices": 792660,
+  "glassVertices": 1116,
+  "gameOffset": [
+    0,
+    4,
+    0
+  ],
+  "glbSha256": "fde915f69e4676e57e29193b80b2af03afdd971538402caf1c5b9eedb6d91881"
+}

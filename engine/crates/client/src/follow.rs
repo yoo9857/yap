@@ -45,10 +45,11 @@ impl Default for FollowCamera {
 }
 
 fn blocked(world: &World, p: DVec3) -> bool {
-    world.is_solid(p.x.floor() as i32, p.y.floor() as i32, p.z.floor() as i32)
+    world.is_solid(p.x.floor() as i32, p.y.floor() as i32, p.z.floor() as i32)||world.camera_intersects([p.x-1e-5,p.y-1e-5,p.z-1e-5],[p.x+1e-5,p.y+1e-5,p.z+1e-5])
 }
 
 fn box_blocked(world: &World, p: DVec3) -> bool {
+    if world.camera_intersects([p.x-NEAR_CLEAR,p.y-NEAR_CLEAR,p.z-NEAR_CLEAR],[p.x+NEAR_CLEAR,p.y+NEAR_CLEAR,p.z+NEAR_CLEAR]){return true;}
     for dx in [-NEAR_CLEAR, NEAR_CLEAR] {
         for dy in [-NEAR_CLEAR, NEAR_CLEAR] {
             for dz in [-NEAR_CLEAR, NEAR_CLEAR] {
@@ -131,8 +132,8 @@ impl FollowCamera {
             }
         }
         if self.shoulder > 1e-3 {
-            let side = world.raycast(eye.x, eye.y, eye.z, right.x, right.y, right.z, self.shoulder + 0.2, false);
-            let allowed = side.map_or(self.shoulder, |h| (h.dist - 0.2).max(0.0));
+            let side = world.raycast_camera(eye.x, eye.y, eye.z, right.x, right.y, right.z, self.shoulder + NEAR_CLEAR + 0.02);
+            let allowed = side.map_or(self.shoulder, |h| (h.dist - NEAR_CLEAR - 0.02).max(0.0));
             pivot += right * self.shoulder.min(allowed);
         }
         // probe past the zoom by the wall margin: open ground must not cost the margin
@@ -140,7 +141,7 @@ impl FollowCamera {
         let mut clear = reach;
         for (sx, sy) in PROBES {
             let p = (-dir + right * (sx * PROBE / MAX_DIST) + up * (sy * PROBE / MAX_DIST)).normalize();
-            if let Some(hit) = world.raycast(pivot.x, pivot.y, pivot.z, p.x, p.y, p.z, reach, false) {
+            if let Some(hit) = world.raycast_camera(pivot.x, pivot.y, pivot.z, p.x, p.y, p.z, reach) {
                 clear = clear.min(hit.dist);
             }
         }

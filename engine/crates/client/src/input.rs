@@ -88,6 +88,7 @@ pub struct TouchUi {
 
 #[derive(Default)]
 pub struct Input {
+    pub fire_training:bool,
     /// Pinch zoom gathered since last asked (dp) and the two look fingers' last span.
     pinch: f64,
     pinch_span: Option<f64>,
@@ -212,12 +213,12 @@ impl Input {
             Finger::Jump
         } else if self.build_buttons && (x - dx).hypot(y - dy) <= DIG_RADIUS * 1.15 {
             Finger::Dig
-        } else if self.build_buttons && (x - px).hypot(y - py) <= PLACE_RADIUS * 1.3 {
+        } else if self.build_buttons && !self.fire_training && (x - px).hypot(y - py) <= PLACE_RADIUS * 1.3 {
             self.place_taps += 1;
             Finger::Place
-        } else if self.build_buttons && (x - self.build_skills().1 .0).hypot(y - self.build_skills().1 .1) <= crate::hud_layout::BADGE_RADIUS as f64 * 1.5 {
+        } else if self.build_buttons && !self.fire_training && (x - self.build_skills().1 .0).hypot(y - self.build_skills().1 .1) <= crate::hud_layout::BADGE_RADIUS as f64 * 1.5 {
             self.turn_taps += 1;
-            Finger::Turn        } else if self.build_buttons && (x - self.build_skills().0 .0).hypot(y - self.build_skills().0 .1) <= PLACE_RADIUS * 1.3 {
+            Finger::Turn        } else if self.build_buttons && !self.fire_training && (x - self.build_skills().0 .0).hypot(y - self.build_skills().0 .1) <= PLACE_RADIUS * 1.3 {
             self.shape_taps += 1;
             Finger::Shape
         } else if x < self.size.0 * 0.45 && !self.fingers.values().any(|f| matches!(f, Finger::Stick { .. })) {

@@ -105,21 +105,21 @@ pub struct Ui<'a> {
 }
 
 impl Ui<'_> {
-    fn pressing(&self, r: Rect) -> bool {
+    pub(crate) fn pressing(&self, r: Rect) -> bool {
         self.enabled && self.ptr.down && !self.ptr.dragged && r.contains(self.ptr.pos.0, self.ptr.pos.1) && r.contains(self.ptr.press_at.0, self.ptr.press_at.1)
     }
     fn clicked(&self, r: Rect) -> bool {
         self.enabled && self.ptr.released && !self.ptr.dragged && r.contains(self.ptr.pos.0, self.ptr.pos.1) && r.contains(self.ptr.press_at.0, self.ptr.press_at.1)
     }
-    fn text(&mut self, s: &str, x: f32, y: f32, size: f32, color: [u8; 4], align: Align) -> f32 {
+    pub(crate) fn text(&mut self, s: &str, x: f32, y: f32, size: f32, color: [u8; 4], align: Align) -> f32 {
         self.p.text(self.t, s, x, y, TextStyle::new(size, color, align))
     }
-    fn button(&mut self, r: Rect, label: &str, style: ButtonStyle, enabled: bool) -> bool {
+    pub(crate) fn button(&mut self, r: Rect, label: &str, style: ButtonStyle, enabled: bool) -> bool {
         let pressed = self.pressing(r);
         self.p.button(self.t, r, label, style, pressed, enabled);
         enabled && self.clicked(r)
     }
-    fn screen(&self) -> (f32, f32) {
+    pub(crate) fn screen(&self) -> (f32, f32) {
         self.p.screen()
     }
 }
@@ -130,6 +130,7 @@ pub enum Screen {
     Name,
     Home,
     Edu,
+    SoloTheme,
     Teacher,
     Student,
     /// The class exists and is open: whose it is, and "join?".
@@ -187,6 +188,7 @@ pub enum Outcome {
     None,
     /// 혼자 하기: the island, offline.
     PlaySolo,
+    PlayFire,
 }
 
 /// Loading inputs the app measures (0..1 each).
@@ -197,6 +199,7 @@ pub struct LoadProgress {
 }
 
 pub struct Menu {
+    class_theme:String,
     pub profile: Profile,
     server: String,
     hub: Hub,
@@ -270,6 +273,7 @@ impl Menu {
         edits.insert(Field::Name, TextEdit::new(&profile.name, NAME_MAX));
         edits.insert(Field::ClassName, TextEdit::new(&profile.last_class, CLASS_MAX));
         Menu {
+            class_theme:"craft".into(),
             profile,
             server,
             hub,
@@ -449,7 +453,7 @@ impl Menu {
         let url = format!("{}/ws?mode=class&room={}", self.server, profile::url_encode(&room));
         let key = self.profile.class_seat(&room, teacher);
         let first = if teacher {
-            ClassClient::Host { v: CLASS_PROTOCOL_VERSION, room: room.clone(), teacher: name.to_owned(), password, host_key: key }
+            ClassClient::Host { v: CLASS_PROTOCOL_VERSION, room: room.clone(), teacher: name.to_owned(), password, host_key: key, theme: (self.class_theme=="fire").then(||"fire".into()) }
         } else {
             ClassClient::Join { v: CLASS_PROTOCOL_VERSION, room: room.clone(), student: name.to_owned(), seat_key: key }
         };
@@ -637,6 +641,7 @@ impl Menu {
                 Outcome::None
             }
             Screen::Edu => self.draw_edu(ui),
+            Screen::SoloTheme => self.draw_solo_theme(ui),
             Screen::Teacher => {
                 self.draw_teacher(ui);
                 Outcome::None
@@ -1176,9 +1181,16 @@ impl Menu {
         ) {
             Some(0) => self.go(Screen::Teacher),
             Some(1) => self.go(Screen::Student),
-            Some(2) => return Outcome::PlaySolo,
+            Some(2) => self.go(Screen::SoloTheme),
             _ => {}
         }
+        Outcome::None
+    }
+    fn draw_solo_theme(&mut self,ui:&mut Ui)->Outcome{
+        let(w,h)=ui.screen();scrim(ui,0.6);self.header_with(ui,"혼자 하기 · 체험을 골라요",Some(Art::NavEdu));
+        let cw=(w-40.).min(620.);let x=(w-cw)/2.;let y=(h/2.-20.).max(CONTENT_TOP);
+        if ui.button(Rect::new(x,y,cw,56.),"블록 섬 · 만들고 실험하기",ButtonStyle::Primary,true){return Outcome::PlaySolo;}
+        if ui.button(Rect::new(x,y+72.,cw,56.),"화재 체험 · 학교에서 대피 훈련",ButtonStyle::Go,true){return Outcome::PlayFire;}
         Outcome::None
     }
 
@@ -1203,7 +1215,7 @@ impl Menu {
     fn draw_teacher(&mut self, ui: &mut Ui) {
         scrim(ui, 0.7);
         self.header_with(ui, "선생님 · 반 만들기", Some(Art::NavEdu));
-        let (lx, cx, cw, y) = self.form_card(ui, 3);
+        let (lx, cx, cw, y) = self.form_card(ui, 4);
         Self::form_label(ui, "반 이름", lx, y);
         self.field(ui, Field::ClassName, Rect::new(cx, y, cw, 48.0));
         Self::form_label(ui, "비밀번호", lx, y + 58.0);
@@ -1212,6 +1224,9 @@ impl Menu {
         let me = self.profile.name.clone();
         let s = scale(ui);
         ui.text(&me, cx + 4.0, y + 116.0 + (48.0 - line_height(ui.t, 18.0, s)) / 2.0, 18.0, CARD_TEXT, Align::Left);
+        Self::form_label(ui,"새 반의 체험",lx,y+174.);
+        if ui.button(Rect::new(cx,y+174.,cw/2.-4.,42.),"블록 만들기",if self.class_theme=="craft"{ButtonStyle::Primary}else{ButtonStyle::Plain},true){self.class_theme="craft".into();}
+        if ui.button(Rect::new(cx+cw/2.+4.,y+174.,cw/2.-4.,42.),"화재 체험",if self.class_theme=="fire"{ButtonStyle::Primary}else{ButtonStyle::Plain},true){self.class_theme="fire".into();}
         let action = self.action_bar(ui, "다른 기기에서 반을 다시 열 때 비밀번호가 필요해요", 190.0);
         if ui.button(action, "반 열기 →", ButtonStyle::Go, true) {
             let room = self.value(Field::ClassName);

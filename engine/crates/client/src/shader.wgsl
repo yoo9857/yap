@@ -374,6 +374,7 @@ struct FurnOut {
     @location(1) col: vec3<f32>,
     @location(2) world: vec3<f32>,
     @location(3) depth: f32,
+    @location(4) alpha: f32,
 }
 
 @vertex
@@ -382,6 +383,7 @@ fn furn_vs(@location(0) pos: vec3<f32>, @location(1) nrm: vec3<f32>, @location(2
     o.clip = u.view_proj * vec4<f32>(pos, 1.0);
     o.nrm = nrm;
     o.col = srgb_to_linear(col.rgb);
+    o.alpha = col.a;
     o.world = pos;
     o.depth = o.clip.w;
     return o;
@@ -402,7 +404,13 @@ fn furn_fs(i: FurnOut) -> @location(0) vec4<f32> {
     let toned = linear_to_srgb(neutral(light));
     let fog = smoothstep(u.fog.x, u.fog.y, i.depth);
     let shown = mix(toned, linear_to_srgb(u.horizon.rgb), fog);
-    return vec4<f32>(srgb_to_linear(shown), 1.0);
+    return vec4<f32>(srgb_to_linear(shown), i.alpha);
+}
+
+@fragment
+fn fire_fx_fs(i: FurnOut) -> @location(0) vec4<f32> {
+    let circle=clamp(1.0-4.0*dot(i.nrm.xy,i.nrm.xy),0.0,1.0);
+    return vec4<f32>(i.col,i.alpha*smoothstep(0.0,0.65,circle));
 }
 
 // ---- water (water.rs): waterMesh.ts's material ported line for line — MeshStandardMaterial

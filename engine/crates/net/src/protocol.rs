@@ -16,7 +16,7 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
 /// `PARTY_PROTOCOL_VERSION` (party.ts). The fixtures carry the TypeScript value; a test compares.
 pub const PARTY_PROTOCOL_VERSION: u32 = 1;
 /// `CLASS_PROTOCOL_VERSION` (classroom.ts).
-pub const CLASS_PROTOCOL_VERSION: u32 = 16;
+pub const CLASS_PROTOCOL_VERSION: u32 = 19;
 /// Largest message the server sends (decodeClassServer's limit: whole-world batches).
 pub const MAX_SERVER_MESSAGE: usize = 4 * 1024 * 1024;
 
@@ -310,6 +310,9 @@ pub enum ClassClient {
         password: Option<String>,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         host_key: Option<String>,
+        /// The learning theme for a NEW class ("craft" | "fire"); a saved class keeps its own.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        theme: Option<String>,
     },
     #[serde(rename = "k-join")]
     Join {
@@ -318,6 +321,30 @@ pub enum ClassClient {
         student: String,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         seat_key: Option<String>,
+    },
+    /// The fire drill, run by the teacher: `op` is "teams" (with `size`), "start" (with `team`, or
+    /// everyone), "stop", or the quiz's "quiz" / "quiz-stop".
+    #[serde(rename = "k-drill")]
+    Drill {
+        op: String,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        size: Option<u32>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        team: Option<u32>,
+    },
+    /// Where the sender's own fire drill stands.
+    #[serde(rename = "k-drill-report")]
+    DrillReport {
+        step: u32,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        stars: Option<u32>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        seconds: Option<u32>,
+        /// The teacher's quiz: questions answered, and how many of them right.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        quiz: Option<u32>,
+        #[serde(rename = "quizScore", default, skip_serializing_if = "Option::is_none")]
+        quiz_score: Option<u32>,
     },
     /// "Whose class is this?" — answered with `s-k-room`, then the socket closes.
     #[serde(rename = "k-peek")]
@@ -413,6 +440,21 @@ pub enum ClassClient {
     DrainWater,
 }
 
+/// One student's progress in the fire drill (`s-k-drill`).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct DrillProgress {
+    pub name: String,
+    pub step: u32,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub stars: Option<u32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub seconds: Option<u32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub quiz: Option<u32>,
+    #[serde(rename = "quizScore", default, skip_serializing_if = "Option::is_none")]
+    pub quiz_score: Option<u32>,
+}
+
 /// One seat of a classroom seating: whose it is, where (absolute) and which way it faces.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct SeatSign {
@@ -440,6 +482,9 @@ pub enum ClassServer {
         /// Seconds within which the server always sends something.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         keepalive: Option<f64>,
+        /// The class's learning theme (absent: the sandbox).
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        theme: Option<String>,
     },
     #[serde(rename = "s-k-furniture")]
     Furniture {
@@ -455,6 +500,8 @@ pub enum ClassServer {
         open: bool,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         teacher: Option<String>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        theme: Option<String>,
     },
     #[serde(rename = "s-k-world")]
     World { edits: Vec<Edit> },
@@ -491,6 +538,19 @@ pub enum ClassServer {
         yaw: Option<f64>,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         nudge: Option<bool>,
+    },
+    /// The fire drill as the teacher runs it: teams ([name, team]), the teams set off (`go`, 0 =
+    /// everyone), the run counter and everyone's progress. The app has no drill yet.
+    #[serde(rename = "s-k-drill")]
+    Drill {
+        size: u32,
+        teams: Vec<(String, u32)>,
+        go: Vec<u32>,
+        run: u32,
+        reports: Vec<DrillProgress>,
+        /// The quiz being asked right now (the app has no quiz yet).
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        quiz: Option<u32>,
     },
     /// The class's seating (dividers + name signs); empty clears it.
     #[serde(rename = "s-k-seats")]

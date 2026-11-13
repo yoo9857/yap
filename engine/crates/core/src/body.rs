@@ -32,6 +32,8 @@ const WORLD_UNSTICK_LIMIT: usize = 120;
 /// What a body collides with. `World` is one; the native client adds furniture later
 /// (`prop_solid`, VoxelWorld.propSolid).
 pub trait BodyWorld {
+    fn static_blocked(&self,_min:[f64;3],_max:[f64;3])->bool{false}
+    fn static_ramp(&self,_x:f64,_y:f64,_z:f64,_half:f64)->Option<f64>{None}
     fn is_solid(&self, x: i32, y: i32, z: i32) -> bool;
     fn get_shape(&self, x: i32, y: i32, z: i32) -> u8;
     fn water_at(&self, x: i32, y: i32, z: i32) -> u8;
@@ -44,6 +46,8 @@ pub trait BodyWorld {
 }
 
 impl BodyWorld for World {
+    fn static_blocked(&self,min:[f64;3],max:[f64;3])->bool{self.static_intersects(min,max)}
+    fn static_ramp(&self,x:f64,y:f64,z:f64,half:f64)->Option<f64>{self.static_ramp_floor(x,y,z,half)}
     fn is_solid(&self, x: i32, y: i32, z: i32) -> bool {
         World::is_solid(self, x, y, z)
     }
@@ -187,6 +191,8 @@ pub fn wish_from_input(yaw: f64, fwd: f64, strafe: f64) -> (f64, f64) {
 }
 
 fn collides<W: BodyWorld + ?Sized>(world: &W, body: &Body) -> bool {
+    let h=body.w.unwrap_or(BODY_WIDTH)/2.0;
+    if world.static_blocked([body.x-h,body.y,body.z-h],[body.x+h,body.y+body.h.unwrap_or(BODY_HEIGHT)+0.3,body.z+h]){return true;}
     let (x, y, z) = (body.x, body.y, body.z);
     let half = body.half();
     let h = body.height();
@@ -238,7 +244,7 @@ pub fn overlaps_voxel(body: &Body, vx: i32, vy: i32, vz: i32) -> bool {
 
 fn nearby_ramp_floor<W: BodyWorld + ?Sized>(world: &W, body: &Body) -> Option<f64> {
     let half = body.half();
-    let mut highest = f64::NEG_INFINITY;
+    let mut highest = world.static_ramp(body.x,body.y,body.z,half).unwrap_or(f64::NEG_INFINITY);
     for y in (body.y - 0.15).floor() as i32..=(body.y + 0.15).floor() as i32 {
         for x in (body.x - half).floor() as i32..=(body.x + half - EPS).floor() as i32 {
             for z in (body.z - half).floor() as i32..=(body.z + half - EPS).floor() as i32 {

@@ -5,7 +5,7 @@
 //! - Clips are sampled on the CPU and cross-faded (three's AnimationMixer weights): Idle with the
 //!   IdleShift / IdleLook variations, Walk and Run blended by speed with a shared gait phase
 //!   (motionPolicy.ts gaitBlend / gaitCadence, so feet never slide), Jump / Fall / Land, Sit, Lie,
-//!   Crawl. Fade times are the web's (.25 idle, .14 moves, .06 landing).
+//!   Crawl. Fade times are the web's (0.25 idle, 0.14 moves, 0.06 landing).
 //! - Skinning is on the CPU too: ~2.4k triangles per character, cheaper than a skinning pipeline
 //!   and identical on every GPU the app runs on (GLES 3 included).
 //!
@@ -94,6 +94,8 @@ pub struct Model {
     pub indices: Vec<u32>,
     /// Standing height in its rest pose (m): where name tags go.
     pub height: f32,
+    palms: [Option<(usize,Vec3)>;2],
+    fire_sockets: [Option<crate::fire_carry::Socket>; 2],
     pub clips: HashMap<String, Clip>,
     /// The painted face (RGBA8, sRGB).
     pub texture: (u32, u32, Vec<u8>),
@@ -228,7 +230,29 @@ fn load(kind: Kind) -> Result<Model, String> {
         reference.insert(of, pose);
     }
     let names: Vec<String> = nodes.iter().map(|n| n.name().unwrap_or("").to_owned()).collect();
-    let mut model = Model { rest, parent, names, order, joints, inverse_bind, positions, normals, uvs, weights, indices, clips, texture, height: 0.0, upper, reference };
+    let mut model = Model { rest, parent, names, order, joints, inverse_bind, positions, normals, uvs, weights, indices, clips, texture, height: 0.0, palms:[None,None], fire_sockets:[None,None], upper, reference };
+    model.palms=["handr","handl"].map(|name|{
+        let hand=model.joints.iter().position(|&n|model.names[n].replace(['.','_'],"").to_lowercase()==name)?;
+        let palm=model.inverse_bind[hand].inverse().w_axis.truncate();let mut influence=vec![0.0f32;model.joints.len()];
+        for(p,weights)in model.positions.iter().zip(&model.weights){if p.distance_squared(palm)>0.12*0.12{continue;}for &(j,w)in weights{influence[j as usize]+=w;}}
+        let controller=influence.iter().enumerate().max_by(|a,b|a.1.total_cmp(b.1)).map(|(i,_)|i)?;
+        Some((model.joints[controller],model.inverse_bind[controller].transform_point3(palm)))
+    });
+    // Both mascots share this arm rig. Read the cap anchors from the same
+    // exported mesh metadata that keeps the web shoulders attached.
+    let json_length = u32::from_le_bytes(bytes[12..16].try_into().map_err(|_| "GLB JSON length")?) as usize;
+    let json: serde_json::Value = serde_json::from_slice(&bytes[20..20 + json_length]).map_err(|e|e.to_string())?;
+    let metadata = json["nodes"].as_array().and_then(|nodes|nodes.iter().find(|node|node.get("skin").is_some()));
+    model.fire_sockets = ["R","L"].map(|side| {
+        let normalized = |name:&str|name.replace(['.','_'], "").to_uppercase();
+        let upper = model.joints.iter().position(|&n|normalized(&model.names[n])==format!("UPPERARM{side}"))?;
+        let hand = model.joints.iter().position(|&n|normalized(&model.names[n])==format!("HAND{side}"))?;
+        let raw = metadata?.get("extras")?.get(format!("arm_cap_{side}"))?.as_array()?;
+        let cap = Vec3::new(raw.first()?.as_f64()? as f32,raw.get(1)?.as_f64()? as f32,raw.get(2)?.as_f64()? as f32);
+        let inverse = model.inverse_bind[upper];
+        let palm = model.inverse_bind[hand].inverse().w_axis.truncate();
+        Some(crate::fire_carry::Socket{bone:model.joints[upper],cap:inverse.transform_point3(cap),palm:inverse.transform_point3(palm)})
+    });
     let mut out = Vec::new();
     model.skin(&[("Idle", 0.0, 1.0)], Vec3::ZERO, 0.0, &mut out);
     model.height = out.iter().map(|v| v.pos[1]).fold(0.0, f32::max);
@@ -304,7 +328,16 @@ impl Model {
 
     /// `skin_layered` with a held item: its pose (heldItem.ts updatePose) runs on the frame's local
     /// pose before the world matrices, and the item's triangles go into the hold's `out`.
-    pub fn skin_held(&self, entries: &[(&str, f32, f32)], upper: &[(&str, f32, f32)], held: Option<Hold<'_>>, at: Vec3, yaw: f32, out: &mut Vec<CharVertex>) {
+    pub fn skin_held(&self, entries: &[(&str, f32, f32)], upper: &[(&str, f32, f32)], held: Option<Hold<'_>>, at: Vec3, yaw: f32, out: &mut Vec<CharVertex>) -> [Option<Vec3>;2] {
+        self.skin_items(entries,upper,held,None,at,yaw,out)
+    }
+
+    pub(crate) fn skin_fire(&self, entries:&[(&str,f32,f32)], upper:&[(&str,f32,f32)], pose:crate::fire_carry::Pose, at:Vec3, yaw:f32, out:&mut Vec<CharVertex>)->[Option<Vec3>;2]{
+        self.skin_items(entries,upper,None,Some(pose),at,yaw,out)
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn skin_items(&self, entries: &[(&str, f32, f32)], upper: &[(&str, f32, f32)], held: Option<Hold<'_>>, fire: Option<crate::fire_carry::Pose>, at: Vec3, yaw: f32, out: &mut Vec<CharVertex>) -> [Option<Vec3>;2] {
         let n = self.rest.len();
         // blend: weighted sums per node, the rest pose filling whatever weight is missing
         let mut acc_t = vec![Vec3::ZERO; n];
@@ -392,6 +425,14 @@ impl Model {
         }
         let mut global = vec![Mat4::IDENTITY; n];
         for &i in &self.order {
+            if let Some(pose)=fire {
+                for (side,socket) in self.fire_sockets.iter().enumerate() {
+                    if let Some(socket)=socket.filter(|socket|socket.bone==i){
+                        let parent=self.parent[i].map_or(Mat4::IDENTITY,|p|global[p]);
+                        pose.apply(&mut local[i],parent,socket,side==0);
+                    }
+                }
+            }
             let m = local[i].matrix();
             global[i] = match self.parent[i] {
                 Some(p) => global[p] * m,
@@ -424,6 +465,8 @@ impl Model {
             let (p, nrm) = skinned[i as usize];
             out.push(CharVertex { pos: p.to_array(), nrm: nrm.to_array(), uv: self.uvs[i as usize] });
         }
+        let palms=if fire.is_some(){self.fire_sockets.map(|s|s.map(|s|(s.bone,s.palm)))}else{self.palms};
+        palms.map(|socket|socket.map(|(bone,point)|(place*global[bone]).transform_point3(point)))
     }
 }
 
@@ -803,7 +846,7 @@ mod tests {
         let stand = Motion { speed: 0.0, grounded: true, vy: 0.0, posture: Posture::Stand };
         let e = an.update(m, stand, 0.016);
         assert_eq!(e[0].0, "Idle");
-        // start running: Run fades in over .14 s while Idle fades out
+        // start running: Run fades in over 0.14 s while Idle fades out
         let run = Motion { speed: 5.2, ..stand };
         let mid = an.update(m, run, 0.07);
         let w = |e: &[(&str, f32, f32)], n: &str| e.iter().find(|x| x.0 == n).map_or(0.0, |x| x.2);

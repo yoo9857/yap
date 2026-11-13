@@ -139,6 +139,8 @@ struct Pipelines {
     character: wgpu::RenderPipeline,
     /// Furniture (furniture.rs): one baked, vertex-coloured mesh, lit like the characters.
     furniture: wgpu::RenderPipeline,
+    campus_clear: wgpu::RenderPipeline,
+    fire_fx: wgpu::RenderPipeline,
     shadow_furniture: wgpu::RenderPipeline,
     /// The water surface (waterMesh.ts): blended, no depth write, both faces, after the glass.
     water: wgpu::RenderPipeline,
@@ -286,6 +288,10 @@ pub struct Renderer {
     /// live face (face.rs).
     char_meshes: [Dynamic; 4],
     furniture: Dynamic,
+    campus: Dynamic,
+    campus_clear: Dynamic,
+    fire_fx: Dynamic,
+    fire_props: Dynamic,
     /// The pet (pet.rs): posed on the CPU every frame, drawn and shadowed like furniture.
     pets: Dynamic,
     /// The placement ghost (one cell's triangles, flat-tinted, drawn see-through).
@@ -531,7 +537,7 @@ impl Renderer {
         let white = upload_rgba(&device, &queue, "ui plain", 1, 1, &[255, 255, 255, 255], &[]);
         let ui_plain = ui_group(&device, &ui_bgl, &atlas, &white, &ui_sampler);
         let ui_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor { label: Some("ui"), bind_group_layouts: &[Some(&ui_bgl)], ..Default::default() });
-        let mut r = Self { instance, adapter, device, queue, shader, pipeline_layout, pipeline: None, chunks: HashMap::new(), stud_meshes, actor: Dynamic::default(), char_meshes: [Dynamic::default(), Dynamic::default(), Dynamic::default(), Dynamic::default()], furniture: Dynamic::default(), pets: Dynamic::default(), ghost: Dynamic::default(), water_group, water_clock: [0.0; 3], char_groups: [None, None, None, None], face_texture: None, char_bgl, char_layout, overlay: Dynamic::default(), ui_shader, ui_layout, atlas, ui_bgl, ui_sampler, ui_plain, ui_art: Vec::new(), overlay_segments: Vec::new(), world_visible: true, uniforms, bind_group, terrain_bgl: layout, terrain_inputs, shadow_size, shadow_view, shadow_group, shadow_layout, target: None, settings, lost, info, limits };
+        let mut r = Self { instance, adapter, device, queue, shader, pipeline_layout, pipeline: None, chunks: HashMap::new(), stud_meshes, actor: Dynamic::default(), char_meshes: [Dynamic::default(), Dynamic::default(), Dynamic::default(), Dynamic::default()], furniture: Dynamic::default(), campus:Dynamic::default(),campus_clear:Dynamic::default(),fire_fx:Dynamic::default(),fire_props:Dynamic::default(), pets: Dynamic::default(), ghost: Dynamic::default(), water_group, water_clock: [0.0; 3], char_groups: [None, None, None, None], face_texture: None, char_bgl, char_layout, overlay: Dynamic::default(), ui_shader, ui_layout, atlas, ui_bgl, ui_sampler, ui_plain, ui_art: Vec::new(), overlay_segments: Vec::new(), world_visible: true, uniforms, bind_group, terrain_bgl: layout, terrain_inputs, shadow_size, shadow_view, shadow_group, shadow_layout, target: None, settings, lost, info, limits };
         r.attach_surface(surface, window.inner_size())?;
         Ok(r)
     }
@@ -617,6 +623,12 @@ impl Renderer {
     pub fn set_furniture(&mut self, vertices: &[crate::furniture::FurnitureVertex]) {
         self.furniture.write(&self.device, &self.queue, vertices, "furniture");
     }
+    pub fn set_campus(&mut self,opaque:&[crate::furniture::FurnitureVertex],glass:&[crate::furniture::FurnitureVertex]){
+        self.campus.write(&self.device,&self.queue,opaque,"fire campus");
+        self.campus_clear.write(&self.device,&self.queue,glass,"fire campus glass");
+    }
+    pub fn set_fire_props(&mut self,vertices:&[crate::furniture::FurnitureVertex]){self.fire_props.write(&self.device,&self.queue,vertices,"fire extinguisher");}
+    pub fn set_fire_fx(&mut self,vertices:&[crate::furniture::FurnitureVertex]){self.fire_fx.write(&self.device,&self.queue,vertices,"fire effects");}
 
     /// The placement ghost (empty: none).
     pub fn set_ghost(&mut self, vertices: &[Vertex]) {
@@ -844,6 +856,15 @@ impl Renderer {
             multiview_mask: None,
             cache: None,
         });
+        let fire_clear_pipeline=|entry:&str,label:&str|self.device.create_render_pipeline(&wgpu::RenderPipelineDescriptor{
+            label:Some(label),layout:Some(&self.pipeline_layout),
+            vertex:wgpu::VertexState{module:&self.shader,entry_point:Some("furn_vs"),compilation_options:Default::default(),buffers:&[Some(wgpu::VertexBufferLayout{array_stride:std::mem::size_of::<crate::furniture::FurnitureVertex>()as u64,step_mode:wgpu::VertexStepMode::Vertex,attributes:&furn_attrs})]},
+            fragment:Some(wgpu::FragmentState{module:&self.shader,entry_point:Some(entry),compilation_options:Default::default(),targets:&[Some(wgpu::ColorTargetState{format,blend:Some(wgpu::BlendState::ALPHA_BLENDING),write_mask:wgpu::ColorWrites::ALL})]}),
+            primitive:wgpu::PrimitiveState{cull_mode:None,..Default::default()},
+            depth_stencil:Some(wgpu::DepthStencilState{format:wgpu::TextureFormat::Depth32Float,depth_write_enabled:Some(false),depth_compare:Some(wgpu::CompareFunction::LessEqual),stencil:Default::default(),bias:Default::default()}),
+            multisample:wgpu::MultisampleState{count:samples,..Default::default()},multiview_mask:None,cache:None});
+        let campus_clear=fire_clear_pipeline("furn_fs","campus windows");
+        let fire_fx=fire_clear_pipeline("fire_fx_fs","fire smoke spray");
         let water_attrs = wgpu::vertex_attr_array![0 => Float32x3, 1 => Float32x3, 2 => Float32x4, 3 => Float32x3, 4 => Float32x3];
         let water = self.device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
             label: Some("water"),
@@ -960,7 +981,7 @@ impl Renderer {
             multiview_mask: None,
             cache: None,
         });
-        self.pipeline = Some(Pipelines { format, samples, terrain, clear, ghost, stud_hq, stud_lod, character, furniture, shadow_furniture, water, sky, ui, shadow_terrain, shadow_char });
+        self.pipeline = Some(Pipelines { format, samples, terrain, clear, ghost, stud_hq, stud_lod, character, furniture, campus_clear, fire_fx, shadow_furniture, water, sky, ui, shadow_terrain, shadow_char });
     }
 
     pub fn resize(&mut self, width: u32, height: u32) {
@@ -1041,6 +1062,8 @@ impl Renderer {
             }
             pass.set_pipeline(&pipelines.shadow_furniture);
             self.furniture.draw(&mut pass);
+            self.campus.draw(&mut pass);
+            self.fire_props.draw(&mut pass);
             self.pets.draw(&mut pass);
         }
         {
@@ -1108,6 +1131,8 @@ impl Renderer {
             // furniture: the server's layout, baked (furniture.rs)
             pass.set_pipeline(&pipelines.furniture);
             self.furniture.draw(&mut pass);
+            self.campus.draw(&mut pass);
+            self.fire_props.draw(&mut pass);
             self.pets.draw(&mut pass);
             // the characters: their own pipeline (face texture), the same lighting and fog
             pass.set_pipeline(&pipelines.character);
@@ -1118,6 +1143,10 @@ impl Renderer {
                 }
             }
             pass.set_bind_group(0, &self.bind_group, &[]);
+            pass.set_pipeline(&pipelines.campus_clear);
+            self.campus_clear.draw(&mut pass);
+            pass.set_pipeline(&pipelines.fire_fx);
+            self.fire_fx.draw(&mut pass);
             // see-through blocks last, farthest chunk first (as three sorts transparent objects)
             let mut clear: Vec<(f32, &(wgpu::Buffer, u32))> = self
                 .chunks
