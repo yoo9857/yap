@@ -6,7 +6,14 @@
     <atom:link href="https://craftyap.com/feed.xml" rel="self" type="application/rss+xml" />
     <description>크래프트얍(CraftYap) 패치 노트와 개발 이야기</description>
     <language>ko</language>
-    <lastBuildDate>Wed, 11 Nov 2026 15:00:00 +0000</lastBuildDate>
+    <lastBuildDate>Thu, 12 Nov 2026 15:00:00 +0000</lastBuildDate>
+    <item>
+      <title>11월 13일 패치 노트 — 교육 모드에 화재 대피 훈련이 생겼어요</title>
+      <link>https://craftyap.com/note/patch-2026-11-13/</link>
+      <guid isPermaLink="true">https://craftyap.com/note/patch-2026-11-13/</guid>
+      <pubDate>Thu, 12 Nov 2026 15:00:00 +0000</pubDate>
+      <description>교육 모드에서 학교 화재 대피 훈련을 할 수 있어요. 경보기를 누르고, 119에 신고하고, 소화기로 작은 불을 끄고, 젖은 수건으로 코와 입을 막고 몸을 낮춰 연기 아래로 대피해요. 불은 번지고 연기는 문을 지나 퍼져요. 선생님은 조를 나눠 차례로 출발시키고, 그림 퍼즐 퀴즈를 낼 수 있어요.</description>
+    </item>
     <item>
       <title>11월 12일 패치 노트 — 물을 단순하고 또렷하게 다시 만들었어요</title>
       <link>https://craftyap.com/note/patch-2026-11-12/</link>
@@ -139,13 +146,6 @@
       <guid isPermaLink="true">https://craftyap.com/note/patch-2026-11-04-4/</guid>
       <pubDate>Tue, 03 Nov 2026 15:00:00 +0000</pubDate>
       <description>블록 그림 안에 그려져 있던 검은 선(돌마다 둘린 선, 판자 사이 선)을 빼서 벽과 바닥이 부드러운 재료처럼 보여요. 블록을 부수는 동안에는 조준 테두리를 잠시 숨겨요.</description>
-    </item>
-    <item>
-      <title>11월 4일 패치 노트 (3) — 조준 테두리를 차분하게, 깜빡임 없이</title>
-      <link>https://craftyap.com/note/patch-2026-11-04-3/</link>
-      <guid isPermaLink="true">https://craftyap.com/note/patch-2026-11-04-3/</guid>
-      <pubDate>Tue, 03 Nov 2026 15:00:00 +0000</pubDate>
-      <description>오늘 바꾼 조준 테두리의 검은색과 흰색이 너무 세게 부딪혀 보이고, 화면을 돌릴 때 흰 선이 깜빡이던 문제를 고쳤어요. 이제 흰 선에 옅은 그림자만 깔아 어떤 블록 위에서도 차분하고 또렷해요.</description>
     </item>
   </channel>
 </rss>
