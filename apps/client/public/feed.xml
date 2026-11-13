@@ -6,7 +6,14 @@
     <atom:link href="https://craftyap.com/feed.xml" rel="self" type="application/rss+xml" />
     <description>크래프트얍(CraftYap) 패치 노트와 개발 이야기</description>
     <language>ko</language>
-    <lastBuildDate>Thu, 12 Nov 2026 15:00:00 +0000</lastBuildDate>
+    <lastBuildDate>Fri, 13 Nov 2026 15:00:00 +0000</lastBuildDate>
+    <item>
+      <title>11월 14일 패치 노트 — 화재 체험이 가벼워졌어요</title>
+      <link>https://craftyap.com/note/patch-2026-11-14/</link>
+      <guid isPermaLink="true">https://craftyap.com/note/patch-2026-11-14/</guid>
+      <pubDate>Fri, 13 Nov 2026 15:00:00 +0000</pubDate>
+      <description>불과 연기가 심해지면 화면이 끊기던 것을 고쳤어요. 교육 모드에 들어갈 때 받는 코드도 7분의 1로 줄었고, 화재 체험은 고를 때만 따로 받아요.</description>
+    </item>
     <item>
       <title>11월 13일 패치 노트 — 교육 모드에 화재 대피 훈련이 생겼어요</title>
       <link>https://craftyap.com/note/patch-2026-11-13/</link>
@@ -139,13 +146,6 @@
       <guid isPermaLink="true">https://craftyap.com/note/patch-2026-11-04-5/</guid>
       <pubDate>Tue, 03 Nov 2026 15:00:00 +0000</pubDate>
       <description>돌아다니다 보면 여기저기 블록 윗면이 대각선으로 뚫리거나 통째로 비어 보이던 문제를 고쳤어요. 캐릭터와 펫의 검은 윤곽선, 블록 가장자리의 검은 줄, 블록 그림 속 가는 검은 선도 모두 없앴어요.</description>
-    </item>
-    <item>
-      <title>11월 4일 패치 노트 (4) — 블록 안의 검은 선을 빼고, 부술 땐 테두리를 숨겨요</title>
-      <link>https://craftyap.com/note/patch-2026-11-04-4/</link>
-      <guid isPermaLink="true">https://craftyap.com/note/patch-2026-11-04-4/</guid>
-      <pubDate>Tue, 03 Nov 2026 15:00:00 +0000</pubDate>
-      <description>블록 그림 안에 그려져 있던 검은 선(돌마다 둘린 선, 판자 사이 선)을 빼서 벽과 바닥이 부드러운 재료처럼 보여요. 블록을 부수는 동안에는 조준 테두리를 잠시 숨겨요.</description>
     </item>
   </channel>
 </rss>

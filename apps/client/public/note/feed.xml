@@ -4,8 +4,35 @@
   <link href="https://craftyap.com/note/" />
   <link rel="self" href="https://craftyap.com/note/feed.xml" />
   <id>https://craftyap.com/note/</id>
-  <updated>2026-11-13T00:00:00+09:00</updated>
+  <updated>2026-11-14T00:00:00+09:00</updated>
   <author><name>크래프트얍(CraftYap)</name></author>
+  <entry xml:base="https://craftyap.com/">
+    <title>11월 14일 패치 노트 — 화재 체험이 가벼워졌어요</title>
+    <link href="https://craftyap.com/note/patch-2026-11-14/" />
+    <id>https://craftyap.com/note/patch-2026-11-14/</id>
+    <published>2026-11-14T00:00:00+09:00</published>
+    <updated>2026-11-14T00:00:00+09:00</updated>
+    <summary>불과 연기가 심해지면 화면이 끊기던 것을 고쳤어요. 교육 모드에 들어갈 때 받는 코드도 7분의 1로 줄었고, 화재 체험은 고를 때만 따로 받아요.</summary>
+    <content type="html">&lt;h2&gt;한눈에 보기&lt;/h2&gt;
+&lt;p&gt;화재 체험에서 &lt;strong&gt;불과 연기가 심해진 뒤 화면이 끊기던 문제&lt;/strong&gt;를 고쳤어요. 교육 모드에 들어갈 때 받는 코드도 크게 줄여서, 크래프트 모드만 하는 사람은 화재 체험 부분을 받지 않아요.&lt;/p&gt;
+&lt;h2&gt;BEFORE / AFTER&lt;/h2&gt;
+&lt;p&gt;&lt;img src=&quot;/note/assets/20261114-fire-perf-ba.webp&quot; alt=&quot;화재 체험 성능 비교: 교육 모드에 들어갈 때 받는 코드가 3.2MB에서 0.46MB로, 불이 방 전체로 번졌을 때 한 프레임을 그리는 시간이 21ms에서 14.6ms로 줄었다&quot;&gt;&lt;/p&gt;
+&lt;h2&gt;개선&lt;/h2&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;불이 커져도 끊기지 않아요&lt;/strong&gt; — 훈련을 시작하고 2~3분 뒤 불이 방 전체로 번지면 화면이 뚝뚝 끊겼어요. 연기와 불을 그리는 계산을 줄여서, 같은 장면을 그리는 시간이 3분의 2로 줄었어요.&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;느린 기기에서 더 빨리 가벼워져요&lt;/strong&gt; — 화면이 느려지면 연기와 불꽃의 세밀함을 자동으로 낮추는데, 낮추기 시작하는 기준이 너무 느슨해서 끊기는데도 그대로 두는 경우가 있었어요. 기준을 고쳤고, 화면이 큰 기기는 처음부터 가볍게 시작해요.&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;교육 모드에 빨리 들어가요&lt;/strong&gt; — 교육 모드에 들어갈 때 받는 코드를 3.2MB에서 0.46MB로 줄였어요. 화재 체험에 필요한 부분은 화재 체험을 고를 때만 받아요.&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;시작할 때 멈춤이 짧아졌어요&lt;/strong&gt; — 방에 처음 들어갈 때 로딩 화면이 멈춰 있던 시간을 줄였어요. 크래프트 모드에도 같이 적용돼요.&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2&gt;알려진 문제&lt;/h2&gt;
+&lt;ul&gt;
+&lt;li&gt;방에 처음 들어갈 때 로딩 화면이 1초 남짓 멈추는 구간이 아직 남아 있어요.&lt;/li&gt;
+&lt;li&gt;화재 체험을 고르면 학교와 훈련 데이터를 따로 받기 때문에, 처음 한 번은 시간이 조금 더 걸려요.&lt;/li&gt;
+&lt;li&gt;프레임 시간은 내장 그래픽이 달린 컴퓨터 한 대에서 잰 값이에요. 기기에 따라 다를 수 있어요.&lt;/li&gt;
+&lt;li&gt;이번 비교 사진은 화면 사진이 아니라 잰 숫자를 그린 그림이에요.&lt;/li&gt;
+&lt;/ul&gt;
+</content>
+  </entry>
   <entry xml:base="https://craftyap.com/">
     <title>11월 13일 패치 노트 — 교육 모드에 화재 대피 훈련이 생겼어요</title>
     <link href="https://craftyap.com/note/patch-2026-11-13/" />
@@ -822,33 +849,6 @@
 &lt;li&gt;&lt;strong&gt;블록 그림 속 가는 선만 빼기&lt;/strong&gt; — 모든 블록에서 &lt;strong&gt;가는 선만&lt;/strong&gt; 빼고, &lt;strong&gt;넓은 어두운 부분&lt;/strong&gt;(석탄 덩이, 물음표, 호박 얼굴, 화로 불구멍)은 그림 그대로 둬요. 금 간 돌벽돌의 금은 그 블록의 모습이라 남겼어요.&lt;/li&gt;
 &lt;/ul&gt;
 &lt;p&gt;&lt;img src=&quot;/note/assets/20261104-no-outlines-ba.webp&quot; alt=&quot;검은 테두리 비교: 위 줄은 캐릭터와 펫의 윤곽선, 아래 줄은 양털 블록 가장자리를 3배로 확대한 모습. 왼쪽이 이전, 오른쪽이 새 화면&quot;&gt;&lt;/p&gt;
-&lt;h2&gt;알려진 문제&lt;/h2&gt;
-&lt;ul&gt;
-&lt;li&gt;이미 열려 있던 탭은 &lt;strong&gt;새로고침&lt;/strong&gt;해야 바뀐 화면이 보여요.&lt;/li&gt;
-&lt;/ul&gt;
-</content>
-  </entry>
-  <entry xml:base="https://craftyap.com/">
-    <title>11월 4일 패치 노트 (4) — 블록 안의 검은 선을 빼고, 부술 땐 테두리를 숨겨요</title>
-    <link href="https://craftyap.com/note/patch-2026-11-04-4/" />
-    <id>https://craftyap.com/note/patch-2026-11-04-4/</id>
-    <published>2026-11-04T00:00:00+09:00</published>
-    <updated>2026-11-04T00:00:00+09:00</updated>
-    <summary>블록 그림 안에 그려져 있던 검은 선(돌마다 둘린 선, 판자 사이 선)을 빼서 벽과 바닥이 부드러운 재료처럼 보여요. 블록을 부수는 동안에는 조준 테두리를 잠시 숨겨요.</summary>
-    <content type="html">&lt;h2&gt;한눈에 보기&lt;/h2&gt;
-&lt;p&gt;블록을 이어 붙여도 블록 그림 &lt;strong&gt;안쪽에 그려진 검은 선&lt;/strong&gt;(돌 하나하나의 테두리, 판자 사이 틈)이 남아서 그림처럼 딱딱해 보였어요. 이제 그 선을 블록 자신의 색으로 바꿔서 &lt;strong&gt;벽과 바닥이 부드러운 재료&lt;/strong&gt;처럼 보여요. 블록을 &lt;strong&gt;부수는 동안에는 조준 테두리를 숨겨서&lt;/strong&gt; 갈라지는 블록이 잘 보여요.&lt;/p&gt;
-&lt;h2&gt;BEFORE / AFTER&lt;/h2&gt;
-&lt;p&gt;&lt;strong&gt;위: 조약돌 바닥 가까이&lt;/strong&gt; — 이전에는 돌마다 검은 선이 둘려 있었어요. &lt;strong&gt;아래: 돌·벽돌·판자 벽과 조약돌·양털 바닥&lt;/strong&gt; — 같은 자리에서 찍었어요.&lt;/p&gt;
-&lt;p&gt;&lt;img src=&quot;/note/assets/20261104-inkless-ba.webp&quot; alt=&quot;블록 안쪽 선 비교: 위 줄은 조약돌 바닥 가까이, 왼쪽은 돌마다 검은 선이 있는 이전 화면, 오른쪽은 선 없이 부드러운 새 화면. 아래 줄은 같은 벽과 바닥을 멀리서 본 이전과 새 화면&quot;&gt;&lt;/p&gt;
-&lt;h2&gt;개선&lt;/h2&gt;
-&lt;ul&gt;
-&lt;li&gt;&lt;strong&gt;블록 안쪽 검은 선 빼기&lt;/strong&gt; — 돌, 조약돌, 벽돌, 판자, 나무, 잎 등 거의 모든 블록에서 그림 안의 검은 선을 주변 색으로 바꿨어요. 모양은 옅은 그늘로 남아요.&lt;ul&gt;
-&lt;li&gt;&lt;strong&gt;그림이 곧 블록인 것은 그대로&lt;/strong&gt;예요: 석탄 광석의 석탄, 물음표 블록, 호박 얼굴, 화로, 금 간 돌벽돌, 작업대, 상자.&lt;/li&gt;
-&lt;li&gt;가방과 단축칸의 블록 아이콘은 이전 그림 그대로예요.&lt;/li&gt;
-&lt;/ul&gt;
-&lt;/li&gt;
-&lt;li&gt;&lt;strong&gt;부수는 동안 조준 테두리 숨기기&lt;/strong&gt; — 블록이 갈라지기 시작하면 테두리가 잠시 사라지고, 손을 떼거나 다른 블록을 보면 다시 나타나요.&lt;/li&gt;
-&lt;/ul&gt;
 &lt;h2&gt;알려진 문제&lt;/h2&gt;
 &lt;ul&gt;
 &lt;li&gt;이미 열려 있던 탭은 &lt;strong&gt;새로고침&lt;/strong&gt;해야 바뀐 화면이 보여요.&lt;/li&gt;
