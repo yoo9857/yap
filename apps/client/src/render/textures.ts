@@ -138,6 +138,20 @@ export async function warmupGpuAsync(
     if (ready) break;
     await warmupYield(false, signal);
   }
+  // A program's first use reads every uniform and attribute it has back from the driver: hundreds
+  // of small synchronous calls, ~20 ms a program. Left to the first frame below, sixty programs
+  // did that in ONE frame and the loading screen stood still for over a second
+  // (tools/profile-fire-boot.mjs, 2026-11-13). Asked for here, a few at a time with the browser
+  // allowed to draw in between, it is the same work without the freeze.
+  let slice = performance.now();
+  for (const p of renderer.info?.programs ?? []) {
+    if (signal?.aborted || gl.isContextLost()) return;
+    const program = p as unknown as { program?: WebGLProgram; getUniforms?(): unknown; getAttributes?(): unknown };
+    if (!program.program) continue; // destroyed meanwhile
+    program.getUniforms?.();
+    program.getAttributes?.();
+    if (performance.now() - slice > 10) { await warmupYield(true, signal); slice = performance.now(); }
+  }
   for (let i = 0; i < frames; i++) {
     if (signal?.aborted || gl.isContextLost()) return;
     renderFrame();

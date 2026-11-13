@@ -1,8 +1,9 @@
+import { BURN_POWER_GLSL } from "./fireGlsl.js";
 import {FIRE_LIGHT_VISIBILITY_GLSL} from "./fireLightVisibility.js";
 import * as THREE from "three";
 import type { FireSchool } from "@robo/shared";
 import { waterPipelineUniforms } from "../../render/waterPipeline.js";
-import { BURN_FADE_S, BURN_GROW_S, BURN_HOLD_S, BURN_PEAK, CLIMB_DELAY_S, CLIMB_S_PER_M, fireFoot, type BurnField, type SmokeField } from "./drillRules.js";
+import { CLIMB_DELAY_S, CLIMB_S_PER_M, fireFoot, type BurnField, type SmokeField } from "./drillRules.js";
 
 /**
  * The smoke as a VOLUME (owner's call 2026-11-13: "not pieces stuck together — the level of a CS
@@ -104,6 +105,7 @@ const FRAG = /* glsl */ `
     return here * smoothstep(bottom - 0.08, bottom + 0.26, p.y); // (a layer of smoke has an underside: a half-metre fade read as fog)
   }
   /** …and with them (density, and the lump's own value for its shading): torn and rolling at the edge, thick and thin inside. */
+  float vFine; // 1 while the walk is within a few metres of the eye
   vec2 density(vec3 p, float base) {
     // Smoke has no wind to ride indoors. It rises over the fire and runs OUTWARD from it under the
     // ceiling, slowing as it goes: the big lumps are carried along that flow (two copies of the
@@ -117,17 +119,13 @@ const FRAG = /* glsl */ `
     vec3 q = p * 0.8;
     float big = mix(noise3(q - flow * (f0 * 6.4)), noise3(q - flow * (f1 * 6.4) + 7.7), abs(1.0 - 2.0 * f0));
     big = clamp((big - 0.5) * 1.3 + 0.5, 0.0, 1.0); // (two noises laid together are flatter than one)
-    float n = big * 0.6
-      + noise3(p * 2.3 + vec3(big * 0.9, uTime * 0.06, 0.0)) * 0.28
-      + noise3(p * 5.5 + vec3(0.0, -uTime * 0.1, big * 1.6)) * 0.12;
+    float n = big * 0.6 + noise3(p * 2.3 + vec3(big * 0.9, uTime * 0.06, 0.0)) * 0.28;
+    // (the finest lumps are smaller than a pixel of the cloud a few metres off: only worked out near the eye)
+    n += vFine > 0.5 ? noise3(p * 5.5 + vec3(0.0, -uTime * 0.1, big * 1.6)) * 0.12 : 0.06;
     return vec2(base * smoothstep(0.16, 0.8, n * 1.2 + base * 0.24), n); // (thick and thin INSIDE the layer too: an even fog has no form)
   }
 
-  /** The rule (drillRules burnPower): up to its peak, then down to what the spot's fuel keeps burning. */
-  float burnPower(float age, float fuel) {
-    float settle = min(0.95, 0.38 + (fuel - 1.0) * 1.1);
-    return smoothstep(0.0, ${BURN_GROW_S.toFixed(1)}, age) * (settle + (${BURN_PEAK.toFixed(2)} - settle) * (1.0 - smoothstep(${BURN_HOLD_S.toFixed(1)}, ${(BURN_HOLD_S + BURN_FADE_S).toFixed(1)}, age)));
-  }
+  ${BURN_POWER_GLSL}
   /**
    * The fire at p: (how much flame, how hot: 1 at the foot, 0 where a tongue ends, how much SOOT,
    * how lit that soot still is). Fire and smoke are one thing: over the tongues the fire turns
@@ -140,10 +138,14 @@ const FRAG = /* glsl */ `
     float age = uFireClock - b.r;
     float power = b.g * burnPower(age, b.g);
     if (power < 0.03) return vec4(0.0);
+    // (before any noise: how high the fire and its soot can reach at all here. Most of a ray through
+    // the room is above that, and every step of it used to pay for three lookups of noise.)
+    float wall = min(min(p.x - uRoom.x, uRoom.z - p.x), min(p.z - uRoom.y, uRoom.w - p.z));
+    float above = p.y - b.b;
+    if (above < 0.0 || above > (wall < 0.6 ? 4.2 : power * 1.05) + 1.9) return vec4(0.0);
     // how tall the fire is here: by how hard the spot burns, breathing slowly…
     float tall = power * (0.3 + 0.75 * noise3(vec3(p.x * 1.15, uTime * 0.4, p.z * 1.15)));
     // …and at the room's walls it climbs them: a metre every ${CLIMB_S_PER_M} s from when it got there
-    float wall = min(min(p.x - uRoom.x, uRoom.z - p.x), min(p.z - uRoom.y, uRoom.w - p.z));
     float climbed = clamp((age - ${CLIMB_DELAY_S.toFixed(1)}) / ${CLIMB_S_PER_M.toFixed(1)}, 0.0, 3.3) * smoothstep(0.6, 0.08, wall);
     tall = max(tall, climbed * (0.75 + 0.5 * noise3(vec3(p.x * 0.9, uTime * 0.5, p.z * 0.9))));
     float t = (p.y - b.b) / max(tall, 0.05); // 0 at what it stands on, 1 at the top of the fire here
@@ -151,9 +153,9 @@ const FRAG = /* glsl */ `
     float over = p.y - (b.b + tall); // metres above the fire's top here (negative: among the tongues)
     // (two and a half metres up the soot has joined the layer: nothing more is worked out there,
     // which is most of the room's height on every ray)
-    if (over > 2.5) return vec4(0.0);
-    float stream = noise3(vec3(p.x * 1.7, p.y * 0.9 - uTime * 1.5, p.z * 1.7)) * 0.65 + noise3(vec3(p.x * 4.1, p.y * 2.2 - uTime * 2.6, p.z * 4.1)) * 0.35;
-    float soot = min(1.0, power * 1.4) * smoothstep(-0.4 * tall, 0.25, over) * clamp((stream - 0.26) * 2.2, 0.0, 1.0) / (1.0 + max(over, 0.0) * 0.5) * smoothstep(2.5, 1.7, over);
+    if (over > 1.9) return vec4(0.0);
+    float stream = noise3(vec3(p.x * 1.9, p.y * 1.0 - uTime * 1.6, p.z * 1.9)); // (one lookup: its finer half cost as much again and was lost in the half-size cloud)
+    float soot = min(1.0, power * 1.4) * smoothstep(-0.4 * tall, 0.25, over) * clamp((stream - 0.26) * 2.2, 0.0, 1.0) / (1.0 + max(over, 0.0) * 0.5) * smoothstep(1.9, 1.2, over);
     float warm = exp(-max(over, 0.0) * 1.25);
     if (t > 1.0) return vec4(0.0, 0.0, soot, warm);
     // tongues: noise that streams upward eats the body, more and more toward the top
@@ -186,9 +188,10 @@ const FRAG = /* glsl */ `
     float t = t0 + stepLen * jitter;
     float through = 1.0; // how much of what is behind still shows
     vec3 lit = vec3(0.0);
-    for (int i = 0; i < 48; i++) {
-      if (i >= uSteps || t >= t1 || through < 0.03) break;
+    for (int i = 0; i < 40; i++) {
+      if (i >= uSteps || t >= t1 || through < 0.05) break;
       vec3 p = eye + dir * t;
+      vFine = t < 7.0 ? 1.0 : 0.0;
       // the fire: low in the burning room; it gives light, and hides a little of what is behind it
       bool burning = false;
       if (uFireOn > 0.004 && p.y < uFireTop && inRoom(p)) {
@@ -241,7 +244,7 @@ const FRAG = /* glsl */ `
             // lump is pale on that side and grey in its own shade, so the layer has a form to it
             float shade = exp(-field(p + vec3(0.0, 0.3, 0.75), false) * 1.7);
             // the layer's underside catches what the floor throws back: its bellies are paler than its inside
-            float skin = exp(-field(p - vec3(0.0, 0.4, 0.0), false) * 2.2);
+            float skin = base < 0.98 || vFine > 0.5 ? exp(-field(p - vec3(0.0, 0.4, 0.0), false) * 2.2) : 0.11;
             col = vec3(0.3, 0.3, 0.31) * (0.3 + 0.7 * shade + 0.55 * skin) * (1.3 - 0.75 * lump.y);
             // ...and from the fire: smoke near its door glows from inside
             col += vec3(1.0, 0.42, 0.1) * fireLightVisible(p) * nearGlow;
@@ -389,16 +392,34 @@ export class SmokeVolume {
 
   /**
    * How finely the cloud is worked out, changed while running (no shader is rebuilt): the screen
-   * fraction it is walked at, and the steps of a walk (at most 48).
+   * fraction it is walked at, and the steps of a walk (at most 40: the loop's bound, which is what its compile costs).
    */
   quality(divide: number, steps: number): void {
     this.divide = divide;
-    this.material.uniforms.uSteps!.value = Math.min(48, steps);
+    this.material.uniforms.uSteps!.value = Math.min(40, steps);
   }
 
   /** The pass itself: the cloud at half size into its own target, then over the composed frame (the pipeline calls it with the screen as target, nothing cleared). */
+  /** The two programs: null not asked for yet, false being compiled, true ready. */
+  private compiled: boolean | null = null;
   readonly draw = (renderer: THREE.WebGLRenderer, camera: THREE.PerspectiveCamera): void => {
     const u = this.material.uniforms;
+    // The walk's program is big (a loop of noise): compiled at its first draw it held the game for
+    // TWO SECONDS, in the middle of play, the moment the fire started (tools/profile-fire-boot.mjs,
+    // 2026-11-13). So it is compiled the first time the pass is asked for at all — the pause card is
+    // still up — and off the main thread; until it is ready nothing is drawn (the smoke takes
+    // seconds to come anyway). Each for the target it will draw into: that is part of a program.
+    if (this.compiled !== true) {
+      if (this.compiled === null) {
+        this.compiled = false;
+        const done = (): void => { this.compiled = true; };
+        renderer.setRenderTarget(this.target);
+        const walk = renderer.compileAsync(this.scene, this.camera);
+        renderer.setRenderTarget(null);
+        void Promise.all([walk, renderer.compileAsync(this.overScene, this.camera)]).then(done, done);
+      }
+      return;
+    }
     if ((u.uOn!.value as number) < 0.004 && (u.uFireOn!.value as number) < 0.004) return; // no smoke, no fire: no pass
     (u.uProjectionInverse!.value as THREE.Matrix4).copy(camera.projectionMatrixInverse);
     (u.uViewInverse!.value as THREE.Matrix4).copy(camera.matrixWorld);

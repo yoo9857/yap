@@ -126,6 +126,28 @@ for (const mode of ["field", "craft", "battle", "builder"]) {
   await page.close();
 }
 
+// The fire drill is its own download (src/craft/fire/fireKit.ts): the built sandbox must not fetch
+// it, and the built fire theme must fetch it and boot with it.
+for (const [name, query, wants] of [["the sandbox field", "?mode=field&reset=1", false], ["the fire drill", "?mode=field&theme=fire&reset=1", true]]) {
+  const page = await browser.newPage();
+  const errors = [], fetched = [];
+  page.on("pageerror", (e) => errors.push(e.message));
+  page.on("response", (r) => { if (/\/assets\/fireKit-[^/]+\.js$/.test(r.url())) fetched.push(r.status()); });
+  await page.goto(`http://localhost:${PORT}/${query}`, { waitUntil: "load", timeout: 60000 });
+  const booted = await page
+    .waitForFunction(() => document.getElementById("boot-overlay")?.classList.contains("hidden"), { timeout: 60000 })
+    .then(() => true)
+    .catch(() => false);
+  await sleep(1500);
+  const guide = await page.evaluate(() => !!document.querySelector(".fire-guide-step"));
+  check(
+    wants ? "prod build: the fire theme fetches its own bundle and boots with it" : "prod build: the sandbox does not fetch the fire drill's bundle",
+    booted && errors.length === 0 && (wants ? fetched.includes(200) && guide : fetched.length === 0 && !guide),
+    errors.length ? errors.join(" | ").slice(0, 200) : `${name}: fireKit fetched ${JSON.stringify(fetched)}, guide ${guide}`,
+  );
+  await page.close();
+}
+
 await browser.close();
 server.kill();
 const failed = results.filter((r) => !r).length;

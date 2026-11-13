@@ -76,9 +76,10 @@ import { FurnitureLayout } from "./furniture/layout.js";
 import type { RustEngine } from "../engine/rustEngine.js";
 import { FurnitureController, PICKUP_TIME } from "./furniture/controller.js";
 import { ScienceMode, itemLabel } from "./science/scienceMode.js";
-import { FireDrill, type FireSound } from "./fire/fireDrill.js";
-import { fireSchoolCollision } from "./fire/fireSchoolView.js";
-import { FIRE_CAMPUS, fireSchool, type ClassTheme } from "@robo/shared";
+// (types only: the fire drill is its own download, handed in as `fireKit`: see fire/fireKit.ts)
+import type { FireDrill, FireSound } from "./fire/fireDrill.js";
+import type * as FireKit from "./fire/fireKit.js";
+import type { ClassTheme } from "@robo/shared";
 import { loadItemModels } from "./science/itemModels.js";
 import { isFrameKey } from "./science/frames.js";
 import { isPartKey } from "./science/parts.js";
@@ -154,6 +155,8 @@ export class CraftGame {
    *  nothing is built, and `fire` runs the lesson). */
   private readonly theme: ClassTheme;
   private readonly fire: FireDrill | null = null;
+  /** The fire drill's code and school, loaded apart from the game (fire/fireKit.ts); null in the sandbox. */
+  private readonly fireKit: typeof FireKit | null;
   /** Dev hooks: run the drill without a captured mouse / hold the spray button. */
   private debugFirePlay = false;
   private debugFireSpray = false;
@@ -261,11 +264,13 @@ export class CraftGame {
 
   constructor(
     mount: HTMLElement,
-    opts: { field?: boolean; classroom?: { client: ClassClient; session: ClassSession }; rust?: RustEngine | null; theme?: ClassTheme } = {},
+    opts: { field?: boolean; classroom?: { client: ClassClient; session: ClassSession }; rust?: RustEngine | null; theme?: ClassTheme; fireKit?: typeof FireKit } = {},
   ) {
     // a class has its own theme; solo play is told one (only the education field has themes)
     this.theme = opts.classroom ? opts.classroom.session.theme : opts.field ? opts.theme ?? "craft" : "craft";
     const fireTheme = this.theme === "fire";
+    this.fireKit = fireTheme ? opts.fireKit ?? null : null;
+    if (fireTheme && !this.fireKit) throw new Error("the fire theme needs its code: load fire/fireKit.ts and pass it as fireKit");
     this.renderer = new GameRenderer(mount);
     this.renderer.scene.fog = new THREE.Fog(FOG_COLOR, 95, 245);
     this.sky = new SkyDome(this.renderer.scene, SKY_TOP, FOG_COLOR);
@@ -275,7 +280,7 @@ export class CraftGame {
     this.view.useRustShells(opts.rust ?? null);
     if (fireTheme) {
       // the campus has its own ground: the field's chunks wholly under it are not drawn
-      const [x0, x1, z0, z1] = FIRE_CAMPUS.bounds;
+      const [x0, x1, z0, z1] = this.fireKit!.FIRE_CAMPUS.bounds;
       this.view.setCovered((cx, cz) => {
         const field = this.field;
         if (!field) return false;
@@ -352,7 +357,7 @@ export class CraftGame {
       // the fire drill alone: the school stamped on an empty field; nothing is saved (and the
       // sandbox field's own save is never read or written)
       this.field = new FieldWindow();
-      const school = fireSchool();
+      const school = this.fireKit!.fireSchool();
       this.field.replaceAll(school.edits);
       this.state = {
         seed: 0,
@@ -421,7 +426,7 @@ export class CraftGame {
         this.hud.hideRecipes();
       },
     }, true);
-    if(fireTheme&&this.field){const field=this.field;this.state.world.staticScene=fireSchoolCollision(()=>[field.absOriginX,field.absOriginZ]);this.state.world.staticCameraScene=fireSchoolCollision(()=>[field.absOriginX,field.absOriginZ],true);}
+    if(fireTheme&&this.field&&opts.fireKit){const field=this.field,scene=opts.fireKit.fireSchoolCollision;this.state.world.staticScene=scene(()=>[field.absOriginX,field.absOriginZ]);this.state.world.staticCameraScene=scene(()=>[field.absOriginX,field.absOriginZ],true);}
     this.body = { ...this.state.player, vx: 0, vy: 0, vz: 0, grounded: false };
     unstick(this.state.world, this.body); // never spawn embedded in a block
     if (this.field && !fireTheme) {
@@ -572,10 +577,10 @@ export class CraftGame {
       if(this.fieldGround)this.fieldGround.visible=false;
       const field = this.field;
       this.emptyHands = true; // nothing is held or placed here
-      this.yaw = this.viewYaw = this.facing = fireSchool().spawnYaw;
+      this.yaw = this.viewYaw = this.facing = this.fireKit!.fireSchool().spawnYaw;
       this.pitch = this.viewPitch = -0.12;
       const sync = this.sync;
-      this.fire = new FireDrill({
+      this.fire = new opts.fireKit!.FireDrill({
         // a class: the teacher runs the drill (briefing, teams, start); alone it starts at once
         net: sync ? {
           role: sync.role,
@@ -719,7 +724,7 @@ export class CraftGame {
 
   /** A free spot in the fire drill's classroom, in this window's grid coordinates. */
   private fireSpawn(): { x: number; y: number; z: number } {
-    const spawns = fireSchool().spawns;
+    const spawns = this.fireKit!.fireSchool().spawns;
     const s = spawns[Math.floor(Math.random() * spawns.length)]!;
     const [gx, gz] = this.field!.toGrid(s[0], s[2]);
     return { x: gx, y: s[1], z: gz };
@@ -913,6 +918,11 @@ export class CraftGame {
     this.science?.setWarm(true); // holograms, part models, sparks, beacon
     this.view.setWarm(true); // the water shader, too
     this.miningEffects.prewarm(BLOCKS.filter((def) => !def.fluid).map((def) => ({ def, materials: this.view.miningMaterials(def.id) })));
+    // The robot's fading materials are made at its first draw (applyRobotOpacity clones them, and a
+    // see-through material is another program): made here instead, the parallel compile below has
+    // them; made in the warm-up frames they were compiled one by one while the loading screen stood
+    // still (tools/profile-fire-boot.mjs, 2026-11-13: 130‒290 ms each).
+    this.applyRobotOpacity(this.robotOpacity, 0);
     this.warming = true;
     this.sync?.warm(true, this.body); // a classroom: the first classmate's one-time cost, now
     try {

@@ -127,7 +127,8 @@ async function bootBuilder(mount: HTMLElement): Promise<void> {
 async function bootCraft(mount: HTMLElement, field = false, classroom: ClassEntry | null = null, theme: ClassTheme = "craft"): Promise<void> {
   overlay?.classList.remove("hidden");
   setBootMessage(t("세상을 만드는 중…", "Building the world…"));
-  const { CraftGame } = await import("./craft/craftGame.js");
+  // the fire drill is its own download: only for the theme that plays it (fire/fireKit.ts)
+  const [{ CraftGame }, fireKit] = await Promise.all([import("./craft/craftGame.js"), theme === "fire" ? import("./craft/fire/fireKit.js") : undefined]);
   // ?engine=rust: solo water runs in the Rust engine (docs/ENGINE.md). A browser that cannot load
   // it plays on the TypeScript rules — the same water — rather than not at all.
   let rust = null;
@@ -135,7 +136,7 @@ async function bootCraft(mount: HTMLElement, field = false, classroom: ClassEntr
     const { loadRustEngine } = await import("./engine/rustEngine.js");
     rust = await loadRustEngine().catch((err: unknown) => { console.warn("Rust engine unavailable, using TypeScript", err); return null; });
   }
-  const game = new CraftGame(mount, { field, classroom: classroom ?? undefined, rust, theme });
+  const game = new CraftGame(mount, { field, classroom: classroom ?? undefined, rust, theme, fireKit });
   // shaders and uploads behind the overlay, so play never opens slow and
   // catches up (see warmupGpuAsync); best-effort — never block play on it
   await withTimeout(game.prepare(setBootMessage), 20_000, "graphics warmup").catch(() => {});

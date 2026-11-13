@@ -1,3 +1,4 @@
+import { BURN_POWER_GLSL } from "./fireGlsl.js";
 import * as THREE from "three";
 import type { FireSchool } from "@robo/shared";
 import type { ClimbSpot } from "./drillRules.js";
@@ -5,7 +6,7 @@ import { loadTexture } from "../../render/textures.js";
 import { settings } from "../../ui/settings.js";
 import type { WaterPipeline } from "../../render/waterPipeline.js";
 import { SmokeVolume } from "./smokeVolume.js";
-import { BURN_FADE_S, BURN_GROW_S, BURN_HOLD_S, BURN_PEAK, CLIMB_S_PER_M, burnField, climbSpots, fireFoot, smokeField, supportRadius } from "./drillRules.js";
+import { CLIMB_S_PER_M, burnField, climbSpots, fireFoot, smokeField, supportRadius } from "./drillRules.js";
 
 /** The baked flame flipbooks (assets/fx/fire → `node assets/fx/fire/build.mjs`); bump `?v=` when one is re-baked. */
 export const FIRE_FLAMES_URL = "/textures/fx/fire-flames.webp?v=1";
@@ -111,11 +112,7 @@ const BURN = /* glsl */ `
     vec2 b = texture2D(uBurn, (xz - uField.xy) * uField.zw).rg;
     return vec2(uClock - b.r, b.g);
   }
-  /** the rule (drillRules burnPower): up to its peak, then down to what the spot's fuel keeps burning. */
-  float burnPower(float age, float fuel) {
-    float settle = min(0.95, 0.38 + (fuel - 1.0) * 1.1);
-    return smoothstep(0.0, ${BURN_GROW_S.toFixed(1)}, age) * (settle + (${BURN_PEAK.toFixed(2)} - settle) * (1.0 - smoothstep(${BURN_HOLD_S.toFixed(1)}, ${(BURN_HOLD_S + BURN_FADE_S).toFixed(1)}, age)));
-  }
+  ${BURN_POWER_GLSL}
 `;
 /**
  * Smoke is not a grey disc: it is a lump with a lit top and a dark belly, eaten by noise that
@@ -608,16 +605,25 @@ export interface FireState {
  * uniform, a draw count): no shader is rebuilt, so the change itself costs nothing.
  */
 export const FIRE_QUALITY: readonly { divide: number; steps: number; sprites: number }[] = [
-  { divide: 1.5, steps: 44, sprites: 1 },
   { divide: 2, steps: 36, sprites: 1 },
-  { divide: 3, steps: 28, sprites: 1 },
-  { divide: 4, steps: 22, sprites: 0.8 },
-  { divide: 4, steps: 18, sprites: 0.6 },
+  { divide: 2.5, steps: 30, sprites: 0.9 },
+  { divide: 3, steps: 26, sprites: 0.8 },
+  { divide: 4, steps: 22, sprites: 0.7 },
+  { divide: 4, steps: 18, sprites: 0.55 },
   { divide: 5, steps: 14, sprites: 0.42 },
 ];
-/** Slower than this (ms a frame) on average for `SLOW_FOR_S` and the next step is taken. */
-const SLOW_FRAME_MS = 21;
+/**
+ * Slower than this (ms a frame) on average for `SLOW_FOR_S` and the next step is taken. Just over
+ * a 60 Hz frame: measured on an integrated GPU (tools/perf-fire-gpu.mjs, 2026-11-13) the full blaze
+ * cost 20–21 ms a frame, and at the old 21 the governor sat exactly under its own line while every
+ * other frame missed the screen's refresh ("after two or three minutes the frame rate collapses").
+ */
+const SLOW_FRAME_MS = 18.4;
 const SLOW_FOR_S = 1.2;
+/** The step to start at for a canvas of this many pixels: the cloud's cost is its pixels. */
+export function fireQualityFor(pixels: number, low: boolean): number {
+  return (low ? 3 : 0) + (pixels > 3.2e6 ? 2 : pixels > 1.9e6 ? 1 : 0);
+}
 
 const flicker = (t: number, k: number): number => 0.8 + 0.2 * Math.sin(t * 11.3 + k) * Math.sin(t * 7.1 + 1.3 * k) + 0.08 * Math.sin(t * 23.7 + k);
 
@@ -855,7 +861,10 @@ export class FireFx {
     this.owned.push(cloudGeo, sprayGeo, this.cloud, this.spray);
     // where to start: the low graphics preset starts light (the governor only ever goes down from there)
     const asked = Number(new URLSearchParams(location.search).get("firequality") ?? NaN);
-    this.setQuality(Number.isFinite(asked) ? asked : settings.graphics === "low" ? 3 : 0);
+    this.held = Number.isFinite(asked); // (asked for by name: it stays there, so a step can be measured)
+    // (the canvas is the window's size times the pixel ratio the renderer caps at 1.5)
+    const pixels = innerWidth * innerHeight * Math.min(devicePixelRatio || 1, 1.5) ** 2;
+    this.setQuality(Number.isFinite(asked) ? asked : fireQualityFor(pixels, settings.graphics === "low"));
   }
 
   /**
@@ -924,6 +933,8 @@ export class FireFx {
   }
 
   /** Measure the frame; when it stays slow while the fire is drawn, take the next cheaper step. */
+  /** `?firequality=N`: the step is held (the governor only measures). */
+  private held = false;
   private govern(lit: boolean): void {
     const now = performance.now(), ms = now - this.lastFrame;
     this.lastFrame = now;
@@ -935,6 +946,7 @@ export class FireFx {
     this.slowFor = this.frameMs > SLOW_FRAME_MS ? this.slowFor + ms / 1000 : 0;
     // under 30 frames a second it is far from enough: two steps at once, after half the wait
     const badly = this.frameMs > 34;
+    if (this.held) return;
     if (this.slowFor < (badly ? SLOW_FOR_S / 2 : SLOW_FOR_S) || this.level >= FIRE_QUALITY.length - 1) return;
     this.setQuality(this.level + (badly ? 2 : 1));
     this.slowFor = 0;
