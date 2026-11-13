@@ -923,6 +923,12 @@ export class CraftGame {
     // them; made in the warm-up frames they were compiled one by one while the loading screen stood
     // still (tools/profile-fire-boot.mjs, 2026-11-13: 130‒290 ms each).
     this.applyRobotOpacity(this.robotOpacity, 0);
+    // The bricks round the player are instanced meshes the view makes at its first update: made
+    // here, their (instanced) program is in the parallel compile; made in the first frame it was not.
+    this.detailFocus.set(this.body.x, this.body.y + EYE_HEIGHT, this.body.z);
+    this.view.update(this.state.world, this.detailFocus);
+    // the water pipeline's own passes too (their override materials, into their own targets)
+    this.renderer.waterPipeline?.compile(this.renderer.renderer, this.renderer.scene, this.renderer.camera);
     this.warming = true;
     this.sync?.warm(true, this.body); // a classroom: the first classmate's one-time cost, now
     try {

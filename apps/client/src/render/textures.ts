@@ -123,7 +123,14 @@ export async function warmupGpuAsync(
   targets: readonly (THREE.WebGLRenderTarget | null)[] = [null],
 ): Promise<void> {
   if (signal?.aborted) return;
-  uploadAllTextures(renderer);
+  // Textures a few at a time, the browser allowed to draw in between: all of them in one go held
+  // the loading screen for 0.4 s (texSubImage2D, tools/profile-fire-boot.mjs 2026-11-14).
+  let uploaded = performance.now();
+  for (const { texture } of [...cache.values()]) {
+    if (signal?.aborted) return;
+    if (texture.image) renderer.initTexture(texture);
+    if (performance.now() - uploaded > 8) { await warmupYield(true, signal); uploaded = performance.now(); }
+  }
   // Three's compileAsync keeps an uncancellable polling timer over material
   // properties. A mode disposing those materials mid-compile can leave that
   // poll reading a deleted program. Poll the public GL completion flag here

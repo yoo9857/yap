@@ -171,6 +171,39 @@ export class WaterPipeline {
     this.countRT.setSize(w, h);
   }
 
+  /**
+   * Start the compile of the programs the extra passes use, so the boot's parallel compile has
+   * them. `renderer.compile(scene)` only knows each object's OWN material: the passes draw the
+   * water with override materials (front, back, count, surface), into other targets, and the
+   * composite into the canvas — none of which it sees. Left to the first frame they were compiled
+   * one after another with the loading screen standing still: the water's three alone ~270 ms each
+   * (tools/profile-fire-boot.mjs, 2026-11-14). Each is compiled for the very geometry and target it
+   * is drawn with (stand-ins that share the water meshes' geometry), under the real scene's lights
+   * and fog. Nothing waits here: the warm-up polls for completion.
+   */
+  compile(renderer: THREE.WebGLRenderer, scene: THREE.Scene, camera: THREE.Camera): void {
+    const prev = renderer.getRenderTarget();
+    try {
+      renderer.setRenderTarget(null);
+      renderer.compile(this.quadScene, this.quadCamera);
+      if (!this.materials) return;
+      const waters: THREE.Mesh[] = [];
+      scene.traverse((o) => { if ((o as THREE.Mesh).isMesh && o.layers.isEnabled(WATER_LAYER)) waters.push(o as THREE.Mesh); });
+      if (waters.length === 0) return;
+      const passes: [THREE.Material, THREE.WebGLRenderTarget | null][] = [
+        [this.materials.front, this.frontRT], [this.materials.back, this.backRT], [this.materials.count, this.countRT], [this.materials.surface, null],
+      ];
+      for (const [material, target] of passes) {
+        const standIns = new THREE.Scene();
+        for (const water of waters) standIns.add(new THREE.Mesh(water.geometry, material));
+        renderer.setRenderTarget(target);
+        renderer.compile(standIns, camera, scene);
+      }
+    } finally {
+      renderer.setRenderTarget(prev);
+    }
+  }
+
   render(renderer: THREE.WebGLRenderer, scene: THREE.Scene, camera: THREE.PerspectiveCamera): void {
     const size = renderer.getDrawingBufferSize(new THREE.Vector2());
     this.setSize(size.x, size.y);
