@@ -16,8 +16,8 @@ import { characterIdSchema, emoteIdSchema, characterActionSchema, heldItemSchema
  * selected with `?mode=class`.
  */
 
-/** 3: named classrooms. 4: water. 5: paced live-world streaming + reliable replay. 6: character emotes and low postures. 7: construction shapes through code 50. 8: light player taps. 9: half blocks and stairs. 10: water inside shaped blocks (s-k-wet). 11: plot nudges. 12: lesson tools (freeze, timer, announcements). 13: science-mode power plants (k-plant / s-k-plants). 14: teacher water cleanup (k-drain-water / s-k-water-drained). 15: classroom plant synchronization (live rollout). */
-export const CLASS_PROTOCOL_VERSION = 16;
+/** 3: named classrooms. 4: water. 5: paced live-world streaming + reliable replay. 6: character emotes and low postures. 7: construction shapes through code 50. 8: light player taps. 9: half blocks and stairs. 10: water inside shaped blocks (s-k-wet). 11: plot nudges. 12: lesson tools (freeze, timer, announcements). 13: science-mode power plants (k-plant / s-k-plants). 14: teacher water cleanup (k-drain-water / s-k-water-drained). 15: classroom plant synchronization (live rollout). 16: per-student plot tools. 17: learning themes (k-host / s-k-welcome / s-k-room `theme`; the fire drill). 18: the fire drill run by the teacher — briefing, teams, start by team (k-drill / k-drill-report / s-k-drill). 19: the teacher's quiz (k-drill op quiz / quiz-stop, s-k-drill `quiz`, reports' `quiz` / `quizScore`). */
+export const CLASS_PROTOCOL_VERSION = 19;
 /** Highest block layer of the field grid (WORLD_Y - 1). */
 export const CLASS_MAX_Y = 55;
 /** Field coordinates are bounded so a hostile client can't grow the store
@@ -64,6 +64,29 @@ const vec3Schema = z.tuple([
   z.number().finite().min(-64).max(256),
   z.number().finite().min(-COORD).max(COORD),
 ]);
+
+/** A class's learning theme, chosen by the teacher when the class is first opened: the sandbox
+ *  ("craft", the default — absent means it) or the fire drill ("fire", fireSchool.ts). */
+export const classThemeSchema = z.enum(["craft", "fire"]);
+export type ClassTheme = z.infer<typeof classThemeSchema>;
+
+/** Fire-drill teams: the largest team a teacher may ask for, and the highest team number. */
+export const DRILL_TEAM_MAX = 8;
+export const DRILL_TEAMS_MAX = 100;
+/** The teacher's quiz: how many questions one quiz asks. */
+export const DRILL_QUIZ_QUESTIONS = 5;
+/** One student's progress in the fire drill: the step they are on (index into the drill's steps;
+ *  the last one is "done"), and once done their stars and time. */
+export const drillReportSchema = z.object({
+  name: z.string().max(64),
+  step: z.number().int().min(0).max(7),
+  stars: z.number().int().min(1).max(3).optional(),
+  seconds: z.number().int().min(0).max(36_000).optional(),
+  /** The teacher's quiz: how many questions this student has answered, and how many of them right. */
+  quiz: z.number().int().min(0).max(DRILL_QUIZ_QUESTIONS).optional(),
+  quizScore: z.number().int().min(0).max(DRILL_QUIZ_QUESTIONS).optional(),
+});
+export type DrillReport = z.infer<typeof drillReportSchema>;
 
 export const classRoleSchema = z.enum(["teacher", "student"]);
 export type ClassRole = z.infer<typeof classRoleSchema>;
@@ -115,6 +138,10 @@ export const classClientSchema = z.discriminatedUnion("t", [
      *  browser that doesn't hold the host key (another school PC). */
     password: z.string().max(CLASS_PASSWORD_MAX).optional(),
     hostKey: z.string().max(64).optional(),
+    /** The lesson the teacher picked for THIS opening of the class — a new class or one that exists
+     *  (its sandbox is kept under a themed lesson). Absent: the lesson the class had last. A class
+     *  with people in it keeps the lesson that is running. */
+    theme: classThemeSchema.optional(),
   }),
   z.object({
     t: z.literal("k-join"),
@@ -188,6 +215,25 @@ export const classClientSchema = z.discriminatedUnion("t", [
    *  `reset` puts the whole plot back to empty grass (blocks, dug holes, furniture, water, plants).
    *  Needs a seating (plots exist only after 자리 배치). */
   z.object({ t: z.literal("k-plot"), name: playerNameSchema, op: z.enum(["drain", "reset"]) }),
+  /** The fire drill, run by the teacher (theme "fire"): `teams` forms teams of `size` from the
+   *  students online (0: no teams) and puts everyone back to the briefing; `start` sets team `team`
+   *  off (absent: everyone); `stop` ends the run — everyone back to the classroom and the briefing. */
+  z.object({
+    t: z.literal("k-drill"),
+    // `quiz`: every student is asked the quiz (again: a new one); `quiz-stop`: it is taken off their screens
+    op: z.enum(["teams", "start", "stop", "quiz", "quiz-stop"]),
+    size: z.number().int().min(0).max(DRILL_TEAM_MAX).optional(),
+    team: z.number().int().min(1).max(DRILL_TEAMS_MAX).optional(),
+  }),
+  /** Where the sender's own drill stands (sent when its step changes), for the class's board. */
+  z.object({
+    t: z.literal("k-drill-report"),
+    step: z.number().int().min(0).max(7),
+    stars: z.number().int().min(1).max(3).optional(),
+    seconds: z.number().int().min(0).max(36_000).optional(),
+    quiz: z.number().int().min(0).max(DRILL_QUIZ_QUESTIONS).optional(),
+    quizScore: z.number().int().min(0).max(DRILL_QUIZ_QUESTIONS).optional(),
+  }),
   z.object({ t: z.literal("k-end") }),
   /** Teacher wipes the saved field back to empty grass. */
   z.object({ t: z.literal("k-reset-world") }),
@@ -243,6 +289,8 @@ export const classServerSchema = z.discriminatedUnion("t", [
     /** Seconds within which this server always sends something (an empty snap at worst), so a
      *  client can tell a dead link from a quiet class. Optional: older servers make no promise. */
     keepalive: z.number().positive().max(60).optional(),
+    /** The class's learning theme (absent: the sandbox). */
+    theme: classThemeSchema.optional(),
   }),
   z.object({
     t: z.literal("s-k-furniture"), furniture: z.array(classFurnitureSchema).max(3000),
@@ -255,6 +303,7 @@ export const classServerSchema = z.discriminatedUnion("t", [
     exists: z.boolean(),
     open: z.boolean(),
     teacher: playerNameSchema.optional(),
+    theme: classThemeSchema.optional(),
   }),
   z.object({ t: z.literal("s-k-world"), edits: z.array(classEditSchema) }),
   /** The teacher wiped the field: drop every edit. */
@@ -319,6 +368,21 @@ export const classServerSchema = z.discriminatedUnion("t", [
     plants: z.array(classPlantSchema).max(CLASS_MAX_PLANTS),
     removed: z.array(z.number().int().min(1).max(1_000_000_000)).max(CLASS_MAX_PLANTS).optional(),
     refused: classPlantRefusalSchema.optional(),
+  }),
+  /** The fire drill as the teacher runs it (on change and on every join of a fire class). `teams`:
+   *  [student's name, team number from 1]; `size` 0 means no teams. `go`: the teams set off (0 =
+   *  everyone) — a student whose team is not in it waits in the classroom for the briefing. `run`
+   *  goes up whenever the drill is put back to the start: a client that sees it change starts over.
+   *  `reports`: each student's progress, for the board. */
+  z.object({
+    t: z.literal("s-k-drill"),
+    size: z.number().int().min(0).max(DRILL_TEAM_MAX),
+    teams: z.array(z.tuple([z.string().max(64), z.number().int().min(1).max(DRILL_TEAMS_MAX)])).max(400),
+    go: z.array(z.number().int().min(0).max(DRILL_TEAMS_MAX)).max(DRILL_TEAMS_MAX + 1),
+    run: z.number().int().min(0).max(1_000_000_000),
+    reports: z.array(drillReportSchema).max(400),
+    /** The quiz being asked right now (its number: a new one each time the teacher starts one); absent: none. */
+    quiz: z.number().int().min(1).max(1_000_000_000).optional(),
   }),
   /** A tap connected. `at` is the chest in absolute field coordinates. */
   z.object({

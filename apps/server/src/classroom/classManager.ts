@@ -344,7 +344,7 @@ export class ClassManager {
     const key = classKey(roomName);
     const live = this.loaded(key);
     // `open` must match what k-join will do: a loaded class takes students
-    if (live) return { t: "s-k-room", room: live.roomName, exists: true, open: true, teacher: live.teacherName };
+    if (live) return { t: "s-k-room", room: live.roomName, exists: true, open: true, teacher: live.teacherName, ...(live.theme !== "craft" ? { theme: live.theme } : {}) };
     // names only: an unauthenticated peek must not parse a whole saved field
     const saved = this.store.meta(key);
     if (saved) return { t: "s-k-room", room: saved.roomName ?? saved.teacherName, exists: true, open: false, teacher: saved.teacherName };
@@ -359,6 +359,13 @@ export class ClassManager {
     let room = this.loaded(key);
     if (!room && this.classes.has(key)) return this.refuse(socket, "internal"); // closed, its save still failing
     if (room && !sameTeacher(room.teacherName)) return this.refuse(socket, "room-taken");
+    // another lesson than the one this class is loaded for, and nobody in it: it is put away and
+    // opened again from its save as the lesson picked now (the checks below are the same ones a
+    // saved class always goes through). With people in it the running lesson stays.
+    if (room && msg.theme && msg.theme !== room.theme && room.onlineCount === 0 && this.persist(room)) {
+      this.unload(room);
+      room = undefined;
+    }
     if (!room) {
       const saved = this.store.load(key);
       if (saved) {
@@ -366,14 +373,14 @@ export class ClassManager {
         if (!sameTeacher(saved.teacherName)) return this.refuse(socket, "room-taken");
         const keyOk = !!msg.hostKey && sameKey(msg.hostKey, saved.teacherKey);
         if (!keyOk && !this.tryPassword(key, () => !!msg.password && checkPassword(msg.password, saved))) return this.refuse(socket, "bad-password");
-        room = withWater(new ClassRoom(saved.teacherName, { passHash: saved.passHash, salt: saved.salt }, saved, undefined, { rust: classWaterEngine() }));
-        log.info({ room: room.roomName, teacher: room.teacherName, edits: saved.edits.length, from: socket.from }, "class restored");
+        room = withWater(new ClassRoom(saved.teacherName, { passHash: saved.passHash, salt: saved.salt }, saved, undefined, { rust: classWaterEngine(), theme: msg.theme }));
+        log.info({ room: room.roomName, teacher: room.teacherName, theme: room.theme, edits: saved.edits.length, from: socket.from }, "class restored");
       } else {
         if (!msg.password || msg.password.length < CLASS_PASSWORD_MIN) return this.refuse(socket, "bad-password");
         const { hash, salt } = hashPassword(msg.password);
         const tidy = (s: string) => s.trim().replace(/\s+/g, " ");
-        room = withWater(new ClassRoom(tidy(msg.teacher), { passHash: hash, salt }, undefined, tidy(msg.room), { rust: classWaterEngine() }));
-        log.info({ room: room.roomName, teacher: room.teacherName, from: socket.from }, "class opened");
+        room = withWater(new ClassRoom(tidy(msg.teacher), { passHash: hash, salt }, undefined, tidy(msg.room), { rust: classWaterEngine(), theme: msg.theme }));
+        log.info({ room: room.roomName, teacher: room.teacherName, theme: room.theme, from: socket.from }, "class opened");
       }
       this.classes.set(key, room);
     }

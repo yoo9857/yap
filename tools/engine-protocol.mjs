@@ -51,7 +51,7 @@ const samples = {
     "s-p-error": [{ t: "s-p-error", code: "game-limit" }],
   },
   classClient: {
-    "k-host": [{ t: "k-host", v: CLASS_PROTOCOL_VERSION, room: "햇살반", teacher: "김선생", password: "1234", hostKey: "hk" }, { t: "k-host", v: CLASS_PROTOCOL_VERSION, room: "햇살반", teacher: "김선생" }],
+    "k-host": [{ t: "k-host", v: CLASS_PROTOCOL_VERSION, room: "햇살반", teacher: "김선생", password: "1234", hostKey: "hk", theme: "fire" }, { t: "k-host", v: CLASS_PROTOCOL_VERSION, room: "햇살반", teacher: "김선생" }],
     "k-join": [{ t: "k-join", v: CLASS_PROTOCOL_VERSION, room: "햇살반", student: "Mina", seatKey: "sk" }, { t: "k-join", v: CLASS_PROTOCOL_VERSION, room: "햇살반", student: "Mina" }],
     "k-peek": [{ t: "k-peek", v: CLASS_PROTOCOL_VERSION, room: "햇살반" }],
     "k-move": [
@@ -65,6 +65,8 @@ const samples = {
     "k-bonk": [{ t: "k-bonk", target: "p2", yaw: 0.5, pitch: -0.2, seq: 9 }, { t: "k-bonk", yaw: 0.5, pitch: -0.2, seq: 9 }],
     "k-kick": [{ t: "k-kick", playerId: "p2" }],
     "k-gather": [{ t: "k-gather" }],
+    "k-drill": [{ t: "k-drill", op: "teams", size: 5 }, { t: "k-drill", op: "start", team: 2 }, { t: "k-drill", op: "stop" }, { t: "k-drill", op: "quiz" }, { t: "k-drill", op: "quiz-stop" }],
+    "k-drill-report": [{ t: "k-drill-report", step: 7, stars: 3, seconds: 95 }, { t: "k-drill-report", step: 2 }, { t: "k-drill-report", step: 7, quiz: 5, quizScore: 4 }],
     "k-arrange": [{ t: "k-arrange" }, { t: "k-arrange", clear: true }, { t: "k-arrange", yaw: 1.5708 }, { t: "k-arrange", roam: true }],
     "k-lesson": [{ t: "k-lesson", freeze: true }, { t: "k-lesson", timer: 300 }, { t: "k-lesson", freeze: false, timer: 0 }],
     "k-announce": [{ t: "k-announce", text: "선생님을 봐 주세요" }],
@@ -82,11 +84,11 @@ const samples = {
   },
   classServer: {
     "s-k-welcome": [
-      { t: "s-k-welcome", you: "p2", role: "student", room: "햇살반", teacher: "김선생", key: "sk", members, settings: { chatLocked: false, buildLocked: false, tapsLocked: true }, editCount: 1200, furniture, keepalive: 2.5 },
+      { t: "s-k-welcome", you: "p2", role: "student", room: "햇살반", teacher: "김선생", key: "sk", members, settings: { chatLocked: false, buildLocked: false, tapsLocked: true }, editCount: 1200, furniture, keepalive: 2.5, theme: "fire" },
       { t: "s-k-welcome", you: "p1", role: "teacher", room: "햇살반", teacher: "김선생", key: "hk", members: [], settings: { chatLocked: false, buildLocked: false }, editCount: 0, furniture: [] },
     ],
     "s-k-furniture": [{ t: "s-k-furniture", furniture, rejected: true }, { t: "s-k-furniture", furniture: [] }],
-    "s-k-room": [{ t: "s-k-room", room: "햇살반", exists: true, open: true, teacher: "김선생" }, { t: "s-k-room", room: "없는반", exists: false, open: false }],
+    "s-k-room": [{ t: "s-k-room", room: "햇살반", exists: true, open: true, teacher: "김선생", theme: "fire" }, { t: "s-k-room", room: "없는반", exists: false, open: false }],
     "s-k-world": [{ t: "s-k-world", edits }],
     "s-k-world-reset": [{ t: "s-k-world-reset" }],
     "s-k-water-drained": [{ t: "s-k-water-drained" }],
@@ -98,6 +100,11 @@ const samples = {
     "s-k-edit": [{ t: "s-k-edit", by: "p2", edits }],
     "s-k-wet": [{ t: "s-k-wet", cells: [[3, 2, -4, 19], [3, 2, -5, 0]] }],
     "s-k-chat": [{ t: "s-k-chat", from: "p1", name: "김선생", role: "teacher", text: "모여요", system: true }, { t: "s-k-chat", from: "p2", name: "Mina", role: "student", text: "네" }],
+    "s-k-drill": [
+      { t: "s-k-drill", size: 4, teams: [["민지", 1], ["Jun", 2]], go: [0, 2], run: 3, reports: [{ name: "민지", step: 7, stars: 2, seconds: 120 }, { name: "Jun", step: 1 }] },
+      { t: "s-k-drill", size: 0, teams: [], go: [], run: 0, reports: [] },
+      { t: "s-k-drill", size: 0, teams: [], go: [0], run: 1, reports: [{ name: "민지", step: 7, stars: 3, seconds: 88, quiz: 3, quizScore: 2 }], quiz: 2 },
+    ],
     "s-k-seats": [{ t: "s-k-seats", seats: [] }, { t: "s-k-seats", seats: [{ name: "민지", pos: [12.5, 5, -24.5], yaw: 3.14159 }] }, { t: "s-k-seats", seats: [], roam: true }],
     "s-k-lesson": [{ t: "s-k-lesson" }, { t: "s-k-lesson", frozen: true }, { t: "s-k-lesson", timerLeft: 179500, timerTotal: 180000 }],
     "s-k-announce": [{ t: "s-k-announce", text: "👏 모두 정말 잘했어요!" }],

@@ -33,6 +33,10 @@ import {
   type ClassAnim,
   type CharacterId,
   type EmoteId,
+  type ClassTheme,
+  type DrillReport,
+  DRILL_TEAMS_MAX,
+  fireSchool,
 } from "@robo/shared";
 import { checkPassword, sameKey, type SavedClass } from "./classStore.js";
 import { readSavedPlants, type SavedPlant } from "./classStore.js";
@@ -208,16 +212,25 @@ export class ClassRoom {
     roomName?: string,
     /** The Rust engine to run this class's water on (docs/ENGINE.md), or null for the TypeScript
      *  rules (the reference). ClassManager decides from FLUID_ENGINE. */
-    opts: { rust?: RustModule | null } = {},
+    opts: { rust?: RustModule | null; theme?: ClassTheme } = {},
   ) {
     if (opts.rust) this.rust = new RustClassWater(opts.rust);
     // a class saved before named classes was keyed by its teacher's name
     this.roomName = roomName ?? saved?.roomName ?? teacherName;
     this.key = classKey(this.roomName);
-    if (!saved) return;
+    // THE LESSON IS WHAT THE TEACHER PICKS WHEN THEY OPEN THE CLASS — every time, also for a class
+    // that exists already (teachers open "3학년 2반" for every lesson: with "a saved class keeps
+    // the theme it was made with", picking the fire drill on such a class opened its old sandbox —
+    // the bug of 2026-11-13). No pick (an older client, a reconnect): the lesson it had last.
+    this.theme = opts.theme ?? (saved ? saved.theme ?? "craft" : "craft");
+    if (!saved) { this.stampTheme(); return; }
     this.settings = saved.settings;
-    this.furniture.load(saved.furniture);
-    if (saved.seating) {
+    // What a save holds of the FIELD (edits, furniture, plants, seating) is always the class's
+    // sandbox. A themed lesson does not load it and does not touch it: it is held as it came and
+    // written back with every save, so the class's building is there again at its next sandbox lesson.
+    if (this.theme !== "craft") this.sandbox = { edits: saved.edits, furniture: saved.furniture, plants: saved.plants, seating: saved.seating };
+    else this.furniture.load(saved.furniture);
+    if (saved.seating && this.theme === "craft") {
       this.seating = saved.seating.seats.map((x) => ({ ...x, pos: [x.pos[0], x.pos[1], x.pos[2]] as [number, number, number] }));
       this.seatOrigin = { pos: [saved.seating.origin.pos[0], saved.seating.origin.pos[1], saved.seating.origin.pos[2]], yaw: saved.seating.origin.yaw };
       this.seatRoam = saved.seating.roam;
@@ -230,10 +243,19 @@ export class ClassRoom {
         this.timerTotal = saved.lesson.timerTotal;
       }
     }
-    for (const p of readSavedPlants(saved.plants) ?? []) this.plants.set(this.nextPlantId, { ...p, id: this.nextPlantId++ });
+    if (this.theme === "craft") for (const p of readSavedPlants(saved.plants) ?? []) this.plants.set(this.nextPlantId, { ...p, id: this.nextPlantId++ });
     this.reindexPlants();
     this.addMember(saved.teacherName, "teacher", saved.teacherKey);
     for (const s of saved.students) this.addMember(s.name, "student", s.key);
+    if (saved.drill && this.theme === "fire") {
+      this.drillSize = saved.drill.size;
+      this.drillRun = saved.drill.run;
+      this.drillGo = [...saved.drill.go];
+      for (const [name, team] of saved.drill.teams) this.drillTeams.set(classKey(name), { name, team });
+    }
+    // a themed field is the theme's own (never the players'): always built from the current code,
+    // so a class saved under an older school gets today's — the stations are placed by its numbers
+    if (this.theme !== "craft") { this.stampTheme(); return; }
     for (const [x, y, z, block, shape] of saved.edits) {
       this.edits.set(voxelKey(x, y, z), [block, shape]);
       // A source can have been saved before its first flow step too.
@@ -241,6 +263,135 @@ export class ClassRoom {
     }
     this.rust?.load(saved.edits);
     this.editKeys = [...this.edits.keys()];
+  }
+
+  /** The class's learning theme: the sandbox, or the fire drill (its school is the whole field). */
+  readonly theme: ClassTheme;
+  /** During a themed lesson: the class's sandbox exactly as its save had it (see the constructor). */
+  private sandbox: Pick<SavedClass, "edits" | "furniture" | "plants" | "seating"> | null = null;
+
+  /** A themed class's field: nobody builds on it. Blocks, furniture, plants and water are refused. */
+  private get fixedField(): boolean {
+    return this.theme !== "craft";
+  }
+
+  // ------------------------------------------------------------ the fire drill, run by the teacher
+  // A fire class starts in the briefing: nobody's drill runs until the teacher sets them off —
+  // everyone, or one team at a time. Each student still runs their OWN drill (fires and smoke are
+  // local); the server only says who may start, and gathers progress for the board.
+
+  /** Team size the teacher asked for (0: no teams). */
+  private drillSize = 0;
+  /** classKey(student's name) → their team (from 1). */
+  private readonly drillTeams = new Map<string, { name: string; team: number }>();
+  /** Teams set off (0 = everyone). */
+  private drillGo: number[] = [];
+  /** Goes up whenever the drill is put back to the start. */
+  private drillRun = 0;
+  /** classKey(name) → progress in this run. */
+  private readonly drillReports = new Map<string, DrillReport>();
+
+  private drillMessage(): Extract<ClassServerMessage, { t: "s-k-drill" }> {
+    return {
+      t: "s-k-drill",
+      size: this.drillSize,
+      teams: [...this.drillTeams.values()].map((x): [string, number] => [x.name, x.team]),
+      go: this.drillGo,
+      run: this.drillRun,
+      reports: [...this.drillReports.values()],
+      ...(this.drillQuiz > 0 ? { quiz: this.drillQuiz } : {}),
+    };
+  }
+  /** The quiz being asked (0: none) and how many have been started: each one has a number of its own. */
+  private drillQuiz = 0;
+  private drillQuizzes = 0;
+
+  private drillChanged(): void {
+    this.dirty = true;
+    this.broadcast(this.drillMessage());
+  }
+
+  /** Back to the briefing: nobody set off, progress forgotten, every client starts over. */
+  private drillReset(): void {
+    this.drillGo = [];
+    this.drillReports.clear();
+    this.drillRun++;
+    this.drillQuiz = 0; // back to the briefing: a quiz that was being asked is over
+  }
+
+  /**
+   * Teams of about `size` from the students online, in name order (a class finds its teams the
+   * same way every lesson). As many teams as `size` needs, filled evenly — 21 children in fives
+   * are 5·4·4·4·4, never four fives and one child alone.
+   */
+  private formTeams(size: number): void {
+    this.drillSize = size;
+    this.drillTeams.clear();
+    if (size === 0) return;
+    const students = [...this.byPeer.values()].filter((m) => m.role === "student").sort((a, b) => a.name.localeCompare(b.name, "ko"));
+    const count = Math.ceil(students.length / size);
+    students.forEach((m, i) => this.drillTeams.set(classKey(m.name), { name: m.name, team: Math.floor((i * count) / students.length) + 1 }));
+  }
+
+  /** A student joins a fire class: with teams formed, one without a team joins the smallest. */
+  private drillArrival(member: Member, peer: ClassPeer): void {
+    if (this.theme !== "fire") return;
+    if (member.role === "student" && this.drillSize > 0 && !this.drillTeams.has(classKey(member.name)) && this.drillTeams.size < 400) {
+      const sizes = new Map<number, number>();
+      for (const { team } of this.drillTeams.values()) sizes.set(team, (sizes.get(team) ?? 0) + 1);
+      let team = 0, least = Infinity;
+      for (const [n, members] of [...sizes].sort((a, b) => a[0] - b[0])) if (members < least) { least = members; team = n; }
+      // every team full (or none yet): a new one
+      if (team === 0 || least >= this.drillSize) team = Math.min(DRILL_TEAMS_MAX, Math.max(0, ...sizes.keys()) + 1);
+      this.drillTeams.set(classKey(member.name), { name: member.name, team });
+      this.drillChanged(); // everyone, the newcomer included
+      return;
+    }
+    peer.send(this.drillMessage());
+  }
+
+  private handleDrill(msg: Extract<ClassClientMessage, { t: "k-drill" }>): void {
+    if (this.theme !== "fire") return;
+    if (msg.op === "teams") {
+      this.formTeams(msg.size ?? 0);
+      this.drillReset(); // new teams start from the briefing
+      this.system(this.drillSize > 0 ? `👥 선생님이 ${this.drillSize}인 1조로 조를 편성했어요` : "👥 선생님이 조 편성을 풀었어요");
+    } else if (msg.op === "quiz") {
+      // a new quiz for everyone: what was answered in the last one is wiped
+      this.drillQuiz = ++this.drillQuizzes;
+      for (const [key, r] of this.drillReports) {
+        const { quiz: _answered, quizScore: _right, ...rest } = r;
+        void _answered; void _right;
+        this.drillReports.set(key, rest);
+      }
+      this.system("📝 선생님이 퀴즈를 시작했어요");
+    } else if (msg.op === "quiz-stop") {
+      if (this.drillQuiz === 0) return;
+      this.drillQuiz = 0;
+      this.system("📝 퀴즈가 끝났어요");
+    } else if (msg.op === "start") {
+      const teams = new Set([...this.drillTeams.values()].map((x) => x.team));
+      const team = msg.team !== undefined && teams.has(msg.team) ? msg.team : 0;
+      if (this.drillGo.includes(team) || this.drillGo.includes(0)) return;
+      this.drillGo = team === 0 ? [0] : [...this.drillGo, team];
+      this.system(team === 0 ? "🔥 화재 대피 훈련 시작! 모두 출발해요" : `🔥 ${team}조 출발!`);
+    } else {
+      this.drillReset();
+      this.system("🧑‍🏫 훈련을 멈췄어요 — 모두 교실로 돌아와 선생님 설명을 들어요");
+    }
+    this.drillChanged();
+  }
+
+  /** The fire drill's school as this class's field and furniture (replacing whatever was there). */
+  private stampTheme(): void {
+    if (this.theme !== "fire") return;
+    const school = fireSchool();
+    this.edits.clear();
+    this.wet.clear();
+    for (const [x, y, z, block, shape] of school.edits) this.edits.set(voxelKey(x, y, z), [block, shape]);
+    this.editKeys = [...this.edits.keys()];
+    this.furniture.load(school.furniture);
+    if (this.rust) { this.rust.water.reset(); this.rust.load(school.edits); }
   }
 
   /**
@@ -416,10 +567,20 @@ export class ClassRoom {
       teacherKey: teacher?.key ?? "",
       students: [...this.members.values()].filter((m) => m.role === "student").map((m) => ({ name: m.name, key: m.key })),
       settings: this.settings,
-      edits,
-      furniture: this.furniture.toJSON(),
-      ...(this.plants.size > 0 ? { plants: [...this.plants.values()].map((p) => [p.kind, p.x, p.y, p.z, p.rot, p.filled, p.on ? 1 : 0, p.owner] as SavedPlant) } : {}),
-      ...(this.seating && this.seatOrigin ? { seating: { seats: this.seating, origin: this.seatOrigin, roam: this.seatRoam } } : {}),
+      // a themed field is rebuilt from code when the class is restored: nothing of it is stored —
+      // what is stored is the class's sandbox, as it was when this lesson began
+      edits: this.fixedField ? this.sandbox?.edits ?? [] : edits,
+      furniture: this.fixedField ? this.sandbox?.furniture ?? [] : this.furniture.toJSON(),
+      ...(this.theme !== "craft" ? { theme: this.theme } : {}),
+      ...(this.theme === "fire" && (this.drillSize > 0 || this.drillGo.length > 0 || this.drillRun > 0)
+        ? { drill: { size: this.drillSize, teams: [...this.drillTeams.values()].map((x): [string, number] => [x.name, x.team]), go: [...this.drillGo], run: this.drillRun } }
+        : {}),
+      ...(this.fixedField
+        ? { ...(this.sandbox?.plants ? { plants: this.sandbox.plants } : {}), ...(this.sandbox?.seating ? { seating: this.sandbox.seating } : {}) }
+        : {
+          ...(this.plants.size > 0 ? { plants: [...this.plants.values()].map((p) => [p.kind, p.x, p.y, p.z, p.rot, p.filled, p.on ? 1 : 0, p.owner] as SavedPlant) } : {}),
+          ...(this.seating && this.seatOrigin ? { seating: { seats: this.seating, origin: this.seatOrigin, roam: this.seatRoam } } : {}),
+        }),
       ...(this.frozen || this.timerEnd !== null
         ? { lesson: { frozen: this.frozen, ...(this.timerEnd !== null ? { timerEnd: this.timerEnd, timerTotal: this.timerTotal } : {}) } }
         : {}),
@@ -746,6 +907,7 @@ export class ClassRoom {
       editCount: count,
       furniture: this.furniture.toJSON(),
       keepalive: KEEPALIVE_S,
+      ...(this.theme !== "craft" ? { theme: this.theme } : {}),
     });
     // Freeze membership, not 300k duplicate tuples. Values may change while a
     // slow client loads; reliable edits replay after its initial world arrives.
@@ -756,6 +918,7 @@ export class ClassRoom {
       peer.send(this.seatsMessage());
       peer.send(this.lessonMessage()); // always: a page from before a restart must drop a stale freeze/timer
       peer.send(this.plantsMessage()); // always, like the seats: a stale page's plants are replaced
+      this.drillArrival(member, peer);
       member.freezeAt = undefined;
       this.seatArrival(member);
       this.broadcastMembers();
@@ -776,6 +939,7 @@ export class ClassRoom {
     peer.send(this.seatsMessage());
     peer.send(this.lessonMessage());
     peer.send(this.plantsMessage());
+    this.drillArrival(member, peer);
     member.freezeAt = undefined;
     this.seatArrival(member);
     this.broadcastMembers();
@@ -816,9 +980,11 @@ export class ClassRoom {
         else this.keepOnPlot(me);
         return;
       case "k-edit":
+        if (this.fixedField) { this.rejectEdits(peer, msg.edits); return; }
         this.applyEdits(me, peer, msg.edits);
         return;
       case "k-furniture":
+        if (this.fixedField) { this.rejectFurniture(peer); return; }
         this.placer = me;
         try { this.applyFurniture(me, peer, msg); } finally { this.placer = null; }
         return;
@@ -835,7 +1001,24 @@ export class ClassRoom {
         if (this.held(me)) return;
         this.bonk(me, msg);
         return;
+      case "k-drill-report": {
+        if (this.theme !== "fire") return;
+        const key = classKey(me.name), had = this.drillReports.get(key);
+        // quiz answers only count while a quiz is being asked (and what was answered stays on the board
+        // after it); within one quiz the count never goes back: a refreshed page starts counting again
+        const quiz = this.drillQuiz > 0 && msg.quiz !== undefined && (had?.quiz === undefined || msg.quiz >= had.quiz)
+          ? { quiz: msg.quiz, quizScore: Math.min(msg.quiz, msg.quizScore ?? 0) }
+          : had?.quiz !== undefined ? { quiz: had.quiz, quizScore: had.quizScore ?? 0 } : {};
+        // a quiz report says nothing of the drill itself: the stars and time earned at this step stay
+        const keep = msg.quiz !== undefined && had?.step === msg.step;
+        const stars = msg.stars ?? (keep ? had.stars : undefined), seconds = msg.seconds ?? (keep ? had.seconds : undefined);
+        if (had && had.step === msg.step && had.stars === stars && had.seconds === seconds && had.quiz === quiz.quiz && had.quizScore === quiz.quizScore) return;
+        this.drillReports.set(key, { name: me.name, step: msg.step, ...(stars !== undefined ? { stars } : {}), ...(seconds !== undefined ? { seconds } : {}), ...quiz });
+        this.broadcast(this.drillMessage());
+        return;
+      }
       case "k-plant":
+        if (this.fixedField) { this.rejectPlant(peer, msg.id); return; }
         this.applyPlant(me, peer, msg);
         return;
     }
@@ -957,16 +1140,22 @@ export class ClassRoom {
         this.dirty = true;
         this.broadcast({ t: "s-k-settings", settings: this.settings });
         return;
+      case "k-drill":
+        this.handleDrill(msg);
+        return;
       case "k-end":
         this.close();
         return;
       case "k-drain-water":
+        if (this.fixedField) return; // no water here to drain
         this.drainWater();
         return;
       case "k-plot":
+        if (this.fixedField) return; // nothing of a student's on a themed field
         this.clearPlot(peer, msg.name, msg.op === "drain");
         return;
       case "k-reset-world":
+        if (this.fixedField) return; // the theme's field is not the class's to wipe
         this.edits.clear();
         this.wet.clear();
         this.editKeys = [];
@@ -1443,6 +1632,8 @@ export class ClassRoom {
     // the lesson is over (수업 종료, or the class sat empty long enough to be collected): its
     // plots end with it — the next lesson must not find its students fenced in by yesterday's.
     // (A deploy does NOT come through here: shutdown saves and drops sockets, the plots survive.)
+    // the fire drill ends with the lesson too: the next one starts from the briefing, without teams
+    if (this.drillSize > 0 || this.drillGo.length > 0) { this.formTeams(0); this.drillReset(); this.dirty = true; }
     if (this.seating) {
       this.seating = null;
       this.rebuildPlotWalls();

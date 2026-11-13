@@ -2,7 +2,7 @@ import { mkdirSync } from "node:fs";
 import { createRequire } from "node:module";
 import { dirname } from "node:path";
 import { randomBytes, scryptSync, timingSafeEqual } from "node:crypto";
-import { CLASS_MAX_PLANTS, loadPlants, type ClassEdit, type ClassSettings, type ClassFurniture, type PlantSite } from "@robo/shared";
+import { CLASS_MAX_PLANTS, loadPlants, type ClassEdit, type ClassSettings, type ClassFurniture, type ClassTheme, type PlantSite } from "@robo/shared";
 import { log } from "../log.js";
 
 const nativeRequire = createRequire(import.meta.url);
@@ -31,6 +31,29 @@ export interface SavedClass {
   /** The class's power plants (science mode): [kind, x, y, z, rot, filled, on, owner's name].
    *  Optional like `seating`: older rows have none and an older server ignores it. */
   plants?: SavedPlant[];
+  /** The learning theme the class was made with (absent: the sandbox). A themed class stores no
+   *  field: it is rebuilt from code. An older server (rollback) ignores this and opens an empty field. */
+  theme?: ClassTheme;
+  /** The fire drill as the teacher left it (teams, which are set off, the run counter), so a deploy
+   *  mid-lesson does not send a running class back to the briefing. Optional; progress is not kept. */
+  drill?: SavedDrill;
+}
+
+export interface SavedDrill {
+  size: number;
+  teams: [string, number][];
+  go: number[];
+  run: number;
+}
+
+/** A saved drill, checked field by field; anything malformed means none. */
+function readDrill(raw: unknown): SavedDrill | undefined {
+  if (!raw || typeof raw !== "object") return undefined;
+  const d = raw as Record<string, unknown>;
+  const int = (v: unknown, lo: number, hi: number): v is number => typeof v === "number" && Number.isInteger(v) && v >= lo && v <= hi;
+  if (!int(d.size, 0, 8) || !int(d.run, 0, 1_000_000_000) || !Array.isArray(d.teams) || !Array.isArray(d.go)) return undefined;
+  const teams = d.teams.filter((t): t is [string, number] => Array.isArray(t) && t.length === 2 && typeof t[0] === "string" && t[0].length <= 64 && int(t[1], 1, 100)).slice(0, 400);
+  return { size: d.size, run: d.run, teams, go: d.go.filter((g): g is number => int(g, 0, 100)).slice(0, 101) };
 }
 
 export type SavedPlant = [string, number, number, number, number, number, number, string];
@@ -123,6 +146,8 @@ export function readSaved(raw: unknown): SavedClass | null {
     seating: readSeating(d.seating),
     lesson: readLesson(d.lesson),
     plants: Array.isArray(d.plants) ? (d.plants as SavedPlant[]) : undefined,
+    theme: d.theme === "fire" ? "fire" : undefined,
+    drill: readDrill(d.drill),
   };
 }
 
