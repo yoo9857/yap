@@ -40,6 +40,13 @@ await page.waitForSelector('[data-go="solo"]');
 const lobby = await page.$$eval("[data-go]", (els) => els.map((e) => e.dataset.go).join(","));
 check("education lobby offers teacher / student / solo", lobby === "teacher,student,solo", lobby);
 await page.click('[data-go="solo"]');
+// solo play picks a learning theme: the sandbox field, or the fire drill
+await page.waitForSelector('[data-solo="craft"]', { visible: true });
+{
+  const themes = await page.$$eval("[data-solo]", (els) => els.map((e) => e.dataset.solo).join(","));
+  check("solo play offers the craft field and the fire drill", themes === "craft,fire", themes);
+}
+await page.click('[data-solo="craft"]');
 await page.waitForFunction(() => !!globalThis.__roboCraft, { timeout: 15000 });
 // the hooks exist from construction; physics starts after the graphics warmup
 await page.waitForFunction(() => globalThis.__roboCraft.snapshot().grounded, { timeout: 20000 }).catch(() => {});

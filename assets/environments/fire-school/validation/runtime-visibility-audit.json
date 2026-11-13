@@ -1,0 +1,10 @@
+{
+  "glbSha256": "fde915f69e4676e57e29193b80b2af03afdd971538402caf1c5b9eedb6d91881",
+  "raysHittingOpaqueSurface": 19082,
+  "backfacesVisibleFromFreeAir": 0,
+  "ambiguousSharedEdgeHits": 2,
+  "wallAndCeilingChecks": 3577,
+  "missingWallOrCeilingSamples": 0,
+  "wallGapExamples": [],
+  "examples": []
+}

@@ -1,0 +1,12 @@
+{
+  "version": "7.0.0",
+  "handAssetVersion": "6.0.0",
+  "extinguisherAssetVersion": "1.3.1",
+  "firstPersonNozzleGripOffsetCamera": [
+    0.075,
+    -0.075,
+    0
+  ],
+  "hoseSocket": "Nozzle_Hose_Socket",
+  "placement": "under the inner edge of the left palm"
+}

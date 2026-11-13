@@ -1,0 +1,29 @@
+{
+  "version": "6.0.0",
+  "style": "Fingerless cotton-candy cartoon hands",
+  "units": "metres",
+  "hands": [
+    {
+      "side": "L",
+      "vertices": 3125,
+      "triangles": 6246
+    },
+    {
+      "side": "R",
+      "vertices": 3125,
+      "triangles": 6246
+    }
+  ],
+  "wristDiameter": 0.15,
+  "forearmLength": 0.45,
+  "poses": [
+    "relaxed puff",
+    "soft wrap",
+    "hold puff"
+  ],
+  "individualFingers": 0,
+  "creases": 0,
+  "thumb": "small nub on the inner side of the grasp",
+  "rightHandMirrored": false,
+  "viewPose": "lower hands with FOV-aware framing"
+}

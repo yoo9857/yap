@@ -1,0 +1,18 @@
+# Fire flipbook
+
+Blender (5.4 alpha, portable) on the dev PC:
+C:\Users\<user>\Downloads\blender-5.4.0-alpha+main...-windows.amd64-release\...\blender.exe
+
+1. blender -b -P assets/fx/fire/source/bake_fire.py -- C:/craftyap-fxbake/final 64 80   (about 6 min; work dir must be an ASCII path)
+2. node assets/fx/fire/build.mjs C:/craftyap-fxbake/final
+3. bump ?v= of FIRE_FLAMES_URL in apps/client/src/craft/fire/fireFx.ts
+
+Add ',smoke' as a 4th argument (fire,smoke) to also bake a smoke sheet (not used by the game yet).
+
+Two sheets are baked: the column (default) and the ridge (5th argument):
+  blender -b -P assets/fx/fire/source/bake_fire.py -- C:/craftyap-fxbake/ridge 64 80 fire ridge
+  node assets/fx/fire/build.mjs C:/craftyap-fxbake/final C:/craftyap-fxbake/ridge
+
+The wall fire (a patch of wall burning; also writes side.png, its profile, which the game does not use):
+  blender -b -P assets/fx/fire/source/bake_fire.py -- C:/craftyap-fxbake/wall 64 80 fire wall
+  node assets/fx/fire/build.mjs C:/craftyap-fxbake/final C:/craftyap-fxbake/ridge C:/craftyap-fxbake/wall
