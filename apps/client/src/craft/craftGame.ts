@@ -70,7 +70,7 @@ import { CraftHud } from "./craftHud.js";
 import { MachineWorkshop } from "./machines/workshop.js";
 import { PetCompanion } from "./petCompanion.js";
 import { PetShop } from "./petShop.js";
-import { SPECIES, isPetSpecies, type PetSpecies } from "../player/creatureRig.js";
+import { CreatureRig, SPECIES, isPetSpecies, type PetSpecies } from "../player/creatureRig.js";
 import { withObjectParticle } from "./korean.js";
 import { approach, easeAngle, interpolate, turnToward } from "./smoothing.js";
 import { FurnitureLayout } from "./furniture/layout.js";
@@ -134,7 +134,7 @@ function keyName(e: KeyboardEvent): string {
  * lives in the pure craft/* modules.
  */
 /** What of the game needs nothing but the page: made ahead of it, one piece per turn of the browser. */
-export interface CraftParts { renderer: GameRenderer; sky: SkyDome; view: VoxelView; rig: CharacterRig; furnitureView: FurnitureView }
+export interface CraftParts { renderer: GameRenderer; sky: SkyDome; view: VoxelView; rig: CharacterRig; furnitureView: FurnitureView; petRig: CreatureRig }
 
 /**
  * The renderer, the sky and the block view, made BEFORE the game with `pause` between them and
@@ -144,6 +144,10 @@ export interface CraftParts { renderer: GameRenderer; sky: SkyDome; view: VoxelV
  */
 export async function buildCraftParts(mount: HTMLElement, pause: () => Promise<void>): Promise<CraftParts> {
   const renderer = new GameRenderer(mount);
+  // Asked now, while the driver has nothing queued: three asks at the first texture that wants it,
+  // and a question to the driver waits for everything handed to it before — at the warm-up's first
+  // upload that was the shader compiles just started, 35 ms of standing still (trace, 2026-11-14).
+  renderer.renderer.capabilities.getMaxAnisotropy();
   renderer.scene.fog = new THREE.Fog(FOG_COLOR, 95, 245);
   const sky = new SkyDome(renderer.scene, SKY_TOP, FOG_COLOR);
   warmSkyEnvironment(renderer.renderer, SKY_TOP, FOG_COLOR, SKY_GROUND); // its programs compile while the rest is built
@@ -156,7 +160,10 @@ export async function buildCraftParts(mount: HTMLElement, pause: () => Promise<v
   await pause();
   const furnitureView = new FurnitureView(renderer.scene);
   await pause();
-  return { renderer, sky, view, rig, furnitureView };
+  // the pet most players have (another species in the save: the game makes its own)
+  const petRig = new CreatureRig("dog");
+  await pause();
+  return { renderer, sky, view, rig, furnitureView, petRig };
 }
 
 export class CraftGame {
@@ -522,6 +529,7 @@ export class CraftGame {
       this.state.world,
       { x: this.body.x + 1.2, y: this.body.y, z: this.body.z + 1.2 },
       this.state.pet,
+      opts.parts?.petRig,
     );
     this.petShop = new PetShop(document.body, this.state.pet, (species) => this.adoptPet(species),
       () => { this.furniture.closePanel(); this.hud.hideRecipes(); }, () => this.resumePlay());
@@ -985,6 +993,19 @@ export class CraftGame {
     if (this.disposed || this.started) { shadowsWarm(); return; }
     this.warming = true;
     this.sync?.warm(true, this.body); // a classroom: the first classmate's one-time cost, now
+    // A frame is two halves: what the game works out (poses, the HUD's first texts, the drill's
+    // first update, whatever those make at their first run) and the drawing. Together, with the
+    // page's first layout of the HUD after them, they were one task of ~70 ms every start
+    // (2026-11-14). The first half alone here — what it makes is then in the compile below, and
+    // the layout it causes comes before the first drawn frame, not after it. From a timer, not a
+    // frame callback: the page lays out right after its frame callbacks, in the same task (the
+    // HUD's first layout is ~30 ms by itself), and after a timer it does so in the next one.
+    await warmupYield(false, this.events.signal);
+    if (this.disposed || this.started) { shadowsWarm(); return; }
+    this.holdDraw = true;
+    try { this.render(1, 1 / 60); } finally { this.holdDraw = false; }
+    await warmupYield(true, this.events.signal);
+    if (this.disposed || this.started) { shadowsWarm(); return; } // (started: `start` left the warm-up state itself)
     try {
       await warmupGpuAsync(this.renderer.renderer, this.renderer.scene, this.renderer.camera, () => {
         if (!this.disposed && !this.started) this.render(1, 1 / 60); // once playing, the loop draws
@@ -1029,6 +1050,8 @@ export class CraftGame {
   private started = false;
   /** True only while `prepare` draws its warm-up frames. */
   private warming = false;
+  /** `render` stops before drawing (the warm-up's first pass). */
+  private holdDraw = false;
 
   /** Release the WebGL/audio-facing resources when the mode is replaced. */
   private offSettings: (() => void) | null = null;
@@ -2502,6 +2525,7 @@ export class CraftGame {
       else if (this.emptyHands) this.hud.setPiece(t("빈손 · Q로 블록 들기", "Empty hands · Q to hold blocks"), 0, 0, "✋");
       else this.hud.setPiece(PIECES[this.pieceIndex]!, this.pieceRot, this.pieceTilt);
     }
+    if (this.holdDraw) return; // (the warm-up's first pass: everything a frame works out, nothing drawn yet)
     this.perf.time("render", () => this.renderer.render());
     this.perf.update(this.renderer.renderer, frameDt);
   }

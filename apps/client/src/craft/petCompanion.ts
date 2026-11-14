@@ -44,9 +44,12 @@ export class PetCompanion {
     world: VoxelWorld,
     spawn: { x: number; y: number; z: number },
     species: PetSpecies = "dog",
+    /** A rig made ahead of the game (`buildCraftParts`): used when it is the species asked for. */
+    made?: CreatureRig,
   ) {
     this.scene = scene;
-    this.rig = new CreatureRig(species);
+    if (made && made.species !== species) made.dispose();
+    this.rig = made && made.species === species ? made : new CreatureRig(species);
     scene.add(this.rig.root);
     const info = SPECIES[this.rig.species];
     this.body = {
