@@ -10,12 +10,11 @@ import * as THREE from "three";
  * attached per material (`envMap`), not as `scene.environment`, so the matte
  * blocks keep exactly the light they were painted under and pay nothing.
  */
-export function createSkyEnvironment(
-  renderer: THREE.WebGLRenderer,
-  top: THREE.ColorRepresentation,
-  horizon: THREE.ColorRepresentation,
-  ground: THREE.ColorRepresentation,
-): THREE.WebGLRenderTarget {
+interface Prepared { pmrem: THREE.PMREMGenerator; scene: THREE.Scene; geometry: THREE.BufferGeometry; material: THREE.Material }
+const prepared = new WeakMap<THREE.WebGLRenderer, Prepared>();
+const held = new WeakMap<THREE.WebGLRenderer, { dispose(): void }[]>();
+
+function prepare(top: THREE.ColorRepresentation, horizon: THREE.ColorRepresentation, ground: THREE.ColorRepresentation, renderer: THREE.WebGLRenderer): Prepared {
   const scene = new THREE.Scene();
   const geometry = new THREE.SphereGeometry(10, 32, 16);
   const material = new THREE.ShaderMaterial({
@@ -48,10 +47,61 @@ export function createSkyEnvironment(
       }`,
   });
   scene.add(new THREE.Mesh(geometry, material));
-  const pmrem = new THREE.PMREMGenerator(renderer);
+  return { pmrem: new THREE.PMREMGenerator(renderer), scene, geometry, material };
+}
+
+/**
+ * Start the compile of the three programs the map is made with (the sky, the generator's
+ * backdrop, its blur), well before `createSkyEnvironment` - which draws at once, so each program
+ * it had to make itself was waited for with the loading screen standing still (~25 ms apiece,
+ * tools/profile-fire-boot.mjs 2026-11-14). Compiled as the generator will use them: into a target
+ * like its own, without tone mapping. The blur material is the generator's own (reached through
+ * its private fields: a three.js that keeps them elsewhere just makes the map as before).
+ */
+export function warmSkyEnvironment(renderer: THREE.WebGLRenderer, top: THREE.ColorRepresentation, horizon: THREE.ColorRepresentation, ground: THREE.ColorRepresentation): void {
+  if (prepared.has(renderer)) return;
+  const made = prepare(top, horizon, ground, renderer);
+  prepared.set(renderer, made);
+  const prevTarget = renderer.getRenderTarget(), prevTone = renderer.toneMapping;
+  let target: THREE.WebGLRenderTarget | null = null;
+  const scrap: { dispose(): void }[] = [];
+  try {
+    const inner = made.pmrem as unknown as { _setSize(size: number): void; _allocateTargets(): THREE.WebGLRenderTarget; _blurMaterial: THREE.Material; _lodPlanes: THREE.BufferGeometry[] };
+    inner._setSize(256); // the default size of fromScene
+    target = inner._allocateTargets();
+    renderer.toneMapping = THREE.NoToneMapping;
+    renderer.setRenderTarget(target);
+    const flat = new THREE.OrthographicCamera(), cube = new THREE.PerspectiveCamera(90, 1, 0.1, 50);
+    renderer.compile(new THREE.Mesh(inner._lodPlanes[0], inner._blurMaterial), flat);
+    renderer.compile(made.scene, cube);
+    // the backdrop the generator draws first (it makes a new one each time: the same parameters, the same program)
+    const backdrop = new THREE.MeshBasicMaterial({ name: "PMREM.Background", side: THREE.BackSide, depthWrite: false, depthTest: false });
+    const box = new THREE.BoxGeometry();
+    scrap.push(backdrop, box);
+    renderer.compile(new THREE.Mesh(box, backdrop), cube);
+  } catch {
+    // made at first use, as before
+  } finally {
+    renderer.setRenderTarget(prevTarget);
+    renderer.toneMapping = prevTone;
+    target?.dispose();
+    held.set(renderer, scrap); // a program lives while a material holds it: kept until the map is made
+  }
+}
+
+export function createSkyEnvironment(
+  renderer: THREE.WebGLRenderer,
+  top: THREE.ColorRepresentation,
+  horizon: THREE.ColorRepresentation,
+  ground: THREE.ColorRepresentation,
+): THREE.WebGLRenderTarget {
+  const { pmrem, scene, geometry, material } = prepared.get(renderer) ?? prepare(top, horizon, ground, renderer);
+  prepared.delete(renderer);
   const target = pmrem.fromScene(scene, 0, 0.1, 50);
   pmrem.dispose();
   geometry.dispose();
   material.dispose();
+  for (const item of held.get(renderer) ?? []) item.dispose();
+  held.delete(renderer);
   return target;
 }

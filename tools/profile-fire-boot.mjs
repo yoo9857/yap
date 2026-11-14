@@ -44,7 +44,8 @@ await cdp.send("Profiler.setSamplingInterval", { interval: 500 });
 await cdp.send("Profiler.start");
 const t0 = Date.now();
 await page.goto(URL, { waitUntil: "domcontentloaded" });
-await page.waitForFunction(() => globalThis.__roboCraft?.fire?.(), { timeout: 120000 });
+// ready = the loading screen is gone (the drill exists long before: the warm-up runs behind the overlay)
+await page.waitForFunction(() => globalThis.__roboCraft?.fire?.() && document.querySelector("#boot-overlay")?.classList.contains("hidden"), { timeout: 120000 });
 const ready = Date.now() - t0;
 await page.evaluate(() => globalThis.__roboCraft.firePlay(true));
 await sleep(AFTER);
@@ -109,7 +110,7 @@ if (navStartUs) {
     }
     return "(none of the game's)";
   };
-  for (const [at, ms] of long.filter((l) => l[1] >= 100)) {
+  for (const [at, ms] of long.filter((l) => l[1] >= Number(process.env.MIN ?? 100))) {
     const bySelf = new Map(), byOwn = new Map();
     profile.samples.forEach((id, i) => {
       if (times[i] < at || times[i] > at + ms) return;

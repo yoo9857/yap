@@ -36,7 +36,7 @@ import {
 import { CRAFT_SAVE_KEY, clearCraftSave, loadCraft, saveCraft, saveStatus, type CraftGameState } from "./craftSave.js";
 import { FIELD_MAX_VIEW, FIELD_SAVE_KEY, FieldWindow, clearFieldSave, fieldStarterInventory } from "./fieldWorld.js";
 import { SkyDome } from "./skyDome.js";
-import { createSkyEnvironment } from "../render/skyEnvironment.js";
+import { createSkyEnvironment, warmSkyEnvironment } from "../render/skyEnvironment.js";
 import { compileShadowPrograms } from "../render/shadowWarm.js";
 import { ClassSync } from "./classSync.js";
 import type { ClassClient, ClassSession } from "../net/classClient.js";
@@ -99,6 +99,8 @@ const FOG_COLOR = 0x9fd8f5;
 /** Murky blue the fog turns while the camera is underwater. */
 const UNDERWATER_FOG = 0x1d5f9e;
 const SKY_TOP = 0x6fbfee;
+/** What the reflection map has under the horizon: a neutral warm grey (gold reflecting grass reads olive). */
+const SKY_GROUND = 0x9a8f78;
 /** Render distance presets (metres), cycled with O. The island is 160 m
  *  across, so its far preset shows nearly all of it; the field's window can
  *  only back FIELD_MAX_VIEW. */
@@ -143,6 +145,7 @@ export async function buildCraftParts(mount: HTMLElement, pause: () => Promise<v
   const renderer = new GameRenderer(mount);
   renderer.scene.fog = new THREE.Fog(FOG_COLOR, 95, 245);
   const sky = new SkyDome(renderer.scene, SKY_TOP, FOG_COLOR);
+  warmSkyEnvironment(renderer.renderer, SKY_TOP, FOG_COLOR, SKY_GROUND); // its programs compile while the rest is built
   await pause();
   // ?blocks=classic draws the pre-v4 surfaces, for comparison
   const view = new VoxelView(renderer.scene, { generatedSurfaces: new URLSearchParams(location.search).get("blocks") !== "classic" });
@@ -964,8 +967,12 @@ export class CraftGame {
     }
     // the water pipeline's own passes too (their override materials, into their own targets)
     this.renderer.waterPipeline?.compile(this.renderer.renderer, this.renderer.scene, this.renderer.camera);
+    await warmupYield(true, this.events.signal); // (each of these is tens of ms: a frame between them)
+    if (this.disposed || this.started) return;
     // and the shadow pass's depth programs (render/shadowWarm.ts)
     const shadowsWarm = compileShadowPrograms(this.renderer.renderer, this.renderer.scene, this.renderer.camera);
+    await warmupYield(true, this.events.signal);
+    if (this.disposed || this.started) { shadowsWarm(); return; }
     this.warming = true;
     this.sync?.warm(true, this.body); // a classroom: the first classmate's one-time cost, now
     try {
@@ -2566,7 +2573,7 @@ export class CraftGame {
    *  built: its PMREM render was 66 ms of the constructor's long task (2026-11-14). */
   private ensureSkyEnvironment(): void {
     if (this.skyEnvironment || this.disposed) return;
-    this.skyEnvironment = createSkyEnvironment(this.renderer.renderer, SKY_TOP, FOG_COLOR, 0x9a8f78);
+    this.skyEnvironment = createSkyEnvironment(this.renderer.renderer, SKY_TOP, FOG_COLOR, SKY_GROUND);
     this.view.setEnvironment(this.skyEnvironment.texture);
   }
   /** Live classroom link (education mode with a teacher); null when solo. */

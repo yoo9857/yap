@@ -135,7 +135,8 @@ export async function warmupGpuAsync(
   // properties. A mode disposing those materials mid-compile can leave that
   // poll reading a deleted program. Poll the public GL completion flag here
   // and cancel waits before disposing the renderer instead.
-  compileFor(renderer, scene, camera, targets);
+  const slicing = compileSliced(renderer, scene, camera, targets, signal);
+  if (slicing) { await slicing; if (signal?.aborted) return; }
   const gl = renderer.getContext(), parallel = gl.getExtension("KHR_parallel_shader_compile");
   if (parallel) while (!signal?.aborted && !gl.isContextLost()) {
     const ready = (renderer.info.programs ?? []).every((p) => {
@@ -165,6 +166,51 @@ export async function warmupGpuAsync(
     // let the browser present, so GPU-side work lands now, not in play
     await warmupYield(true, signal);
   }
+}
+
+/**
+ * `compileFor` a few objects at a time, the browser allowed to draw in between: writing sixty
+ * programs' sources and handing them to the driver was one task of ~0.1 s (tools/profile-fire-boot.mjs,
+ * 2026-11-14). `renderer.compile(object, camera, scene)` takes its lights from `scene` and its
+ * materials from whatever `object.traverse` visits, so a handful of the scene's drawn objects is
+ * given as a stand-in that visits just those (and has no lights of its own to add twice).
+ */
+function compileSliced(
+  renderer: THREE.WebGLRenderer,
+  scene: THREE.Scene,
+  camera: THREE.Camera,
+  targets: readonly (THREE.WebGLRenderTarget | null)[],
+  signal?: AbortSignal,
+): Promise<void> | null {
+  const drawn: THREE.Object3D[] = [];
+  scene.traverse?.((o) => {
+    const kind = o as { isMesh?: boolean; isPoints?: boolean; isLine?: boolean; isSprite?: boolean };
+    if (kind.isMesh || kind.isPoints || kind.isLine || kind.isSprite) drawn.push(o);
+  });
+  // (nothing to slice: compiled in one go, and nothing to wait for)
+  if (drawn.length === 0 || !renderer.getRenderTarget) { compileFor(renderer, scene, camera, targets); return null; }
+  const few = { list: drawn, traverse(visit: (o: THREE.Object3D) => void) { for (const o of this.list) visit(o); }, traverseVisible() {} };
+  const prev = renderer.getRenderTarget();
+  return (async () => {
+  let slice = performance.now();
+  try {
+    for (const target of targets) {
+      for (let i = 0; i < drawn.length; i += 12) {
+        few.list = drawn.slice(i, i + 12);
+        renderer.setRenderTarget(target);
+        renderer.compile(few as unknown as THREE.Object3D, camera, scene);
+        if (performance.now() - slice > 8) {
+          renderer.setRenderTarget(prev);
+          await warmupYield(true, signal);
+          if (signal?.aborted) return;
+          slice = performance.now();
+        }
+      }
+    }
+  } finally {
+    renderer.setRenderTarget(prev);
+  }
+  })();
 }
 
 /** Give the browser a turn behind the loading screen: until its next frame, or 10 ms. */
