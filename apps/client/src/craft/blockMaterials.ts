@@ -46,6 +46,21 @@ export function createMaterialMaps(family:SurfaceFamily|"grass-side",size=128):M
  return {map:tex(colour,"colour",true),normal:tex(normals,"normal"),roughness:tex(rough,"roughness-metalness")};
 }
 /**
+ * Work the families' pixels out ahead of the game's construction, `pause` between them: the
+ * library asks for all of them while the game is being built, and there they were 75 ms of one
+ * long task (tools/profile-fire-boot.mjs, 2026-11-14). The pixels are kept (`pixelCache`), so the
+ * library only wraps them in textures.
+ */
+export const SURFACE_FAMILIES:readonly (SurfaceFamily|"grass-side")[]=["coat","snow","grass","grass-side","dirt","gem","ore","wood","wool","sand","metal","glass","stone"];
+export async function primeMaterialMaps(pause:()=>Promise<void>):Promise<void> {
+ let slice=performance.now();
+ for(const family of SURFACE_FAMILIES){
+  if(pixelCache.has(family+"|128"))continue;
+  const maps=createMaterialMaps(family);for(const t of [maps.map,maps.normal,maps.roughness])t.dispose(); // never uploaded: only the pixels are wanted
+  if(performance.now()-slice>8){await pause();slice=performance.now();}
+ }
+}
+/**
  * Copies of a library material that must follow it when its generated maps
  * arrive (the game clones each block material for the merged far chunks; a
  * clone made before the maps load would keep the placeholder surface, and the

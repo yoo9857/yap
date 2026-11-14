@@ -4,7 +4,7 @@ import { TouchControls, isTouchPlay } from "./touchControls.js";
 import { framelessTile } from "./kitSurface.js";
 import { GameLoop } from "../app/loop.js";
 import { GameRenderer } from "../render/renderer.js";
-import { texturesReady, warmupGpu, warmupGpuAsync } from "../render/textures.js";
+import { texturesReady, warmupGpu, warmupGpuAsync, warmupYield } from "../render/textures.js";
 import { CharacterRig, disposeRig } from "../player/rig.js";
 import { SeatingView } from "./seatingView.js";
 import { Sfx } from "../audio/sfx.js";
@@ -37,6 +37,7 @@ import { CRAFT_SAVE_KEY, clearCraftSave, loadCraft, saveCraft, saveStatus, type 
 import { FIELD_MAX_VIEW, FIELD_SAVE_KEY, FieldWindow, clearFieldSave, fieldStarterInventory } from "./fieldWorld.js";
 import { SkyDome } from "./skyDome.js";
 import { createSkyEnvironment } from "../render/skyEnvironment.js";
+import { compileShadowPrograms } from "../render/shadowWarm.js";
 import { ClassSync } from "./classSync.js";
 import type { ClassClient, ClassSession } from "../net/classClient.js";
 import { SWIM_DEPTH, pointInWater, waterDepthAt, stepBody, unstick, overlapsShapedVoxel, overlapsVoxel, wishFromInput, type Body } from "./voxelBody.js";
@@ -293,8 +294,6 @@ export class CraftGame {
         return ax >= x0 && ax < x1 && az >= z0 && az < z1;
       });
     }
-    this.skyEnvironment = createSkyEnvironment(this.renderer.renderer, SKY_TOP, FOG_COLOR, 0x9a8f78);
-    this.view.setEnvironment(this.skyEnvironment.texture);
     this.miningEffects=new MiningEffects(this.renderer.scene,cell=>this.view.setMiningHidden(cell));
     // the world as an acoustic space: bricks block sound, glass/ice/leaves let most of it through,
     // water damps a little (read live, so field scrolls and classroom resyncs need nothing)
@@ -914,6 +913,9 @@ export class CraftGame {
     if(!this.disposed)this.rig.setHeldItem(this.heldTool(),this.toolOption);
     if (this.disposed || this.started) return; // timed out (main.ts): start() warmed up its own way
     setMessage(t("그래픽 준비하는 중…", "Preparing graphics…"));
+    this.ensureSkyEnvironment(); // before the compile below: it gives the reflective blocks their map
+    await warmupYield(true, this.events.signal);
+    if (this.disposed || this.started) return;
     this.furniture.setWarm(true);
     this.science?.setWarm(true); // holograms, part models, sparks, beacon
     this.view.setWarm(true); // the water shader, too
@@ -925,17 +927,25 @@ export class CraftGame {
     this.applyRobotOpacity(this.robotOpacity, 0);
     // The bricks round the player are instanced meshes the view makes at its first update: made
     // here, their (instanced) program is in the parallel compile; made in the first frame it was not.
+    // The first fill itself goes in slices, the browser drawing in between (all at once: 0.28 s).
     this.detailFocus.set(this.body.x, this.body.y + EYE_HEIGHT, this.body.z);
-    this.view.update(this.state.world, this.detailFocus);
+    for (;;) {
+      this.view.update(this.state.world, this.detailFocus, 10);
+      if (this.view.filled) break;
+      await warmupYield(true, this.events.signal);
+      if (this.disposed || this.started) return; // (started: the loop's own update builds what is left)
+    }
     // the water pipeline's own passes too (their override materials, into their own targets)
     this.renderer.waterPipeline?.compile(this.renderer.renderer, this.renderer.scene, this.renderer.camera);
+    // and the shadow pass's depth programs (render/shadowWarm.ts)
+    const shadowsWarm = compileShadowPrograms(this.renderer.renderer, this.renderer.scene, this.renderer.camera);
     this.warming = true;
     this.sync?.warm(true, this.body); // a classroom: the first classmate's one-time cost, now
     try {
       await warmupGpuAsync(this.renderer.renderer, this.renderer.scene, this.renderer.camera, () => {
         if (!this.disposed && !this.started) this.render(1, 1 / 60); // once playing, the loop draws
       }, 2, this.events.signal, this.renderer.compileTargets());
-    } catch (error) { if (!this.disposed) throw error; }
+    } catch (error) { if (!this.disposed) throw error; } finally { shadowsWarm(); }
     if (this.disposed || this.started) return;
     this.endWarm();
   }
@@ -955,6 +965,7 @@ export class CraftGame {
   start(): void {
     if (this.disposed) return;
     this.started = true;
+    this.ensureSkyEnvironment();
     this.loop.start();
     // A slow PC's warm-up outlived main.ts's 20 s limit: its shader compiles keep going in the
     // background, but play must not run with the ghosts parked at y = -1000.
@@ -1064,7 +1075,7 @@ export class CraftGame {
     this.miningEffects.dispose();
     this.view.dispose();
     this.sky.dispose();
-    this.skyEnvironment.dispose();
+    this.skyEnvironment?.dispose();
     this.sync?.dispose();
     if (this.fieldGround) {
       this.renderer.scene.remove(this.fieldGround);
@@ -2519,7 +2530,14 @@ export class CraftGame {
   private debugHideRobot = false;
   private readonly sky: SkyDome;
   /** Reflections for metal/gem/glass blocks (see render/skyEnvironment.ts). */
-  private readonly skyEnvironment: THREE.WebGLRenderTarget;
+  private skyEnvironment: THREE.WebGLRenderTarget | null = null;
+  /** Made at the start of `prepare` (or by `start`, if that came first), not while the game is
+   *  built: its PMREM render was 66 ms of the constructor's long task (2026-11-14). */
+  private ensureSkyEnvironment(): void {
+    if (this.skyEnvironment || this.disposed) return;
+    this.skyEnvironment = createSkyEnvironment(this.renderer.renderer, SKY_TOP, FOG_COLOR, 0x9a8f78);
+    this.view.setEnvironment(this.skyEnvironment.texture);
+  }
   /** Live classroom link (education mode with a teacher); null when solo. */
   private readonly sync: ClassSync | null = null;
   private viewPreset = 1;

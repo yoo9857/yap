@@ -128,7 +128,11 @@ async function bootCraft(mount: HTMLElement, field = false, classroom: ClassEntr
   overlay?.classList.remove("hidden");
   setBootMessage(t("세상을 만드는 중…", "Building the world…"));
   // the fire drill is its own download: only for the theme that plays it (fire/fireKit.ts)
-  const [{ CraftGame }, fireKit] = await Promise.all([import("./craft/craftGame.js"), theme === "fire" ? import("./craft/fire/fireKit.js") : undefined]);
+  const [{ CraftGame }, fireKit, { primeMaterialMaps }] = await Promise.all([import("./craft/craftGame.js"), theme === "fire" ? import("./craft/fire/fireKit.js") : undefined, import("./craft/blockMaterials.js")]);
+  // the blocks' surface maps, worked out a few at a time before the game is built (it asks for all of them at once)
+  const pause = (): Promise<void> => new Promise((r) => setTimeout(r));
+  await primeMaterialMaps(pause);
+  await fireKit?.primeFire(pause); // and what the drill works out once (its fire and smoke maps, its signs)
   // ?engine=rust: solo water runs in the Rust engine (docs/ENGINE.md). A browser that cannot load
   // it plays on the TypeScript rules — the same water — rather than not at all.
   let rust = null;

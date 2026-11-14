@@ -794,7 +794,10 @@ export class VoxelView {
    * (the player or the driven machine). Without it every chunk is near and
    * every stud is emitted — the old behaviour, which a fly-through wants.
    */
-  update(world: VoxelWorld, eye?: THREE.Vector3): void {
+  /** Has the first fill been built whole? (see `update`'s `firstFillMs`) */
+  get filled(): boolean { return !this.dirty && this.queue.size === 0; }
+
+  update(world: VoxelWorld, eye?: THREE.Vector3, firstFillMs = Infinity): void {
     if (this.disposed) return;
     this.hasFocus = !!eye;
     if (eye && this.focus.distanceToSquared(eye) > STUD_STEP * STUD_STEP) {
@@ -819,7 +822,9 @@ export class VoxelView {
     this.miningPriority.clear();
     // The first fill and focus-less callers build everything at once, so a
     // world never appears half-drawn on load.
-    const budget = this.primed && eye ? BUILD_BUDGET_MS : Infinity;
+    // (`firstFillMs`: behind a loading screen the first fill may be asked for in slices instead — call
+    // again until `filled`; all of it in one go held the screen still for 0.28 s.)
+    const budget = this.primed && eye ? BUILD_BUDGET_MS : firstFillMs;
     const start = performance.now();
     if (this.queue.size > 0) {
       const order = [...this.queue].sort((a, b) => this.distSqTo(a) - this.distSqTo(b));
@@ -830,6 +835,7 @@ export class VoxelView {
         if (this.buildChunk(world, chunkX(id), chunkZ(id)) && this.distSqTo(id) <= studRange) this.studsDirty = true;
         if (performance.now() - start > budget) break;
       }
+      if (this.queue.size > 0 && !this.primed) return; // a slice of the first fill: water and studs once it is whole
       this.primed = true;
     }
     if (this.staged.size > 0) this.stepStaging(start, budget);

@@ -21,9 +21,11 @@ await page.evaluateOnNewDocument(() => {
   globalThis.__waits = [];
   const GL = WebGL2RenderingContext.prototype, names = new WeakMap();
   const label = (src) => `${/#define SHADER_TYPE (\S+)/.exec(src)?.[1] ?? "?"}${/#define SHADER_NAME (\S+)/.exec(src)?.[1] ? ":" + /#define SHADER_NAME (\S+)/.exec(src)[1] : ""}${/#define USE_INSTANCINGb/.test(src) ? " instanced" : ""}${/#define USE_SKINNINGb/.test(src) ? " skinned" : ""}${/#define USE_SHADOWMAPb/.test(src) ? " shadows" : ""}${/DEPTH_PACKING|DISTANCE/.test(src.slice(0, 1500)) ? " depth" : ""}`;
-  const shaderSource = GL.shaderSource, attachShader = GL.attachShader;
+  const shaderSource = GL.shaderSource, attachShader = GL.attachShader, createShader = GL.createShader, fragment = new WeakSet();
+  // (the kind is noted when the shader is made: ASKING the driver for it waits for everything queued before it, and the probe itself froze the page)
+  GL.createShader = function (type) { const shader = createShader.call(this, type); if (shader && type === this.FRAGMENT_SHADER) fragment.add(shader); return shader; };
   GL.shaderSource = function (shader, src) { names.set(shader, label(src)); return shaderSource.call(this, shader, src); };
-  GL.attachShader = function (program, shader) { if (!names.has(program) || this.getShaderParameter(shader, this.SHADER_TYPE) === this.FRAGMENT_SHADER) names.set(program, names.get(shader)); return attachShader.call(this, program, shader); };
+  GL.attachShader = function (program, shader) { if (!names.has(program) || fragment.has(shader)) names.set(program, names.get(shader)); return attachShader.call(this, program, shader); };
   for (const fn of ["getProgramParameter", "getProgramInfoLog", "getUniformLocation", "getActiveUniform", "useProgram"]) {
     const real = GL[fn];
     GL[fn] = function (program, ...rest) {
@@ -36,6 +38,7 @@ await page.evaluateOnNewDocument(() => {
   new PerformanceObserver((list) => { for (const e of list.getEntries()) globalThis.__long.push([Math.round(e.startTime), Math.round(e.duration)]); }).observe({ entryTypes: ["longtask"] });
 });
 const cdp = await page.createCDPSession();
+await cdp.send("Performance.enable");
 await cdp.send("Profiler.enable");
 await cdp.send("Profiler.setSamplingInterval", { interval: 500 });
 await cdp.send("Profiler.start");
@@ -46,6 +49,9 @@ const ready = Date.now() - t0;
 await page.evaluate(() => globalThis.__roboCraft.firePlay(true));
 await sleep(AFTER);
 const { profile } = await cdp.send("Profiler.stop");
+// the page's clock (performance.now) on the profiler's: both count from the same monotonic clock
+const { metrics } = await cdp.send("Performance.getMetrics");
+const navStartUs = (metrics.find((m) => m.name === "NavigationStart")?.value ?? 0) * 1e6;
 const long = await page.evaluate(() => globalThis.__long);
 const waits = await page.evaluate(() => globalThis.__waits);
 const readyAt = await page.evaluate(() => Math.round(performance.now())) - AFTER;
@@ -84,6 +90,40 @@ profile.samples.forEach((id, i) => {
 console.log(`
 who calls ${heaviest} (ms):`);
 for (const [key, ms] of [...stacks].sort((a, b) => b[1] - a[1]).slice(0, 8)) console.log(`  ${ms.toFixed(0).padStart(6)}  ${key.slice(0, 230)}`);
+
+// what each freeze of 100 ms or more was made of: self time inside its window, and the game's own
+// function nearest the top of each sample's stack (who asked for the work)
+if (process.env.CLOCKS) console.log("clocks", navStartUs, profile.startTime, profile.endTime, metrics.map((m) => m.name).join(","));
+if (navStartUs) {
+  const times = []; let clock = profile.startTime;
+  profile.samples.forEach((_, i) => { clock += dt[i] ?? 0; times.push((clock - navStartUs) / 1000); });
+  const own = (id) => {
+    if (process.env.OUTER) {
+      const chain = [];
+      for (let at = id; at !== undefined; at = parent.get(at)) { const f = byNode.get(at).callFrame; if (f.functionName && /\/src\//.test(f.url)) chain.push(`${f.functionName} ${f.url.replace(/^.*\/src\//, "").replace(/\?.*$/, "")}:${f.lineNumber + 1}`); }
+      return chain.slice(-Number(process.env.OUTER) - 1).reverse().join(" > ") || "(none of the game's)";
+    }
+    for (let at = id; at !== undefined; at = parent.get(at)) {
+      const f = byNode.get(at).callFrame;
+      if (f.functionName && /\/src\//.test(f.url)) return `${f.functionName}  ${f.url.replace(/^.*\/src\//, "").replace(/\?.*$/, "")}:${f.lineNumber + 1}`;
+    }
+    return "(none of the game's)";
+  };
+  for (const [at, ms] of long.filter((l) => l[1] >= 100)) {
+    const bySelf = new Map(), byOwn = new Map();
+    profile.samples.forEach((id, i) => {
+      if (times[i] < at || times[i] > at + ms) return;
+      const f = byNode.get(id).callFrame, cost = (dt[i] ?? 0) / 1000;
+      const key = `${f.functionName || "(anonymous)"}  ${f.url.replace(/^.*\/(src|node_modules\/\.vite\/deps)\//, "").replace(/\?.*$/, "")}:${f.lineNumber + 1}`;
+      bySelf.set(key, (bySelf.get(key) ?? 0) + cost);
+      byOwn.set(own(id), (byOwn.get(own(id)) ?? 0) + cost);
+    });
+    console.log(`\nthe ${ms} ms freeze at ${at} ms — self time:`);
+    for (const [key, cost] of [...bySelf].sort((a, b) => b[1] - a[1]).slice(0, 7)) console.log(`  ${cost.toFixed(0).padStart(6)}  ${key.slice(0, 140)}`);
+    console.log(`  asked for by (of ${[...byOwn.values()].reduce((x, y) => x + y, 0).toFixed(0)} ms sampled):`);
+    for (const [key, cost] of [...byOwn].sort((a, b) => b[1] - a[1]).slice(0, Number(process.env.TOP ?? 5))) console.log(`  ${cost.toFixed(0).padStart(6)}  ${key.slice(0, 140)}`);
+  }
+}
 
 console.log("\nshader programs the game waited for (when, how long, which):");
 for (const [at, ms, name] of waits) console.log(`  ${String(at).padStart(6)} ms  ${String(ms).padStart(5)} ms  ${name}`);

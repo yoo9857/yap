@@ -167,7 +167,8 @@ export async function warmupGpuAsync(
   }
 }
 
-function warmupYield(frame: boolean, signal?: AbortSignal): Promise<void> {
+/** Give the browser a turn behind the loading screen: until its next frame, or 10 ms. */
+export function warmupYield(frame: boolean, signal?: AbortSignal): Promise<void> {
   return new Promise((resolve) => {
     if (signal?.aborted) { resolve(); return; }
     let cancel = () => {};
