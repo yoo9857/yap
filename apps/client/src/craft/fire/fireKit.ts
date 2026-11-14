@@ -8,8 +8,8 @@
  * run time is exported from here — a value imported from `./fire/…` anywhere else puts the whole
  * drill back into every player's download (test/fire-split.test.ts fails on it).
  */
-import { burnField, smokeField } from "./drillRules.js";
-import { exitSign, stationProp } from "./fireProps.js";
+import { burnField, primeSmokeField } from "./drillRules.js";
+import { exitSign, primeSignFonts, stationProp } from "./fireProps.js";
 import { Group } from "three";
 import { fireSchool } from "@robo/shared";
 import { FireFx } from "./fireFx.js";
@@ -33,8 +33,9 @@ export { FIRE_CAMPUS, fireSchool } from "@robo/shared";
 export async function primeFire(pause: () => Promise<void>): Promise<void> {
   burnField();
   await pause();
-  smokeField();
+  await primeSmokeField(pause);
   await pause();
+  await primeSignFonts(pause);
   const scrap = new Group(); // the props are thrown away: their sign materials and shapes are what is kept
   exitSign(scrap, 0, 0, 0);
   await pause();

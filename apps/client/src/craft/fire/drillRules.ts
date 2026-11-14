@@ -334,6 +334,26 @@ const SMOKE_LIMIT_S = 420;
 let smoke: SmokeField | null = null;
 export function smokeField(): SmokeField {
   if (smoke) return smoke;
+  const search = smokeSearch();
+  for (;;) { const step = search.next(); if (step.done) return (smoke = step.value); }
+}
+/**
+ * The same search a slice at a time, for the start of the game: in one go it held the main thread
+ * 60‒75 ms (tools/profile-fire-boot.mjs, 2026-11-14), and longer on a busy machine. `pause` is
+ * taken whenever `sliceMs` of work has gone by; `smokeField()` then finds the result kept.
+ */
+export async function primeSmokeField(pause: () => Promise<void>, sliceMs = 8): Promise<void> {
+  if (smoke) return;
+  const search = smokeSearch();
+  let since = performance.now();
+  for (;;) {
+    const step = search.next();
+    if (step.done) { smoke ??= step.value; return; }
+    if (performance.now() - since > sliceMs) { await pause(); since = performance.now(); }
+  }
+}
+/** The search itself, stopping (`yield`) between pieces of work so a caller may let the browser draw. */
+function* smokeSearch(): Generator<undefined, SmokeField, undefined> {
   const scene = school3d(), school = fireSchool(), burn = burnField();
   const floor = school.heat[1], ceiling = school.corridor[4];
   const x0 = Math.min(school.heat[0], school.corridor[0]), x1 = Math.min(school.corridor[3], school.retry[0] + 16);
@@ -346,6 +366,7 @@ export function smokeField(): SmokeField {
   for (let k = 0; k < nz; k++) for (let j = 0; j < ny; j++) for (let i = 0; i < nx; i++) {
     const x = cx(i), y = cy(j), z = cz(k);
     if (!scene.intersects([x - 0.06, y - 0.06, z - 0.06], [x + 0.06, y + 0.06, z + 0.06])) open[id(i, j, k)] = 1;
+    if (i === nx - 1) yield;
   }
   // smoke starts just over what burns, when it catches
   const time = new Float32Array(n).fill(Infinity);
@@ -390,10 +411,11 @@ export function smokeField(): SmokeField {
   }
   const settled = new Uint8Array(n);
   const steps: readonly (readonly [number, number, number])[] = [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]];
-  while (heap.length > 0) {
+  for (let turns = 0; heap.length > 0;) {
     const m = pop();
     if (settled[m]) continue;
     settled[m] = 1;
+    if (++turns % 64 === 0) yield;
     const i = m % nx, j = Math.floor(m / nx) % ny, k = Math.floor(m / (nx * ny)), now = time[m]!;
     if (now > SMOKE_LIMIT_S) break;
     for (const [di, dj, dk] of steps) {
@@ -423,7 +445,7 @@ export function smokeField(): SmokeField {
   });
   const grid = new Float32Array(n).fill(Infinity);
   for (const m of kept) grid[m] = time[m]!;
-  return (smoke = { cell: c, count: kept.length, at, arrive, room, min: [x0, ceiling - ny * c, z0], nx, ny, nz, grid });
+  return { cell: c, count: kept.length, at, arrive, room, min: [x0, ceiling - ny * c, z0], nx, ny, nz, grid };
 }
 
 /**

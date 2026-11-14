@@ -175,6 +175,8 @@ export async function warmupGpuAsync(
  * materials from whatever `object.traverse` visits, so a handful of the scene's drawn objects is
  * given as a stand-in that visits just those (and has no lights of its own to add twice).
  */
+/** Drawn objects handed to one `compile`: each may bring a new program (several ms of source to write); a dozen at once was a 0.1 s task on a busy machine. */
+const COMPILE_AT_ONCE = 4;
 function compileSliced(
   renderer: THREE.WebGLRenderer,
   scene: THREE.Scene,
@@ -195,8 +197,8 @@ function compileSliced(
   let slice = performance.now();
   try {
     for (const target of targets) {
-      for (let i = 0; i < drawn.length; i += 12) {
-        few.list = drawn.slice(i, i + 12);
+      for (let i = 0; i < drawn.length; i += COMPILE_AT_ONCE) {
+        few.list = drawn.slice(i, i + COMPILE_AT_ONCE);
         renderer.setRenderTarget(target);
         renderer.compile(few as unknown as THREE.Object3D, camera, scene);
         if (performance.now() - slice > 8) {

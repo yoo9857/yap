@@ -461,7 +461,13 @@ export class MachineWorkshop {
 
     this.group.add(this.visual.root);
     this.rebuild();
-    this.refresh();
+    // (the panel's first fill is `prime`'s: ~20 ms of the game's constructor, for a lab nobody has opened)
+  }
+
+  private primed = false;
+  /** Fill the panel for the first time. The game asks behind its loading screen; opening the lab does it too. */
+  prime(): void {
+    if (!this.primed && !this.disposed) this.refresh();
   }
 
   // ------------------------------------------------------------- editing
@@ -817,6 +823,7 @@ export class MachineWorkshop {
   // ----------------------------------------------------------- lifecycle
 
   toggle(): void {
+    this.prime();
     if (this.science?.active) {
       this.science.close();
       return;
@@ -1100,6 +1107,7 @@ export class MachineWorkshop {
   }
 
   private refresh(): void {
+    this.primed = true;
     this.previewDirty = true;
     if (this.panel.showingModel && !this.detailedSkylark) this.panel.showScreen("parts");
     if (this.panel.showingModel) this.coach.element.hidden = true;

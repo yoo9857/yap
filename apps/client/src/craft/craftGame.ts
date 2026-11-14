@@ -76,6 +76,7 @@ import { approach, easeAngle, interpolate, turnToward } from "./smoothing.js";
 import { FurnitureLayout } from "./furniture/layout.js";
 import type { RustEngine } from "../engine/rustEngine.js";
 import { FurnitureController, PICKUP_TIME } from "./furniture/controller.js";
+import { FurnitureView } from "./furniture/view.js";
 import { ScienceMode, itemLabel } from "./science/scienceMode.js";
 // (types only: the fire drill is its own download, handed in as `fireKit`: see fire/fireKit.ts)
 import type { FireDrill, FireSound } from "./fire/fireDrill.js";
@@ -133,7 +134,7 @@ function keyName(e: KeyboardEvent): string {
  * lives in the pure craft/* modules.
  */
 /** What of the game needs nothing but the page: made ahead of it, one piece per turn of the browser. */
-export interface CraftParts { renderer: GameRenderer; sky: SkyDome; view: VoxelView }
+export interface CraftParts { renderer: GameRenderer; sky: SkyDome; view: VoxelView; rig: CharacterRig; furnitureView: FurnitureView }
 
 /**
  * The renderer, the sky and the block view, made BEFORE the game with `pause` between them and
@@ -150,7 +151,12 @@ export async function buildCraftParts(mount: HTMLElement, pause: () => Promise<v
   // ?blocks=classic draws the pre-v4 surfaces, for comparison
   const view = new VoxelView(renderer.scene, { generatedSurfaces: new URLSearchParams(location.search).get("blocks") !== "classic" });
   await pause();
-  return { renderer, sky, view };
+  // the player's robot and the furniture's first shapes: ~20 ms of the constructor that ask nothing of it
+  const rig = new CharacterRig();
+  await pause();
+  const furnitureView = new FurnitureView(renderer.scene);
+  await pause();
+  return { renderer, sky, view, rig, furnitureView };
 }
 
 export class CraftGame {
@@ -169,7 +175,7 @@ export class CraftGame {
   private readonly sfx = new Sfx();
   private readonly bgm = new Bgm(BGM_PLAYLIST);
   private readonly perf = new PerfMonitor(document.body);
-  private readonly rig = new CharacterRig();
+  private readonly rig: CharacterRig;
   private readonly pet: PetCompanion;
   private readonly petShop: PetShop;
   private readonly furniture: FurnitureController;
@@ -297,6 +303,7 @@ export class CraftGame {
     const fireTheme = this.theme === "fire";
     this.fireKit = fireTheme ? opts.fireKit ?? null : null;
     if (fireTheme && !this.fireKit) throw new Error("the fire theme needs its code: load fire/fireKit.ts and pass it as fireKit");
+    this.rig = opts.parts?.rig ?? new CharacterRig();
     if (opts.parts) ({ renderer: this.renderer, sky: this.sky, view: this.view } = opts.parts);
     else {
       this.renderer = new GameRenderer(mount);
@@ -424,6 +431,7 @@ export class CraftGame {
     const classroomClient = opts.classroom?.client;
     this.furniture = new FurnitureController({
       scene: this.renderer.scene,
+      view: opts.parts?.furnitureView,
       world: this.state.world,
       layout: this.state.furniture,
       originX: () => this.field?.absOriginX ?? 0,
@@ -945,6 +953,8 @@ export class CraftGame {
     await warmupYield(true, this.events.signal);
     this.ensureGhost(); // the block preview's shapes: before the warm-up, which draws them
     await warmupYield(true, this.events.signal);
+    this.workshop.prime(); // the machine lab's panel, filled here instead of in the constructor
+    await warmupYield(true, this.events.signal);
     if (this.disposed || this.started) return;
     this.furniture.setWarm(true);
     this.science?.setWarm(true); // holograms, part models, sparks, beacon
@@ -1001,6 +1011,7 @@ export class CraftGame {
     this.started = true;
     this.ensureSkyEnvironment();
     this.ensureGhost();
+    this.workshop.prime();
     this.loop.start();
     // A slow PC's warm-up outlived main.ts's 20 s limit: its shader compiles keep going in the
     // background, but play must not run with the ghosts parked at y = -1000.

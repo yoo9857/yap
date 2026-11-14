@@ -27,6 +27,8 @@ import { paletteName, pieceName } from "./names.js";
 /** What the controller needs from the game. Structural, so tests could fake it. */
 export interface FurnitureHost {
   scene: THREE.Scene;
+  /** A view made ahead for this scene (the game's `parts`); made here when absent. */
+  view?: FurnitureView;
   world: VoxelWorld;
   layout: FurnitureLayout;
   /** Absolute coords of grid cell (0, 0); 0 on the island. */
@@ -102,7 +104,7 @@ export class FurnitureController {
     /** Whether this game enables the furniture tools. */
     readonly enabled: boolean,
   ) {
-    this.view = new FurnitureView(host.scene);
+    this.view = host.view ?? new FurnitureView(host.scene);
     this.shop = new FurnitureShop(document.body, {
       onPick: (kind, variant) => {
         this.select(kind, variant);

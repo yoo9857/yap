@@ -29,6 +29,24 @@ function add(p: THREE.Object3D, geo: THREE.BufferGeometry, mat: THREE.Material, 
   return mesh;
 }
 
+const SIGN_FONT = `"Pretendard", "Noto Sans KR", "Malgun Gothic", system-ui, sans-serif`;
+/**
+ * The first text in a script makes the browser find a font for it, and the exit sign's line has
+ * three (a figure, Hangul, Latin): drawn as one, that was one 50 ms task
+ * (tools/profile-fire-boot.mjs, 2026-11-14). Measured here a script at a time with `pause`
+ * between, the signs then find every font ready.
+ */
+export async function primeSignFonts(pause: () => Promise<void>): Promise<void> {
+  const g = document.createElement("canvas").getContext("2d");
+  if (!g) return;
+  g.font = `900 50px ${SIGN_FONT}`;
+  for (const sample of ["EXIT 119", "비상구", "🏃"]) {
+    g.measureText(sample);
+    g.fillText(sample, 0, 50);
+    await pause();
+  }
+}
+
 /** Text on a coloured plate (signs above the props): one small canvas per distinct sign. */
 const signs = new Map<string, THREE.MeshBasicMaterial>();
 function signMaterial(text: string, bg: string, fg: string, w = 256, h = 96): THREE.MeshBasicMaterial {
@@ -43,7 +61,7 @@ function signMaterial(text: string, bg: string, fg: string, w = 256, h = 96): TH
   g.fillStyle = fg;
   g.textAlign = "center"; g.textBaseline = "middle";
   let size = Math.round(h * 0.52);
-  g.font = `900 ${size}px "Pretendard", "Noto Sans KR", "Malgun Gothic", system-ui, sans-serif`;
+  g.font = `900 ${size}px ${SIGN_FONT}`;
   while (g.measureText(text).width > w * 0.9 && size > 12) { size -= 2; g.font = g.font.replace(/\d+px/, `${size}px`); }
   g.fillText(text, w / 2, h / 2 + 2);
   const tex = new THREE.CanvasTexture(c);
