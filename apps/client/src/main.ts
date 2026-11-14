@@ -128,7 +128,7 @@ async function bootCraft(mount: HTMLElement, field = false, classroom: ClassEntr
   overlay?.classList.remove("hidden");
   setBootMessage(t("세상을 만드는 중…", "Building the world…"));
   // the fire drill is its own download: only for the theme that plays it (fire/fireKit.ts)
-  const [{ CraftGame }, fireKit, { primeMaterialMaps }] = await Promise.all([import("./craft/craftGame.js"), theme === "fire" ? import("./craft/fire/fireKit.js") : undefined, import("./craft/blockMaterials.js")]);
+  const [{ CraftGame, buildCraftParts }, fireKit, { primeMaterialMaps }] = await Promise.all([import("./craft/craftGame.js"), theme === "fire" ? import("./craft/fire/fireKit.js") : undefined, import("./craft/blockMaterials.js")]);
   // the blocks' surface maps, worked out a few at a time before the game is built (it asks for all of them at once)
   const pause = (): Promise<void> => new Promise((r) => setTimeout(r));
   await primeMaterialMaps(pause);
@@ -140,7 +140,11 @@ async function bootCraft(mount: HTMLElement, field = false, classroom: ClassEntr
     const { loadRustEngine } = await import("./engine/rustEngine.js");
     rust = await loadRustEngine().catch((err: unknown) => { console.warn("Rust engine unavailable, using TypeScript", err); return null; });
   }
-  const game = new CraftGame(mount, { field, classroom: classroom ?? undefined, rust, theme, fireKit });
+  // what the game is made of that needs nothing of it, a piece at a time (its constructor is one task)
+  const parts = await buildCraftParts(mount, pause);
+  const fireFx = fireKit?.makeFireFx();
+  await pause();
+  const game = new CraftGame(mount, { field, classroom: classroom ?? undefined, rust, theme, fireKit, parts, fireFx });
   // shaders and uploads behind the overlay, so play never opens slow and
   // catches up (see warmupGpuAsync); best-effort — never block play on it
   await withTimeout(game.prepare(setBootMessage), 20_000, "graphics warmup").catch(() => {});

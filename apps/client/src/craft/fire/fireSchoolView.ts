@@ -9,8 +9,11 @@ import { StaticScene } from "../staticScene.js";
 
 /** Same physical data is compiled into the Android client. No rounding to voxel cells. */
 export function fireSchoolCollision(origin:()=>readonly[number,number],camera=false):StaticScene {
-  return new StaticScene([...(camera?[...FIRE_CAMPUS.cameraBoxes,...FIRE_CAMPUS.boxes]:FIRE_CAMPUS.boxes),...fireSchool().obstacles],FIRE_CAMPUS.ramps,origin);
+  // the tree over the campus's boxes is built once (8 ms each, and the game is built in one go): fireKit.primeFire asks ahead
+  const built=collision[camera?1:0]??=new StaticScene([...(camera?[...FIRE_CAMPUS.cameraBoxes,...FIRE_CAMPUS.boxes]:FIRE_CAMPUS.boxes),...fireSchool().obstacles],FIRE_CAMPUS.ramps);
+  return built.at(origin);
 }
+const collision:(StaticScene|undefined)[]=[];
 /**
  * The school as the game loads it: school.min.glb — the Blender export with everything that
  * shares a material joined into one mesh (47 draw calls for 255) and its buffers meshopt-

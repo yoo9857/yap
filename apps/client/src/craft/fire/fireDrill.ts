@@ -64,6 +64,8 @@ export interface FireNet {
 }
 
 export interface FireHost {
+  /** The fire's effects, when they were made ahead of the game (fireKit.makeFireFx); the drill owns them from here on. */
+  fx?: FireFx;
   /** A class: the teacher runs the drill. Absent: solo, it starts at once. */
   net?: FireNet;
   scene: THREE.Scene;
@@ -170,6 +172,11 @@ function badgeTexture(icon: string): THREE.CanvasTexture {
   const tex = new THREE.CanvasTexture(c);
   tex.colorSpace = THREE.SRGBColorSpace;
   return tex;
+}
+
+/** Every badge drawn once and thrown away: the first emoji a page draws costs ~10 ms (the font is looked up), and the drill is built in one go. */
+export function primeBadges(): void {
+  for (const icon of [...new Set(Object.values(ICON)), "📝"]) badgeTexture(icon).dispose();
 }
 
 /** The "go here" beacon: a yellow ring with a downward arrow. */
@@ -288,7 +295,8 @@ export class FireDrill {
   constructor(private readonly host: FireHost) {
     this.root.add(this.campus.root);
     const school = this.school;
-    this.fx = new FireFx(school, () => host.pipeline?.() ?? null);
+    const pipeline = (): ReturnType<NonNullable<FireHost["pipeline"]>> => host.pipeline?.() ?? null;
+    if (host.fx) { this.fx = host.fx; this.fx.setPipeline(pipeline); } else this.fx = new FireFx(school, pipeline);
     this.root.add(this.fx.root,this.powder.root);
     this.lighting=new FireLighting(this.fx.root,school);
     void this.campus.ready.then(()=>{if(!this.disposed)this.lighting.invalidate();});

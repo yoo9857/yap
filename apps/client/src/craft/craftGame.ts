@@ -130,6 +130,26 @@ function keyName(e: KeyboardEvent): string {
  * lock aim, grid physics (no rapier). Composition root only; every rule
  * lives in the pure craft/* modules.
  */
+/** What of the game needs nothing but the page: made ahead of it, one piece per turn of the browser. */
+export interface CraftParts { renderer: GameRenderer; sky: SkyDome; view: VoxelView }
+
+/**
+ * The renderer, the sky and the block view, made BEFORE the game with `pause` between them and
+ * handed to it as `parts`. The game's constructor is one task whatever it builds (it was the last
+ * long stall of the start: 0.22 s, tools/profile-fire-boot.mjs 2026-11-14); these three are the
+ * part of it that asks for nothing of the game itself.
+ */
+export async function buildCraftParts(mount: HTMLElement, pause: () => Promise<void>): Promise<CraftParts> {
+  const renderer = new GameRenderer(mount);
+  renderer.scene.fog = new THREE.Fog(FOG_COLOR, 95, 245);
+  const sky = new SkyDome(renderer.scene, SKY_TOP, FOG_COLOR);
+  await pause();
+  // ?blocks=classic draws the pre-v4 surfaces, for comparison
+  const view = new VoxelView(renderer.scene, { generatedSurfaces: new URLSearchParams(location.search).get("blocks") !== "classic" });
+  await pause();
+  return { renderer, sky, view };
+}
+
 export class CraftGame {
   private readonly events = new AbortController();
   private disposed = false;
@@ -265,19 +285,24 @@ export class CraftGame {
 
   constructor(
     mount: HTMLElement,
-    opts: { field?: boolean; classroom?: { client: ClassClient; session: ClassSession }; rust?: RustEngine | null; theme?: ClassTheme; fireKit?: typeof FireKit } = {},
+    opts: { field?: boolean; classroom?: { client: ClassClient; session: ClassSession }; rust?: RustEngine | null; theme?: ClassTheme; fireKit?: typeof FireKit;
+      /** Made ahead (buildCraftParts, fireKit.makeFireFx): the game takes them over. */
+      parts?: CraftParts; fireFx?: ReturnType<typeof FireKit.makeFireFx> } = {},
   ) {
     // a class has its own theme; solo play is told one (only the education field has themes)
     this.theme = opts.classroom ? opts.classroom.session.theme : opts.field ? opts.theme ?? "craft" : "craft";
     const fireTheme = this.theme === "fire";
     this.fireKit = fireTheme ? opts.fireKit ?? null : null;
     if (fireTheme && !this.fireKit) throw new Error("the fire theme needs its code: load fire/fireKit.ts and pass it as fireKit");
-    this.renderer = new GameRenderer(mount);
-    this.renderer.scene.fog = new THREE.Fog(FOG_COLOR, 95, 245);
-    this.sky = new SkyDome(this.renderer.scene, SKY_TOP, FOG_COLOR);
+    if (opts.parts) ({ renderer: this.renderer, sky: this.sky, view: this.view } = opts.parts);
+    else {
+      this.renderer = new GameRenderer(mount);
+      this.renderer.scene.fog = new THREE.Fog(FOG_COLOR, 95, 245);
+      this.sky = new SkyDome(this.renderer.scene, SKY_TOP, FOG_COLOR);
+      // ?blocks=classic draws the pre-v4 surfaces, for comparison
+      this.view = new VoxelView(this.renderer.scene, { generatedSurfaces: new URLSearchParams(location.search).get("blocks") !== "classic" });
+    }
     this.camera = new CraftCamera(this.renderer.camera);
-    // ?blocks=classic draws the pre-v4 surfaces, for comparison
-    this.view = new VoxelView(this.renderer.scene, { generatedSurfaces: new URLSearchParams(location.search).get("blocks") !== "classic" });
     this.view.useRustShells(opts.rust ?? null);
     if (fireTheme) {
       // the campus has its own ground: the field's chunks wholly under it are not drawn
@@ -495,7 +520,6 @@ export class CraftGame {
     this.offSettings = onSettings((st) => {
       if (st.view !== this.viewPreset) this.applyViewDistance(Math.min(VIEW_NAMES.length - 1, Math.max(0, st.view)));
     });
-    this.buildGhost();
     if (opts.classroom && this.field) {
       this.classSession = { room: opts.classroom.session.room, you: opts.classroom.session.you };
       this.sync = new ClassSync(opts.classroom.client, opts.classroom.session, this.field, this.view,
@@ -580,6 +604,7 @@ export class CraftGame {
       this.pitch = this.viewPitch = -0.12;
       const sync = this.sync;
       this.fire = new opts.fireKit!.FireDrill({
+        fx: opts.fireFx,
         // a class: the teacher runs the drill (briefing, teams, start); alone it starts at once
         net: sync ? {
           role: sync.role,
@@ -915,6 +940,8 @@ export class CraftGame {
     setMessage(t("그래픽 준비하는 중…", "Preparing graphics…"));
     this.ensureSkyEnvironment(); // before the compile below: it gives the reflective blocks their map
     await warmupYield(true, this.events.signal);
+    this.ensureGhost(); // the block preview's shapes: before the warm-up, which draws them
+    await warmupYield(true, this.events.signal);
     if (this.disposed || this.started) return;
     this.furniture.setWarm(true);
     this.science?.setWarm(true); // holograms, part models, sparks, beacon
@@ -966,6 +993,7 @@ export class CraftGame {
     if (this.disposed) return;
     this.started = true;
     this.ensureSkyEnvironment();
+    this.ensureGhost();
     this.loop.start();
     // A slow PC's warm-up outlived main.ts's 20 s limit: its shader compiles keep going in the
     // background, but play must not run with the ghosts parked at y = -1000.
@@ -1094,8 +1122,10 @@ export class CraftGame {
     this.sfx.dispose();
     this.perf.dispose();
     this.hud.dispose();
-    this.ghostCubeGeo.dispose(); this.ghostRoundGeo.dispose(); this.ghostSlopeGeo.dispose();this.ghostCornerGeo.dispose();this.ghostSlabGeo.dispose();this.ghostStairsGeo.dispose();this.ghostCapGeo.dispose();this.ghostShellGeo?.dispose();
-    this.ghostOk.dispose(); this.ghostBad.dispose();
+    if (this.ghostMeshes.length > 0) { // (made in prepare/start: a game closed before either has none)
+      this.ghostCubeGeo.dispose(); this.ghostRoundGeo.dispose(); this.ghostSlopeGeo.dispose();this.ghostCornerGeo.dispose();this.ghostSlabGeo.dispose();this.ghostStairsGeo.dispose();this.ghostCapGeo.dispose();this.ghostShellGeo?.dispose();
+      this.ghostOk.dispose(); this.ghostBad.dispose();
+    }
     for (const material of this.robotMaterials ?? []) material.dispose();
     this.robotMaterials = null;
     this.renderer.dispose();
@@ -1998,7 +2028,8 @@ export class CraftGame {
    * round/slope geometry, oriented by yaw+tilt — so what you see is what lands
    * (green = fits, red = blocked).
    */
-  private buildGhost(): void {
+  private ensureGhost(): void {
+    if (this.ghostMeshes.length > 0) return;
     this.ghostCubeGeo = kitCubeGeometry();
     this.ghostRoundGeo = kitRoundGeometry();
     this.ghostSlopeGeo = kitRampGeometry();

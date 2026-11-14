@@ -118,6 +118,13 @@ function paint(g: CanvasRenderingContext2D, pictures: (HTMLImageElement | null)[
   }
 }
 
+/** The board's face painted once on a scrap canvas: what is slow is the first text in its font, and that is kept by the browser. */
+export function primeQuizBoard(touch: boolean): void {
+  const canvas = document.createElement("canvas");
+  canvas.width = TEX_W; canvas.height = TEX_H;
+  paint(canvas.getContext("2d")!, [null, null, null], null, touch);
+}
+
 export class QuizBoard {
   readonly root = new THREE.Group();
   readonly place: QuizBoardPlace;

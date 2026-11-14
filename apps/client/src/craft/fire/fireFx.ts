@@ -663,11 +663,14 @@ export class FireFx {
   private litLevel = 1;
   private seen = false;
 
+  /** For effects made ahead of the drill (fireKit.makeFireFx): where to ask for the frame's pipeline. */
+  setPipeline(get: () => WaterPipeline | null): void { this.getPipeline = get; }
+
   /**
    * `pipeline`: the frame's pipeline when it has one (it gives the smoke the scene's depth) —
    * asked every frame until it answers, because the game turns it on after the drill is built.
    */
-  constructor(school: FireSchool, private readonly getPipeline: () => WaterPipeline | null = () => null) {
+  constructor(school: FireSchool, private getPipeline: () => WaterPipeline | null = () => null) {
     this.school = school;
     const rand = mulberry(20261113);
     const small = school.fires.find((f) => f.small)!;

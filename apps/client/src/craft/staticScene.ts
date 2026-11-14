@@ -31,9 +31,12 @@ function boxRay(p:Vec3,d:Vec3,b:StaticBox,reach:number):{dist:number;normal:Vec3
 }
 export class StaticScene {
   private readonly root:Node|null;
-  constructor(readonly boxes:readonly StaticBox[],readonly ramps:readonly StaticRamp[],private readonly origin:()=>readonly[number,number]=()=>[0,0]){
-    this.root=tree([...boxes.map(box=>({box})),...ramps.map(ramp=>({box:ramp,ramp}))]);
+  /** `from`: a scene of the same boxes and ramps, whose tree is used as it is (it is never changed once built). */
+  constructor(readonly boxes:readonly StaticBox[],readonly ramps:readonly StaticRamp[],private readonly origin:()=>readonly[number,number]=()=>[0,0],from?:StaticScene){
+    this.root=from?from.root:tree([...boxes.map(box=>({box})),...ramps.map(ramp=>({box:ramp,ramp}))]);
   }
+  /** The same scenery placed by another origin: nothing is built again. */
+  at(origin:()=>readonly[number,number]):StaticScene{return new StaticScene(this.boxes,this.ramps,origin,this);}
   private absolute(p:Vec3):[number,number,number]{const[x,z]=this.origin();return[p[0]+x,p[1],p[2]+z];}
   private height(r:StaticRamp,z:number):number{return r.h0+(r.h1-r.h0)*(z-r.min[2])/(r.max[2]-r.min[2]);}
   intersects(min:Vec3,max:Vec3):boolean {

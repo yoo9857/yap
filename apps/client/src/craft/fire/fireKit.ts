@@ -11,6 +11,12 @@
 import { burnField, smokeField } from "./drillRules.js";
 import { exitSign, stationProp } from "./fireProps.js";
 import { Group } from "three";
+import { fireSchool } from "@robo/shared";
+import { FireFx } from "./fireFx.js";
+import { primeBadges } from "./fireDrill.js";
+import { primeQuizBoard } from "./quizBoard.js";
+import { fireSchoolCollision } from "./fireSchoolView.js";
+import { isTouchPlay } from "../../input/touchPlay.js";
 
 export { FireDrill } from "./fireDrill.js";
 export { fireSchoolCollision } from "./fireSchoolView.js";
@@ -34,4 +40,22 @@ export async function primeFire(pause: () => Promise<void>): Promise<void> {
   await pause();
   for (const kind of ["alarm", "phone", "towel"] as const) scrap.add(stationProp(kind).root);
   await pause();
+  // the search trees over the campus's collision boxes (kept: the game's two scenes share them)
+  fireSchoolCollision(() => [0, 0]);
+  await pause();
+  fireSchoolCollision(() => [0, 0], true);
+  await pause();
+  // the first emoji and the first line in the board's font
+  primeBadges();
+  await pause();
+  primeQuizBoard(isTouchPlay());
+  await pause();
+}
+
+/**
+ * The fire's effects (flames, smoke columns, sparks scattered over the room: ~25 ms), made before
+ * the game is: hand them to it as `fireFx`, and the drill it builds takes them over.
+ */
+export function makeFireFx(): FireFx {
+  return new FireFx(fireSchool());
 }
