@@ -4,7 +4,7 @@ import { TouchControls, isTouchPlay } from "./touchControls.js";
 import { framelessTile } from "./kitSurface.js";
 import { GameLoop } from "../app/loop.js";
 import { GameRenderer } from "../render/renderer.js";
-import { texturesReady, warmupGpu, warmupGpuAsync, warmupYield } from "../render/textures.js";
+import { programsCompiled, programsRead, texturesReady, warmupGpu, warmupGpuAsync, warmupYield } from "../render/textures.js";
 import { CharacterRig, disposeRig } from "../player/rig.js";
 import { SeatingView } from "./seatingView.js";
 import { Sfx } from "../audio/sfx.js";
@@ -952,11 +952,18 @@ export class CraftGame {
   async prepare(setMessage: (text: string) => void = () => {}): Promise<void> {
     setMessage(t("텍스처 불러오는 중…", "Loading textures…"));
     // the Blender studs too: the first frame shows them, not the code twin
-    await Promise.all([texturesReady(),preloadHeldItemsWithin(8000),loadBlockStuds(),this.fire?.ready,
+    // (the drill is played with empty hands: its start does not wait for the pickaxe, nor download it)
+    await Promise.all([texturesReady(),this.fire?null:preloadHeldItemsWithin(8000),loadBlockStuds(),this.fire?.ready,
       this.science ? Promise.race([loadItemModels(), new Promise((r) => setTimeout(r, 6000))]) : null]);
     if(!this.disposed)this.rig.setHeldItem(this.heldTool(),this.toolOption);
     if (this.disposed || this.started) return; // timed out (main.ts): start() warmed up its own way
     setMessage(t("그래픽 준비하는 중…", "Preparing graphics…"));
+    // (its three programs were started in buildCraftParts; where little happens in between — the
+    // sandbox field — the driver was still at them and the map's first draw waited 50 ms for it)
+    await programsCompiled(this.renderer.renderer, this.events.signal, 2000);
+    await programsRead(this.renderer.renderer, this.events.signal); // (and their first-use reading, one a frame: 15 ms each)
+    await warmupYield(true, this.events.signal);
+    if (this.disposed || this.started) return;
     this.ensureSkyEnvironment(); // before the compile below: it gives the reflective blocks their map
     await warmupYield(true, this.events.signal);
     this.ensureGhost(); // the block preview's shapes: before the warm-up, which draws them
@@ -968,6 +975,8 @@ export class CraftGame {
     this.science?.setWarm(true); // holograms, part models, sparks, beacon
     this.view.setWarm(true); // the water shader, too
     this.miningEffects.prewarm(BLOCKS.filter((def) => !def.fluid).map((def) => ({ def, materials: this.view.miningMaterials(def.id) })));
+    await warmupYield(true, this.events.signal); // (the broken-wood surface alone is ~30 ms; the first chunks follow)
+    if (this.disposed || this.started) return;
     // The robot's fading materials are made at its first draw (applyRobotOpacity clones them, and a
     // see-through material is another program): made here instead, the parallel compile below has
     // them; made in the warm-up frames they were compiled one by one while the loading screen stood

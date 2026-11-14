@@ -1,7 +1,8 @@
 import * as THREE from "three";
 import { GameLoop } from "../app/loop.js";
 import { GameRenderer } from "../render/renderer.js";
-import { texturesReady, warmupGpu, warmupGpuAsync } from "../render/textures.js";
+import { texturesReady, warmupGpu, warmupGpuAsync, warmupYield } from "../render/textures.js";
+import { compileShadowPrograms } from "../render/shadowWarm.js";
 import { CharacterRig, VARIANT_CYCLE } from "../player/rig.js";
 import { Sfx } from "../audio/sfx.js";
 import { Bgm, BGM_PLAYLIST } from "../audio/bgm.js";
@@ -10,7 +11,7 @@ import { t } from "../ui/i18n.js";
 import { settings } from "../ui/settings.js";
 import { lookDelta } from "../input/mouseLook.js";
 import { Effects } from "../render/effects.js";
-import { generateIsland, surfaceY } from "../craft/voxelWorld.js";
+import { generateIsland, surfaceY, type VoxelWorld } from "../craft/voxelWorld.js";
 import { pickArena } from "./arena.js";
 import { stepBody, SWIM_DEPTH, unstick, wishFromInput, type Body } from "../craft/voxelBody.js";
 import { moveScale } from "../craft/posture.js";
@@ -32,6 +33,32 @@ const TRACER_POOL = 14;
 
 type Phase = "live" | "won" | "lost";
 
+/** What the match is made of that asks nothing of it (see `buildBattleParts`). */
+export interface BattleParts { renderer: GameRenderer; view: VoxelView; world: VoxelWorld; playerRig: CharacterRig; botRigs: CharacterRig[] }
+
+/**
+ * The renderer, the block view, the island and the robots, made BEFORE the match with `pause`
+ * between them, as craft does (`buildCraftParts`): made in the constructor they were one task of
+ * 0.1‒0.14 s behind the loading screen (2026-11-14).
+ */
+export async function buildBattleParts(mount: HTMLElement, pause: () => Promise<void>): Promise<BattleParts> {
+  const renderer = new GameRenderer(mount);
+  renderer.renderer.capabilities.getMaxAnisotropy(); // asked while the driver has nothing queued (see buildCraftParts)
+  await pause();
+  const view = new VoxelView(renderer.scene);
+  await pause();
+  const world = generateIsland(1 + Math.floor(Math.random() * 1_000_000));
+  await pause();
+  const playerRig = new CharacterRig();
+  const botRigs: CharacterRig[] = [];
+  for (let i = 0; i < BOT_COUNT; i++) {
+    botRigs.push(new CharacterRig(VARIANT_CYCLE[(i + 1) % VARIANT_CYCLE.length]));
+    if (i % 3 === 2) await pause();
+  }
+  await pause();
+  return { renderer, view, world, playerRig, botRigs };
+}
+
 /**
  * Blast Royale — arcade solo battle royale on a voxel island: you vs 7 bot
  * robots (who also fight each other), hitscan blasters, a 3-phase shrinking
@@ -50,8 +77,8 @@ export class BattleGame {
   private readonly viewModel: ViewModel;
   private readonly loop: GameLoop;
 
-  private readonly world = generateIsland(1 + Math.floor(Math.random() * 1_000_000));
-  private readonly playerRig = new CharacterRig();
+  private readonly world: VoxelWorld;
+  private readonly playerRig: CharacterRig;
   private readonly botRigs: CharacterRig[] = [];
   private readonly bots: Bot[] = [];
   private readonly player: Body;
@@ -83,12 +110,14 @@ export class BattleGame {
   private readonly zoneMesh: THREE.Mesh;
   private readonly tracers: { mesh: THREE.Mesh; life: number }[] = [];
 
-  constructor(mount: HTMLElement) {
-    this.renderer = new GameRenderer(mount);
+  constructor(mount: HTMLElement, parts?: BattleParts) {
+    this.world = parts?.world ?? generateIsland(1 + Math.floor(Math.random() * 1_000_000));
+    this.playerRig = parts?.playerRig ?? new CharacterRig();
+    this.renderer = parts?.renderer ?? new GameRenderer(mount);
     this.camera = new CraftCamera(this.renderer.camera);
     this.camera.firstPerson = true; // FPS by default (V toggles to 3rd person)
     this.viewModel = new ViewModel(this.renderer.scene, this.renderer.camera);
-    this.view = new VoxelView(this.renderer.scene);
+    this.view = parts?.view ?? new VoxelView(this.renderer.scene);
     this.view.markDirty();
     this.effects = new Effects(this.renderer.scene);
     this.hud = new BattleHud(document.body, () => {
@@ -117,7 +146,7 @@ export class BattleGame {
       const bot = makeBot(i + 1, bx, surfaceY(this.world, Math.floor(bx), Math.floor(bz)) + 1.2, bz);
       unstick(this.world, bot.body);
       this.bots.push(bot);
-      const rig = new CharacterRig(VARIANT_CYCLE[(i + 1) % VARIANT_CYCLE.length]);
+      const rig = parts?.botRigs[i] ?? new CharacterRig(VARIANT_CYCLE[(i + 1) % VARIANT_CYCLE.length]);
       this.botRigs.push(rig);
       this.renderer.scene.add(rig.root);
     }
@@ -170,12 +199,34 @@ export class BattleGame {
     setMessage(t("텍스처 불러오는 중…", "Loading textures…"));
     await texturesReady();
     setMessage(t("그래픽 준비하는 중…", "Preparing graphics…"));
+    if (this.started) return;
     this.warming = true; // a start() after main.ts's timeout must not warm up a second time
-    await warmupGpuAsync(this.renderer.renderer, this.renderer.scene, this.renderer.camera, () => this.renderer.render(), 2, undefined, this.renderer.compileTargets());
+    // What craft's warm-up does (CraftGame.prepare), for the same reasons. The island used to be
+    // built whole in the first frame of the match (0.4 s) and its brick and character programs
+    // compiled there one by one (0.9 s): the loading screen went and the match stood still for
+    // over a second (tools/profile-fire-boot.mjs with URL=…?mode=battle, 2026-11-14).
+    for (;;) {
+      this.view.update(this.world, this.tmpEye.set(this.player.x, this.player.y, this.player.z), 10);
+      if (this.view.filled) break;
+      await warmupYield(true);
+      if (this.started) return; // (the loop's own update builds what is left)
+    }
+    this.applyRobotOpacity(this.robotOpacity, 0); // the robot's fading materials: made before the compile
+    this.renderer.waterPipeline?.compile(this.renderer.renderer, this.renderer.scene, this.renderer.camera);
+    await warmupYield(true);
+    if (this.started) return;
+    const shadowsWarm = compileShadowPrograms(this.renderer.renderer, this.renderer.scene, this.renderer.camera);
+    await warmupYield(true);
+    try {
+      // whole frames of the match itself (camera placed, blaster, HUD), not just the scene as it stands
+      if (!this.started) await warmupGpuAsync(this.renderer.renderer, this.renderer.scene, this.renderer.camera, () => { if (!this.started) this.render(1 / 60); }, 2, undefined, this.renderer.compileTargets());
+    } finally { shadowsWarm(); }
     this.warmed = true;
   }
 
+  private started = false;
   start(): void {
+    this.started = true;
     this.loop.start();
     // started without `prepare` (a test harness): warm up the old way
     if (!this.warmed && !this.warming) {

@@ -137,34 +137,53 @@ export async function warmupGpuAsync(
   // and cancel waits before disposing the renderer instead.
   const slicing = compileSliced(renderer, scene, camera, targets, signal);
   if (slicing) { await slicing; if (signal?.aborted) return; }
-  const gl = renderer.getContext(), parallel = gl.getExtension("KHR_parallel_shader_compile");
-  if (parallel) while (!signal?.aborted && !gl.isContextLost()) {
-    const ready = (renderer.info.programs ?? []).every((p) => {
-      const program = p.program as WebGLProgram | undefined;
-      return !program || gl.getProgramParameter(program, parallel.COMPLETION_STATUS_KHR) === true;
-    });
-    if (ready) break;
-    await warmupYield(false, signal);
-  }
+  const gl = renderer.getContext();
+  // (awaited only where there is something to wait for: with nothing, the first frame is drawn in this same turn)
+  if (gl.getExtension("KHR_parallel_shader_compile")) await programsCompiled(renderer, signal); // (however long: main.ts gives the whole warm-up its limit)
   // A program's first use reads every uniform and attribute it has back from the driver: hundreds
   // of small synchronous calls, ~20 ms a program. Left to the first frame below, sixty programs
   // did that in ONE frame and the loading screen stood still for over a second
   // (tools/profile-fire-boot.mjs, 2026-11-13). Asked for here, a few at a time with the browser
   // allowed to draw in between, it is the same work without the freeze.
+  if ((renderer.info?.programs ?? []).length > 0) await programsRead(renderer, signal);
+  for (let i = 0; i < frames; i++) {
+    if (signal?.aborted || gl.isContextLost()) return;
+    renderFrame();
+    // let the browser present, so GPU-side work lands now, not in play
+    await warmupYield(true, signal);
+  }
+}
+
+/** The first-use reading of every program made so far (see `warmupGpuAsync`), a few at a time with a frame between. */
+export async function programsRead(renderer: THREE.WebGLRenderer, signal?: AbortSignal): Promise<void> {
+  const gl = renderer.getContext?.();
   let slice = performance.now();
   for (const p of renderer.info?.programs ?? []) {
-    if (signal?.aborted || gl.isContextLost()) return;
+    if (signal?.aborted || gl?.isContextLost()) return;
     const program = p as unknown as { program?: WebGLProgram; getUniforms?(): unknown; getAttributes?(): unknown };
     if (!program.program) continue; // destroyed meanwhile
     program.getUniforms?.();
     program.getAttributes?.();
     if (performance.now() - slice > 10) { await warmupYield(true, signal); slice = performance.now(); }
   }
-  for (let i = 0; i < frames; i++) {
-    if (signal?.aborted || gl.isContextLost()) return;
-    renderFrame();
-    // let the browser present, so GPU-side work lands now, not in play
-    await warmupYield(true, signal);
+}
+
+/**
+ * Wait (in 10 ms turns) until the driver has finished every program handed to it so far. Using a
+ * program before that makes the page wait for it standing still; asking the completion flag does
+ * not. Without KHR_parallel_shader_compile there is nothing to ask and nothing to wait for.
+ */
+export async function programsCompiled(renderer: THREE.WebGLRenderer, signal?: AbortSignal, limitMs = Infinity): Promise<void> {
+  const gl = renderer.getContext?.(), parallel = gl?.getExtension("KHR_parallel_shader_compile");
+  if (!gl || !parallel) return;
+  const until = performance.now() + limitMs;
+  while (!signal?.aborted && !gl.isContextLost() && performance.now() < until) {
+    const ready = (renderer.info.programs ?? []).every((p) => {
+      const program = p.program as WebGLProgram | undefined;
+      return !program || gl.getProgramParameter(program, parallel.COMPLETION_STATUS_KHR) === true;
+    });
+    if (ready) break;
+    await warmupYield(false, signal);
   }
 }
 

@@ -48,7 +48,7 @@ const VARIANTS: Record<Exclude<CharacterVariant, "tt">, VariantSpec> = {
 };
 
 const faceUrl = (base: string, e: Expr): string =>
-  e === "dead" ? "/textures/char/face-dead.png" : `/textures/char/face-${base}${e === "happy" ? "" : `-${e}`}.png`;
+  e === "dead" ? "/textures/char/face-dead.webp" : `/textures/char/face-${base}${e === "happy" ? "" : `-${e}`}.webp`;
 
 const FACE_QUAD = new THREE.PlaneGeometry(1, 1);
 

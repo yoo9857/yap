@@ -31,7 +31,6 @@ export class Bgm {
     const unsubscribe = onSettings((s) => { this.el.volume = volume * s.music; });
     this.events.signal.addEventListener("abort", unsubscribe);
     this.el.loop = this.tracks.length <= 1; // single track loops; a playlist advances
-    this.el.src = this.tracks[this.nextIndex()]!;
     if (this.tracks.length > 1) {
       const advance = () => {
         this.el.src = this.tracks[this.nextIndex()]!;
@@ -48,13 +47,28 @@ export class Bgm {
     }
 
     const tryPlay = () => {
+      if (!this.el.getAttribute("src")) return; // (not begun yet: see below)
       if (!this.muted) {
         void this.el.play().catch(() => {
           /* blocked until a gesture — the unlock listeners retry */
         });
       }
     };
-    tryPlay();
+    // The song is asked for once the game is on screen, not while it loads: a track is 1.5‒1.7 MB
+    // and was downloaded beside the textures and models the loading screen waits for (the live
+    // site, 2026-11-14). main.ts says when (`craftyap:playing`); a page that never does begins
+    // after 12 s anyway.
+    const begin = () => {
+      if (this.disposed || this.el.getAttribute("src")) return;
+      this.el.src = this.tracks[this.nextIndex()]!;
+      tryPlay();
+    };
+    if (typeof document !== "undefined" && document.body?.classList.contains("in-game")) begin();
+    else {
+      window.addEventListener("craftyap:playing", begin, { once: true, signal: this.events.signal });
+      const late = setTimeout(begin, 12_000);
+      this.events.signal.addEventListener("abort", () => clearTimeout(late));
+    }
     const unlock = () => {
       if (this.el.paused && !this.muted) tryPlay();
     };

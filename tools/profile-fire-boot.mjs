@@ -45,9 +45,10 @@ await cdp.send("Profiler.start");
 const t0 = Date.now();
 await page.goto(URL, { waitUntil: "domcontentloaded" });
 // ready = the loading screen is gone (the drill exists long before: the warm-up runs behind the overlay)
-await page.waitForFunction(() => globalThis.__roboCraft?.fire?.() && document.querySelector("#boot-overlay")?.classList.contains("hidden"), { timeout: 120000 });
+// (URL=… profiles any mode: ready is then the game on screen)
+await page.waitForFunction(() => (globalThis.__roboCraft?.fire?.() || document.body.classList.contains("in-game")) && document.querySelector("#boot-overlay")?.classList.contains("hidden"), { timeout: 120000 });
 const ready = Date.now() - t0;
-await page.evaluate(() => globalThis.__roboCraft.firePlay(true));
+await page.evaluate(() => { globalThis.__roboCraft?.firePlay?.(true); globalThis.__roboBattle?.start?.(); });
 await sleep(AFTER);
 const { profile } = await cdp.send("Profiler.stop");
 // the page's clock (performance.now) on the profiler's: both count from the same monotonic clock

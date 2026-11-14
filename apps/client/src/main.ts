@@ -155,8 +155,14 @@ async function bootCraft(mount: HTMLElement, field = false, classroom: ClassEntr
 async function bootBattle(mount: HTMLElement): Promise<void> {
   overlay?.classList.remove("hidden");
   setBootMessage(t("섬을 만드는 중…", "Building the island…"));
-  const { BattleGame } = await import("./battle/battleGame.js");
-  const game = new BattleGame(mount);
+  const [{ BattleGame, buildBattleParts }, { primeMaterialMaps }] = await Promise.all([import("./battle/battleGame.js"), import("./craft/blockMaterials.js")]);
+  // the blocks' surface maps a few at a time, then the match's parts a piece at a time, as craft
+  // does (the game's constructor is one task whatever it builds)
+  const pause = (): Promise<void> => new Promise((r) => setTimeout(r));
+  await primeMaterialMaps(pause);
+  const parts = await buildBattleParts(mount, pause);
+  await pause();
+  const game = new BattleGame(mount, parts);
   await withTimeout(game.prepare(setBootMessage), 20_000, "graphics warmup").catch(() => {});
   game.start();
   hideOverlay();
@@ -194,6 +200,14 @@ async function boot(): Promise<void> {
     idle(() => void import("./app/classLobby.js").catch(() => {}));
   }
   const mode = await selectMode(document.body);
+  // The mode's own code starts downloading NOW, beside the character and the class lobby: asked
+  // for only when its boot function ran, it waited for the character first (the live site,
+  // 2026-11-14: character → game code → textures, one after the other). The boot functions'
+  // imports below then find it loading or loaded.
+  const early = (load: () => Promise<unknown>): void => void load().catch(() => {});
+  if (mode === "craft" || mode === "field") { early(() => import("./craft/craftGame.js")); early(() => import("./craft/blockMaterials.js")); }
+  else if (mode === "battle") { early(() => import("./battle/battleGame.js")); early(() => import("./craft/blockMaterials.js")); }
+  else if (mode === "tower") { early(() => import("@dimforge/rapier3d-compat")); early(() => import("./app/game.js")); }
   // Start the HOME character download now, in the background: it overlaps the
   // class lobby instead of covering it. Every mode waits for it below, before
   // any rig is built (a failed download falls back to the built-in mascot).
@@ -216,6 +230,7 @@ async function boot(): Promise<void> {
       theme = choice.theme;
     }
   }
+  if (theme === "fire") early(() => import("./craft/fire/fireKit.js"));
   overlay?.classList.remove("hidden");
   if (mode === "craft" || mode === "field") showTip();
   setBootMessage(t("캐릭터 불러오는 중…", "Loading characters…"));

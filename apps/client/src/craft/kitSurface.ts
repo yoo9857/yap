@@ -109,16 +109,19 @@ export function removeInk(src:Pixels,radius=7,lineRadius=2):Pixels {
   for(let i=0;i<n;i++){if(ink[i])continue;acc[i*4]=d[i*4]!;acc[i*4+1]=d[i*4+1]!;acc[i*4+2]=d[i*4+2]!;acc[i*4+3]=1;}
   const blur=(a:Float32Array,horizontal:boolean):Float32Array=>{
     const out=new Float32Array(n*4),len=horizontal?w:h,lines=horizontal?h:w,run=new Float32Array(4);
+    // (where k wraps to, worked out once: a modulo per pixel and channel was a third of this function's time)
+    const wrap=new Int32Array(len+2*radius+1);for(let k=-radius;k<=len+radius;k++)wrap[k+radius]=((k%len)+len)%len;
     for(let line=0;line<lines;line++){
-      const at=(k:number)=>(horizontal?line*w+((k%w)+w)%w:(((k%h)+h)%h)*w+line)*4;
+      const at=(k:number)=>(horizontal?line*w+wrap[k+radius]!:wrap[k+radius]!*w+line)*4;
       run.fill(0);for(let k=-radius;k<=radius;k++){const j=at(k);for(let c=0;c<4;c++)run[c]=run[c]!+a[j+c]!;}
       for(let k=0;k<len;k++){const o=at(k);for(let c=0;c<4;c++)out[o+c]=run[c]!;const add=at(k+radius+1),sub=at(k-radius);for(let c=0;c<4;c++)run[c]=run[c]!+a[add+c]!-a[sub+c]!;}
     }
     return out;
   };
   const sum=blur(blur(acc,true),false),out={width:w,height:h,data:new Uint8ClampedArray(d)},q=out.data;
+  const beside=morph(ink,w,h,1,true); // an ink pixel or right beside one (the anti-aliased fringe of a line)
   for(let i=0;i<n;i++){
-    if(!near(ink,w,h,i))continue; // a dark area that is part of the picture keeps its own soft edge too
+    if(!beside[i])continue; // a dark area that is part of the picture keeps its own soft edge too
     const t=Math.max(0,Math.min(1,(mean*.62-lum(i))/(mean*.5))),k=sum[i*4+3]!;if(t<=0||k<=0)continue;
     for(let c=0;c<3;c++)q[i*4+c]=d[i*4+c]!*(1-t)+(sum[i*4+c]!/k)*.9*t;
   }
@@ -130,18 +133,14 @@ function morph(src:Uint8Array,w:number,h:number,r:number,grow:boolean):Uint8Arra
     const out=new Uint8Array(w*h);
     for(let y=0;y<h;y++)for(let x=0;x<w;x++){
       let v=grow?0:1;
-      for(let k=-r;k<=r;k++){const j=horizontal?y*w+((x+k)%w+w)%w:(((y+k)%h+h)%h)*w+x;if(grow?a[j]:!a[j]){v=grow?1:0;break;}}
+      // (away from the edges nothing wraps: the same cells without a modulo each)
+      if(horizontal?x>=r&&x<w-r:y>=r&&y<h-r){const base=y*w+x,step=horizontal?1:w;for(let k=-r;k<=r;k++){const j=base+k*step;if(grow?a[j]:!a[j]){v=grow?1:0;break;}}}
+      else for(let k=-r;k<=r;k++){const j=horizontal?y*w+((x+k)%w+w)%w:(((y+k)%h+h)%h)*w+x;if(grow?a[j]:!a[j]){v=grow?1:0;break;}}
       out[y*w+x]=v;
     }
     return out;
   };
   return pass(pass(src,true),false);
-}
-/** Is pixel i an ink pixel or right beside one (the anti-aliased fringe of a line)? */
-function near(ink:Uint8Array,w:number,h:number,i:number):boolean {
-  const x=i%w,y=(i-x)/w;
-  for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++)if(ink[(((y+dy)%h+h)%h)*w+((x+dx)%w+w)%w])return true;
-  return false;
 }
 /** Tiles whose thin dark lines ARE the picture (the cracks of cracked stone bricks): their ink stays.
  *  Every other picture tile (coal, the ? block, a pumpkin) keeps its dark AREAS through removeInk's
