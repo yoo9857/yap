@@ -1,4 +1,5 @@
 import { kitCellsGeometryRust } from "./kitRust.js";
+import { layeredShell, type ShellLayer } from "./shellLayers.js";
 import type { RustEngine } from "../engine/rustEngine.js";
 import {kitCubeGeometry,kitRampGeometry,kitRoundGeometry,kitCellsGeometry,kitBoxesGeometry} from "./kitGeometry.js";
 import * as THREE from "three";
@@ -77,6 +78,14 @@ interface ChunkState {
   /** A far → near flip being built a few meshes per frame (see stepStaging); the far form stays
    *  drawn until every near mesh is ready, then the two swap in one frame. */
   staging: Staging | null;
+  /**
+   * The layers whose surroundings changed since the near form was last built (a changed cell's
+   * own layer and the ones above and below), or null when more than that may have changed. With
+   * `shells` it lets an edit rebuild three layers of a shell instead of all of it (shellLayers.ts).
+   */
+  dirtyY: Set<number> | null;
+  /** The near shells' layers as last built, per mesh key; only chunks edited lately keep them. */
+  shells: Map<number, Map<number, ShellLayer>> | null;
 }
 
 /** The near form of an unchanged chunk, built in budgeted steps instead of one long frame. */
@@ -457,16 +466,16 @@ export class VoxelView {
    * when the cell sits on a chunk border, since its neighbours' exposure
    * changes too.
    */
-  markCellDirty(x: number, _y: number, z: number): void {
+  markCellDirty(x: number, y: number, z: number): void {
     const cx = Math.floor(x / CHUNK);
     const cz = Math.floor(z / CHUNK);
-    this.invalidate(chunkId(cx, cz));
+    this.invalidate(chunkId(cx, cz), y);
     const lx = x - cx * CHUNK;
     const lz = z - cz * CHUNK;
-    if (lx === 0) this.invalidate(chunkId(cx - 1, cz));
-    if (lx === CHUNK - 1) this.invalidate(chunkId(cx + 1, cz));
-    if (lz === 0) this.invalidate(chunkId(cx, cz - 1));
-    if (lz === CHUNK - 1) this.invalidate(chunkId(cx, cz + 1));
+    if (lx === 0) this.invalidate(chunkId(cx - 1, cz), y);
+    if (lx === CHUNK - 1) this.invalidate(chunkId(cx + 1, cz), y);
+    if (lz === 0) this.invalidate(chunkId(cx, cz - 1), y);
+    if (lz === CHUNK - 1) this.invalidate(chunkId(cx, cz + 1), y);
   }
 
   /**
@@ -660,14 +669,30 @@ export class VoxelView {
       disposed: this.disposed };
   }
 
-  private invalidate(id: number): void {
+  /** `y`: the one cell that changed is on this layer (its shell layers y-1…y+1 are made again);
+   *  without it everything in the chunk is. */
+  private invalidate(id: number, y?: number): void {
     const cx = chunkX(id);
     const cz = chunkZ(id);
     if (cx < 0 || cz < 0 || cx >= CHUNKS_X || cz >= CHUNKS_Z) return;
     this.cancelWaterBatch();
     const chunk = this.chunks.get(id);
-    if (chunk) { chunk.stale = true; this.dropStaging(chunk); }
+    if (chunk) {
+      chunk.stale = true;
+      this.dropStaging(chunk);
+      if (y === undefined) chunk.dirtyY = null;
+      else if (chunk.dirtyY) { chunk.dirtyY.add(y - 1); chunk.dirtyY.add(y); chunk.dirtyY.add(y + 1); }
+    }
     this.queue.add(id);
+  }
+
+  /** The chunks that keep their shells' layers: the last few edited (each holds its near shells' numbers twice). */
+  private readonly layered: ChunkState[] = [];
+  private static readonly LAYERED_CHUNKS = 4;
+  private forgetLayers(chunk: ChunkState): void {
+    chunk.shells = null;
+    const at = this.layered.indexOf(chunk);
+    if (at >= 0) this.layered.splice(at, 1);
   }
 
   /**
@@ -678,6 +703,7 @@ export class VoxelView {
    */
   shift(dx: number, dz: number): void {
     this.dropAllStaging(); // staged positions are grid cells from before the scroll
+    for (const chunk of this.chunks.values()) { chunk.dirtyY = null; this.forgetLayers(chunk); } // (so are remembered shell layers)
     this.setMiningHidden(null);this.setFallingHidden([]);this.miningPriority.clear();
     this.cancelWaterBatch();
     const waterQueued = [...this.waterQueue];
@@ -812,7 +838,7 @@ export class VoxelView {
       this.cancelWaterBatch();
       this.dropAllStaging();
       this.dirty = false;
-      for (const chunk of this.chunks.values()) chunk.stale = true;
+      for (const chunk of this.chunks.values()) { chunk.stale = true; chunk.dirtyY = null; this.forgetLayers(chunk); }
       for (let cz = 0; cz < CHUNKS_Z; cz++) {
         for (let cx = 0; cx < CHUNKS_X; cx++) this.queue.add(chunkId(cx, cz));
       }
@@ -879,7 +905,7 @@ export class VoxelView {
     const id = chunkId(cx, cz);
     let chunk = this.chunks.get(id);
     if (!chunk) {
-      chunk = { meshes: new Map(), far: null, isFar: false, stale: true, top: 0, hidden: false, studs: new Map(), water: null, waterMinY: WORLD_Y, waterMaxY: -1, backing: null, staging: null };
+      chunk = { meshes: new Map(), far: null, isFar: false, stale: true, top: 0, hidden: false, studs: new Map(), water: null, waterMinY: WORLD_Y, waterMaxY: -1, backing: null, staging: null, dirtyY: null, shells: null };
       this.chunks.set(id, chunk);
     }
     const far = this.wantsFar(id, chunk);
@@ -1089,11 +1115,12 @@ export class VoxelView {
 
     if (!this.primed && typeof Worker === "undefined" && hasWaterEngine()) this.buildWater(world, chunk, water);
     else if (!this.primed || rebuildWater) this.waterQueue.set(chunkId(cx, cz), [0, WORLD_Y - 1]);
-    if (far) this.buildFarMesh(chunk, farBuffers);
+    if (far) { this.buildFarMesh(chunk, farBuffers); chunk.dirtyY = null; this.forgetLayers(chunk); }
     else if (staged) return { positions, backing };
     else {
       this.buildNearMeshes(chunk, positions,world);
       this.buildBacking(chunk, backing);
+      chunk.dirtyY = new Set(); // from here on, what changes is known by its layer
     }
     return null;
   }
@@ -1204,12 +1231,26 @@ export class VoxelView {
   }
 
   private buildNearMeshes(chunk: ChunkState, positions: Map<number, number[]>,world:VoxelWorld): void {
+    // An edit (a cell mined or set down, the aimed block swapped for its cracked copy and back)
+    // rebuilds the chunk in the frame it happens: with the shells' layers remembered, only the
+    // layers round the changed cell are made again (shellLayers.ts). A chunk starts remembering at
+    // its first known edit; the Rust shells are built whole.
+    const known = chunk.dirtyY !== null && !this.rustKit;
+    const before = known ? chunk.shells : null;
+    const after: Map<number, Map<number, ShellLayer>> | null = known ? new Map() : null;
     for (const [key, list] of positions) {
-      const mesh = this.buildNearMesh(key, list, world);
+      const mesh = this.buildNearMesh(key, list, world, after ? { before: before?.get(key) ?? null, dirty: chunk.dirtyY!, keep: (layers) => after.set(key, layers) } : undefined);
       if (!mesh) continue;
       this.scene.add(mesh);
       chunk.meshes.set(key, mesh);
     }
+    if (after) {
+      if (!chunk.shells) {
+        this.layered.push(chunk);
+        while (this.layered.length > VoxelView.LAYERED_CHUNKS) this.layered.shift()!.shells = null;
+      }
+      chunk.shells = after;
+    } else this.forgetLayers(chunk);
   }
 
   private readonly nearQ = new THREE.Quaternion();
@@ -1219,7 +1260,7 @@ export class VoxelView {
 
   /** One near mesh of a chunk: a block's joined shell (full cubes) or its instanced shaped bricks.
    *  Not added to the scene — the caller decides when it shows. */
-  private buildNearMesh(key: number, list: number[], world: VoxelWorld): THREE.InstancedMesh | null {
+  private buildNearMesh(key: number, list: number[], world: VoxelWorld, layers?: { before: ReadonlyMap<number, ShellLayer> | null; dirty: ReadonlySet<number>; keep(made: Map<number, ShellLayer>): void }): THREE.InstancedMesh | null {
     const q = this.nearQ, scl = this.nearScale, pos = this.nearPos, matrix = this.nearMatrix;
     {
       const count = list.length / 3;
@@ -1228,9 +1269,10 @@ export class VoxelView {
       const materials=this.kitMaterials.get(block);const material=materials?.length===1?materials[0]:materials;
       if (!material) return null;
       if(isFullCubeShape(shape)){
-        const cells:[number,number,number][]=[];for(let i=0;i<list.length;i+=3)cells.push([list[i]!,list[i+1]!,list[i+2]!]);
         const joined=(x:number,y:number,z:number)=>!this.isMiningHidden(x,y,z)&&world.isSolid(x,y,z)&&isFullCubeShape(world.getShape(x,y,z));
-        const geometry=this.shellGeometry(cells,joined);
+        let geometry:THREE.BufferGeometry;
+        if(layers){const built=layeredShell(list,joined,layers.before,layers.before?layers.dirty:null);geometry=built.geometry;layers.keep(built.layers);}
+        else{const cells:[number,number,number][]=[];for(let i=0;i<list.length;i+=3)cells.push([list[i]!,list[i+1]!,list[i+2]!]);geometry=this.shellGeometry(cells,joined);}
         if(materials!.length>1)materialFaceGroups(geometry);
         const shell=new THREE.InstancedMesh(geometry,material,1);shell.setMatrixAt(0,new THREE.Matrix4());shell.instanceMatrix.needsUpdate=true;
         castsInstancedShadow(shell);shell.receiveShadow=true;if(this.seeThrough.has(block))shell.renderOrder=2;
@@ -1388,6 +1430,8 @@ export class VoxelView {
       chunk.meshes.set(key, mesh);
     }
     this.buildBacking(chunk, st.backing);
+    chunk.dirtyY = new Set();
+    this.forgetLayers(chunk);
     chunk.isFar = false;
     this.showForm(chunk);
     this.studsDirty = true;
@@ -1529,6 +1573,7 @@ export class VoxelView {
 
   private dropChunk(chunk: ChunkState): void {
     this.dropStaging(chunk);
+    this.forgetLayers(chunk);
     this.disposeNear(chunk);
     this.disposeFar(chunk);
     this.disposeWater(chunk);

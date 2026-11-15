@@ -55,6 +55,7 @@ for (const [path, wantType] of [
   ["/home/world-education.webp", "image/webp"],
   ["/home/world-games.webp", "image/webp"],
   ["/home/mascot.webp", "image/webp"],
+  ["/fonts/jua-menu.woff2", "font/woff2"],
   ["/audio/bgm-tower.mp3", "audio/mpeg"],
   ["/audio/sfx/manifest.json", "application/json"],
   ["/audio/sfx/break-stone-1.mp3", "audio/mpeg"],

@@ -102,7 +102,13 @@
     <!-- playful rounded face; degrades to system-ui offline -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Jua&display=swap" rel="stylesheet" />
+    <!-- The first screens' letters come with the page (assets/fonts/build.py: "Jua Menu", one small
+         file, preloaded), so the headline is drawn in its own face at the first paint. Google's
+         full Jua follows without holding the first paint back (it is applied when it has arrived). -->
+    <link rel="preload" as="font" type="font/woff2" href="/fonts/jua-menu.woff2" crossorigin />
+    <style>@font-face { font-family: "Jua Menu"; src: url("/fonts/jua-menu.woff2") format("woff2"); font-display: swap; }</style>
+    <link href="https://fonts.googleapis.com/css2?family=Jua&display=swap" rel="stylesheet" media="print" onload="this.media='all'" />
+    <noscript><link href="https://fonts.googleapis.com/css2?family=Jua&display=swap" rel="stylesheet" /></noscript>
     <style>
       /* ---------------------------------------------------------------
          CraftYap doodle design language
@@ -1667,7 +1673,7 @@
         --w-navy: #2b3f7a; --w-cream: #fff6e3; --w-yellow: #ffd21c; --w-yellow-edge: #d99a00;
         --w-green: #3fae45; --w-green-edge: #24782d; --w-blue: #2f7de8; --w-blue-edge: #1c55b0; --w-orange: #f07a1c; --w-orange-edge: #b9560c;
         display: flex; flex-direction: column; box-sizing: border-box; min-height: 100%;
-        font-family: "Jua", "Pretendard", "Noto Sans KR", system-ui, sans-serif; font-weight: 400; text-align: left; color: var(--w-navy);
+        font-family: "Jua Menu", "Jua", "Pretendard", "Noto Sans KR", system-ui, sans-serif; font-weight: 400; text-align: left; color: var(--w-navy);
       }
       #mode-select.hub .web-home[hidden] { display: none; }
       #mode-select.hub .web-home :is(a, button) { font-family: inherit; text-decoration: none; }
@@ -1710,7 +1716,10 @@
       #mode-select.hub .web-check svg { width: calc(24 * var(--u)); height: calc(24 * var(--u)); stroke: #7dea6f; stroke-width: 4; }
 
       /* the hero's words come up one after another (the card pops in beside them) */
-      #mode-select.hub .web-copy > * { animation: web-rise 0.6s cubic-bezier(0.2, 1.2, 0.4, 1) both; }
+      #mode-select.hub .web-copy > * { animation: web-slide 0.6s cubic-bezier(0.2, 1.2, 0.4, 1) both; }
+      /* (they slide, they do not fade: the headline is the page's largest paint, and what starts at
+         opacity 0 is neither painted nor counted until it has faded in) */
+      @keyframes web-slide { from { transform: translateY(22px); } }
       #mode-select.hub .web-copy > :nth-child(2) { animation-delay: 0.08s; }
       #mode-select.hub .web-copy > :nth-child(3) { animation-delay: 0.18s; }
       #mode-select.hub .web-copy > :nth-child(4) { animation-delay: 0.26s; }
@@ -1836,7 +1845,7 @@
         --slant: calc(70 * var(--u)); /* half of how far the seam leans across the screen */
         --w-navy: #2b3f7a; --w-yellow: #ffd21c; --w-yellow-edge: #d99a00;
         position: absolute; inset: 0; overflow: hidden;
-        font-family: "Jua", "Pretendard", "Noto Sans KR", system-ui, sans-serif; font-weight: 400; color: #fff; text-align: center;
+        font-family: "Jua Menu", "Jua", "Pretendard", "Noto Sans KR", system-ui, sans-serif; font-weight: 400; color: #fff; text-align: center;
       }
       #mode-select.hub .pick-screen[hidden] { display: none; }
       #mode-select.hub .pick-screen :is(h2, p) { margin: 0; padding: 0; border: 0; background: none; filter: none; font-weight: 400; }
@@ -2214,7 +2223,7 @@
          brick low on the screen with a cream face, a row of green bricks
          filling up, the step in words and a tip. Shared by every mode.
          --------------------------------------------------------------- */
-      #boot-overlay { --u: max(0.6px, min(calc(100vw / 1536), calc(100vh / 900))); padding-bottom: calc(86 * var(--u)); font-family: "Jua", "Pretendard", "Noto Sans KR", system-ui, sans-serif; }
+      #boot-overlay { --u: max(0.6px, min(calc(100vw / 1536), calc(100vh / 900))); padding-bottom: calc(86 * var(--u)); font-family: "Jua Menu", "Jua", "Pretendard", "Noto Sans KR", system-ui, sans-serif; }
       #boot-overlay .boot-board { position: relative; box-sizing: border-box; width: min(calc(560 * var(--u)), calc(100vw - 32px)); padding: calc(12 * var(--u)) calc(12 * var(--u)) calc(14 * var(--u)); border: 0; border-image: none; border-radius: calc(26 * var(--u)); background: linear-gradient(180deg, #ffe04d, #ffd21c 42%); box-shadow: inset 0 calc(3 * var(--u)) 0 rgba(255, 255, 255, 0.6), inset 0 calc(-5 * var(--u)) 0 rgba(196, 128, 0, 0.3), 0 calc(9 * var(--u)) 0 #d99a00, 0 calc(26 * var(--u)) calc(44 * var(--u)) rgba(6, 20, 60, 0.45); transform: none; rotate: none; }
       #boot-overlay .boot-board::before { content: ""; position: absolute; left: calc(44 * var(--u)); right: calc(44 * var(--u)); top: calc(-12 * var(--u)); height: calc(13 * var(--u)); border: 0; border-radius: calc(8 * var(--u)) calc(8 * var(--u)) 0 0; background: linear-gradient(90deg, #ffe04d 0 calc(52 * var(--u)), transparent calc(52 * var(--u))) 0 0 / calc(118 * var(--u)) 100% repeat-x; }
       #boot-overlay .boot-board::after { display: none; }
