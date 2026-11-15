@@ -10,10 +10,14 @@ export type GameMode = "tower" | "builder" | "craft" | "battle" | "cinematic" | 
 const MODES: readonly GameMode[] = ["tower", "builder", "craft", "battle", "cinematic", "field"];
 
 /**
- * First screen: pick education or games, then (for games) which game.
+ * First screen: the web home (접속하기, 선생님 로그인), then education or games, then (for
+ * games) which game.
  * `?mode=tower|builder|field|…` deep-links straight in (also used by the E2E
  * harnesses). Resolves once with the chosen mode.
  */
+/** Where the education lobby opens: its three choices, or (선생님 로그인 on the home) straight at 반 만들기. */
+export let lobbyStart: "pick" | "teacher" = "pick";
+
 export function selectMode(parent: HTMLElement): Promise<GameMode> {
   // The real menu is in the HTML response so search engines, AI crawlers and
   // visitors without JavaScript read the same Korean game introduction.
@@ -37,11 +41,16 @@ export function selectMode(parent: HTMLElement): Promise<GameMode> {
     const show = (step: string) => {
       steps.forEach((s) => (s.hidden = s.dataset.step !== step));
       el.dataset.board = step; // the hub's CSS lays out each step
-      if (step === "games") el.querySelector<HTMLElement>("[data-mode]")?.focus({ preventScroll: true });
+      if (step === "games") el.querySelector<HTMLElement>('[data-step="games"] [data-mode]')?.focus({ preventScroll: true });
     };
-    show("category");
+    // "/?pick=1": back from a mode's own lobby to the 교육 / 게임 choice, not all the way to the first page
+    if (new URLSearchParams(location.search).has("pick")) {
+      history.replaceState(null, "", location.pathname);
+      show("category");
+    } else show("home");
     const choose = (mode: GameMode) => {
       lobby?.dispose();
+      removeEventListener("resize", fit);
       document.removeEventListener("keydown", onKey);
       el.remove();
       resolve(mode);
@@ -53,12 +62,37 @@ export function selectMode(parent: HTMLElement): Promise<GameMode> {
     };
 
     el.querySelectorAll<HTMLButtonElement>("[data-pick]").forEach((btn) => btn.addEventListener("click", () => pick(btn.dataset.pick!)));
+    // the home's two ways in, and the way back to it
+    el.querySelectorAll<HTMLButtonElement>("[data-enter]").forEach((btn) => btn.addEventListener("click", () => {
+      const to = btn.dataset.enter;
+      if (to === "teacher") { lobbyStart = "teacher"; choose("field"); }
+      else if (to === "home") show("home");
+      else {
+        show("category"); // nothing focused: a focused half would start "chosen" (the arrow keys choose)
+        el.scrollTop = 0;
+        (document.activeElement as HTMLElement | null)?.blur();
+      }
+    }));
     el.querySelector<HTMLButtonElement>(".mode-back")!.addEventListener("click", () => show("category"));
     el.querySelectorAll<HTMLButtonElement>("[data-mode]").forEach((btn) => {
       btn.addEventListener("click", () => choose(btn.dataset.mode as GameMode));
     });
     const onKey = (e: KeyboardEvent) => {
-      if (e.key !== "Escape" || el.dataset.board !== "games") return;
+      // Enter on the first page, nothing focused: 접속하기 (focusing the button on load drew its ring)
+      if (e.key === "Enter" && el.dataset.board === "home" && (document.activeElement === document.body || !document.activeElement)) {
+        el.querySelector<HTMLElement>('[data-enter="play"]')?.click();
+        return;
+      }
+      // the two worlds of the choice: the arrow keys point at one (Enter then picks it)
+      if (el.dataset.board === "category" && (e.key === "ArrowLeft" || e.key === "ArrowRight" || e.key === "ArrowUp" || e.key === "ArrowDown")) {
+        const first = e.key === "ArrowLeft" || e.key === "ArrowUp";
+        el.querySelector<HTMLElement>(`[data-pick="${first ? "field" : "games"}"]`)?.focus({ preventScroll: true });
+        e.preventDefault();
+        return;
+      }
+      if (e.key !== "Escape") return;
+      if (el.dataset.board === "category") { show("home"); return; }
+      if (el.dataset.board !== "games") return;
       if (lobby?.escape()) return; // a dialog or the waiting room is open
       show("category");
     };
@@ -78,6 +112,18 @@ export function selectMode(parent: HTMLElement): Promise<GameMode> {
     // back from a party game ("처음으로"): straight onto the rooms, into the seat
     if (hasSeat()) openHub();
 
+    // the hub is drawn in px for a 1536 x 900 window: --zoom scales its shell with the window, as the
+    // other menu screens' --u does (a tall or narrow window keeps its own stacked layout, unscaled)
+    const fit = () => {
+      const wide = innerWidth > 980 && innerWidth > innerHeight;
+      el.style.setProperty("--zoom", wide ? String(Math.max(0.7, Math.min(2.6, Math.min(innerWidth / 1536, innerHeight / 900)))) : "1");
+    };
+    fit();
+    addEventListener("resize", fit);
+    // the two worlds of the mode choice are its whole screen: fetched while the first page idles
+    // (after it has painted), so 접속하기 does not open onto two plain colours
+    const idle = (fn: () => void) => ("requestIdleCallback" in window ? requestIdleCallback(fn, { timeout: 4000 }) : setTimeout(fn, 2500));
+    idle(() => { for (const world of ["education", "games"]) new Image().src = `/home/world-${world}.webp`; });
     wireSoon(el);
     showName(el);
     void pinLatestNote(el);
@@ -113,6 +159,33 @@ function showName(el: HTMLElement): void {
   }
 }
 
+/** The home's 새로운 소식: the newest notes, each a kind, its headline and its day. */
+function listNews(el: HTMLElement, recent: unknown): void {
+  const list = el.querySelector<HTMLElement>('[data-id="web-news"]');
+  if (!list || !Array.isArray(recent)) return;
+  const rows: HTMLElement[] = [];
+  for (const row of recent.slice(0, 3) as { title?: unknown; url?: unknown; date?: unknown; tags?: unknown }[]) {
+    if (typeof row?.title !== "string" || typeof row.url !== "string" || !row.url.startsWith("/note/")) continue;
+    const tags = Array.isArray(row.tags) ? row.tags.filter((tag): tag is string => typeof tag === "string") : [];
+    const li = document.createElement("li"), a = document.createElement("a");
+    const kind = document.createElement("i"), head = document.createElement("b"), day = document.createElement("time");
+    a.href = row.url;
+    const what = tags.includes("새로 추가") ? "new" : tags.includes("버그 수정") && !tags.includes("개선") ? "fix" : "update";
+    li.dataset.kind = what; // the chip's colour (index.html .web-news)
+    kind.textContent = what === "new" ? "새 콘텐츠" : what === "fix" ? "수정" : "업데이트";
+    // "11월 14일 패치 노트 — 화재 체험이 가벼워졌어요": the day has its own column
+    head.textContent = row.title.split(" — ").slice(1).join(" — ") || row.title;
+    if (typeof row.date === "string" && /^\d{4}-\d{2}-\d{2}$/.test(row.date)) {
+      day.dateTime = row.date;
+      day.textContent = row.date.replaceAll("-", ".");
+    }
+    a.append(kind, head, day);
+    li.append(a);
+    rows.push(li);
+  }
+  if (rows.length) list.replaceChildren(...rows);
+}
+
 /** The newest dev note fills the event banner; the bell gets a dot until it has been opened. */
 async function pinLatestNote(el: HTMLElement): Promise<void> {
   const banner = el.querySelector<HTMLAnchorElement>('[data-id="hub-event"]');
@@ -120,7 +193,8 @@ async function pinLatestNote(el: HTMLElement): Promise<void> {
   try {
     const res = await fetch("/note/latest.json", { cache: "no-cache" });
     if (!res.ok) return;
-    const note = (await res.json()) as { title?: unknown; url?: unknown };
+    const note = (await res.json()) as { title?: unknown; url?: unknown; recent?: unknown };
+    listNews(el, note.recent);
     if (typeof note.title !== "string" || typeof note.url !== "string" || !note.url.startsWith("/note/")) return;
     const url = note.url;
     for (const link of [banner, bell]) if (link) link.href = url;

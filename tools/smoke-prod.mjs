@@ -45,15 +45,16 @@ try {
 // 3) static assets + correct MIME + caching
 for (const [path, wantType] of [
   ["/craftyap-logo.png", "image/png"],
-  ["/backgrounds/craftyap-sunny-village-desktop.avif", "image/avif"],
-  ["/backgrounds/craftyap-sunny-village-desktop.webp", "image/webp"],
-  ["/backgrounds/craftyap-sunny-village-mobile.avif", "image/avif"],
-  ["/backgrounds/craftyap-sunny-village-mobile.webp", "image/webp"],
+  ["/backgrounds/craftyap-village-open-desktop.webp", "image/webp"],
+  ["/backgrounds/craftyap-village-open-mobile.webp", "image/webp"],
   ["/backgrounds/craftyap-sunny-village-share.jpg", "image/jpeg"],
-  ["/backgrounds/craftyap-sunny-village-alive-v2-desktop.webm", "video/webm"],
-  ["/backgrounds/craftyap-sunny-village-alive-v2-desktop.mp4", "video/mp4"],
-  ["/backgrounds/craftyap-sunny-village-alive-v2-mobile.webm", "video/webm"],
-  ["/backgrounds/craftyap-sunny-village-alive-v2-mobile.mp4", "video/mp4"],
+  ["/backgrounds/craftyap-village-open-v1-desktop.webm", "video/webm"],
+  ["/backgrounds/craftyap-village-open-v1-desktop.mp4", "video/mp4"],
+  ["/backgrounds/craftyap-village-open-v1-mobile.webm", "video/webm"],
+  ["/backgrounds/craftyap-village-open-v1-mobile.mp4", "video/mp4"],
+  ["/home/world-education.webp", "image/webp"],
+  ["/home/world-games.webp", "image/webp"],
+  ["/home/mascot.webp", "image/webp"],
   ["/audio/bgm-tower.mp3", "audio/mpeg"],
   ["/audio/sfx/manifest.json", "application/json"],
   ["/audio/sfx/break-stone-1.mp3", "audio/mpeg"],
@@ -73,8 +74,6 @@ for (const [path, wantType] of [
   ["/feed.xml", "application/xml"],
   ["/note/latest.json", "application/json"],
   ["/home/education.webp", "image/webp"],
-  ["/ui/hub/panel-frame.webp", "image/webp"],
-  ["/ui/hub/start-button.webp", "image/webp"],
 ]) {
   try {
     // Inspect headers without starting and cancelling an audio/image stream.
@@ -88,7 +87,7 @@ for (const [path, wantType] of [
 
 // Video seek/loop transport: bounded chunks, suffix reads and invalid ranges.
 try {
-  const path = "/backgrounds/craftyap-sunny-village-alive-v2-desktop.mp4";
+  const path = "/backgrounds/craftyap-village-open-v1-desktop.mp4";
   for (const [range, count] of [["bytes=0-31", 32], ["bytes=-16", 16]]) {
     const response = await fetch(base + path, { headers: { Range: range }, signal: AbortSignal.timeout(15000) });
     check(`background video range ${range}`, response.status === 206 && response.headers.get("accept-ranges") === "bytes" && response.headers.get("content-range")?.startsWith("bytes ") && (await response.arrayBuffer()).byteLength === count);

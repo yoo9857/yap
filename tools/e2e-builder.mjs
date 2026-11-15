@@ -24,6 +24,8 @@ page.on("pageerror", (e) => console.log("PAGEERROR:", e.message));
 await page.goto("http://localhost:5173/?play=1", { waitUntil: "networkidle2", timeout: 30000 });
 // The start screen asks 교육 / 게임 first (see app/modeSelect.ts), so the four
 // games live one step in. This suite still asserted the old flat list.
+await page.waitForSelector('[data-enter="play"]');
+await page.click('[data-enter="play"]');
 await page.click('.mode-btn[data-pick="games"]');
 const modeButtons = await page.$$('.mode-step[data-step="games"] .mode-btn[data-mode]');
 check("the games step offers the four games", modeButtons.length === 4);

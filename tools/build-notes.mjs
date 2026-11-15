@@ -111,8 +111,8 @@ ${json(jsonLd)}
   <body>
     <a class="skip-link" href="#content">본문으로 이동</a>
     <header class="site-header"><div class="header-inner">
-      <a class="brand" href="/" aria-label="크래프트얍 게임 홈"><img src="/craftyap-logo.webp" width="64" height="64" alt="" /><span>크래프트얍<small>CRAFTYAP</small></span></a>
-      <nav class="header-nav" id="site-nav" aria-label="주요 메뉴"><a href="/note/">개발 노트</a><a href="/guide/">게임 안내</a><a href="/guide/#controls">조작법</a><a href="/guide/#faq">FAQ</a></nav>
+      <a class="brand" href="/" aria-label="크래프트얍 게임 홈"><img src="/home/mascot.webp" width="322" height="360" alt="" /><span class="wordmark" aria-hidden="true"><i>C</i><i>r</i><i>a</i><i>f</i><i>t</i><i>Y</i><i>a</i><i>p</i></span></a>
+      <nav class="header-nav" id="site-nav" aria-label="주요 메뉴"><a href="/guide/">게임 소개</a><a href="/guide/#classroom">교육 모드</a><a href="/note/">새 소식</a><a href="/guide/#controls">조작법</a></nav>
       <a class="button button-dark header-play" href="/">지금 플레이 <span aria-hidden="true">↗</span></a>
       <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="site-nav" aria-label="메뉴 열기" hidden><span></span><span></span></button>
     </div></header>
@@ -352,8 +352,8 @@ const want = new Map([
   ["note/index.html", indexPage()],
   ["note/feed.xml", feed()],
   ["feed.xml", rss()],
-  // the home page's "새 소식" pin reads this
-  ["note/latest.json", `${JSON.stringify(notes.length ? { title: notes[0].title, url: `/note/${notes[0].slug}/`, date: notes[0].date } : {})}\n`],
+  // the home page's "새 소식" pin reads this (and its 새로운 소식 list reads `recent`)
+  ["note/latest.json", `${JSON.stringify(notes.length ? { title: notes[0].title, url: `/note/${notes[0].slug}/`, date: notes[0].date, recent: notes.slice(0, 3).map((n) => ({ title: n.title, url: `/note/${n.slug}/`, date: n.date, tags: n.tags })) } : {})}\n`],
   ["sitemap.xml", sitemap()],
   ...notes.map((n, i) => [`note/${n.slug}/index.html`, postPage(n, i)]),
 ]);

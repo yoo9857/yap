@@ -6,7 +6,14 @@
     <atom:link href="https://craftyap.com/feed.xml" rel="self" type="application/rss+xml" />
     <description>크래프트얍(CraftYap) 패치 노트와 개발 이야기</description>
     <language>ko</language>
-    <lastBuildDate>Fri, 13 Nov 2026 15:00:00 +0000</lastBuildDate>
+    <lastBuildDate>Sat, 14 Nov 2026 15:00:00 +0000</lastBuildDate>
+    <item>
+      <title>11월 15일 패치 노트 — 첫 화면부터 수업 고르기까지 새로 만들었어요</title>
+      <link>https://craftyap.com/note/patch-2026-11-15/</link>
+      <guid isPermaLink="true">https://craftyap.com/note/patch-2026-11-15/</guid>
+      <pubDate>Sat, 14 Nov 2026 15:00:00 +0000</pubDate>
+      <description>첫 페이지, 모드 고르기, 교육 모드의 수업 고르기와 반 만들기, 게임 모드 허브, 게임 안내 페이지를 블록 장난감 모양으로 새로 만들었어요. 수업은 목록에서 고르면 큰 그림으로 미리 볼 수 있고, 어느 모니터에서나 한 화면에 들어와요.</description>
+    </item>
     <item>
       <title>11월 14일 패치 노트 — 화재 체험이 가벼워졌어요</title>
       <link>https://craftyap.com/note/patch-2026-11-14/</link>
@@ -139,13 +146,6 @@
       <guid isPermaLink="true">https://craftyap.com/note/patch-2026-11-04-6/</guid>
       <pubDate>Tue, 03 Nov 2026 15:00:00 +0000</pubDate>
       <description>F로 바꾸는 블록 모양을 한 칸짜리 여섯 가지(네모형, 삼각형, 모서리형, 원형, 반블록형, 계단형)로 정리했어요. 새로 생긴 반블록과 계단은 점프 없이 걸어서 올라가요.</description>
-    </item>
-    <item>
-      <title>11월 4일 패치 노트 (5) — 구멍 난 블록을 고치고, 검은 테두리를 모두 걷어냈어요</title>
-      <link>https://craftyap.com/note/patch-2026-11-04-5/</link>
-      <guid isPermaLink="true">https://craftyap.com/note/patch-2026-11-04-5/</guid>
-      <pubDate>Tue, 03 Nov 2026 15:00:00 +0000</pubDate>
-      <description>돌아다니다 보면 여기저기 블록 윗면이 대각선으로 뚫리거나 통째로 비어 보이던 문제를 고쳤어요. 캐릭터와 펫의 검은 윤곽선, 블록 가장자리의 검은 줄, 블록 그림 속 가는 검은 선도 모두 없앴어요.</description>
     </item>
   </channel>
 </rss>

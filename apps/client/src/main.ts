@@ -4,7 +4,7 @@
  * tower is actually chosen, and the builder starts instantly. Failures land
  * on a fatal overlay with a retry button — a game never half-starts.
  */
-import { selectMode } from "./app/modeSelect.js";
+import { lobbyStart, selectMode } from "./app/modeSelect.js";
 import { initMenuBackground } from "./app/menuBackground.js";
 import { t } from "./ui/i18n.js";
 import type { ClassEntry } from "./app/classLobby.js";
@@ -225,7 +225,7 @@ async function boot(): Promise<void> {
       classroom = await classFromUrl();
       theme = classroom?.session.theme ?? (params.get("theme") === "fire" ? "fire" : "craft");
     } else {
-      const choice = await chooseClass(document.body);
+      const choice = await chooseClass(document.body, lobbyStart);
       classroom = choice.classroom;
       theme = choice.theme;
     }

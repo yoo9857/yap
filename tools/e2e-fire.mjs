@@ -68,12 +68,15 @@ const stand = async (page, x, y, z, yaw, pitch = 0, ms = 500) => {
 if (process.env.ONLY !== "class") {
   const page = await open("solo");
   await page.goto(`${BASE}/?play=1`, { waitUntil: "networkidle2", timeout: 30000 });
+  await page.waitForSelector('[data-enter="play"]');
+  await page.click('[data-enter="play"]');
   await page.click('[data-pick="field"]');
   await page.waitForSelector('[data-go="solo"]');
   await page.click('[data-go="solo"]');
   await page.waitForSelector('[data-solo="fire"]', { visible: true });
   await shot(page, "01-solo-themes");
   await page.click('[data-solo="fire"]');
+  await page.click('[data-id="lesson-go"]'); // the lesson select: the picked lesson's one button
   await booted(page);
   const start = await fire(page);
   check("solo: the fire drill starts at its first step", start?.step === "alarm" && start.waiting === false, JSON.stringify(start?.step));
@@ -282,6 +285,8 @@ if (process.env.ONLY !== "class") {
   const ROOM = `소방${Date.now() % 100000}반`, TEACHER = `쌤${Date.now() % 100000}`;
   const teacher = await open("teacher");
   await teacher.goto(`${BASE}/?play=1`, { waitUntil: "networkidle2", timeout: 30000 });
+  await teacher.waitForSelector('[data-enter="play"]');
+  await teacher.click('[data-enter="play"]');
   await teacher.click('[data-pick="field"]');
   await teacher.waitForSelector('[data-go="teacher"]');
   await teacher.click('[data-go="teacher"]');
@@ -290,6 +295,8 @@ if (process.env.ONLY !== "class") {
   await teacher.click('.theme-pick label:has(input[value="fire"])'); // the card is the control (its radio is hidden)
   check("the fire drill is picked", await teacher.$eval('.theme-pick input[value="fire"]', (el) => el.checked));
   check("picking the fire drill offers the teams to start with", await teacher.$eval("#cl-teams", (el) => !el.hidden));
+  await teacher.click('[data-id="lesson-go"]'); // on to the class's details
+  await teacher.waitForSelector("#cl-host-room", { visible: true });
   await teacher.select("#cl-teams", "4");
   await teacher.type("#cl-host-room", ROOM);
   await teacher.type("#cl-host", TEACHER);
@@ -303,6 +310,8 @@ if (process.env.ONLY !== "class") {
 
   const student = await open("student");
   await student.goto(`${BASE}/?play=1`, { waitUntil: "networkidle2", timeout: 30000 });
+  await student.waitForSelector('[data-enter="play"]');
+  await student.click('[data-enter="play"]');
   await student.click('[data-pick="field"]');
   await student.waitForSelector('[data-go="student"]');
   await student.click('[data-go="student"]');

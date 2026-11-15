@@ -26,7 +26,10 @@ const SIZE = (name) =>
   : 480;
 
 mkdirSync(OUT, { recursive: true });
-const files = readdirSync(join(HERE, "raw")).filter((f) => f.endsWith(".png")).sort();
+// frames the menus no longer draw (2026-11-15: every menu screen is lineless CSS bricks now); their
+// raw pictures stay as the record, their built files are not made again
+const RETIRED = new Set(["title-plaque", "card-frame", "card-frame-gold", "panel-frame", "panel-frame-blue", "start-button", "start-button-pressed", "tab-active", "bar-frame"]);
+const files = readdirSync(join(HERE, "raw")).filter((f) => f.endsWith(".png") && !RETIRED.has(f.replace(/\.png$/, ""))).sort();
 const browser = await puppeteer.launch({ executablePath: EDGE, headless: "new", args: ["--no-sandbox"] });
 const page = await browser.newPage();
 const sizes = {};

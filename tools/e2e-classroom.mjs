@@ -42,9 +42,15 @@ let lastConfirm = "";
  */
 async function enterViaLobby(page, role, room, person, password = "1234") {
   await page.goto(`${BASE}/?play=1`, { waitUntil: "networkidle2", timeout: 30000 });
+  await page.waitForSelector('[data-enter="play"]');
+  await page.click('[data-enter="play"]');
   await page.click('[data-pick="field"]');
   await page.waitForSelector(`[data-go="${role}"]`);
   await page.click(`[data-go="${role}"]`);
+  if (role === "teacher") { // the lesson select comes first (the sandbox is picked): on to the class's details
+    await page.waitForSelector('[data-id="lesson-go"]', { visible: true });
+    await page.click('[data-id="lesson-go"]');
+  }
   const fill = async (sel, text) => {
     await page.$eval(sel, (el) => (el.value = ""));
     if (text) await page.type(sel, text);

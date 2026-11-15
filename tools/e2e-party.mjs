@@ -26,6 +26,8 @@ async function player(name) {
   page.on("pageerror", (e) => errors.push(e.message));
   await page.evaluateOnNewDocument((n) => { try { localStorage.setItem("robo-name", n); } catch { /* storage off: the hub asks for a name */ } }, name);
   await page.goto(`${BASE}/?play=1`, { waitUntil: "networkidle2", timeout: 30000 });
+  await page.waitForSelector('[data-enter="play"]');
+  await page.click('[data-enter="play"]');
   await page.click('[data-pick="games"]');
   await wait(800);
   // an idle hub holds no room socket (a deploy waits for live sockets to finish)

@@ -27,7 +27,19 @@ const frames = (n) =>
 
 // 1) category screen → education → field boots
 await page.goto(`${BASE}/?play=1&reset=1${process.env.EXTRA_QUERY ?? ""}`, { waitUntil: "networkidle2", timeout: 30000 });
-await page.waitForSelector('[data-pick="field"]');
+await page.waitForSelector('[data-enter="play"]');
+const home = await page.evaluate(() => ({
+  board: document.querySelector("#mode-select").dataset.board,
+  choiceHidden: document.querySelector('[data-step="category"]').hidden,
+  hero: !!document.querySelector(".web-hero .web-title")?.textContent.trim(),
+  news: document.querySelectorAll('[data-id="web-news"] li').length,
+}));
+check("the web home shows first (hero, news), the mode choice hidden", home.board === "home" && home.choiceHidden && home.hero && home.news >= 1, JSON.stringify(home));
+await page.click('[data-enter="play"]');
+await page.waitForSelector('[data-pick="field"]', { visible: true });
+await page.click('[data-enter="home"]');
+check("처음으로 goes back to the web home", await page.$eval("#mode-select", (el) => el.dataset.board === "home"));
+await page.click('[data-enter="play"]');
 const gamesHidden = await page.$eval('[data-step="games"]', (el) => el.hidden);
 check("category screen shows first, game list hidden", gamesHidden);
 await page.click('[data-pick="games"]');
@@ -47,6 +59,7 @@ await page.waitForSelector('[data-solo="craft"]', { visible: true });
   check("solo play offers the craft field and the fire drill", themes === "craft,fire", themes);
 }
 await page.click('[data-solo="craft"]');
+await page.click('[data-id="lesson-go"]'); // the lesson select: the picked lesson's one button
 await page.waitForFunction(() => !!globalThis.__roboCraft, { timeout: 15000 });
 // the hooks exist from construction; physics starts after the graphics warmup
 await page.waitForFunction(() => globalThis.__roboCraft.snapshot().grounded, { timeout: 20000 }).catch(() => {});

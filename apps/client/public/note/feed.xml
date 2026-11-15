@@ -4,8 +4,57 @@
   <link href="https://craftyap.com/note/" />
   <link rel="self" href="https://craftyap.com/note/feed.xml" />
   <id>https://craftyap.com/note/</id>
-  <updated>2026-11-14T00:00:00+09:00</updated>
+  <updated>2026-11-15T00:00:00+09:00</updated>
   <author><name>크래프트얍(CraftYap)</name></author>
+  <entry xml:base="https://craftyap.com/">
+    <title>11월 15일 패치 노트 — 첫 화면부터 수업 고르기까지 새로 만들었어요</title>
+    <link href="https://craftyap.com/note/patch-2026-11-15/" />
+    <id>https://craftyap.com/note/patch-2026-11-15/</id>
+    <published>2026-11-15T00:00:00+09:00</published>
+    <updated>2026-11-15T00:00:00+09:00</updated>
+    <summary>첫 페이지, 모드 고르기, 교육 모드의 수업 고르기와 반 만들기, 게임 모드 허브, 게임 안내 페이지를 블록 장난감 모양으로 새로 만들었어요. 수업은 목록에서 고르면 큰 그림으로 미리 볼 수 있고, 어느 모니터에서나 한 화면에 들어와요.</summary>
+    <content type="html">&lt;h2&gt;한눈에 보기&lt;/h2&gt;
+&lt;p&gt;게임에 들어가기 전의 화면을 &lt;strong&gt;모두 새로 만들었어요.&lt;/strong&gt; 첫 페이지, 모드 고르기, 교육 모드에서 수업을 고르고 반을 만드는 화면, 게임 모드 허브, 게임 안내 페이지가 같은 블록 장난감 모양이 됐어요. 화면마다 달랐던 버튼 자리도 하나로 맞췄어요.&lt;/p&gt;
+&lt;h2&gt;BEFORE / AFTER&lt;/h2&gt;
+&lt;p&gt;&lt;img src=&quot;/note/assets/20261115-home-ba.webp&quot; alt=&quot;첫 페이지 비교: 예전에는 그림 위에 모드 카드 두 장이 있었고, 지금은 소개 글과 접속 카드, 미리보기와 새 소식이 있는 첫 페이지가 됐다&quot;&gt;&lt;/p&gt;
+&lt;p&gt;&lt;img src=&quot;/note/assets/20261115-lesson-ba.webp&quot; alt=&quot;반 만들기 비교: 예전에는 흰 카드 안에 입력란이 있었고, 지금은 왼쪽 목록에서 수업을 고르면 오른쪽에 큰 그림과 설명이 나온다&quot;&gt;&lt;/p&gt;
+&lt;p&gt;&lt;img src=&quot;/note/assets/20261115-hub-ba.webp&quot; alt=&quot;게임 모드 허브 비교: 예전에는 남색 패널이 화면을 둘러싸고 있었고, 지금은 가운데에 방 만들기와 게임 네 개가 크게 모여 있다&quot;&gt;&lt;/p&gt;
+&lt;p&gt;&lt;img src=&quot;/note/assets/20261115-guide-ba.webp&quot; alt=&quot;게임 안내의 교육 모드 비교: 예전에는 글과 단계 카드만 있었고, 지금은 교실 그림과 수업에서 할 수 있는 것 여섯 가지가 있다&quot;&gt;&lt;/p&gt;
+&lt;h2&gt;새로 추가&lt;/h2&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;첫 페이지가 생겼어요&lt;/strong&gt; — 크래프트얍이 어떤 게임인지 한눈에 보이는 첫 페이지예요. &lt;strong&gt;접속하기&lt;/strong&gt;를 누르면 모드를 고르고, 선생님은 &lt;strong&gt;선생님 로그인&lt;/strong&gt;으로 바로 반을 만들러 가요. 아래에는 플레이 미리보기와 새 소식이 있어요.&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;모드 고르기가 게임 화면처럼 바뀌었어요&lt;/strong&gt; — 화면이 초록 세상(교육 모드)과 파란 세상(게임 모드)으로 나뉘어요. 반쪽 전체가 버튼이라 아무 데나 누르면 돼요. 방향키로 고르고 Enter로 들어갈 수도 있어요.&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;&lt;img src=&quot;/note/assets/20261115-mode-select.webp&quot; alt=&quot;모드 고르기 화면: 왼쪽은 블록 교실이 있는 초록색 교육 모드, 오른쪽은 떠 있는 섬과 성이 있는 파란색 게임 모드&quot;&gt;&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;수업 고르기 화면이 생겼어요&lt;/strong&gt; — 왼쪽 목록에서 수업을 누르면 오른쪽에 큰 그림, 이름, 그 수업에서 하는 것이 나와요. 그림 위 화살표로 넘길 수도 있어요. 수업이 늘어나면 종류별로 좁혀 보고, 일곱 개가 넘으면 찾기 칸이 생겨요. 혼자 할 때도 같은 화면에서 골라요.&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;지금 어디까지 왔는지 보여요&lt;/strong&gt; — 교육 모드 화면 위에 단계가 나와요. 선생님은 시작 방법 → 수업 고르기 → 반 정보 → 입장 순서예요.&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;게임 안내에 교육 모드 설명을 늘렸어요&lt;/strong&gt; — 화재 대피 훈련, 그림 퀴즈, 자리 배치, 수업 도구(F2), 잠금, 이어서 하기처럼 수업에서 할 수 있는 것을 정리했어요.&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2&gt;개선&lt;/h2&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;어느 모니터에서나 한 화면에 들어와요&lt;/strong&gt; — 노트북부터 큰 모니터까지, 화면 크기에 맞춰 전체가 같이 커지고 작아져요. 휴대폰과 세로 화면에서는 위아래로 쌓여요.&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;버튼 자리를 하나로 맞췄어요&lt;/strong&gt; — 어느 화면에서나 왼쪽 위에 뒤로 가기가 하나만 있고, 가운데 위에 지금 화면 이름, 오른쪽 위에 도움말이 있어요. Esc를 눌러도 뒤로 가요. 교육 모드 첫 화면에서 뒤로 가면 첫 페이지가 아니라 모드 고르기로 돌아가요.&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;반 만들기가 두 단계로 나뉘었어요&lt;/strong&gt; — 수업을 먼저 고르고, 다음 화면에서 반 이름과 비밀번호를 써요. 고른 수업이 왼쪽에 보이고 &lt;strong&gt;수업 바꾸기&lt;/strong&gt;로 돌아갈 수 있어요.&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;게임 모드 허브를 정리했어요&lt;/strong&gt; — 방 만들기, 접속하기, 빠른 입장을 가운데에 모으고, 게임 네 개를 그림과 한 줄 설명이 있는 큰 버튼으로 바꿨어요. 아직 준비 중인 기능은 한 줄로 줄였어요.&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;배경 영상을 새로 만들었어요&lt;/strong&gt; — 가운데 큰 로고가 없는 마을 영상이에요. 첫 페이지의 글과 접속 카드를 가리지 않아요.&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;첫 페이지가 받는 그림이 줄었어요&lt;/strong&gt; — 첫 화면에서 받는 그림이 721KB에서 334KB로, 요청 수가 58개에서 42개로 줄었어요. 아직 안 보이는 화면의 그림은 그 화면을 열 때 받아요.&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;쓰지 않는 것을 지웠어요&lt;/strong&gt; — 예전 화면에서만 쓰던 모양 규칙 270여 개와 그림 12장을 지웠어요.&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2&gt;버그 수정&lt;/h2&gt;
+&lt;ul&gt;
+&lt;li&gt;반 만들기에서 화재 체험을 고르면 왼쪽 안내가 잘려 보이던 것을 고쳤어요.&lt;/li&gt;
+&lt;li&gt;휴대폰에서 모드 고르기의 한쪽을 누르면 다른 쪽이 어둡게 남던 것을 고쳤어요.&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2&gt;알려진 문제&lt;/h2&gt;
+&lt;ul&gt;
+&lt;li&gt;게임 안내의 실제 게임 화면 사진 몇 장이 예전 모습이에요. 새로 찍어서 바꿀 예정이에요.&lt;/li&gt;
+&lt;li&gt;게임 안에서 나오는 시작·일시정지 카드는 아직 예전 모양이에요.&lt;/li&gt;
+&lt;li&gt;첫 페이지와 모드 고르기는 한국어로만 나와요. 영어 설정은 교육 모드 화면부터 적용돼요.&lt;/li&gt;
+&lt;li&gt;받는 양은 컴퓨터 한 대에서 잰 값이에요. 이번 비교 사진의 새 화면은 배포 전에 같은 빌드를 띄워서 찍었어요.&lt;/li&gt;
+&lt;/ul&gt;
+</content>
+  </entry>
   <entry xml:base="https://craftyap.com/">
     <title>11월 14일 패치 노트 — 화재 체험이 가벼워졌어요</title>
     <link href="https://craftyap.com/note/patch-2026-11-14/" />
@@ -830,35 +879,6 @@
 &lt;h2&gt;알려진 문제&lt;/h2&gt;
 &lt;ul&gt;
 &lt;li&gt;이미 열려 있던 탭은 &lt;strong&gt;새로고침&lt;/strong&gt;해야 새 모양이 보여요. 교실은 업데이트 뒤 자동으로 한 번 새로고침돼요.&lt;/li&gt;
-&lt;/ul&gt;
-</content>
-  </entry>
-  <entry xml:base="https://craftyap.com/">
-    <title>11월 4일 패치 노트 (5) — 구멍 난 블록을 고치고, 검은 테두리를 모두 걷어냈어요</title>
-    <link href="https://craftyap.com/note/patch-2026-11-04-5/" />
-    <id>https://craftyap.com/note/patch-2026-11-04-5/</id>
-    <published>2026-11-04T00:00:00+09:00</published>
-    <updated>2026-11-04T00:00:00+09:00</updated>
-    <summary>돌아다니다 보면 여기저기 블록 윗면이 대각선으로 뚫리거나 통째로 비어 보이던 문제를 고쳤어요. 캐릭터와 펫의 검은 윤곽선, 블록 가장자리의 검은 줄, 블록 그림 속 가는 검은 선도 모두 없앴어요.</summary>
-    <content type="html">&lt;h2&gt;한눈에 보기&lt;/h2&gt;
-&lt;p&gt;&lt;strong&gt;돌아다니다 보면 여기저기 블록에 구멍이 뚫려 보이던 문제&lt;/strong&gt;를 고쳤어요. 블록 윗면이 대각선으로 반만 있거나 통째로 비어서 안쪽이 까맣게 보였어요. 그리고 화면에 남아 있던 &lt;strong&gt;검은 테두리를 모두 걷어냈어요&lt;/strong&gt;: 캐릭터와 펫의 윤곽선, 블록 덩어리 가장자리의 검은 줄, 블록 그림 속 가는 선.&lt;/p&gt;
-&lt;h2&gt;BEFORE / AFTER&lt;/h2&gt;
-&lt;p&gt;&lt;strong&gt;위: 같은 자리의 조약돌 블록&lt;/strong&gt; — 이전에는 윗면이 대각선으로 뚫려 안쪽이 까맣게 보였어요. &lt;strong&gt;아래: 캐릭터와 펫&lt;/strong&gt; — 이전에는 몸 둘레에 검은 윤곽선이 있었어요.&lt;/p&gt;
-&lt;p&gt;&lt;img src=&quot;/note/assets/20261104-holes-ba.webp&quot; alt=&quot;구멍 난 블록과 윤곽선 비교: 위 줄 왼쪽은 윗면이 대각선으로 뚫려 까만 조약돌 블록, 오른쪽은 같은 자리에서 온전한 블록. 아래 줄 왼쪽은 검은 윤곽선이 있는 캐릭터와 펫, 오른쪽은 윤곽선 없는 모습&quot;&gt;&lt;/p&gt;
-&lt;h2&gt;버그 수정&lt;/h2&gt;
-&lt;ul&gt;
-&lt;li&gt;&lt;strong&gt;여기저기 구멍 난 블록&lt;/strong&gt; — 붙어 있는 블록의 윗면을 그릴 때, 블록이 놓인 &lt;strong&gt;위치에 따라&lt;/strong&gt; 계산에 아주 작은 오차가 끼어서 윗면 조각 일부를 빠뜨렸어요. 그래서 같은 모양으로 쌓아도 어떤 자리에서만 구멍이 났어요. 이제 그 오차를 정리한 뒤에 그려요. 블록 2,600여 개를 쌓고 150칸을 오가며 공기에 닿은 면 67만 개를 하나하나 확인해서, 빠진 면이 없는 것을 확인했어요.&lt;/li&gt;
-&lt;li&gt;&lt;strong&gt;블록 덩어리 가장자리의 검은 줄&lt;/strong&gt; — 블록 사이 틈으로 하늘이 비치지 않게 블록 뒤에 깔아 둔 어두운 막이 블록보다 몇 cm 바깥에 있어서, 가장자리를 따라 검은 줄로 보였어요. 이제 막을 블록 안쪽으로 넣었어요. 틈으로 하늘이 비치지 않는 것은 그대로예요.&lt;/li&gt;
-&lt;/ul&gt;
-&lt;h2&gt;개선&lt;/h2&gt;
-&lt;ul&gt;
-&lt;li&gt;&lt;strong&gt;캐릭터·펫·가구 윤곽선 없애기&lt;/strong&gt; — 몸 둘레의 검은 선을 그리지 않아요. 이 선을 그리던 화면 처리 두 단계를 매 화면 건너뛰게 돼서, 그만큼 그리는 일도 줄었어요.&lt;/li&gt;
-&lt;li&gt;&lt;strong&gt;블록 그림 속 가는 선만 빼기&lt;/strong&gt; — 모든 블록에서 &lt;strong&gt;가는 선만&lt;/strong&gt; 빼고, &lt;strong&gt;넓은 어두운 부분&lt;/strong&gt;(석탄 덩이, 물음표, 호박 얼굴, 화로 불구멍)은 그림 그대로 둬요. 금 간 돌벽돌의 금은 그 블록의 모습이라 남겼어요.&lt;/li&gt;
-&lt;/ul&gt;
-&lt;p&gt;&lt;img src=&quot;/note/assets/20261104-no-outlines-ba.webp&quot; alt=&quot;검은 테두리 비교: 위 줄은 캐릭터와 펫의 윤곽선, 아래 줄은 양털 블록 가장자리를 3배로 확대한 모습. 왼쪽이 이전, 오른쪽이 새 화면&quot;&gt;&lt;/p&gt;
-&lt;h2&gt;알려진 문제&lt;/h2&gt;
-&lt;ul&gt;
-&lt;li&gt;이미 열려 있던 탭은 &lt;strong&gt;새로고침&lt;/strong&gt;해야 바뀐 화면이 보여요.&lt;/li&gt;
 &lt;/ul&gt;
 </content>
   </entry>

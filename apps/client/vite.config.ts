@@ -1,7 +1,28 @@
-import { defineConfig } from "vite";
+import { defineConfig, type Plugin } from "vite";
+import { existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
+/**
+ * Dev only: /guide/ and /note/<post>/ are static pages in public/, served by nginx as folder
+ * indexes on the live site. Vite's dev server answered a folder address with the GAME's
+ * index.html, so every link to the guide from the home opened the home again.
+ */
+const publicFolderIndex = (): Plugin => ({
+  name: "public-folder-index",
+  configureServer(server) {
+    const root = fileURLToPath(new URL("./public", import.meta.url));
+    server.middlewares.use((req, _res, next) => {
+      const [path = "", query] = (req.url ?? "").split("?");
+      if (path.length > 1 && path.endsWith("/") && !path.includes("..") && existsSync(`${root}${decodeURIComponent(path)}index.html`)) {
+        req.url = `${path}index.html${query ? `?${query}` : ""}`;
+      }
+      next();
+    });
+  },
+});
+
 export default defineConfig({
+  plugins: [publicFolderIndex()],
   optimizeDeps: {
     exclude: ["@robo/shared"],
   },
