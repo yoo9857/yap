@@ -49,7 +49,8 @@ export class MiningEffects {
   for(const kind of ["chunk","snow","gem","wood","metal"] as const){
    const geometry=kind==="wood"?new THREE.BoxGeometry(.2,1,.2):kind==="metal"?new THREE.BoxGeometry(1,.08,.7):kind==="snow"?new THREE.IcosahedronGeometry(.5,1):kind==="gem"?new THREE.OctahedronGeometry(.6,0):new THREE.BoxGeometry(1,1,1);
    const material=new THREE.MeshStandardMaterial({roughness:kind==="metal"?.32:kind==="gem"?.27:.93,metalness:kind==="metal"?.8:kind==="gem"?.1:0,vertexColors:false});
-   const mesh=new THREE.InstancedMesh(geometry,material,MINING_PARTICLE_LIMIT);mesh.name="Mining "+kind+" debris";mesh.count=0;mesh.frustumCulled=false;mesh.castShadow=false;this.meshes.set(kind,mesh);this.root.add(mesh);
+   const mesh=new THREE.InstancedMesh(geometry,material,MINING_PARTICLE_LIMIT);mesh.name="Mining "+kind+" debris";mesh.setColorAt(0,new THREE.Color(1,1,1)); // (its colours exist from the start: three makes them at the first setColorAt, and a mesh that gains them mid-game needs another program — the first chip of each kind compiled one, a 0.03‒0.45 s hitch, 2026-11-16)
+   mesh.count=0;mesh.frustumCulled=false;mesh.castShadow=false;this.meshes.set(kind,mesh);this.root.add(mesh);
   }
   for(let i=0;i<MINING_PARTICLE_LIMIT;i++)this.pool.push({active:false,kind:"chunk",x:0,y:0,z:0,vx:0,vy:0,vz:0,rx:0,ry:0,rz:0,spin:0,size:0,age:0,life:1,gravity:12,colour:new THREE.Color(),bounce:0});
  }
@@ -102,7 +103,7 @@ export class MiningEffects {
  prewarm(blocks:readonly {def:BlockDef;materials:THREE.Material[]}[]):void {
   this.endWarm();const group=new THREE.Group(),geometry=new THREE.BoxGeometry(.001,.001,.001);group.name="Mining warm-up";
   for(const {def,materials} of blocks){if(!materials.length)continue;const family=surfaceStyle(def.key).family;
-   for(const material of [...materials,this.interior(family,def,materials)]){const mesh=new THREE.Mesh(geometry,material);mesh.frustumCulled=false;mesh.castShadow=true;group.add(mesh);}}
+   for(const material of [...materials,this.interior(family,def,materials)]){const mesh=new THREE.Mesh(geometry,material);mesh.frustumCulled=false;mesh.castShadow=true;mesh.receiveShadow=true;group.add(mesh);}} // (receiveShadow as the shards have it: without it the warm-up compiled a program the shards never use, and the first dig of each block family compiled theirs mid-game — a 0.03‒0.45 s hitch, 2026-11-16)
   this.warm=group;this.root.add(group);
  }
  endWarm():void {if(!this.warm)return;this.warm.removeFromParent();(this.warm.children[0] as THREE.Mesh|undefined)?.geometry.dispose();this.warm=null;}
