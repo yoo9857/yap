@@ -46,3 +46,4 @@ export function encodeMessage(msg: ClientMessage | ServerMessage): string {
 }
 export * from "./classroom.js";
 export * from "./party.js";
+export * from "./plaza.js";

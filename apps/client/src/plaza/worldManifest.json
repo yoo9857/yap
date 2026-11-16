@@ -1,0 +1,124 @@
+{
+  "model": "/world/main-plaza/world.glb",
+  "collision": "/world/main-plaza/collision.json",
+  "version": "4047fd9853d53bc9",
+  "regions": [
+    {
+      "id": "castle",
+      "label": "학습 성의 나라",
+      "at": [
+        0,
+        6.45,
+        -154
+      ],
+      "color": "829276",
+      "confirmed": true,
+      "approach": [
+        0.0,
+        0,
+        -85.0
+      ]
+    },
+    {
+      "id": "jungle",
+      "label": "정글 숲의 나라",
+      "at": [
+        -133,
+        0,
+        -98
+      ],
+      "color": "367D4D",
+      "confirmed": true,
+      "approach": [
+        -68.43,
+        0,
+        -50.42
+      ]
+    },
+    {
+      "id": "sky",
+      "label": "하늘섬 나라",
+      "at": [
+        133,
+        0,
+        -101
+      ],
+      "color": "AFCCD3",
+      "confirmed": true,
+      "approach": [
+        74,
+        0,
+        -78
+      ]
+    },
+    {
+      "id": "harbor",
+      "label": "바다 항구 나라",
+      "at": [
+        163,
+        0,
+        43
+      ],
+      "color": "52A8B9",
+      "confirmed": true,
+      "approach": [
+        82.19,
+        0,
+        21.68
+      ]
+    },
+    {
+      "id": "snow",
+      "label": "눈꽃 나라",
+      "at": [
+        63,
+        0,
+        158
+      ],
+      "color": "E4EDEC",
+      "confirmed": true,
+      "approach": [
+        31.48,
+        0,
+        78.95
+      ]
+    },
+    {
+      "id": "desert",
+      "label": "사막 유적 나라",
+      "at": [
+        -99,
+        0,
+        145
+      ],
+      "color": "D7B971",
+      "confirmed": true,
+      "approach": [
+        -47.93,
+        0,
+        70.2
+      ]
+    },
+    {
+      "id": "gears",
+      "label": "기계 공방 나라",
+      "at": [
+        -167,
+        0,
+        31
+      ],
+      "color": "9FAAAA",
+      "confirmed": true,
+      "approach": [
+        -83.57,
+        0,
+        15.51
+      ]
+    }
+  ],
+  "units": "metres",
+  "body": [
+    0.6,
+    1.8
+  ]
+}

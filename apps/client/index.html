@@ -2601,15 +2601,18 @@
 
         <div class="hub-center">
           <div class="mode-step" data-step="games" hidden>
-            <div class="hub-games-head">
-              <h2>친구와 함께 놀아요</h2>
-              <p>방을 만들거나, 열린 방에 들어가요</p>
-            </div>
+            <section class="plaza-entry" aria-label="메인광장 접속">
+              <img class="plaza-entry-art" src="/world/main-plaza/entry.webp" width="1400" height="900" alt="블록 마을 중앙 광장과 마법 성으로 이어지는 크래프트얍 월드" />
+              <div class="plaza-entry-copy"><span>CRAFTYAP WORLD</span><h2>우리의 모험은<br>광장에서 시작!</h2><p>친구를 만나고, 방을 만들어 함께 떠나요.</p>
+                <button class="mode-btn plaza-entry-button" data-mode="plaza" type="button">메인광장 접속 <span aria-hidden="true">→</span></button>
+              </div>
+              <span class="plaza-entry-note">함께 걷는 블록 마을 · 일곱 테마 나라</span>
+            </section>
             <div class="party-actions">
               <button class="party-btn party-create" type="button" data-id="party-create"><img loading="lazy" decoding="async" class="hub-ic" src="/ui/hub/icon-create.webp" alt="" />방 만들기</button>
-              <button class="party-btn party-browse" type="button" data-id="party-browse" aria-expanded="false"><img loading="lazy" decoding="async" class="hub-ic" src="/ui/hub/icon-friends.webp" alt="" />접속하기</button>
+              <button class="party-btn party-browse" type="button" data-id="party-browse" aria-expanded="false"><img loading="lazy" decoding="async" class="hub-ic" src="/ui/hub/icon-friends.webp" alt="" />열린 방 보기</button>
+              <button class="party-btn plaza-quick" type="button" data-id="hub-start">빠른 방 참여 <small data-id="hub-start-label">빈자리 있는 방으로</small></button>
             </div>
-            <button class="hub-start" type="button" data-id="hub-start"><span aria-hidden="true">▶</span> 빠른 입장 <small data-id="hub-start-label">빈자리 있는 방으로</small></button>
             <div class="hub-solo" aria-label="혼자 하기">
               <span class="hub-solo-label">혼자 하기</span>
               <button class="mode-btn hub-solo-btn" data-mode="craft" type="button"><img src="/home/craft.webp" width="640" height="480" alt="" loading="lazy" /><b>Craft Island</b><small>블록 섬 탐험</small></button>

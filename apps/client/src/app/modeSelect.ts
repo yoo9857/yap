@@ -6,9 +6,9 @@ const hasSeat = (): boolean => {
   try { return !!sessionStorage.getItem("craftyap-party-seat"); } catch { return false; }
 };
 
-export type GameMode = "tower" | "builder" | "craft" | "battle" | "cinematic" | "field";
+export type GameMode = "tower" | "builder" | "craft" | "battle" | "cinematic" | "field" | "plaza";
 
-const MODES: readonly GameMode[] = ["tower", "builder", "craft", "battle", "cinematic", "field"];
+const MODES: readonly GameMode[] = ["tower", "builder", "craft", "battle", "cinematic", "field", "plaza"];
 
 /**
  * First screen: the web home (접속하기, 선생님 로그인), then education or games, then (for
@@ -25,6 +25,15 @@ export function selectMode(parent: HTMLElement): Promise<GameMode> {
   const el = document.getElementById("mode-select");
   if (!el) throw new Error("missing #mode-select menu");
   const param = new URLSearchParams(location.search).get("mode");
+  // A party started in the 3D plaza comes back to the same plaza channel.
+  if (!param && !new URLSearchParams(location.search).has("pick") && hasSeat()) {
+    try {
+      const channel = Number(sessionStorage.getItem("craftyap-plaza-return"));
+      if (Number.isInteger(channel) && channel > 0 && channel <= 999) {
+        history.replaceState(null, "", `/?mode=plaza&channel=${channel}`); el.remove(); return Promise.resolve("plaza");
+      }
+    } catch { /* storage is optional */ }
+  }
   // Guide buttons can open classroom choices directly without a second menu.
   if (param === "education") {
     // (&as=teacher: back from signing in on /teacher/ — straight at the lesson select)
@@ -52,6 +61,7 @@ export function selectMode(parent: HTMLElement): Promise<GameMode> {
       show("category");
     } else show("home");
     const choose = (mode: GameMode) => {
+      if (mode === "plaza") history.replaceState(null, "", "/?mode=plaza");
       lobby?.dispose();
       removeEventListener("resize", fit);
       document.removeEventListener("keydown", onKey);
@@ -116,6 +126,7 @@ export function selectMode(parent: HTMLElement): Promise<GameMode> {
       show("games");
       if (lobby) return;
       void import("./partyLobby.js").then(({ PartyLobby }) => {
+        if (!el.isConnected) return;
         lobby = new PartyLobby(el);
         lobby.start();
       });

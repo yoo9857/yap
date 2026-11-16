@@ -8,12 +8,14 @@ import type { SiteApi } from "../site/siteApi.js";
 import type { ClassDesk } from "./ipc.js";
 import { attachWsServer, createSocketHub } from "../net/wsServer.js";
 import { PartyManager } from "../party/partyManager.js";
+import { PlazaManager } from "../plaza/plazaManager.js";
 import { createGameServices } from "./services.js";
 
 /** Everything in one process: HTTP, every game, the party hub. SHARDS=1 (the default). */
 export function runSingle(config: Config, entryDir: string, staticRoot: string | null, api?: SiteApi, desk?: ClassDesk): (reason: string, code: number) => void {
   const game = createGameServices(config, entryDir);
   const { rooms, classes } = game;
+  const plaza = new PlazaManager();
   // 반 설정: this one process owns every class
   if (desk) desk.run = (room, account, op) => Promise.resolve(classes.admin(room, account, op));
   // the hub's rooms: in memory only; each room's game runs on the classroom
@@ -31,10 +33,10 @@ export function runSingle(config: Config, entryDir: string, staticRoot: string |
   const metrics = () => ({
     mode: "single",
     processes: [{ role: "single", ...meter.sample() }],
-    totals: { ...game.counts(), partyRooms: parties.roomCount },
+    totals: { ...game.counts(), partyRooms: parties.roomCount, plazaPlayers: plaza.playerCount },
   });
   const httpServer = createServer(createRequestHandler(staticRoot, metrics, undefined, api));
-  const closeWs = attachWsServer(httpServer, createSocketHub(rooms, classes, { parties }), {
+  const closeWs = attachWsServer(httpServer, createSocketHub(rooms, classes, { parties, plaza }), {
     perAddress: config.MAX_CONN_PER_IP,
     total: config.MAX_CONNECTIONS,
   });
@@ -54,6 +56,7 @@ export function runSingle(config: Config, entryDir: string, staticRoot: string |
     for (const [name, step] of [
       ["ws", closeWs],
       ["parties", () => parties.shutdown()],
+      ["plaza", () => plaza.shutdown()],
       ["game", () => game.shutdown()],
     ] as const) {
       try {

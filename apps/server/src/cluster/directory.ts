@@ -20,6 +20,7 @@ import { classKey, partyCodeSchema } from "@robo/shared";
  */
 export type Route = string;
 export const HUB_ROUTE: Route = "hub";
+export const PLAZA_ROUTE: Route = "plaza";
 export const UNROUTED_CLASS: Route = "class:?";
 export const PUBLIC_TOWER: Route = "tower:public";
 
@@ -27,6 +28,7 @@ export function routeOf(url: string): Route {
   const params = new URL(url, "http://x").searchParams;
   const mode = params.get("mode");
   if (mode === "party") return HUB_ROUTE;
+  if (mode === "plaza") return PLAZA_ROUTE;
   if (mode === "class") {
     const room = params.get("room");
     return room && room.trim() ? classRoute(room) : UNROUTED_CLASS;

@@ -6,6 +6,7 @@ import { log } from "../log.js";
 import type { RoomManager } from "../game/roomManager.js";
 import type { ClassManager } from "../classroom/classManager.js";
 import type { PartyManager } from "../party/partyManager.js";
+import type { PlazaManager } from "../plaza/plazaManager.js";
 import { Session } from "./session.js";
 import { handoffPending } from "./handoff.js";
 
@@ -62,6 +63,7 @@ export interface SocketHub {
 export interface HubOptions {
   /** The hub's rooms, when they live in this process (single mode). Null on a cluster shard. */
   parties: PartyManager | null;
+  plaza?: PlazaManager;
   /** Cluster shard: does this process own the tower room for this party code (undefined = public)? */
   ownsTower?: (party: string | undefined) => boolean;
 }
@@ -77,6 +79,11 @@ export function createSocketHub(rooms: RoomManager, classes: ClassManager, optio
   function accept(ws: WebSocket, url: string, address: string): void {
     // the education classroom shares the endpoint, selected by query
     const mode = new URL(url, "http://x").searchParams.get("mode");
+    if (mode === "plaza") {
+      if (options.plaza) options.plaza.accept(ws);
+      else ws.close(1011, "no plaza here");
+      return;
+    }
     if (mode === "class") {
       classes.accept(ws, address);
       return;

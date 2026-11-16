@@ -10,6 +10,7 @@ import { createRequestHandler } from "../http/handler.js";
 import type { SiteApi } from "../site/siteApi.js";
 import { ConnectionGate, WS_OPTIONS, clientAddress } from "../net/wsServer.js";
 import { PartyManager } from "../party/partyManager.js";
+import { PlazaManager } from "../plaza/plazaManager.js";
 import { HUB_ROUTE, LiveDirectory, PUBLIC_TOWER, classRoute, partyFieldRoute, routeOf } from "./directory.js";
 import type { ClassAdminAnswer } from "../classroom/classAdmin.js";
 import type { ClassDesk } from "./ipc.js";
@@ -51,6 +52,7 @@ export function runPrimary(config: Config, staticRoot: string | null, shards: nu
     index, worker: null, ready: false, waiting: [], held: new Map(), sample: null, counts: null, build: new Map(), tower: new Map(),
   }));
   const gate = new ConnectionGate({ perAddress: config.MAX_CONN_PER_IP, total: config.MAX_CONNECTIONS });
+  const plaza = new PlazaManager();
   let shuttingDown = false;
 
   const toShard = (slot: ShardSlot, msg: ToShard, handle?: Socket, onFail?: () => void): boolean => {
@@ -197,7 +199,7 @@ export function runPrimary(config: Config, staticRoot: string | null, shards: nu
 
   const meter = new ProcessMeter();
   const metrics = () => {
-    const totals: Record<string, number> = { partyRooms: parties.roomCount, sockets: gate.total };
+    const totals: Record<string, number> = { partyRooms: parties.roomCount, sockets: gate.total, plazaPlayers: plaza.playerCount };
     for (const s of slots) for (const [k, v] of Object.entries(s.counts ?? {})) totals[k] = (totals[k] ?? 0) + v;
     return {
       mode: "cluster",
@@ -240,6 +242,11 @@ export function runPrimary(config: Config, staticRoot: string | null, shards: nu
       // a party link whose hub room is gone (expired, or a deploy) plays the public tower, as it
       // did before shards; routing it to its own route would strand it in a room of its own
       if (route.startsWith("tower:party:") && !parties.has(route.slice("tower:party:".length))) route = PUBLIC_TOWER;
+      if (new URL(url, "http://x").searchParams.get("mode") === "plaza") {
+        socket.once("close", () => gate.release(address));
+        local.handleUpgrade(req, socket, head, (ws) => plaza.accept(ws));
+        return;
+      }
       if (route === HUB_ROUTE) {
         // freed when the TCP socket goes, not the WebSocket: a handshake ws aborts (bad key,
         // wrong method) never reaches the callback, and its slot would be held forever
@@ -300,6 +307,7 @@ export function runPrimary(config: Config, staticRoot: string | null, shards: nu
     log.info({ reason }, "shutting down cluster");
     setTimeout(() => process.exit(code), 4000).unref();
     try { parties.shutdown(); } catch (err) { log.error({ err }, "party shutdown failed"); }
+    plaza.shutdown();
     local.close();
     meter.stop();
     // each shard saves its classes; we wait for all of them before going

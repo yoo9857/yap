@@ -184,6 +184,25 @@ await new Promise((resolve) => {
   ws.addEventListener("error", () => { clearTimeout(timer); finish(false, "connection error"); });
 });
 
+// 4b) The main plaza: its world is served, and its protocol answers a hello (the socket is closed at once).
+for (const file of ["/world/main-plaza/world.glb", "/world/main-plaza/collision.json"]) {
+  const res = await fetch(base + file, { method: "HEAD" });
+  check(`plaza ${file.split("/").pop()} is served`, res.status === 200, String(res.status));
+}
+await new Promise((resolve) => {
+  const ws = new WebSocket(base.replace(/^http/, "ws") + "/ws?mode=plaza");
+  let done = false;
+  const finish = (ok, detail) => { if (done) return; done = true; check("Main plaza (/ws?mode=plaza) welcomes a visitor", ok, detail); try { ws.close(); } catch { /* already closed */ } resolve(); };
+  const timer = setTimeout(() => finish(false, "timeout"), 8000);
+  ws.addEventListener("open", () => ws.send(JSON.stringify({ t: "z-hello", v: 1, name: "smoke", character: "mascot" })));
+  ws.addEventListener("message", (ev) => {
+    const msg = JSON.parse(String(ev.data));
+    if (msg.t === "s-z-welcome") { clearTimeout(timer); finish(typeof msg.channel === "number", `channel ${msg.channel}`); }
+    if (msg.t === "s-z-error") { clearTimeout(timer); finish(false, msg.code); }
+  });
+  ws.addEventListener("error", () => { clearTimeout(timer); finish(false, "connection error"); });
+});
+
 // 5) Hub rooms: the party protocol answers (an old server would leave this silent).
 //    Hello + list only — no room is created on the live server.
 await new Promise((resolve) => {

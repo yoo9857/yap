@@ -9,6 +9,7 @@ import { initMenuBackground } from "./app/menuBackground.js";
 import { t } from "./ui/i18n.js";
 import type { ClassEntry } from "./app/classLobby.js";
 import type { ClassTheme } from "@robo/shared";
+import "./plaza/plazaEntry.css";
 
 const overlay = document.getElementById("boot-overlay");
 const messageEl = document.getElementById("boot-message");
@@ -174,6 +175,17 @@ async function bootCinematic(mount: HTMLElement): Promise<void> {
   hideOverlay();
 }
 
+async function bootPlaza(mount: HTMLElement): Promise<void> {
+  overlay?.classList.remove("hidden");
+  setBootMessage("메인광장을 불러오는 중…");
+  const [rapier, { PlazaGame }] = await Promise.all([import("@dimforge/rapier3d-compat"), import("./plaza/plazaGame.js")]);
+  await withTimeout(rapier.init(), 15_000, "plaza physics init");
+  const game = new PlazaGame(mount, rapier);
+  try { await withTimeout(game.prepare(setBootMessage), 90_000, "main plaza load"); }
+  catch (error) { game.dispose(); throw error; }
+  game.start(); hideOverlay();
+}
+
 async function boot(): Promise<void> {
   const mount = document.getElementById("app");
   if (!mount) throw new Error("missing #app mount point");
@@ -208,6 +220,7 @@ async function boot(): Promise<void> {
   if (mode === "craft" || mode === "field") { early(() => import("./craft/craftGame.js")); early(() => import("./craft/blockMaterials.js")); }
   else if (mode === "battle") { early(() => import("./battle/battleGame.js")); early(() => import("./craft/blockMaterials.js")); }
   else if (mode === "tower") { early(() => import("@dimforge/rapier3d-compat")); early(() => import("./app/game.js")); }
+  else if (mode === "plaza") { early(() => import("@dimforge/rapier3d-compat")); early(() => import("./plaza/plazaGame.js")); }
   // Start the HOME character download now, in the background: it overlaps the
   // class lobby instead of covering it. Every mode waits for it below, before
   // any rig is built (a failed download falls back to the built-in mascot).
@@ -237,6 +250,8 @@ async function boot(): Promise<void> {
   await characters;
   if (mode === "tower") {
     await bootTower(mount);
+  } else if (mode === "plaza") {
+    await bootPlaza(mount);
   } else if (mode === "craft") {
     await bootCraft(mount);
   } else if (mode === "field") {

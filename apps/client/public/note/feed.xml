@@ -7,6 +7,47 @@
   <updated>2026-11-17T00:00:00+09:00</updated>
   <author><name>크래프트얍(CraftYap)</name></author>
   <entry xml:base="https://craftyap.com/">
+    <title>11월 16일 패치 노트 3 — 메인광장이 열렸어요</title>
+    <link href="https://craftyap.com/note/patch-2026-11-16-3/" />
+    <id>https://craftyap.com/note/patch-2026-11-16-3/</id>
+    <published>2026-11-16T00:00:00+09:00</published>
+    <updated>2026-11-16T00:00:00+09:00</updated>
+    <summary>게임 모드에 메인광장이 생겼어요. 블록 마을 광장과 일곱 나라를 친구들과 함께 걸어 다니고, 광장에서 방을 만들어 같이 게임을 시작해요.</summary>
+    <content type="html">&lt;h2&gt;한눈에 보기&lt;/h2&gt;
+&lt;p&gt;게임 모드의 가장 큰 입구로 &lt;strong&gt;메인광장&lt;/strong&gt;이 생겼어요. 블록 마을의 중앙 광장에서 친구들을 만나고, 마을 밖 일곱 나라를 걸어서 구경하고, 광장에서 바로 방을 만들어 함께 게임을 시작해요.&lt;/p&gt;
+&lt;h2&gt;BEFORE / AFTER&lt;/h2&gt;
+&lt;p&gt;&lt;img src=&quot;/note/assets/20261116-plaza-hub-ba.webp&quot; alt=&quot;게임 모드 화면 비교: 예전에는 방 버튼과 게임 네 개만 있었고, 지금은 맨 위에 메인광장 접속 배너가 있다&quot;&gt;&lt;/p&gt;
+&lt;h2&gt;새로 추가&lt;/h2&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;메인광장&lt;/strong&gt; — 게임 모드 화면 맨 위의 &lt;strong&gt;메인광장 접속&lt;/strong&gt;을 누르면 들어가요. 처음 들어갈 때 광장에서 쓸 이름을 정해요.&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;함께 걷기&lt;/strong&gt; — 같은 광장에 있는 친구들의 캐릭터와 이름이 보이고, 움직임이 서로에게 보여요. 한 광장에는 32명까지 들어가고, 가득 차면 다음 광장으로 들어가요.&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;친구 초대&lt;/strong&gt; — &lt;strong&gt;친구 초대&lt;/strong&gt;를 누르면 지금 있는 광장으로 바로 오는 주소가 복사돼요.&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;광장에서 방 만들기&lt;/strong&gt; — 방 만들기, 열린 방, 코드 참여가 광장 위쪽에 있어요. 방에서 게임을 시작하면 다 같이 이동하고, 게임에서 &lt;strong&gt;처음으로&lt;/strong&gt;를 누르면 같은 광장으로 돌아와요. 지금 함께 시작할 수 있는 게임은 함께 짓기와 Daily Tower예요.&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;광장 이야기와 인사&lt;/strong&gt; — 채팅으로 이야기하고, 👋 인사 버튼으로 손을 흔들어요.&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;&lt;img src=&quot;/note/assets/20261116-plaza-square.webp&quot; alt=&quot;메인광장: 가운데 분수와 마을 건물, 위쪽에 방 만들기와 친구 초대 버튼, 왼쪽 아래에 광장 이야기 창이 있다&quot;&gt;&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;일곱 나라&lt;/strong&gt; — 광장 밖으로 길을 따라가면 학습 성, 정글 숲, 하늘섬, 바다 항구, 눈, 사막, 톱니 나라가 이어져요. 나라마다 공기가 달라요. 성에는 꽃잎이, 정글에는 반딧불이, 눈 나라에는 눈이 내려요.&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;크래프트 모드의 물과 블록 느낌&lt;/strong&gt; — 광장의 분수와 강, 항구의 바다는 Craft Island와 같은 물이에요. 물결이 일고 닿는 곳에 거품이 생겨요. 땅에는 블록 장난감의 동그란 돌기가 있고, 세계 바깥은 바다가 둘러싸고 있어요.&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;하늘과 소리&lt;/strong&gt; — 해와 천천히 흐르는 구름이 있고, 나뭇잎이 바람에 흔들려요. 걸으면 발소리가 나는데 나라마다 바닥 소리가 달라요. 달리거나 착지하면 발밑에 먼지가 일어요.&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;&lt;img src=&quot;/note/assets/20261116-plaza-countries.webp&quot; alt=&quot;나라 네 곳: 바다 위 등대가 있는 항구, 계단 위의 학습 성, 눈이 내리는 눈 나라, 반딧불이 떠다니는 정글&quot;&gt;&lt;/p&gt;
+&lt;h2&gt;조작&lt;/h2&gt;
+&lt;ul&gt;
+&lt;li&gt;PC: WASD나 방향키로 이동, 화면을 끌어서 시점, 휠로 확대, Space로 점프, Shift로 달리기&lt;/li&gt;
+&lt;li&gt;휴대폰·태블릿: 왼쪽 조이스틱으로 이동, 화면을 끌어서 시점, 점프 버튼&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2&gt;알려진 문제&lt;/h2&gt;
+&lt;ul&gt;
+&lt;li&gt;광장은 처음 들어갈 때 내려받는 양이 많아요(약 40MB). 느린 인터넷에서는 시간이 걸려요.&lt;/li&gt;
+&lt;li&gt;휴대폰과 사양이 낮은 컴퓨터에서 얼마나 부드러운지는 아직 재지 못했어요.&lt;/li&gt;
+&lt;li&gt;항구 나라에서는 캐릭터가 바다 위를 걸어요.&lt;/li&gt;
+&lt;li&gt;Robo Builder와 Blast Royale은 아직 광장에서 함께 시작할 수 없어요.&lt;/li&gt;
+&lt;li&gt;안드로이드 앱에는 아직 메인광장이 없어요.&lt;/li&gt;
+&lt;/ul&gt;
+</content>
+  </entry>
+  <entry xml:base="https://craftyap.com/">
     <title>11월 16일 패치 노트 2 — 선생님의 수업 관리</title>
     <link href="https://craftyap.com/note/patch-2026-11-16-2/" />
     <id>https://craftyap.com/note/patch-2026-11-16-2/</id>
@@ -886,41 +927,6 @@
 &lt;li&gt;&lt;strong&gt;친구 자리에 놓인 블록&lt;/strong&gt; — 친구가 서 있는 칸에는 블록을 놓을 수 없어요. 전에는 블록이 친구 몸속에 놓였고, 친구 화면에서 캐릭터가 블록 위로 튕겨 올라갔어요.&lt;/li&gt;
 &lt;li&gt;&lt;strong&gt;계속 밀려서 날아다니던 문제&lt;/strong&gt; — 밀린 친구는 잠깐(0.9초) 다시 밀리지 않아요. 그동안 맞으면 반짝이고 소리는 나지만 밀리지는 않아요. 여러 명이 한꺼번에 밀어도 날아다니지 않아요.&lt;/li&gt;
 &lt;li&gt;&lt;strong&gt;오래 수업하면 접속이 끊기던 문제&lt;/strong&gt; — 클릭이 너무 빠를 때 서버가 쌓아 두던 경고가 줄지 않고 계속 쌓여서, 긴 수업 중에 접속이 끊길 수 있었어요. 이제 경고는 시간이 지나면 사라져요.&lt;/li&gt;
-&lt;/ul&gt;
-</content>
-  </entry>
-  <entry xml:base="https://craftyap.com/">
-    <title>11월 4일 패치 노트 (8) — 물이 모양 블록 안으로 흘러 들어가요</title>
-    <link href="https://craftyap.com/note/patch-2026-11-04-8/" />
-    <id>https://craftyap.com/note/patch-2026-11-04-8/</id>
-    <published>2026-11-04T00:00:00+09:00</published>
-    <updated>2026-11-04T00:00:00+09:00</updated>
-    <summary>삼각형과 원형 블록이 만나는 곳, 웅덩이 가장자리, 흐르는 물 속에서 물이 모양 블록을 자연스럽게 채우지 못하던 문제를 고쳤어요. 이제 물이 모양 블록의 빈 쪽으로 실제로 흘러 들어가고, 막힌 면에서 멈춰요.</summary>
-    <content type="html">&lt;h2&gt;한눈에 보기&lt;/h2&gt;
-&lt;p&gt;지난 패치(7)는 물을 &lt;strong&gt;그릴 때만&lt;/strong&gt; 모양 블록 칸을 채워 보여 줬어요. 그래서 물 높이 근처, 웅덩이 가장자리, 흐르는 물에서는 여전히 물이 모양 블록 앞에서 끊겼어요. 이번에는 물이 &lt;strong&gt;실제로&lt;/strong&gt; 삼각형·모서리형·원형·반블록·계단 블록 안으로 흘러 들어가요.&lt;/p&gt;
-&lt;ul&gt;
-&lt;li&gt;블록의 &lt;strong&gt;열린 쪽&lt;/strong&gt;으로는 물이 들어가고, 지나가서 계속 흘러요.&lt;/li&gt;
-&lt;li&gt;경사의 높은 뒷면, 계단 뒷면, 반블록 바닥처럼 &lt;strong&gt;막힌 면&lt;/strong&gt;에서는 물이 멈춰요.&lt;/li&gt;
-&lt;li&gt;수영과 물속 화면도 모양 블록 안의 물을 물로 인식해요.&lt;/li&gt;
-&lt;/ul&gt;
-&lt;h2&gt;BEFORE / AFTER&lt;/h2&gt;
-&lt;p&gt;&lt;strong&gt;모양 블록에 둘러싸인 물 한 칸(가운데)과 모양 블록이 잠긴 웅덩이(왼쪽 위)&lt;/strong&gt; — 이전에는 사방이 모양 블록이면 물이 한 칸도 흐르지 못했어요. 이제는 블록의 빈 쪽을 지나 땅 위로 퍼지고, 블록 옆면에 물이 닿아요.&lt;/p&gt;
-&lt;p&gt;&lt;img src=&quot;/note/assets/20261104-waterlog-ba.webp&quot; alt=&quot;모양 블록과 흐르는 물 비교: 왼쪽 이전 화면은 삼각형, 원형, 반블록, 계단 블록에 둘러싸인 물이 전혀 흐르지 않아 풀밭이 말라 있고, 오른쪽 새 화면은 같은 곳에서 물이 블록 사이로 흘러 넓게 퍼지며 블록 아랫부분이 물에 잠겨 있다&quot;&gt;&lt;/p&gt;
-&lt;h2&gt;버그 수정&lt;/h2&gt;
-&lt;ul&gt;
-&lt;li&gt;&lt;strong&gt;삼각형과 원형이 만나는 곳의 물&lt;/strong&gt; — 모양 블록끼리 붙어 있으면, 물이 어느 칸에도 들어가지 못해 사이가 말라 보였어요. 이제는 칸마다 물이 차요.&lt;/li&gt;
-&lt;li&gt;&lt;strong&gt;물 높이 근처, 웅덩이 가장자리&lt;/strong&gt; — 수면 높이나 웅덩이 테두리에 놓은 모양 블록도 물이 닿는 쪽부터 차요. 반블록으로 테두리를 만들면 물이 그 위로 넘어가고, 계단의 높은 뒷면은 물을 막아요.&lt;/li&gt;
-&lt;li&gt;&lt;strong&gt;흐르는 물&lt;/strong&gt; — 물길에 모양 블록을 놓으면 물이 그 블록을 지나서 계속 흘러요.&lt;/li&gt;
-&lt;li&gt;&lt;strong&gt;물에 잠긴 모양 블록을 캘 때&lt;/strong&gt; — 블록이 사라지는 순간 그 칸의 물이 그대로 남아서, 잠깐 마른 구멍이 보이지 않아요.&lt;/li&gt;
-&lt;/ul&gt;
-&lt;h2&gt;함께 바뀐 것&lt;/h2&gt;
-&lt;ul&gt;
-&lt;li&gt;교실에서는 서버가 모양 블록 안의 물까지 계산해서 모두에게 똑같이 보여 줘요. 열려 있던 교실 탭은 자동으로 한 번 새로고침돼요.&lt;/li&gt;
-&lt;li&gt;모양 블록 안의 물은 따로 저장하지 않아요. 다시 들어오면 주변 물이 몇 초 안에 다시 채워요.&lt;/li&gt;
-&lt;/ul&gt;
-&lt;h2&gt;알려진 문제&lt;/h2&gt;
-&lt;ul&gt;
-&lt;li&gt;물을 퍼 담는 양동이는 모양 블록 &lt;strong&gt;안의 물&lt;/strong&gt;은 뜨지 못해요. 옆에 있는 물 칸에서 떠 주세요.&lt;/li&gt;
 &lt;/ul&gt;
 </content>
   </entry>

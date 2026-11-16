@@ -27,12 +27,13 @@ export default defineConfig({
     exclude: ["@robo/shared"],
   },
   server: {
+    host: "127.0.0.1",
     port: 5173,
     proxy: {
       // the site's JSON API (accounts, inquiries, admin) is the game server's
-      "/api": { target: "http://localhost:8081" },
+      "/api": { target: "http://127.0.0.1:8081" },
       "/ws": {
-        target: "ws://localhost:8081",
+        target: "ws://127.0.0.1:8081",
         ws: true,
       },
     },

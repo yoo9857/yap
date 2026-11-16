@@ -86,7 +86,7 @@ export class PartyLobby {
   private pending: (() => void) | null = null;
   private toastTimer = 0;
 
-  constructor(private readonly root: HTMLElement) {
+  constructor(private readonly root: HTMLElement, private readonly options: { onLaunch?: (game: PartyGame, code: string, name: string) => void; onName?: (name: string) => void } = {}) {
     this.rows = root.querySelector<HTMLElement>('[data-id="party-rows"]')!;
     this.empty = root.querySelector<HTMLElement>('[data-id="party-empty"]')!;
     this.status = root.querySelector<HTMLElement>('[data-id="party-status"]')!;
@@ -114,7 +114,7 @@ export class PartyLobby {
   /** The room list slides in where the right-hand panels were (they slide out to the right). */
   setDrawer(open: boolean): void {
     this.drawerOpen = open;
-    this.root.querySelector(".hub-shell")?.classList.toggle("rooms-open", open);
+    (this.root.querySelector(".hub-shell") ?? this.root).classList.toggle("rooms-open", open);
     this.root.querySelector('[data-id="party-drawer"]')?.setAttribute("aria-hidden", String(!open));
     this.root.querySelector('[data-id="party-browse"]')?.setAttribute("aria-expanded", String(open));
     if (open) this.connect().list();
@@ -125,6 +125,8 @@ export class PartyLobby {
   get busy(): boolean {
     return !!this.dialog || !!this.waiting;
   }
+
+  get interacting(): boolean { return this.busy || this.drawerOpen; }
 
   /** Esc: close the top dialog. Returns true when it handled the key. */
   escape(): boolean {
@@ -206,7 +208,8 @@ export class PartyLobby {
     rememberName(name);
     this.toast(`${gameName(game)}(으)로 들어가요…`);
     this.client!.close(); // the seat stays for the way back
-    location.href = gameUrl(game, code, name);
+    if (this.options.onLaunch) this.options.onLaunch(game, code, name);
+    else location.href = gameUrl(game, code, name);
   }
 
   // ------------------------------------------------------------ list
@@ -241,6 +244,7 @@ export class PartyLobby {
     rememberName(name);
     this.connect().rename(name);
     this.syncProfile(name);
+    this.options.onName?.(name);
   }
 
   private syncProfile(name: string): void {
