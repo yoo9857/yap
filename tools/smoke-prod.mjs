@@ -129,6 +129,30 @@ try {
   }
   const missing = await fetch(base + "/does-not-exist-seo-check", { redirect: "manual" });
   check("unknown page returns a real 404", missing.status === 404 && missing.headers.get("x-robots-tag") === "noindex");
+  await missing.body?.cancel().catch(() => {});
+  const lostPage = await fetch(base + "/does-not-exist-seo-check/", { redirect: "manual" });
+  const lost = await lostPage.text();
+  check("unknown page shows the site's own page", lostPage.status === 404 && (lostPage.headers.get("content-type") ?? "").includes("text/html") && lost.includes('class="header-nav"') && lost.includes('href="/"'));
+  const lostFile = await fetch(base + "/does-not-exist-seo-check.png", { redirect: "manual" });
+  check("unknown file returns a plain 404", lostFile.status === 404 && !(lostFile.headers.get("content-type") ?? "").includes("text/html"));
+  await lostFile.body?.cancel();
+  // the site's accounts and inquiries (docs/ACCOUNTS.md): the pages exist, the API answers — a 503
+  // here means the site's database is not reachable
+  const me = await fetch(base + "/api/teacher/me");
+  const meJson = await me.json().catch(() => ({}));
+  check("accounts API answers (503 = the site database is down)", me.status === 200 && "teacher" in meJson, String(me.status));
+  const adminMe = await fetch(base + "/api/admin/inquiries");
+  check("the admin's data is closed to visitors", adminMe.status === 401, String(adminMe.status));
+  await adminMe.body?.cancel();
+  for (const path of ["/teacher/", "/admin/"]) {
+    const page = await fetch(base + path);
+    const html = await page.text();
+    check(`${path} is a page kept out of search engines`, page.status === 200 && /<meta name="robots" content="noindex/.test(html));
+  }
+  const cases = await head("/cases/");
+  const casesHtml = await cases.body.text();
+  check("도입 사례 is a real HTML page", cases.status === 200 && cases.type.includes("text/html") && /<h1[\s>]/i.test(casesHtml) && casesHtml.includes('href="https://craftyap.com/cases/"'));
+  check("sitemap discovers 도입 사례", xml.includes("<loc>https://craftyap.com/cases/</loc>"));
   // operator-only: answers a request from inside the box, never one through nginx or docker's port map
   if (!/^https?:\/\/(127\.0\.0\.1|localhost|\[::1\])(:|\/|$)/.test(base)) {
     const metrics = await fetch(base + "/metrics", { redirect: "manual" });

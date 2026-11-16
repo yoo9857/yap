@@ -112,9 +112,7 @@ ${json(jsonLd)}
     <a class="skip-link" href="#content">본문으로 이동</a>
     <header class="site-header"><div class="header-inner">
       <a class="brand" href="/" aria-label="크래프트얍 게임 홈"><img src="/home/mascot.webp" width="322" height="360" alt="" /><span class="wordmark" aria-hidden="true"><i>C</i><i>r</i><i>a</i><i>f</i><i>t</i><i>Y</i><i>a</i><i>p</i></span></a>
-      <nav class="header-nav" id="site-nav" aria-label="주요 메뉴"><a href="/guide/">게임 소개</a><a href="/guide/#classroom">교육 모드</a><a href="/note/">새 소식</a><a href="/guide/#controls">조작법</a></nav>
-      <a class="button button-dark header-play" href="/">지금 플레이 <span aria-hidden="true">↗</span></a>
-      <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="site-nav" aria-label="메뉴 열기" hidden><span></span><span></span></button>
+      <nav class="header-nav" id="site-nav" aria-label="사이트 메뉴"><a href="/guide/">게임 소개</a><a href="/guide/#classroom">교육 모드</a><span class="nav-drop"><a href="/cases/" aria-haspopup="true">도입 사례</a><span class="nav-menu"><a href="/cases/">학교 현장</a></span></span><a href="/note/" aria-current="page">새 소식</a><a href="/guide/#controls">도움말</a></nav>
     </div></header>
     <main id="content" class="note-main section-shell">
 ${body}

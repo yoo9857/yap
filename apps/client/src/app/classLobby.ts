@@ -1,3 +1,4 @@
+import { hostTicket, teacherAccount } from "../net/teacherAccount.js";
 import { CLASS_ERROR_TEXT, ClassClient, peekClass, takeReloadPassword, type ClassJoin, type ClassSession } from "../net/classClient.js";
 import "../craft/classroom.css";
 import "../craft/fire/fire.css"; // the theme picker
@@ -218,6 +219,7 @@ export function chooseClass(parent: HTMLElement, start: "pick" | "teacher" = "pi
               <label for="cl-pass">${t("반 비밀번호", "Class password")}</label>
               <input id="cl-pass" name="password" type="password" minlength="4" maxlength="32" autocomplete="off" aria-describedby="cl-pass-hint" placeholder="${t("4자 이상", "4+ characters")}" />
               <small class="lob-hint" id="cl-pass-hint">${t("다른 컴퓨터에서 이 반을 다시 열 때 필요해요", "Needed to reopen this class on another computer")}</small>
+              <p class="lob-account" data-id="account" hidden></p>
               <label for="cl-teams" data-theme-note="fire" hidden>${t("조 편성 (수업 중 F2에서 바꿀 수 있어요)", "Teams (change any time under F2)")}</label>
               <select id="cl-teams" data-theme-note="fire" hidden>
                 <option value="0">${t("조 없이: 반 전체가 한 번에", "None: the whole class at once")}</option>
@@ -292,6 +294,22 @@ export function chooseClass(parent: HTMLElement, start: "pick" | "teacher" = "pi
     const input = (id: string) => screen.querySelector<HTMLInputElement>(`#${id}`)!;
     input("cl-host-room").value = last.room ?? "";
     input("cl-host").value = last.teacher ?? "";
+    // a signed-in teacher (docs/ACCOUNTS.md): the class is their account's and needs no password;
+    // signed out, the way to sign in is offered — and everything works without it, as before
+    void teacherAccount().then((account) => {
+      const line = screen.querySelector<HTMLElement>('[data-id="account"]');
+      if (!line) return;
+      line.hidden = false;
+      if (account) {
+        if (!input("cl-host").value) input("cl-host").value = account.name.slice(0, 16);
+        input("cl-pass").placeholder = t("비워 두어도 됩니다", "May be left empty");
+        screen.querySelector<HTMLElement>("#cl-pass-hint")!.textContent = t("계정으로 로그인해서 비밀번호 없이 열 수 있어요", "Signed in: no password needed");
+        line.classList.add("on");
+        line.textContent = t(`✓ ${account.name} 선생님 계정으로 로그인됨`, `✓ Signed in as ${account.name}`);
+      } else {
+        line.innerHTML = `<a href="/teacher/?next=class">${t("선생님 계정으로 로그인", "Sign in with a teacher account")}</a>${t("하면 반 비밀번호 없이 어느 컴퓨터에서나 열 수 있어요", " to open your class from any computer without its password")}`;
+      }
+    });
     input("cl-room").value = last.room ?? "";
     input("cl-student").value = last.student ?? "";
 
@@ -493,7 +511,8 @@ export function chooseClass(parent: HTMLElement, start: "pick" | "teacher" = "pi
         if (join.theme === "fire" && size > 0) sessionStorage.setItem("craftyap-fire-teams", JSON.stringify({ size, at: Date.now() }));
         else sessionStorage.removeItem("craftyap-fire-teams");
       } catch { /* no storage: teams are made under F2 */ }
-      void connect(teacherForm, join);
+      // signed in: the ticket that makes the class the account's (and needs no class password)
+      void hostTicket().then((ticket) => connect(teacherForm, ticket ? { ...join, ticket } : join));
     });
 
     // --- student: class name + own name → whose class is it? → confirm

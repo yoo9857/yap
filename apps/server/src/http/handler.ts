@@ -4,6 +4,7 @@ import { extname, join, normalize, sep } from "node:path";
 import { log } from "../log.js";
 import { metricsAllowed } from "../metrics.js";
 import { hostname } from "node:os";
+import type { SiteApi } from "../site/siteApi.js";
 
 const INSTANCE = hostname();
 
@@ -51,8 +52,14 @@ function cacheControlFor(urlPath: string, resolvedFile: string): string {
   return "public, max-age=86400";
 }
 
-export function createRequestHandler(staticRoot: string | null, metrics: () => unknown, ready: () => boolean = () => true): RequestListener {
+export function createRequestHandler(staticRoot: string | null, metrics: () => unknown, ready: () => boolean = () => true, api?: SiteApi): RequestListener {
   return (req, res) => {
+    // the site's JSON API (accounts, inquiries, admin): answered here whether or not static files are
+    if (req.url?.startsWith("/api/")) {
+      if (api) api(req, res);
+      else res.writeHead(404, { "content-type": "application/json" }).end('{"error":"not-found"}');
+      return;
+    }
     if (req.url === "/healthz") {
       // x-instance (the container's hostname): the zero-downtime deploy checks that nginx really
       // reaches the NEW container before it stops the old one
@@ -111,7 +118,16 @@ export function createRequestHandler(staticRoot: string | null, metrics: () => u
         filePath = join(filePath, "index.html");
       }
       if (!existsSync(filePath)) {
-        // Missing URLs must not masquerade as the homepage (soft 404s).
+        // Missing URLs must not masquerade as the homepage (soft 404s). An address that reads as
+        // a PAGE gets the site's own "not here" page (404.html, in the look of the rest); a
+        // missing file keeps the one-line answer.
+        const lostPage = join(staticRoot, "404.html");
+        if ((extname(rawPath) === "" || extname(rawPath) === ".html") && existsSync(lostPage)) {
+          res.writeHead(404, { "content-type": "text/html; charset=utf-8", "x-robots-tag": "noindex", "cache-control": "no-cache" });
+          if (req.method === "HEAD") res.end();
+          else createReadStream(lostPage).pipe(res);
+          return;
+        }
         res.writeHead(404, {
           "content-type": "text/plain; charset=utf-8",
           "x-robots-tag": "noindex",

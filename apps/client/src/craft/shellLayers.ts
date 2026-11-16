@@ -25,6 +25,8 @@ export interface ShellLayer {
   normal: Float32Array;
   color: Float32Array;
   uv: Float32Array;
+  /** The layer's bounds (min x, y, z, max x, y, z), measured once when it is made. */
+  box: Float32Array;
 }
 
 export interface LayeredShell {
@@ -34,6 +36,8 @@ export interface LayeredShell {
   /** How many layers had to be made (the others were remembered). */
   made: number;
 }
+
+const corner = new THREE.Vector3();
 
 const sameCells = (a: Int16Array, b: readonly number[]): boolean => {
   if (a.length !== b.length) return false;
@@ -84,7 +88,10 @@ export function layeredShell(
       for (let i = 0; i < xz.length; i += 2) cells.push([xz[i]!, xz[i + 1]!]);
       const g = kitFootprintGeometry(cells, (x, z) => joined(x, y, z), (x, z, dy) => own(x, y + dy, z) || joined(x, y + dy, z));
       g.translate(0, y, 0);
+      g.computeBoundingBox();
+      const b = g.boundingBox!;
       layer = {
+        box: Float32Array.of(b.min.x, b.min.y, b.min.z, b.max.x, b.max.y, b.max.z),
         xz: Int16Array.from(xz),
         position: g.getAttribute("position").array as Float32Array,
         normal: g.getAttribute("normal").array as Float32Array,
@@ -98,8 +105,13 @@ export function layeredShell(
     vertices += layer.position.length / 3;
   }
   const position = new Float32Array(vertices * 3), normal = new Float32Array(vertices * 3), color = new Float32Array(vertices * 3), uv = new Float32Array(vertices * 2);
+  // the shell's bounds are its layers' bounds: measuring them over every vertex again was a tenth of
+  // the time a class building at once spent in edits (tools/perf-edits.mjs, stream)
+  const box = new THREE.Box3();
   let at = 0;
   for (const layer of layers.values()) {
+    const b = layer.box;
+    if (layer.position.length > 0) { box.expandByPoint(corner.set(b[0]!, b[1]!, b[2]!)); box.expandByPoint(corner.set(b[3]!, b[4]!, b[5]!)); }
     position.set(layer.position, at * 3);
     normal.set(layer.normal, at * 3);
     color.set(layer.color, at * 3);
@@ -111,7 +123,7 @@ export function layeredShell(
   geometry.setAttribute("normal", new THREE.BufferAttribute(normal, 3));
   geometry.setAttribute("color", new THREE.BufferAttribute(color, 3));
   geometry.setAttribute("uv", new THREE.BufferAttribute(uv, 2));
-  geometry.computeBoundingBox();
-  geometry.computeBoundingSphere();
+  geometry.boundingBox = box;
+  geometry.boundingSphere = box.isEmpty() ? new THREE.Sphere() : box.getBoundingSphere(new THREE.Sphere());
   return { geometry, layers, made };
 }

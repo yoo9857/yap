@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>관리자 | 크래프트얍 CraftYap</title>
+    <meta name="robots" content="noindex, nofollow" />
+    <meta name="theme-color" content="#ffd21c" />
+    <link rel="icon" type="image/png" sizes="48x48" href="/favicon-48.png" />
+    <link rel="preload" href="/fonts/jua-menu.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="stylesheet" href="/guide/guide.css?v=20261116-21" />
+    <link href="https://fonts.googleapis.com/css2?family=Jua&family=Noto+Sans+KR:wght@400;700;900&display=swap" rel="stylesheet" />
+    <script src="/admin/admin.js?v=20261116-20" type="module"></script>
+  </head>
+  <body>
+    <a class="skip-link" href="#content">본문으로 이동</a>
+    <header class="site-header"><div class="header-inner">
+      <a class="brand" href="/" aria-label="크래프트얍 게임 홈"><img src="/home/mascot.webp" width="322" height="360" alt="" /><span class="wordmark" aria-hidden="true"><i>C</i><i>r</i><i>a</i><i>f</i><i>t</i><i>Y</i><i>a</i><i>p</i></span></a>
+      <nav class="header-nav" id="site-nav" aria-label="사이트 메뉴"><a href="/guide/">게임 소개</a><a href="/guide/#classroom">교육 모드</a><span class="nav-drop"><a href="/cases/" aria-haspopup="true">도입 사례</a><span class="nav-menu"><a href="/cases/">학교 현장</a></span></span><a href="/note/">새 소식</a><a href="/guide/#controls">도움말</a></nav>
+    </div></header>
+    <main id="content" class="adm">
+      <section class="section-shell adm-wrap" data-view="loading">
+        <p class="acct-wait" data-show="loading">확인하는 중입니다…</p>
+        <p class="acct-wait" data-show="closed">관리자 로그인이 닫혀 있습니다. 서버에 관리자 비밀번호가 설정되지 않았습니다.</p>
+
+        <form class="cy-form adm-login" data-show="out" data-form="login" novalidate>
+          <h1>관리자</h1>
+          <label>관리자 비밀번호<input name="password" type="password" autocomplete="current-password" required maxlength="200" /></label>
+          <p class="cy-error" role="alert" hidden></p>
+          <button class="button button-dark" type="submit">들어가기</button>
+        </form>
+
+        <div data-show="in">
+          <header class="adm-top"><h1>관리자</h1>
+            <div class="acct-tabs" role="tablist"><button type="button" role="tab" data-tab="inquiries" aria-selected="true">문의 <b data-count="new"></b></button><button type="button" role="tab" data-tab="teachers" aria-selected="false">선생님</button><button type="button" role="tab" data-tab="audit" aria-selected="false">기록</button></div>
+            <button class="button button-white" type="button" data-do="logout">나가기</button></header>
+          <div class="adm-pane" data-pane="inquiries">
+            <ul class="adm-list" data-list="inquiries"></ul>
+            <form class="cy-form adm-detail" data-form="inquiry" novalidate hidden>
+              <h2 data-f="school"></h2>
+              <dl><div><dt>담당자</dt><dd data-f="name"></dd></div><div><dt>연락처</dt><dd data-f="contact"></dd></div><div><dt>접수</dt><dd data-f="createdAt"></dd></div><div><dt>조회 번호</dt><dd data-f="code"></dd></div></dl>
+              <p class="adm-message" data-f="message"></p>
+              <label>답변 <small>문의자가 조회 번호로 확인합니다</small><textarea name="reply" rows="6" maxlength="4000"></textarea></label>
+              <label>메모 <small>관리자만 봅니다</small><textarea name="note" rows="2" maxlength="2000"></textarea></label>
+              <label>상태<select name="status"><option value="new">새 문의</option><option value="read">확인함</option><option value="answered">답변함</option><option value="closed">종료</option></select></label>
+              <p class="cy-error" role="alert" hidden></p>
+              <button class="button button-dark" type="submit">저장</button>
+            </form>
+          </div>
+          <div class="adm-pane" data-pane="teachers" hidden><table class="adm-table"><thead><tr><th>이름</th><th>학교 · 기관</th><th>이메일</th><th>가입</th><th>마지막 로그인</th><th>상태</th><th></th></tr></thead><tbody data-list="teachers"></tbody></table></div>
+          <div class="adm-pane" data-pane="audit" hidden><table class="adm-table"><thead><tr><th>시각</th><th>내용</th><th>계정</th><th>주소</th></tr></thead><tbody data-list="audit"></tbody></table></div>
+        </div>
+      </section>
+    </main>
+    <footer class="site-footer section-shell"><div><a class="footer-brand" href="/">크래프트얍 <span>CraftYap</span></a><p>블록 하나에서 시작되는, 네가 만드는 세상.</p></div><nav aria-label="하단 메뉴"><a href="/">게임 홈</a><a href="/guide/">게임 소개</a><a href="/cases/">도입 사례</a><a href="/note/">개발 노트</a></nav></footer>
+  </body>
+</html>

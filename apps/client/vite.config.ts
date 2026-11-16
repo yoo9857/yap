@@ -29,6 +29,8 @@ export default defineConfig({
   server: {
     port: 5173,
     proxy: {
+      // the site's JSON API (accounts, inquiries, admin) is the game server's
+      "/api": { target: "http://localhost:8081" },
       "/ws": {
         target: "ws://localhost:8081",
         ws: true,

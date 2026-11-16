@@ -30,6 +30,10 @@ const JOBS = [
   ["preview-class", "home/class-together.webp", 1152, 648, 0.84, [0, 120, 1536, 864]],
   // the lesson select's big pictures (one per lesson)
   ["lesson-fire", "home/lesson-fire.webp", 1152, 513, 0.84, [0, 170, 1536, 684]],
+  // the 도입 사례 page's three lesson cards (one size, one crop shape)
+  ["lesson-fire", "home/case-safety.webp", 720, 405, 0.82, [0, 80, 1536, 864]],
+  ["preview-build", "home/case-build.webp", 720, 405, 0.82, [0, 80, 1536, 864]],
+  ["case-science", "home/case-science.webp", 720, 405, 0.82, [0, 80, 1536, 864]],
   ["hero-village", "backgrounds/craftyap-village-open-desktop.webp", 1280, 720, 0.72, [0, 80, 1536, 864]],
   ["hero-village", "backgrounds/craftyap-village-open-mobile.webp", 854, 480, 0.72, [0, 80, 1536, 864]],
 ];

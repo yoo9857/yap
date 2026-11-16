@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>페이지를 찾을 수 없어요 | 크래프트얍 CraftYap</title>
+    <meta name="robots" content="noindex" />
+    <meta name="theme-color" content="#ffd21c" />
+    <link rel="icon" href="/favicon.ico" />
+    <link rel="preload" href="/fonts/jua-menu.woff2" as="font" type="font/woff2" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Jua&family=Noto+Sans+KR:wght@400;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="/guide/guide.css?v=20261116-21" />
+    <style>
+      /* the page every unknown address answers with (apps/server http/handler.ts, status 404) */
+      .lost{min-height:calc(100vh - 68*var(--menu-u));display:grid;place-items:center;padding:40px 20px}
+      .lost-card{width:min(100%,560px);padding:14px;border-radius:30px;background:linear-gradient(180deg,#ffe04a,var(--yellow));box-shadow:inset 0 3px 0 rgba(255,255,255,.6),0 9px 0 var(--yellow-edge),0 26px 40px rgba(10,30,80,.2);text-align:center}
+      .lost-face{padding:30px 26px 32px;border-radius:20px;background:#fff6e3}
+      .lost-face img{display:block;width:132px;height:auto;margin:0 auto}
+      .lost-face h1{margin:10px 0 8px;font-size:34px;line-height:1.25}
+      .lost-face p{margin:0 0 22px;font-size:17px}
+      .lost-go{display:flex;flex-wrap:wrap;gap:12px;justify-content:center}
+    </style>
+  </head>
+  <body>
+    <a class="skip-link" href="#content">본문으로 이동</a>
+    <header class="site-header"><div class="header-inner">
+      <a class="brand" href="/" aria-label="크래프트얍 게임 홈"><img src="/home/mascot.webp" width="322" height="360" alt="" /><span class="wordmark" aria-hidden="true"><i>C</i><i>r</i><i>a</i><i>f</i><i>t</i><i>Y</i><i>a</i><i>p</i></span></a>
+      <nav class="header-nav" id="site-nav" aria-label="사이트 메뉴"><a href="/guide/">게임 소개</a><a href="/guide/#classroom">교육 모드</a><span class="nav-drop"><a href="/cases/" aria-haspopup="true">도입 사례</a><span class="nav-menu"><a href="/cases/">학교 현장</a></span></span><a href="/note/">새 소식</a><a href="/guide/#controls">도움말</a></nav>
+    </div></header>
+    <main id="content" class="lost">
+      <div class="lost-card"><div class="lost-face">
+        <img src="/home/mascot.webp" width="322" height="360" alt="" />
+        <h1>여기에는 아직 블록이 없어요</h1>
+        <p>주소가 바뀌었거나 없는 페이지예요.</p>
+        <div class="lost-go"><a class="button button-dark" href="/">처음으로</a><a class="button button-dark" href="/guide/">게임 소개</a><a class="button button-dark" href="/note/">새 소식</a></div>
+      </div></div>
+    </main>
+  </body>
+</html>

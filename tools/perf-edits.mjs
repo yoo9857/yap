@@ -2,6 +2,8 @@
 //
 //   node tools/perf-edits.mjs                 # every scenario on the craft island (needs pnpm dev)
 //   ONLY=wall,stream node tools/perf-edits.mjs
+//   GATE=1 node tools/perf-edits.mjs         # exit 1 when a scenario has more slow frames than its limit (LIMITS)
+//   PROFILE=1 ONLY=stream node tools/perf-edits.mjs   # + the hot functions of the stream scenario
 //   MODE=field node tools/perf-edits.mjs      # the same on the education field (a wall is built first)
 //
 // Scenarios (each prints frames, percentiles, how many frames ran over 33 / 50 / 100 ms and the
@@ -41,6 +43,11 @@ await new Promise((r) => setTimeout(r, 500));
 await page.mouse.click(800, 450);
 await new Promise((r) => setTimeout(r, 1500));
 
+// Measured 2026-11-16 on the real GPU after every near chunk remembers its shell layers:
+// idle 1, wall 0, cube + 1, cube - 0, line 0, stream ~30. The limits leave room for the machine's own hiccups.
+const LIMITS = { idle: { o33: 3 }, wall: { o33: 3 }, "cube +": { o33: 4 }, "cube -": { o33: 4 }, line: { o33: 4 }, stream: { o33: 60 } };
+const failures = [];
+
 /** Run `steps` frames of edits in the page (`edit(i)` → an array of [op, x, y, z] to apply that frame), then report. */
 const run = async (label, frames, plan) => {
   const r = await page.evaluate(async (frames, planSource) => {
@@ -56,6 +63,9 @@ const run = async (label, frames, plan) => {
     return { edits, n: f.length, p50: q(0.5), p95: q(0.95), p99: q(0.99), max: f[f.length - 1], o33: f.filter((v) => v > 33).length, o50: f.filter((v) => v > 50).length, o100: f.filter((v) => v > 100).length, worst: p.worstFrame, chunks: c.chunks() };
   }, frames, plan);
   const phases = Object.entries(r.worst?.phases ?? {}).filter(([, ms]) => ms >= 1).map(([k, ms]) => `${k} ${ms.toFixed(0)}`).join(", ");
+  // the gate: how many frames over 33 ms a scenario may have (GATE=1 fails the run on more)
+  const limit = LIMITS[label.trim()];
+  if (limit !== undefined && (r.o33 > limit.o33 || r.o100 > 0)) failures.push(`${label.trim()}: ${r.o33} frames over 33 ms (allowed ${limit.o33}), ${r.o100} over 100 ms (allowed 0)`);
   console.log(`${label.padEnd(7)} ${String(r.edits).padStart(5)} edits | ${r.n} frames  p50 ${r.p50.toFixed(1)}  p95 ${r.p95.toFixed(1)}  p99 ${r.p99.toFixed(1)}  max ${r.max.toFixed(0)} ms | over 33: ${r.o33}  over 50: ${r.o50}  over 100: ${r.o100} | worst frame: ${phases || "-"} | queued ${r.chunks.queued}`);
   return r;
 };
@@ -75,9 +85,21 @@ if (want("cube")) {
   await run("cube -", 50, S + "const out=[]; for (let k=0;k<20;k++){ const n=i*20+k, x=ax-5+n%10, z=az-14+Math.floor(n/10)%10, y=ay+6+Math.floor(n/100); out.push(['-',x,y,z]); } return out;");
 }
 if (want("line")) await run("line", 400, S + "const x=ax-50+Math.floor(i/4), y=ay+18+i%4; return [['oak-planks',x,y,az-20]];");
+// PROFILE=1: the hot functions (self time) of the stream scenario
+let cdp;
+if (process.env.PROFILE && want("stream")) { cdp = await page.createCDPSession(); await cdp.send("Profiler.enable"); await cdp.send("Profiler.setSamplingInterval", { interval: 200 }); await cdp.send("Profiler.start"); }
 if (want("stream")) await run("stream", 100, S + "ctx.s=ctx.s??12345; const out=[]; for (let k=0;k<30;k++){ ctx.s=(Math.imul(ctx.s,1664525)+1013904223)|0; const r=ctx.s>>>0, x=ax-24+r%48, z=az-24+(r>>>8)%48, y=ay+10+(r>>>16)%6; out.push([(r>>>24)%3?'stone-bricks':'-',x,y,z]); } return out;");
+if (cdp) {
+  const { profile } = await cdp.send("Profiler.stop");
+  const self = new Map(), byId = new Map(profile.nodes.map((n) => [n.id, n]));
+  for (const id of profile.samples) { const n = byId.get(id), k = `${n.callFrame.functionName || "(anon)"} ${n.callFrame.url.split("/").pop().split("?")[0]}:${n.callFrame.lineNumber + 1}`; self.set(k, (self.get(k) ?? 0) + 1); }
+  console.log("hot (self time) during stream:");
+  for (const [k, v] of [...self].sort((a, b) => b[1] - a[1]).slice(0, Number(process.env.TOP ?? 18))) console.log(`   ${(v / profile.samples.length * 100).toFixed(1).padStart(5)} %  ${k}`);
+}
 // what is drawn after all of it must be what a fresh build draws: every face bordering air (as tools/e2e-holes.mjs)
 const audit = await page.evaluate(() => globalThis.__roboCraft.auditFaces?.() ?? null);
 console.log("faces after the edits:", JSON.stringify(audit).slice(0, 200));
 if (errors.length) console.log("page errors:", errors.slice(0, 3));
 await browser.close();
+if (failures.length) { console.log("OVER THE LIMIT:"); for (const f of failures) console.log("  " + f); if (process.env.GATE) process.exitCode = 1; }
+else console.log("every scenario within its limit");

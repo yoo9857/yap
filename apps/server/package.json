@@ -14,6 +14,7 @@
     "@robo/engine": "workspace:*",
     "@robo/shared": "workspace:*",
     "better-sqlite3": "^12.11.1",
+    "pg": "^8.23.1",
     "pino": "^9.6.0",
     "ws": "^8.18.2",
     "zod": "^4.6.7"
@@ -21,7 +22,9 @@
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.13",
     "@types/node": "^22.15.0",
+    "@types/pg": "^8.23.1",
     "@types/ws": "^8.18.1",
+    "pg-mem": "^3.0.14",
     "tsup": "^8.4.0",
     "tsx": "^4.19.4",
     "typescript": "~5.8.3",

@@ -1,0 +1,46 @@
+# PostgreSQL for the SITE's own data: teachers' accounts, sessions, schools' inquiries, the audit
+# record (apps/server/src/site/, docs/ACCOUNTS.md). The games' data stays in SQLite.
+#
+# Its own compose project, NOT part of the app's: a deploy starts a second app container beside
+# the first (blue/green) and stops the old one — the database must be neither doubled nor stopped
+# by that. Both app colours reach it over the external network `craftyap-data` by the name
+# `craftyap-db`.
+#
+#   docker network create craftyap-data            # once
+#   docker compose -f docker-compose.db.yml --env-file .env.db up -d
+#
+# Security: no port is published (not even to the host's loopback) — only containers on
+# `craftyap-data` can reach it; the password lives in .env.db on the server (never in the
+# repository); scram-sha-256 only; the data directory is a bind mount the backup script reads with
+# pg_dump, not by copying files.
+name: craftyap-db
+
+services:
+  db:
+    image: postgres:17-alpine
+    container_name: craftyap-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: craftyap
+      POSTGRES_USER: craftyap
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env.db}
+      # over the network: a password, scram-sha-256. Inside the container (the socket pg_dump and
+      # pg_isready use): trusted — whoever is in there is already root on the host.
+      POSTGRES_INITDB_ARGS: --auth-host=scram-sha-256 --data-checksums
+    command: ["postgres", "-c", "password_encryption=scram-sha-256", "-c", "max_connections=40", "-c", "shared_buffers=64MB", "-c", "log_connections=on", "-c", "log_min_duration_statement=500"]
+    volumes:
+      - ${PG_DIR:-/srv/craftyap/pgdata}:/var/lib/postgresql/data
+    networks:
+      - data
+    mem_limit: ${PG_MEM_LIMIT:-256m}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U craftyap -d craftyap"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 20s
+
+networks:
+  data:
+    name: craftyap-data
+    external: true

@@ -16,7 +16,7 @@ import {
 import { t } from "../ui/i18n.js";
 
 export type ClassJoin =
-  | { role: "teacher"; room: string; teacher: string; password?: string; /** The lesson picked for this opening (absent: the one the class had last). */ theme?: ClassTheme }
+  | { role: "teacher"; room: string; teacher: string; password?: string; /** The lesson picked for this opening (absent: the one the class had last). */ theme?: ClassTheme; /** A signed-in teacher's host ticket (docs/ACCOUNTS.md), fetched when the class is opened. */ ticket?: string }
   | { role: "student"; room: string; student: string };
 
 /** What `peekClass` learns about a class name before joining it. */
@@ -360,8 +360,12 @@ export class ClassClient {
     ws.onopen = () => {
       if (this.ws !== ws || this.ended) return;
       const key = loadKey(this.join);
+      // A signed-in teacher's ticket (teacherAccount.ts; the lobby fetched it at 반 열기): the class is
+      // then their account's and opens without its password. It is sent as it is — after two minutes
+      // (a reconnect) the server ignores it and the host key in this browser re-takes the seat, as ever.
+      const ticket = this.join.role === "teacher" ? this.join.ticket : undefined;
       const message: ClassClientMessage = this.join.role === "teacher"
-          ? { t: "k-host", v: CLASS_PROTOCOL_VERSION, room: this.join.room, teacher: this.join.teacher, password: this.join.password, hostKey: key, ...(this.join.theme ? { theme: this.join.theme } : {}) /* the lesson picked — "craft" too: it is what turns a class back from a fire drill */ }
+          ? { t: "k-host", v: CLASS_PROTOCOL_VERSION, room: this.join.room, teacher: this.join.teacher, password: this.join.password, hostKey: key, ...(ticket ? { ticket } : {}), ...(this.join.theme ? { theme: this.join.theme } : {}) /* the lesson picked — "craft" too: it is what turns a class back from a fire drill */ }
           : { t: "k-join", v: CLASS_PROTOCOL_VERSION, room: this.join.room, student: this.join.student, seatKey: key };
       ws.send(JSON.stringify(message));
     };

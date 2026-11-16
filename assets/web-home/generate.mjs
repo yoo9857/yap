@@ -40,6 +40,10 @@ Scene: a CLASS building together on a flat green studded field: five different b
   ["lesson-fire", "1536x1024", `${WORLD}
 
 Scene: a FIRE DRILL at a toy-brick school, friendly and safe, not scary: in a bright school corridor the yellow cube child with the blue cap aims a red fire extinguisher at a small fire in a metal waste bin, white powder spraying; behind, a blue cube child presses a red fire alarm button on the wall and a purple bunny cube crouches low holding a wet towel to its mouth, heading for a green EXIT door with a running-figure sign (no letters); a few soft grey smoke puffs under the ceiling. Dominant colours: warm reds and oranges against cream walls. COMPOSITION: everything important lies inside the MIDDLE horizontal band of the picture (the top and bottom sixth get cropped away), spread across the full width.`],
+  // the 도입 사례 page's science lesson (its other two cards use lesson-fire and preview-build)
+  ["case-science", "1536x1024", `${WORLD}
+
+Scene: a SCIENCE lesson on a flat green studded field: the yellow cube child with the blue cap and a blue cube child have built a toy-brick WIND TURBINE (a tall white brick tower on a grey brick foundation, three big white blades, a small nacelle); a cable runs from its base to a little brick house whose windows glow warm and to a lamp post that is lit; the yellow child holds up a spare blade piece, the blue child points at the turning blades, happy and proud; a few loose brick parts lie on the grass. Soft sky with a few clouds, no text, no letters, no logos, no UI.`],
   ["mascot", "1024x1024", `${WORLD}\n\nSubject: ONLY the hero, the yellow cube child with the blue cap, whole body, standing and waving one hand with a big happy open smile, a little tilted, seen from the front and slightly from the side. Centred, filling about 80% of the canvas. TRANSPARENT background (a PNG with a real alpha channel, not a drawn checkerboard), no ground, no shadow on the ground.`, true],
 ];
 

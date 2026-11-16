@@ -1,14 +1,5 @@
 // Progressive enhancements; game information remains readable without JS.
 document.documentElement.classList.add("js");
-const header = document.querySelector(".site-header");
-const toggle = document.querySelector(".nav-toggle");
-if (header && toggle) {
-  toggle.hidden = false;
-  const closeNav = () => { header.classList.remove("nav-open"); toggle.setAttribute("aria-expanded", "false"); toggle.setAttribute("aria-label", "메뉴 열기"); };
-  toggle.addEventListener("click", () => { const open = header.classList.toggle("nav-open"); toggle.setAttribute("aria-expanded", String(open)); toggle.setAttribute("aria-label", open ? "메뉴 닫기" : "메뉴 열기"); });
-  document.querySelectorAll(".header-nav a").forEach((link) => link.addEventListener("click", closeNav));
-  document.addEventListener("keydown", (event) => { if (event.key === "Escape") closeNav(); });
-}
 const scenes = {
   island: { caption: "나만의 섬, 나만의 모험.", alt: "블록 마을을 탐험하는 로봇과 반려동물, 크래프트얍 실제 게임 화면", count: "01 / 03" },
   workshop: { caption: "내가 조립한 기계가 하늘을 날 때.", alt: "기계 작업실에서 조립한 비행체가 블록 섬 위를 날아가는 실제 게임 화면", count: "02 / 03" },

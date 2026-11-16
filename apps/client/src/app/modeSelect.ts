@@ -1,3 +1,4 @@
+import { teacherAccount } from "../net/teacherAccount.js";
 import type { PartyLobby } from "./partyLobby.js";
 
 /** A seat in a hub room survives the trip into a game (per tab). Read without loading the lobby. */
@@ -26,6 +27,8 @@ export function selectMode(parent: HTMLElement): Promise<GameMode> {
   const param = new URLSearchParams(location.search).get("mode");
   // Guide buttons can open classroom choices directly without a second menu.
   if (param === "education") {
+    // (&as=teacher: back from signing in on /teacher/ — straight at the lesson select)
+    if (new URLSearchParams(location.search).get("as") === "teacher") lobbyStart = "teacher";
     el.remove();
     return Promise.resolve("field");
   }
@@ -65,7 +68,16 @@ export function selectMode(parent: HTMLElement): Promise<GameMode> {
     // the home's two ways in, and the way back to it
     el.querySelectorAll<HTMLButtonElement>("[data-enter]").forEach((btn) => btn.addEventListener("click", () => {
       const to = btn.dataset.enter;
-      if (to === "teacher") { lobbyStart = "teacher"; choose("field"); }
+      if (to === "teacher") {
+        // 선생님 로그인: signed in → the lesson select; signed out → the account page, which comes
+        // back here (docs/ACCOUNTS.md). No account service, or a slow one: the lobby as it always was.
+        btn.disabled = true;
+        void teacherAccount().then((account) => {
+          btn.disabled = false;
+          if (account || !accountsOpen) { lobbyStart = "teacher"; choose("field"); }
+          else location.href = "/teacher/?next=class";
+        });
+      }
       else if (to === "home") show("home");
       else {
         show("category"); // nothing focused: a focused half would start "chosen" (the arrow keys choose)
@@ -116,7 +128,7 @@ export function selectMode(parent: HTMLElement): Promise<GameMode> {
     // other menu screens' --u does (a tall or narrow window keeps its own stacked layout, unscaled)
     const fit = () => {
       const wide = innerWidth > 980 && innerWidth > innerHeight;
-      el.style.setProperty("--zoom", wide ? String(Math.max(0.7, Math.min(2.6, Math.min(innerWidth / 1536, innerHeight / 900)))) : "1");
+      el.style.setProperty("--zoom", wide ? String(Math.max(0.7, menuScale(Math.min(innerWidth / 1536, innerHeight / 900)))) : "1");
     };
     fit();
     addEventListener("resize", fit);
@@ -211,3 +223,12 @@ async function pinLatestNote(el: HTMLElement): Promise<void> {
     /* offline or no notes yet: the banner keeps pointing at the notes index */
   }
 }
+
+/** The menu's scale for a window `fit` times the design size: index.html's --menu-u, as a number. */
+function menuScale(fit: number): number {
+  return Math.min(fit, 0.62 + 0.38 * fit);
+}
+
+/** Is there an account service to sign in to? (asked once; a server without one keeps 선생님 로그인 as it was) */
+let accountsOpen = false;
+void fetch("/api/teacher/me", { credentials: "same-origin" }).then((r) => { accountsOpen = r.ok; }).catch(() => {});

@@ -34,6 +34,9 @@ export interface SavedClass {
   /** The learning theme the class was made with (absent: the sandbox). A themed class stores no
    *  field: it is rebuilt from code. An older server (rollback) ignores this and opens an empty field. */
   theme?: ClassTheme;
+  /** The teacher's ACCOUNT this class belongs to (docs/ACCOUNTS.md). Optional: classes made before
+   *  accounts, or without signing in, have none; an older server (rollback) ignores it. */
+  owner?: number;
   /** The fire drill as the teacher left it (teams, which are set off, the run counter), so a deploy
    *  mid-lesson does not send a running class back to the briefing. Optional; progress is not kept. */
   drill?: SavedDrill;
@@ -148,6 +151,7 @@ export function readSaved(raw: unknown): SavedClass | null {
     plants: Array.isArray(d.plants) ? (d.plants as SavedPlant[]) : undefined,
     theme: d.theme === "fire" ? "fire" : undefined,
     drill: readDrill(d.drill),
+    owner: typeof d.owner === "number" && Number.isInteger(d.owner) && d.owner > 0 ? d.owner : undefined,
   };
 }
 

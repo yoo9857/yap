@@ -8,7 +8,8 @@
 #   - with the sqlite3 CLI on the host if it is installed,
 #   - otherwise from inside the still-running container, which always has
 #     better-sqlite3 (its .backup() is the same online-backup API).
-# Keeps the newest KEEP snapshots in ${DB_DIR}/pre-deploy/.
+# Keeps the newest KEEP snapshots in ${DB_DIR}/pre-deploy/. The site's PostgreSQL is dumped
+# there too (scripts/backup-site-db.sh).
 set -euo pipefail
 
 # zero-downtime deploys alternate two compose projects: talk to the live one
@@ -27,6 +28,10 @@ KEEP="${KEEP:-10}"
 REV="$(git rev-parse --short HEAD 2>/dev/null || echo unknown)"
 STAMP="$(date +%F_%H%M%S)"
 NAME="records-${STAMP}-before-${REV}.db"
+
+# the site's PostgreSQL (accounts, inquiries): its own dump beside the SQLite snapshot — a failed
+# dump aborts the deploy like a failed snapshot does (no database container yet: nothing to do)
+bash scripts/backup-site-db.sh "${OUT_DIR}" "site-${STAMP}-before-${REV}" "${KEEP}" </dev/null
 
 if [[ ! -f "${DB}" ]]; then
   echo "pre-deploy backup: no db at ${DB} yet — nothing to protect"

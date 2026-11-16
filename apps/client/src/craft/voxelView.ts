@@ -44,6 +44,7 @@ const STUD_STEP = 8;
 /** Per-frame chunk-build budget. Chunks build nearest-first, so the one you
  *  just edited lands this frame and far strips trickle in behind the fog. */
 const BUILD_BUDGET_MS = 4;
+const NO_LAYERS: ReadonlySet<number> = new Set();
 const WATER_BUILD_BUDGET_MS = 2;
 
 const CHUNKS_X = Math.ceil(WORLD_X / CHUNK);
@@ -84,8 +85,10 @@ interface ChunkState {
    * `shells` it lets an edit rebuild three layers of a shell instead of all of it (shellLayers.ts).
    */
   dirtyY: Set<number> | null;
-  /** The near shells' layers as last built, per mesh key; only chunks edited lately keep them. */
+  /** The near shells' layers as last built, per mesh key (kept while the view's memory for them lasts). */
   shells: Map<number, Map<number, ShellLayer>> | null;
+  /** What `shells` holds, in bytes. */
+  shellBytes: number;
 }
 
 /** The near form of an unchanged chunk, built in budgeted steps instead of one long frame. */
@@ -97,6 +100,8 @@ interface Staging {
   positions: Map<number, number[]>;
   backing: Floats;
   built: Map<number, THREE.InstancedMesh>;
+  /** The shells' layers of the meshes built so far (handed to the chunk with them). */
+  shells: Map<number, Map<number, ShellLayer>> | null;
 }
 
 interface WaterBatch {
@@ -666,7 +671,7 @@ export class VoxelView {
       near += chunk.meshes.size; far += Number(chunk.far !== null); water += Number(chunk.water !== null);
     }
     return { chunks: this.chunks.size, queued: this.queue.size, staged: this.staged.size, nearMeshes: near, farMeshes: far, waterMeshes: water,
-      disposed: this.disposed };
+      layered: this.layered.length, layeredMB: Math.round(this.layeredBytes / 104857.6) / 10, disposed: this.disposed };
   }
 
   /** `y`: the one cell that changed is on this layer (its shell layers y-1…y+1 are made again);
@@ -686,13 +691,34 @@ export class VoxelView {
     this.queue.add(id);
   }
 
-  /** The chunks that keep their shells' layers: the last few edited (each holds its near shells' numbers twice). */
+  /**
+   * The chunks that keep their shells' layers, least lately built first. EVERY near build keeps
+   * them (so the first edit in a chunk is as cheap as the hundredth), up to LAYERED_BYTES in all:
+   * past that the chunk built longest ago forgets its layers and its next edit makes the whole
+   * shell once more. (It was "the last 4 edited chunks": a first edit cost a whole shell, 45-65 ms
+   * at the castle, and a class building in nine chunks at once made whole shells every frame.)
+   */
   private readonly layered: ChunkState[] = [];
-  private static readonly LAYERED_CHUNKS = 4;
+  private layeredBytes = 0;
+  private static readonly LAYERED_BYTES = 64 * 1024 * 1024; // the castle and its eight neighbours hold 9 MB
   private forgetLayers(chunk: ChunkState): void {
+    if (!chunk.shells) return;
     chunk.shells = null;
+    this.layeredBytes -= chunk.shellBytes;
+    chunk.shellBytes = 0;
     const at = this.layered.indexOf(chunk);
     if (at >= 0) this.layered.splice(at, 1);
+  }
+  private keepLayers(chunk: ChunkState, shells: Map<number, Map<number, ShellLayer>>): void {
+    this.forgetLayers(chunk);
+    let bytes = 0;
+    for (const layers of shells.values()) for (const l of layers.values()) bytes += l.position.byteLength + l.normal.byteLength + l.color.byteLength + l.uv.byteLength + l.xz.byteLength;
+    if (bytes === 0) return;
+    chunk.shells = shells;
+    chunk.shellBytes = bytes;
+    this.layeredBytes += bytes;
+    this.layered.push(chunk);
+    while (this.layeredBytes > VoxelView.LAYERED_BYTES && this.layered.length > 1) this.forgetLayers(this.layered[0]!);
   }
 
   /**
@@ -905,7 +931,7 @@ export class VoxelView {
     const id = chunkId(cx, cz);
     let chunk = this.chunks.get(id);
     if (!chunk) {
-      chunk = { meshes: new Map(), far: null, isFar: false, stale: true, top: 0, hidden: false, studs: new Map(), water: null, waterMinY: WORLD_Y, waterMaxY: -1, backing: null, staging: null, dirtyY: null, shells: null };
+      chunk = { meshes: new Map(), far: null, isFar: false, stale: true, top: 0, hidden: false, studs: new Map(), water: null, waterMinY: WORLD_Y, waterMaxY: -1, backing: null, staging: null, dirtyY: null, shells: null, shellBytes: 0 };
       this.chunks.set(id, chunk);
     }
     const far = this.wantsFar(id, chunk);
@@ -1233,24 +1259,19 @@ export class VoxelView {
   private buildNearMeshes(chunk: ChunkState, positions: Map<number, number[]>,world:VoxelWorld): void {
     // An edit (a cell mined or set down, the aimed block swapped for its cracked copy and back)
     // rebuilds the chunk in the frame it happens: with the shells' layers remembered, only the
-    // layers round the changed cell are made again (shellLayers.ts). A chunk starts remembering at
-    // its first known edit; the Rust shells are built whole.
-    const known = chunk.dirtyY !== null && !this.rustKit;
-    const before = known ? chunk.shells : null;
-    const after: Map<number, Map<number, ShellLayer>> | null = known ? new Map() : null;
+    // layers round the changed cell are made again (shellLayers.ts). Every build remembers; when
+    // more than known layers may have changed (dirtyY null) everything is made. The Rust shells
+    // are built whole.
+    const before = chunk.dirtyY ? chunk.shells : null;
+    const after: Map<number, Map<number, ShellLayer>> | null = this.rustKit ? null : new Map();
     for (const [key, list] of positions) {
-      const mesh = this.buildNearMesh(key, list, world, after ? { before: before?.get(key) ?? null, dirty: chunk.dirtyY!, keep: (layers) => after.set(key, layers) } : undefined);
+      const mesh = this.buildNearMesh(key, list, world, after ? { before: before?.get(key) ?? null, dirty: chunk.dirtyY ?? NO_LAYERS, keep: (layers) => after.set(key, layers) } : undefined);
       if (!mesh) continue;
       this.scene.add(mesh);
       chunk.meshes.set(key, mesh);
     }
-    if (after) {
-      if (!chunk.shells) {
-        this.layered.push(chunk);
-        while (this.layered.length > VoxelView.LAYERED_CHUNKS) this.layered.shift()!.shells = null;
-      }
-      chunk.shells = after;
-    } else this.forgetLayers(chunk);
+    if (after) this.keepLayers(chunk, after);
+    else this.forgetLayers(chunk);
   }
 
   private readonly nearQ = new THREE.Quaternion();
@@ -1398,7 +1419,7 @@ export class VoxelView {
   /** Scan once now; the meshes follow in budgeted steps (stepStaging). */
   private startStaging(world: VoxelWorld, chunk: ChunkState, cx: number, cz: number): void {
     const scan = this.scanChunk(world, chunk, cx, cz, false, false, true)!;
-    chunk.staging = { id: chunkId(cx, cz), world, keys: [...scan.positions.keys()], next: 0, positions: scan.positions, backing: scan.backing, built: new Map() };
+    chunk.staging = { id: chunkId(cx, cz), world, keys: [...scan.positions.keys()], next: 0, positions: scan.positions, backing: scan.backing, built: new Map(), shells: this.rustKit ? null : new Map() };
     this.staged.add(chunk);
   }
 
@@ -1413,7 +1434,8 @@ export class VoxelView {
       while (st.next < st.keys.length) {
         if (performance.now() - start > budget) return;
         const key = st.keys[st.next++]!;
-        const mesh = this.buildNearMesh(key, st.positions.get(key)!, st.world);
+        const shells = st.shells;
+        const mesh = this.buildNearMesh(key, st.positions.get(key)!, st.world, shells ? { before: null, dirty: NO_LAYERS, keep: (layers) => shells.set(key, layers) } : undefined);
         if (mesh) st.built.set(key, mesh);
       }
       this.finishStaging(chunk);
@@ -1431,7 +1453,8 @@ export class VoxelView {
     }
     this.buildBacking(chunk, st.backing);
     chunk.dirtyY = new Set();
-    this.forgetLayers(chunk);
+    if (st.shells) this.keepLayers(chunk, st.shells);
+    else this.forgetLayers(chunk);
     chunk.isFar = false;
     this.showForm(chunk);
     this.studsDirty = true;

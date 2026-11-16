@@ -18,6 +18,7 @@ setup() {
   mkdir -p "${WORK}/app/scripts" "${WORK}/app/ops/nginx" "${WORK}/bin" "${WORK}/mock" "${WORK}/data" "${WORK}/nginx/enabled" "${WORK}/nginx/available"
   cp "${REPO}/scripts/zero-downtime-deploy.sh" "${WORK}/app/scripts/"
   echo 'exit 0' > "${WORK}/app/scripts/pre-deploy-backup.sh"
+  echo 'exit 0' > "${WORK}/app/scripts/ensure-site-db.sh"   # the site's database and network (its own stand-in)
   printf 'DB_DIR=%s\n' "${WORK}/data" > "${WORK}/app/.env"
   echo "include upstream; proxy_pass http://craftyap_app;" > "${WORK}/app/ops/nginx/craftyap.com.conf"
   echo "old vhost (proxy_pass 127.0.0.1:8082)" > "${WORK}/nginx/available/craftyap.com.conf"
@@ -137,6 +138,63 @@ setup; rm -f "${WORK}/nginx/enabled/craftyap.com.conf"; echo "old vhost copy" > 
 if run && grep -q "craftyap_app" "${WORK}/nginx/enabled/craftyap.com.conf"; then
   pass "a plain-copy enabled vhost is updated in place"
 else fail "plain-copy enabled vhost"; cat "${WORK}/out.log"; fi
+
+# H. the site database's network cannot be made: the deploy stops before anything is started
+setup; echo 'echo "no network" >&2; exit 1' > "${WORK}/app/scripts/ensure-site-db.sh"
+if ! run && [[ "$(live)" == 8082 ]] && running craftyap && ! running craftyap-green && [[ ! -e "${WORK}/upstream.conf" ]] \
+  && [[ ! -e "${WORK}/active-project" ]] && [[ ! -e "${WORK}/data/handoff.lock" ]]; then
+  pass "site database preflight fails: nothing started, nginx untouched, old serving"
+else fail "site database preflight failure"; cat "${WORK}/out.log"; fi
+
+# ---------------------------------------------------------------- scripts/ensure-site-db.sh
+# The site's database before the app starts, against a stand-in docker: the first run makes the
+# secrets and starts it, a second run changes nothing, a database that never gets healthy is a
+# warning (exit 0), a network that cannot be made is the only failure.
+db_setup() {
+  rm -rf "${WORK:?}"/*
+  mkdir -p "${WORK}/app/scripts" "${WORK}/bin" "${WORK}/mock"
+  cp "${REPO}/scripts/ensure-site-db.sh" "${WORK}/app/scripts/"
+  printf 'DB_DIR=/srv/data
+LOG_LEVEL=info' > "${WORK}/app/.env"   # no newline at its end, as hand-edited files often are
+  M="${WORK}/mock"
+  cat > "${WORK}/bin/docker" <<EOF
+#!/usr/bin/env bash
+M="${M}"
+echo "\$*" >> "\$M/calls"
+case "\$1 \$2" in
+  "network inspect") [[ -f "\$M/net" ]] ;;
+  "network create") [[ -f "\$M/net-fails" ]] && exit 1; touch "\$M/net" ;;
+  "compose -f") touch "\$M/db-started" ;;
+  "inspect -f") [[ -f "\$M/db-started" && ! -f "\$M/db-sick" ]] && echo healthy || echo starting ;;
+  *) exit 0 ;;
+esac
+EOF
+  printf '#!/usr/bin/env bash
+exit 0
+' > "${WORK}/bin/sleep"
+  chmod +x "${WORK}"/bin/* "${WORK}/app/scripts/"*.sh
+}
+db_run() { PATH="${WORK}/bin:${PATH}" bash "${WORK}/app/scripts/ensure-site-db.sh" </dev/null >"${WORK}/out.log" 2>&1; }
+
+db_setup
+if db_run && [[ -f "${WORK}/mock/net" && -f "${WORK}/mock/db-started" ]]   && grep -qE '^POSTGRES_PASSWORD=[0-9a-f]{48}$' "${WORK}/app/.env.db"   && grep -qE '^DATABASE_URL=postgres://craftyap:[0-9a-f]{48}@craftyap-db:5432/craftyap$' "${WORK}/app/.env"   && grep -qE '^AUTH_PEPPER=[0-9a-f]{64}$' "${WORK}/app/.env" && grep -qx 'LOG_LEVEL=info' "${WORK}/app/.env"   && [[ "$(grep -E '^POSTGRES_PASSWORD=' "${WORK}/app/.env.db" | cut -d= -f2)" == "$(sed -nE 's#^DATABASE_URL=postgres://craftyap:([0-9a-f]+)@.*#\1#p' "${WORK}/app/.env")" ]]; then
+  pass "site database, first run: network, password, DATABASE_URL and AUTH_PEPPER made, the old .env lines kept, database started"
+else fail "site database first run"; cat "${WORK}/out.log" "${WORK}/app/.env"; fi
+
+before="$(cat "${WORK}/app/.env" "${WORK}/app/.env.db")"
+if db_run && [[ "$(cat "${WORK}/app/.env" "${WORK}/app/.env.db")" == "${before}" ]] && ! grep -q "network create" <(tail -n 4 "${WORK}/mock/calls"); then
+  pass "site database, second run: no secret is changed, the network is not made twice"
+else fail "site database second run"; cat "${WORK}/out.log"; fi
+
+db_setup; touch "${WORK}/mock/db-sick"
+if db_run && grep -q "WARNING" "${WORK}/out.log" && grep -qE '^DATABASE_URL=' "${WORK}/app/.env"; then
+  pass "site database never healthy: a warning, not a failed deploy — and DATABASE_URL is set, so the app answers 503 rather than keeping accounts in memory"
+else fail "site database unhealthy"; cat "${WORK}/out.log"; fi
+
+db_setup; touch "${WORK}/mock/net-fails"
+if ! db_run && [[ ! -f "${WORK}/mock/db-started" ]]; then
+  pass "site database network cannot be made: the script fails (the deploy stops before starting anything)"
+else fail "site database network failure"; cat "${WORK}/out.log"; fi
 
 echo "---"
 if [[ ${fails} -eq 0 ]]; then echo "all passed"; else echo "${fails} FAILED"; exit 1; fi

@@ -29,6 +29,11 @@ services:
     # change here. No hard `cpus:` on purpose: a value above the host's cores makes
     # docker refuse to start the container at all. To cap CPU, set it in .env
     # (CPU_LIMIT, below the host's core count) and add `cpus: ${CPU_LIMIT}`.
+    # default: the port mapping and the outside world. data: the site's PostgreSQL (craftyap-db,
+    # docker-compose.db.yml), shared by both deploy colours; scripts/ensure-site-db.sh creates it.
+    networks:
+      - default
+      - data
     environment:
       SHARDS: ${SHARDS:-auto}
       # Class water engine (docs/ENGINE.md): ts (the reference) or rust. Same water either way;
@@ -42,3 +47,8 @@ services:
       timeout: 5s
       retries: 3
       start_period: 15s
+
+networks:
+  data:
+    name: craftyap-data
+    external: true

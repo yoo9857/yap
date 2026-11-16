@@ -5,6 +5,7 @@ import { RoomManager } from "../game/roomManager.js";
 import { ClassManager } from "../classroom/classManager.js";
 import { createClassStore } from "../classroom/classStore.js";
 import { log } from "../log.js";
+import { readTicket, ticketKey } from "../site/ticket.js";
 
 /** The game state one process holds: tower rooms + daily records, and classes (incl. party fields). */
 export interface GameServices {
@@ -15,7 +16,7 @@ export interface GameServices {
   shutdown(): void;
 }
 
-export function createGameServices(config: Config, entryDir: string, strict = false): GameServices {
+export function createGameServices(config: Config, entryDir: string, strict = false, processes = 1): GameServices {
   // classes live in the same SQLite file as the records, so the existing bind-mount and daily
   // backup cover them too. With shards, every shard opens it (WAL: one writer at a time, readers
   // never blocked); a class is only ever written by the one shard that owns it.
@@ -23,6 +24,9 @@ export function createGameServices(config: Config, entryDir: string, strict = fa
   const records = createRecordStore(dbPath, strict);
   const rooms = new RoomManager(config.MAX_PLAYERS_PER_ROOM, records, config.DAY_UTC_OFFSET_MIN);
   const classes = new ClassManager(createClassStore(dbPath, strict));
+  // host tickets: every game process derives the same key (site/ticket.ts)
+  const tickets = ticketKey(config.AUTH_PEPPER, processes);
+  classes.ticketOwner = (ticket) => readTicket(tickets, ticket, Date.now());
   return {
     records,
     rooms,

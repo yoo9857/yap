@@ -1665,10 +1665,15 @@
          wider than the design gets wider margins; a tall or narrow one
          (phones, a tablet held upright) gets the stacked page, scrolling.
          --------------------------------------------------------------- */
+      /* The menu's unit. 1 px on a 1536 x 900 window and smaller with a smaller one; past that
+         size it grows by a third of the window's growth (QHD 1.2, 4K 1.5), because a page blown
+         up 2.4 times on a 4K monitor is a page read through a magnifying glass (reports,
+         2026-11-16). The guide and the notes use the same number for their bar (guide.css). */
+      :root { --menu-u: max(0.6px, min(calc(100vw / 1536), calc(100vh / 900), calc(0.62px + 100vw / 4042), calc(0.62px + 100vh / 2368))); }
       #mode-select.hub[data-board="home"] { display: block; overflow: hidden auto; background: transparent; color: #2b3f7a; }
       #mode-select.hub[data-board="home"] .hub-shell { display: none; }
       #mode-select.hub .web-home {
-        --u: max(0.6px, min(calc(100vw / 1536), calc(100vh / 900)));
+        --u: var(--menu-u);
         --web-pad: max(calc(66 * var(--u)), calc((100vw - calc(1560 * var(--u))) / 2));
         --w-navy: #2b3f7a; --w-cream: #fff6e3; --w-yellow: #ffd21c; --w-yellow-edge: #d99a00;
         --w-green: #3fae45; --w-green-edge: #24782d; --w-blue: #2f7de8; --w-blue-edge: #1c55b0; --w-orange: #f07a1c; --w-orange-edge: #b9560c;
@@ -1701,6 +1706,14 @@
       #mode-select.hub .web-nav { display: flex; gap: calc(14 * var(--u)); }
       #mode-select.hub .web-nav a { padding: calc(9 * var(--u)) calc(18 * var(--u)) calc(11 * var(--u)); border-radius: calc(14 * var(--u)); font-size: calc(23 * var(--u)); line-height: 1.1; color: var(--w-navy); white-space: nowrap; transition: transform 0.1s, background 0.1s, box-shadow 0.1s; }
       #mode-select.hub .web-nav a:hover, #mode-select.hub .web-nav a:focus-visible { background: var(--w-yellow); box-shadow: inset 0 calc(2 * var(--u)) 0 rgba(255, 255, 255, 0.6), 0 calc(4 * var(--u)) 0 var(--w-yellow-edge); transform: translateY(calc(-3 * var(--u))); }
+      /* 도입 사례 opens a small menu under itself (hover, or focus from the keyboard); guide.css has the same */
+      #mode-select.hub .nav-drop { position: relative; display: flex; }
+      #mode-select.hub .nav-drop > a::after { content: ""; display: inline-block; width: calc(7 * var(--u)); height: calc(7 * var(--u)); margin: 0 0 calc(4 * var(--u)) calc(8 * var(--u)); border-right: calc(2.5 * var(--u)) solid currentColor; border-bottom: calc(2.5 * var(--u)) solid currentColor; rotate: 45deg; }
+      #mode-select.hub .nav-menu { position: absolute; top: 100%; left: 50%; z-index: 5; display: grid; gap: calc(4 * var(--u)); box-sizing: border-box; width: calc(176 * var(--u)); padding: calc(10 * var(--u)); border-radius: calc(16 * var(--u)); background: #fff; box-shadow: 0 calc(5 * var(--u)) 0 #dbe3f2, 0 calc(16 * var(--u)) calc(30 * var(--u)) rgba(10, 30, 80, 0.2); opacity: 0; visibility: hidden; translate: -50% calc(4 * var(--u)); transition: opacity 0.14s, translate 0.14s, visibility 0.14s; }
+      #mode-select.hub .nav-menu::before { content: ""; position: absolute; left: 0; right: 0; top: calc(-12 * var(--u)); height: calc(12 * var(--u)); }
+      #mode-select.hub .nav-drop:hover .nav-menu, #mode-select.hub .nav-drop:focus-within .nav-menu { opacity: 1; visibility: visible; translate: -50% calc(10 * var(--u)); }
+      #mode-select.hub .web-nav .nav-menu a { display: block; padding: calc(9 * var(--u)) calc(14 * var(--u)) calc(11 * var(--u)); border-radius: calc(11 * var(--u)); font-size: calc(21 * var(--u)); text-align: center; }
+      #mode-select.hub .web-nav .nav-menu a:hover, #mode-select.hub .web-nav .nav-menu a:focus-visible { transform: none; box-shadow: none; background: var(--w-yellow); }
       #mode-select.hub .web-nav a:active { transform: translateY(calc(1 * var(--u))); box-shadow: inset 0 calc(2 * var(--u)) 0 rgba(255, 255, 255, 0.6), 0 calc(1 * var(--u)) 0 var(--w-yellow-edge); }
 
       #mode-select.hub .web-hero { position: relative; flex: 1 0 auto; display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: calc(24 * var(--u)); min-height: calc(470 * var(--u)); padding: calc(20 * var(--u)) var(--web-pad) calc(16 * var(--u)); }
@@ -1791,7 +1804,7 @@
       #mode-select.hub .web-foot-note { display: flex; align-items: center; gap: calc(10 * var(--u)); margin-left: auto; }
       #mode-select.hub .web-foot-note svg { width: calc(24 * var(--u)); height: calc(24 * var(--u)); stroke-width: 2; }
       /* the pause-video button would sit on the bar's links: on this page it goes under the bar, at the hero's corner */
-      body:has(#mode-select[data-board="home"]) #menu-motion-toggle { --u: max(0.6px, min(calc(100vw / 1536), calc(100vh / 900))); top: auto; bottom: calc(calc(316 * var(--u)) + 12px); right: auto; left: 12px; padding: 5px 11px 6px; border: 0; border-radius: 999px; background: rgba(13, 34, 84, 0.6); box-shadow: inset 0 0 0 1.5px rgba(255, 255, 255, 0.28); color: #fff; font-size: 13px; }
+      body:has(#mode-select[data-board="home"]) #menu-motion-toggle { --u: var(--menu-u); top: auto; bottom: calc(calc(316 * var(--u)) + 12px); right: auto; left: 12px; padding: 5px 11px 6px; border: 0; border-radius: 999px; background: rgba(13, 34, 84, 0.6); box-shadow: inset 0 0 0 1.5px rgba(255, 255, 255, 0.28); color: #fff; font-size: 13px; }
       /* a very wide window crops the video top and bottom: keep its top (the logo) rather than its middle */
       body:has(#mode-select[data-board="home"]) #menu-backdrop { background-position: center top; }
       body:has(#mode-select[data-board="home"]) #menu-backdrop video { object-position: center top; }
@@ -1802,6 +1815,13 @@
         #mode-select.hub .web-word { font-size: calc(32 * var(--u)); -webkit-text-stroke-width: calc(6 * var(--u)); }
         #mode-select.hub .web-brand img { height: calc(50 * var(--u)); }
         #mode-select.hub .web-nav { gap: calc(4 * var(--u)); }
+        /* five links do not fit beside the logo: the row scrolls sideways, no link is lost (guide.css does the same) */
+        #mode-select.hub .web-head { gap: calc(10 * var(--u)); }
+        #mode-select.hub .web-brand { flex: none; }
+        #mode-select.hub .web-nav { flex: 0 1 auto; min-width: 0; overflow-x: auto; scrollbar-width: none; padding: calc(6 * var(--u)) calc(10 * var(--u)); -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 calc(14 * var(--u)), #000 calc(100% - 14 * var(--u)), transparent 100%); mask-image: linear-gradient(90deg, transparent 0, #000 calc(14 * var(--u)), #000 calc(100% - 14 * var(--u)), transparent 100%); }
+        #mode-select.hub .web-nav::-webkit-scrollbar { display: none; }
+        #mode-select.hub .web-nav a { flex: none; }
+        #mode-select.hub .nav-drop { flex: none; } #mode-select.hub .nav-menu { display: none; } #mode-select.hub .nav-drop > a::after { display: none; }
         #mode-select.hub .web-nav a { padding: calc(9 * var(--u)) calc(11 * var(--u)) calc(11 * var(--u)); }
         #mode-select.hub .web-hero { flex: none; grid-template-columns: 1fr; justify-items: center; gap: calc(38 * var(--u)); min-height: 0; padding-top: calc(72 * var(--u)); padding-bottom: calc(40 * var(--u)); }
         #mode-select.hub .web-hero::before { background: linear-gradient(180deg, rgba(9, 36, 96, 0.86), rgba(9, 36, 96, 0.6) 40%, rgba(9, 36, 96, 0.2)); }
@@ -1819,7 +1839,6 @@
         body:has(#mode-select[data-board="home"]) #menu-motion-toggle { --u: clamp(0.72px, calc(100vw / 520), 1.3px); top: calc(calc(76 * var(--u)) + 8px); bottom: auto; }
       }
       @media (max-width: 520px) {
-        #mode-select.hub .web-nav a:nth-child(2) { display: none; }
         #mode-select.hub .web-news time { display: none; }
         #mode-select.hub .web-news a { grid-template-columns: auto minmax(0, 1fr); }
       }
@@ -1841,7 +1860,7 @@
       #mode-select.hub[data-board="category"] { display: block; overflow: hidden; background: transparent; }
       #mode-select.hub[data-board="category"] .hub-shell { display: none; }
       #mode-select.hub .pick-screen {
-        --u: max(0.6px, min(calc(100vw / 1536), calc(100vh / 900)));
+        --u: var(--menu-u);
         --slant: calc(70 * var(--u)); /* half of how far the seam leans across the screen */
         --w-navy: #2b3f7a; --w-yellow: #ffd21c; --w-yellow-edge: #d99a00;
         position: absolute; inset: 0; overflow: hidden;
@@ -1966,7 +1985,7 @@
          [data-id], .class-error.
          --------------------------------------------------------------- */
       .lobby {
-        --u: max(0.6px, min(calc(100vw / 1536), calc(100vh / 900)));
+        --u: var(--menu-u);
         --w-navy: #2b3f7a; --w-cream: #fff6e3; --w-yellow: #ffd21c; --w-yellow-edge: #d99a00; --w-muted: #4d5a86;
         display: flex; flex-direction: column; align-items: stretch; justify-content: flex-start; overflow: hidden auto;
         background:
@@ -2063,6 +2082,11 @@
       .lob-pair { display: grid; grid-template-columns: 1fr 1fr; gap: calc(14 * var(--u)); }
       .lob-pair > div { display: flex; flex-direction: column; min-width: 0; }
       .lob-hint { margin-top: calc(6 * var(--u)); color: #8a7a52; font-size: calc(16 * var(--u)); line-height: 1.3; }
+      /* the teacher's account, under the class password (docs/ACCOUNTS.md): signed in, or the way to sign in */
+      .lob-account { margin: calc(12 * var(--u)) 0 0; padding: calc(9 * var(--u)) calc(13 * var(--u)) calc(11 * var(--u)); border-radius: calc(12 * var(--u)); background: #fff; color: #6b5a33; font-size: calc(16 * var(--u)); line-height: 1.45; }
+      .lob-account[hidden] { display: none; }
+      .lob-account.on { background: #e3f6e1; color: #1f6b29; }
+      .lob-account a { color: #1c55b0; text-decoration: underline; text-underline-offset: 3px; }
       /* THE LESSON SELECT (a game's map select): the list on the left — every lesson a row, narrowed by
          kind, scrolling when there are many — and the picked lesson large on the right: its picture,
          its name, what is done in it, and the one button. The same screen for a teacher (→ the class's
@@ -2223,7 +2247,7 @@
          brick low on the screen with a cream face, a row of green bricks
          filling up, the step in words and a tip. Shared by every mode.
          --------------------------------------------------------------- */
-      #boot-overlay { --u: max(0.6px, min(calc(100vw / 1536), calc(100vh / 900))); padding-bottom: calc(86 * var(--u)); font-family: "Jua Menu", "Jua", "Pretendard", "Noto Sans KR", system-ui, sans-serif; }
+      #boot-overlay { --u: var(--menu-u); padding-bottom: calc(86 * var(--u)); font-family: "Jua Menu", "Jua", "Pretendard", "Noto Sans KR", system-ui, sans-serif; }
       #boot-overlay .boot-board { position: relative; box-sizing: border-box; width: min(calc(560 * var(--u)), calc(100vw - 32px)); padding: calc(12 * var(--u)) calc(12 * var(--u)) calc(14 * var(--u)); border: 0; border-image: none; border-radius: calc(26 * var(--u)); background: linear-gradient(180deg, #ffe04d, #ffd21c 42%); box-shadow: inset 0 calc(3 * var(--u)) 0 rgba(255, 255, 255, 0.6), inset 0 calc(-5 * var(--u)) 0 rgba(196, 128, 0, 0.3), 0 calc(9 * var(--u)) 0 #d99a00, 0 calc(26 * var(--u)) calc(44 * var(--u)) rgba(6, 20, 60, 0.45); transform: none; rotate: none; }
       #boot-overlay .boot-board::before { content: ""; position: absolute; left: calc(44 * var(--u)); right: calc(44 * var(--u)); top: calc(-12 * var(--u)); height: calc(13 * var(--u)); border: 0; border-radius: calc(8 * var(--u)) calc(8 * var(--u)) 0 0; background: linear-gradient(90deg, #ffe04d 0 calc(52 * var(--u)), transparent calc(52 * var(--u))) 0 0 / calc(118 * var(--u)) 100% repeat-x; }
       #boot-overlay .boot-board::after { display: none; }
@@ -2435,6 +2459,7 @@
           <nav class="web-nav" aria-label="사이트 메뉴">
             <a href="/guide/">게임 소개</a>
             <a href="/guide/#classroom">교육 모드</a>
+            <span class="nav-drop"><a href="/cases/" aria-haspopup="true">도입 사례</a><span class="nav-menu"><a href="/cases/">학교 현장</a></span></span>
             <a href="/note/">새 소식</a>
             <a href="/guide/#controls">도움말</a>
           </nav>

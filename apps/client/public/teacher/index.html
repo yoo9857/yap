@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>선생님 로그인 · 회원가입 | 크래프트얍 CraftYap</title>
+    <meta name="robots" content="noindex" />
+    <meta name="theme-color" content="#ffd21c" />
+    <link rel="icon" type="image/png" sizes="48x48" href="/favicon-48.png" />
+    <link rel="preload" href="/fonts/jua-menu.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="stylesheet" href="/guide/guide.css?v=20261116-21" />
+    <link href="https://fonts.googleapis.com/css2?family=Jua&family=Noto+Sans+KR:wght@400;700;900&display=swap" rel="stylesheet" />
+    <script src="/teacher/teacher.js?v=20261116-20" type="module"></script>
+  </head>
+  <body>
+    <a class="skip-link" href="#content">본문으로 이동</a>
+    <header class="site-header"><div class="header-inner">
+      <a class="brand" href="/" aria-label="크래프트얍 게임 홈"><img src="/home/mascot.webp" width="322" height="360" alt="" /><span class="wordmark" aria-hidden="true"><i>C</i><i>r</i><i>a</i><i>f</i><i>t</i><i>Y</i><i>a</i><i>p</i></span></a>
+      <nav class="header-nav" id="site-nav" aria-label="사이트 메뉴"><a href="/guide/">게임 소개</a><a href="/guide/#classroom">교육 모드</a><span class="nav-drop"><a href="/cases/" aria-haspopup="true">도입 사례</a><span class="nav-menu"><a href="/cases/">학교 현장</a></span></span><a href="/note/">새 소식</a><a href="/guide/#controls">도움말</a></nav>
+    </div></header>
+    <main id="content" class="acct">
+      <section class="acct-wrap section-shell">
+        <div class="acct-side">
+          <p class="edu-eyebrow">FOR TEACHERS</p>
+          <h1>선생님 계정</h1>
+          <p>계정으로 로그인하면 어느 컴퓨터에서나 우리 반을 열 수 있습니다. 학생은 가입하지 않습니다. 반 이름과 자기 이름만 쓰면 됩니다.</p>
+          <ul class="acct-points"><li>가입은 1분이면 됩니다</li><li>비밀번호는 암호화해 보관합니다</li><li>언제든 탈퇴할 수 있습니다</li></ul>
+        </div>
+        <div class="acct-card" data-view="loading">
+          <p class="acct-wait" data-show="loading">확인하는 중입니다…</p>
+
+          <div data-show="out">
+            <div class="acct-tabs" role="tablist"><button type="button" role="tab" data-tab="login" aria-selected="true">로그인</button><button type="button" role="tab" data-tab="signup" aria-selected="false">회원가입</button></div>
+            <form class="cy-form" data-form="login" novalidate>
+              <label>이메일<input name="email" type="email" autocomplete="username" required maxlength="120" /></label>
+              <label>비밀번호<input name="password" type="password" autocomplete="current-password" required maxlength="200" /></label>
+              <p class="cy-error" role="alert" hidden></p>
+              <button class="button button-dark" type="submit">로그인</button>
+            </form>
+            <form class="cy-form" data-form="signup" novalidate hidden>
+              <label>이메일<input name="email" type="email" autocomplete="username" required maxlength="120" /><small>로그인할 때 쓰는 이름입니다. 메일은 보내지 않습니다.</small></label>
+              <label>이름<input name="name" autocomplete="name" required maxlength="30" /></label>
+              <label>학교 · 기관<input name="school" autocomplete="organization" required maxlength="60" /></label>
+              <label>비밀번호<input name="password" type="password" autocomplete="new-password" required minlength="8" maxlength="200" /><small>8자 이상</small></label>
+              <label>비밀번호 확인<input name="again" type="password" autocomplete="new-password" required maxlength="200" /></label>
+              <p class="cy-notice" data-slot="privacy">가입하면 이메일, 이름, 학교·기관명을 계정 관리를 위해 보관합니다.</p>
+              <p class="cy-error" role="alert" hidden></p>
+              <button class="button button-dark" type="submit">가입하기</button>
+            </form>
+          </div>
+
+          <div data-show="in" class="acct-me">
+            <img src="/home/mascot.webp" width="322" height="360" alt="" />
+            <h2><span data-me="name"></span> 선생님</h2>
+            <p><span data-me="school"></span> · <span data-me="email"></span></p>
+            <a class="button button-dark" href="/?mode=education">우리 반 열러 가기 <span aria-hidden="true">↗</span></a>
+            <button class="button button-white" type="button" data-do="logout">로그아웃</button>
+            <details class="acct-leave"><summary>계정 삭제</summary>
+              <form class="cy-form" data-form="delete" novalidate>
+                <p>계정과 로그인 정보가 바로 지워지고 되돌릴 수 없습니다.</p>
+                <label>비밀번호<input name="password" type="password" autocomplete="current-password" required maxlength="200" /></label>
+                <p class="cy-error" role="alert" hidden></p>
+                <button class="button button-white" type="submit">계정 삭제</button>
+              </form>
+            </details>
+          </div>
+
+          <p class="acct-wait" data-show="down">지금은 계정 서비스를 쓸 수 없습니다. 잠시 뒤에 다시 시도해 주세요.</p>
+        </div>
+      </section>
+    </main>
+    <footer class="site-footer section-shell"><div><a class="footer-brand" href="/">크래프트얍 <span>CraftYap</span></a><p>블록 하나에서 시작되는, 네가 만드는 세상.</p></div><nav aria-label="하단 메뉴"><a href="/">게임 홈</a><a href="/guide/">게임 소개</a><a href="/cases/">도입 사례</a><a href="/note/">개발 노트</a></nav></footer>
+  </body>
+</html>

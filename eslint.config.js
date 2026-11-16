@@ -30,6 +30,10 @@ export default tseslint.config(
     languageOptions: { globals: { document: "readonly" } },
   },
   {
+    files: ["apps/client/public/cases/**/*.js", "apps/client/public/site/**/*.js", "apps/client/public/teacher/**/*.js", "apps/client/public/admin/**/*.js"],
+    languageOptions: { globals: { document: "readonly", window: "readonly", matchMedia: "readonly", IntersectionObserver: "readonly", performance: "readonly", requestAnimationFrame: "readonly", fetch: "readonly", FormData: "readonly", confirm: "readonly", URLSearchParams: "readonly", location: "readonly" } },
+  },
+  {
     // dev/e2e scripts: node + puppeteer-evaluated browser code in one file,
     // exercised by running them — static no-undef only produces noise here
     // (asset source folders keep their own Node generators beside the art)

@@ -2,7 +2,8 @@
 # Zero-downtime deploy: the new release starts BESIDE the running one, nginx switches over, and only
 # then does the old container save every classroom and close. Nobody has to leave first.
 #
-#   0. preflight: the other port is free (a stale container of the other colour is removed), memory
+#   0. preflight: the other port is free (a stale container of the other colour is removed), memory;
+#      the site's PostgreSQL and the network it shares with the app are there (scripts/ensure-site-db.sh)
 #   1. start the new container on the other port (blue 8082 ↔ green 8083), wait for /healthz
 #   2. snapshot the DB from the still-running old container (the rollback point)
 #   3. hand over — a few seconds:
@@ -89,6 +90,10 @@ if [[ "${avail_mb}" -gt 0 && "${avail_mb}" -lt 250 ]]; then
   echo "under 250 MB free: not starting a second container now" >&2
   exit 1
 fi
+
+# the site's database (accounts, inquiries) and the docker network the app joins to reach it. Only a
+# missing NETWORK fails here (the app could not start); a database that is not ready is a warning.
+bash scripts/ensure-site-db.sh </dev/null
 
 # ---------------------------------------------------------------- 1. the new container beside it
 new config >/dev/null

@@ -7,6 +7,7 @@ import type { Config } from "../config.js";
 import { log } from "../log.js";
 import { ProcessMeter, type ProcessSample } from "../metrics.js";
 import { createRequestHandler } from "../http/handler.js";
+import type { SiteApi } from "../site/siteApi.js";
 import { ConnectionGate, WS_OPTIONS, clientAddress } from "../net/wsServer.js";
 import { PartyManager } from "../party/partyManager.js";
 import { HUB_ROUTE, LiveDirectory, PUBLIC_TOWER, partyFieldRoute, routeOf } from "./directory.js";
@@ -40,7 +41,7 @@ interface ShardSlot {
  * (directory.ts). It relays no game traffic: after the handoff a socket
  * belongs to its shard alone.
  */
-export function runPrimary(config: Config, staticRoot: string | null, shards: number): (reason: string, code: number) => void {
+export function runPrimary(config: Config, staticRoot: string | null, shards: number, api?: SiteApi): (reason: string, code: number) => void {
   const directory = new LiveDirectory(shards);
   // nothing is up until it says so: boot-time sockets wait instead of all piling onto shard 0
   for (let i = 0; i < shards; i++) directory.setUp(i, false);
@@ -188,7 +189,7 @@ export function runPrimary(config: Config, staticRoot: string | null, shards: nu
     };
   };
   // healthy = every shard is up (docker's healthcheck and the deploy's wait read this)
-  const httpServer = createServer(createRequestHandler(staticRoot, metrics, () => slots.every((s) => s.ready)));
+  const httpServer = createServer(createRequestHandler(staticRoot, metrics, () => slots.every((s) => s.ready), api));
   // terminates only what stays here: the hub's sockets, and polite refusals
   const local = new WebSocketServer({ noServer: true, ...WS_OPTIONS });
 

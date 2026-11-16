@@ -18,6 +18,8 @@ OUT_DIR="${OUT_DIR:-/srv/craftyap/backups}"
 KEEP_DAYS="${KEEP_DAYS:-14}"
 
 mkdir -p "${OUT_DIR}"
+# the site's PostgreSQL (accounts, inquiries): a dump a day beside the SQLite backups
+bash "$(dirname "$0")/backup-site-db.sh" "${OUT_DIR}" "site-$(date +%F_%H%M%S)" "${KEEP_DAYS}" </dev/null || echo "site db backup FAILED" >&2
 if [[ ! -f "${DB}" ]]; then
   echo "no db at ${DB} (nothing to back up yet)"
   exit 0

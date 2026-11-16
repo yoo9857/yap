@@ -138,6 +138,9 @@ export const classClientSchema = z.discriminatedUnion("t", [
      *  browser that doesn't hold the host key (another school PC). */
     password: z.string().max(CLASS_PASSWORD_MAX).optional(),
     hostKey: z.string().max(64).optional(),
+    /** A signed-in teacher's host ticket (docs/ACCOUNTS.md): the class then belongs to that account,
+     *  which may open it from any computer without the class password. Absent: as before. */
+    ticket: z.string().max(200).optional(),
     /** The lesson the teacher picked for THIS opening of the class — a new class or one that exists
      *  (its sandbox is kept under a themed lesson). Absent: the lesson the class had last. A class
      *  with people in it keeps the lesson that is running. */

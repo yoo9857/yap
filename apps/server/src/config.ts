@@ -31,6 +31,13 @@ const envSchema = z.object({
     .string()
     .default("1")
     .refine((v) => v === "auto" || /^[1-9]\d?$/.test(v), "SHARDS must be 1-99 or auto"),
+  /** The operator's password for /admin/ (≥ 10 characters). Unset: the admin is closed. */
+  ADMIN_PASSWORD: z.string().max(200).optional(),
+  /** PostgreSQL for the site's own data (teachers' accounts, inquiries): postgres://user:pass@host:5432/db.
+   *  Unset (dev): kept in memory. See docs/ACCOUNTS.md. */
+  DATABASE_URL: z.string().max(500).optional(),
+  /** Keyed into every password before it is hashed (≥ 32 random characters; never change it once accounts exist). */
+  AUTH_PEPPER: z.string().max(200).optional(),
   LOG_LEVEL: z.enum(["trace", "debug", "info", "warn", "error"]).default("info"),
 });
 

@@ -26,7 +26,7 @@ export function runShard(config: Config, entryDir: string, index: number, shards
   const send = (msg: ToPrimary) => process.send?.(msg);
   const ledger = new RouteLedger();
   // strict: a shard that cannot open the database crashes and is restarted, never runs memory-only
-  const game = createGameServices(config, entryDir, true);
+  const game = createGameServices(config, entryDir, true, shards);
   const { rooms, classes } = game;
 
   // the party hub lives on the primary; this mirror answers the games' synchronous questions

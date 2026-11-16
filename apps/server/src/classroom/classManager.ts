@@ -1,3 +1,4 @@
+import { randomBytes } from "node:crypto";
 import type { WebSocket } from "ws";
 import { PARTY_MAX_PLAYERS, partyCodeSchema } from "@robo/shared";
 import {
@@ -351,8 +352,15 @@ export class ClassManager {
     return { t: "s-k-room", room: roomName.trim(), exists: false, open: false };
   }
 
+  /** Which account a host ticket is for (services.ts sets it from the shared key); unset: nobody has an account. */
+  ticketOwner: ((ticket: string) => number | null) | null = null;
+
   private host(socket: ClassSocket, msg: Extract<ClassClientMessage, { t: "k-host" }>): ClassRoom | null {
     const key = classKey(msg.room);
+    // the signed-in teacher's account, or 0. It ADDS a way in (the owner opens their class from any
+    // computer without its password) and takes none away: host key and class password work as ever,
+    // so a lesson is never locked out by the accounts (docs/ACCOUNTS.md: "optional" first).
+    const account = (msg.ticket && this.ticketOwner?.(msg.ticket)) || 0;
     // party fields are opened by the rooms, never by a teacher
     if (key.startsWith(PARTY_PREFIX)) return this.refuse(socket, "room-taken");
     const sameTeacher = (name: string) => classKey(name) === classKey(msg.teacher);
@@ -371,13 +379,15 @@ export class ClassManager {
       if (saved) {
         // the class name is someone else's: say so, rather than "wrong password"
         if (!sameTeacher(saved.teacherName)) return this.refuse(socket, "room-taken");
-        const keyOk = !!msg.hostKey && sameKey(msg.hostKey, saved.teacherKey);
+        const keyOk = (!!msg.hostKey && sameKey(msg.hostKey, saved.teacherKey)) || (account > 0 && saved.owner === account);
         if (!keyOk && !this.tryPassword(key, () => !!msg.password && checkPassword(msg.password, saved))) return this.refuse(socket, "bad-password");
         room = withWater(new ClassRoom(saved.teacherName, { passHash: saved.passHash, salt: saved.salt }, saved, undefined, { rust: classWaterEngine(), theme: msg.theme }));
         log.info({ room: room.roomName, teacher: room.teacherName, theme: room.theme, edits: saved.edits.length, from: socket.from }, "class restored");
       } else {
-        if (!msg.password || msg.password.length < CLASS_PASSWORD_MIN) return this.refuse(socket, "bad-password");
-        const { hash, salt } = hashPassword(msg.password);
+        // a new class needs a password — unless an account opens it: the account is then its key,
+        // and the password it never had is a random one nobody knows
+        if (!account && (!msg.password || msg.password.length < CLASS_PASSWORD_MIN)) return this.refuse(socket, "bad-password");
+        const { hash, salt } = hashPassword(msg.password && msg.password.length >= CLASS_PASSWORD_MIN ? msg.password : randomBytes(24).toString("hex"));
         const tidy = (s: string) => s.trim().replace(/\s+/g, " ");
         room = withWater(new ClassRoom(tidy(msg.teacher), { passHash: hash, salt }, undefined, tidy(msg.room), { rust: classWaterEngine(), theme: msg.theme }));
         log.info({ room: room.roomName, teacher: room.teacherName, theme: room.theme, from: socket.from }, "class opened");
@@ -386,12 +396,13 @@ export class ClassManager {
     }
     const live = room;
     // a locked class still takes its own host key (the teacher's browser), never a password
-    const result = this.passwordLocked(key) && !(msg.hostKey && live.ownsHostKey(msg.hostKey))
+    const result = this.passwordLocked(key) && !(msg.hostKey && live.ownsHostKey(msg.hostKey)) && !(account > 0 && live.ownerId === account)
       ? "bad-password"
-      : live.hostTeacher(socket, { hostKey: msg.hostKey, password: msg.password });
+      : live.hostTeacher(socket, { hostKey: msg.hostKey, password: msg.password, account });
     if (result === "bad-password") this.notePasswordFail(key);
     if (result !== "ok") return this.refuse(socket, result);
     this.passwordFails.delete(key);
+    live.claim(account); // an ownerless class (new, or from before accounts) becomes this account's
     this.persist(room); // a new class exists in the store from its first second
     return room;
   }

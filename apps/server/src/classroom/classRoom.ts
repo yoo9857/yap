@@ -214,6 +214,7 @@ export class ClassRoom {
      *  rules (the reference). ClassManager decides from FLUID_ENGINE. */
     opts: { rust?: RustModule | null; theme?: ClassTheme } = {},
   ) {
+    this.ownerId = saved?.owner ?? 0;
     if (opts.rust) this.rust = new RustClassWater(opts.rust);
     // a class saved before named classes was keyed by its teacher's name
     this.roomName = roomName ?? saved?.roomName ?? teacherName;
@@ -572,6 +573,7 @@ export class ClassRoom {
       edits: this.fixedField ? this.sandbox?.edits ?? [] : edits,
       furniture: this.fixedField ? this.sandbox?.furniture ?? [] : this.furniture.toJSON(),
       ...(this.theme !== "craft" ? { theme: this.theme } : {}),
+      ...(this.ownerId ? { owner: this.ownerId } : {}),
       ...(this.theme === "fire" && (this.drillSize > 0 || this.drillGo.length > 0 || this.drillRun > 0)
         ? { drill: { size: this.drillSize, teams: [...this.drillTeams.values()].map((x): [string, number] => [x.name, x.team]), go: [...this.drillGo], run: this.drillRun } }
         : {}),
@@ -619,11 +621,21 @@ export class ClassRoom {
    * Seat the teacher. A class that already has a teacher seat is re-taken
    * with that seat's key (same browser) or the class password (any device).
    */
-  hostTeacher(peer: ClassPeer, cred: { hostKey?: string; password?: string } = {}): "ok" | "teacher-taken" | "bad-password" {
+  /** The teacher's ACCOUNT this class belongs to, or 0 (docs/ACCOUNTS.md). Saved with the class. */
+  ownerId = 0;
+  /** A class without an owner takes the account that opens it; an owned class keeps its owner. */
+  claim(account: number): void {
+    if (this.ownerId || account <= 0) return;
+    this.ownerId = account;
+    this.dirty = true;
+  }
+
+  /** `cred.account`: the signed-in teacher's account (from a host ticket), which is as good as the host key for the OWNER. */
+  hostTeacher(peer: ClassPeer, cred: { hostKey?: string; password?: string; account?: number } = {}): "ok" | "teacher-taken" | "bad-password" {
     const existing = [...this.members.values()].find((m) => m.role === "teacher");
     if (existing) {
       if (existing.peer) return "teacher-taken";
-      const keyOk = !!cred.hostKey && sameKey(cred.hostKey, existing.key);
+      const keyOk = (!!cred.hostKey && sameKey(cred.hostKey, existing.key)) || (!!cred.account && cred.account === this.ownerId);
       if (!keyOk && !(cred.password && checkPassword(cred.password, this.auth))) return "bad-password";
       this.attach(existing, peer);
       return "ok";

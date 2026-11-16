@@ -310,6 +310,9 @@ pub enum ClassClient {
         password: Option<String>,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         host_key: Option<String>,
+        /// A signed-in teacher's host ticket (the web's accounts); the app has no accounts and sends none.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        ticket: Option<String>,
         /// The learning theme for a NEW class ("craft" | "fire"); a saved class keeps its own.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         theme: Option<String>,
