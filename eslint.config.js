@@ -31,7 +31,7 @@ export default tseslint.config(
   },
   {
     files: ["apps/client/public/cases/**/*.js", "apps/client/public/site/**/*.js", "apps/client/public/teacher/**/*.js", "apps/client/public/admin/**/*.js"],
-    languageOptions: { globals: { document: "readonly", window: "readonly", matchMedia: "readonly", IntersectionObserver: "readonly", performance: "readonly", requestAnimationFrame: "readonly", fetch: "readonly", FormData: "readonly", confirm: "readonly", URLSearchParams: "readonly", location: "readonly" } },
+    languageOptions: { globals: { document: "readonly", window: "readonly", matchMedia: "readonly", IntersectionObserver: "readonly", performance: "readonly", requestAnimationFrame: "readonly", fetch: "readonly", FormData: "readonly", confirm: "readonly", alert: "readonly", URLSearchParams: "readonly", location: "readonly" } },
   },
   {
     // dev/e2e scripts: node + puppeteer-evaluated browser code in one file,

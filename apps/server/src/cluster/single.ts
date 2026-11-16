@@ -5,14 +5,17 @@ import { log } from "../log.js";
 import { ProcessMeter } from "../metrics.js";
 import { createRequestHandler } from "../http/handler.js";
 import type { SiteApi } from "../site/siteApi.js";
+import type { ClassDesk } from "./ipc.js";
 import { attachWsServer, createSocketHub } from "../net/wsServer.js";
 import { PartyManager } from "../party/partyManager.js";
 import { createGameServices } from "./services.js";
 
 /** Everything in one process: HTTP, every game, the party hub. SHARDS=1 (the default). */
-export function runSingle(config: Config, entryDir: string, staticRoot: string | null, api?: SiteApi): (reason: string, code: number) => void {
+export function runSingle(config: Config, entryDir: string, staticRoot: string | null, api?: SiteApi, desk?: ClassDesk): (reason: string, code: number) => void {
   const game = createGameServices(config, entryDir);
   const { rooms, classes } = game;
+  // 반 설정: this one process owns every class
+  if (desk) desk.run = (room, account, op) => Promise.resolve(classes.admin(room, account, op));
   // the hub's rooms: in memory only; each room's game runs on the classroom
   // field ("build") or a tower room of its own ("tower"), keyed by its code
   const parties = new PartyManager({

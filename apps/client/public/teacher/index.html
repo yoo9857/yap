@@ -3,15 +3,15 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>선생님 로그인 · 회원가입 | 크래프트얍 CraftYap</title>
+    <title>선생님 로그인 · 수업 관리 | 크래프트얍 CraftYap</title>
     <meta name="robots" content="noindex" />
     <meta name="theme-color" content="#ffd21c" />
     <link rel="icon" type="image/png" sizes="48x48" href="/favicon-48.png" />
     <link rel="preload" as="image" href="/home/world-education.webp" />
     <link rel="preload" href="/fonts/jua-menu.woff2" as="font" type="font/woff2" crossorigin />
-    <link rel="stylesheet" href="/guide/guide.css?v=20261117-4" />
+    <link rel="stylesheet" href="/guide/guide.css?v=20261117-6" />
     <link href="https://fonts.googleapis.com/css2?family=Jua&family=Noto+Sans+KR:wght@400;700;900&display=swap" rel="stylesheet" />
-    <script src="/teacher/teacher.js?v=20261117-1" type="module"></script>
+    <script src="/teacher/teacher.js?v=20261117-4" type="module"></script>
   </head>
   <body>
     <a class="skip-link" href="#content">본문으로 이동</a>
@@ -23,9 +23,10 @@
       <!-- left: where we are, in the education world's picture. right: the one card. Nothing below: one screen. -->
       <section class="acct-world" aria-labelledby="acct-title">
         <p class="acct-tag">FOR TEACHERS</p>
-        <h1 id="acct-title">선생님 계정</h1>
-        <p class="acct-lead">로그인하면 반 비밀번호 없이, 어느 컴퓨터에서나 우리 반을 엽니다.</p>
-        <ul class="acct-points"><li>가입은 1분이면 됩니다</li><li>학생은 가입하지 않습니다</li><li>언제든 탈퇴할 수 있습니다</li></ul>
+        <h1 id="acct-title" data-out="선생님 계정" data-in="수업 관리">선생님 계정</h1>
+        <p class="acct-lead" data-out="로그인하면 반 비밀번호 없이, 어느 컴퓨터에서나 우리 반을 엽니다." data-in="내 반을 골라 수업을 열거나, 새 반을 만듭니다.">로그인하면 반 비밀번호 없이, 어느 컴퓨터에서나 우리 반을 엽니다.</p>
+        <ul class="acct-points" data-when="out"><li>가입은 1분이면 됩니다</li><li>학생은 가입하지 않습니다</li><li>언제든 탈퇴할 수 있습니다</li></ul>
+        <ul class="acct-points" data-when="in" hidden><li>반 비밀번호 없이 엽니다</li><li>어느 컴퓨터에서나 엽니다</li><li>들판과 자리는 반마다 저장됩니다</li></ul>
       </section>
       <section class="acct-panel">
         <div class="acct-card" data-view="loading">
@@ -52,19 +53,78 @@
           </div>
 
           <div data-show="in" class="acct-me">
-            <img src="/home/mascot.webp" width="322" height="360" alt="" />
-            <h2><span data-me="name"></span> 선생님</h2>
-            <p><span data-me="school"></span> · <span data-me="email"></span></p>
-            <a class="button button-dark" href="/?mode=education&amp;as=teacher">우리 반 열러 가기 <span aria-hidden="true">↗</span></a>
-            <button class="button button-white" type="button" data-do="logout">로그아웃</button>
+            <div class="acct-who">
+              <img src="/home/mascot.webp" width="322" height="360" alt="" />
+              <div><h2><span data-me="name"></span> 선생님</h2><p><span data-me="school"></span> · <span data-me="email"></span></p></div>
+              <button class="acct-out" type="button" data-do="logout">로그아웃</button>
+            </div>
+            <div class="acct-classes">
+              <h3>내 반 <b data-id="class-count"></b></h3>
+              <ul data-id="classes" aria-live="polite"></ul>
+              <p class="acct-none" data-id="no-classes" hidden>아직 만든 반이 없습니다. 새 반을 만들면 여기에 모입니다.<small>계정이 없던 때 만든 반은, 로그인한 채로 한 번 열면 들어옵니다.</small></p>
+            </div>
+            <a class="button button-dark" href="/?mode=education&amp;as=teacher">＋ 새 반 만들기</a>
             <details class="acct-leave"><summary>계정 삭제</summary>
               <form class="cy-form" data-form="delete" novalidate>
-                <p>계정과 로그인 정보가 바로 지워지고 되돌릴 수 없습니다.</p>
+                <p>계정과 로그인 정보가 바로 지워지고 되돌릴 수 없습니다. 반은 함께 지워지지 않으니, 지울 반은 먼저 반 설정에서 삭제해 주세요.</p>
                 <label>비밀번호<input name="password" type="password" autocomplete="current-password" required maxlength="200" /></label>
                 <p class="cy-error" role="alert" hidden></p>
                 <button class="button button-white" type="submit">계정 삭제</button>
               </form>
             </details>
+          </div>
+
+          <!-- 반 설정: one class of the account, between lessons (the server refuses a change while a lesson runs) -->
+          <div data-show="class" class="acct-class">
+            <div class="cls-head">
+              <button type="button" class="cls-back" data-do="back" aria-label="내 반 목록으로">←</button>
+              <h2 data-cls="name"></h2>
+              <a class="cls-open" data-cls="open" href="/">수업 열기</a>
+            </div>
+            <p class="cls-live" data-cls="live" hidden></p>
+            <p class="cy-error" role="alert" data-cls="error" hidden></p>
+            <div class="cls-body">
+              <section>
+                <h3>학생 명단 <b data-cls="count"></b></h3>
+                <ul class="cls-roster" data-cls="roster"></ul>
+                <p class="cls-empty" data-cls="no-students" hidden>아직 학생이 없습니다. 수업에 들어오면 자동으로 올라오고, 아래에서 미리 넣어 둘 수도 있습니다.</p>
+                <form class="cls-add" data-form="add" novalidate>
+                  <textarea name="names" rows="2" maxlength="1500" placeholder="이름을 쉼표나 줄바꿈으로 나눠 넣으세요 (예: 민지, 준호, 서연)" aria-label="추가할 학생 이름"></textarea>
+                  <button type="submit" class="cls-btn">명단에 추가</button>
+                </form>
+              </section>
+              <section>
+                <h3>수업을 시작할 때의 잠금</h3>
+                <div class="cls-locks" data-cls="locks">
+                  <label><input type="checkbox" data-lock="buildLocked" /><span>건축 잠금</span></label>
+                  <label><input type="checkbox" data-lock="chatLocked" /><span>채팅 잠금</span></label>
+                  <label><input type="checkbox" data-lock="tapsLocked" /><span>친구 톡 잠금</span></label>
+                  <label><input type="checkbox" data-lock="plantsLocked" /><span>발전소 잠금</span></label>
+                  <label><input type="checkbox" data-lock="petsOff" /><span>펫 끄기</span></label>
+                </div>
+                <p class="cls-note">수업 중에는 F2에서 바꿉니다.</p>
+              </section>
+              <section>
+                <h3>들판과 자리</h3>
+                <div class="cls-line"><span data-cls="field"></span><button type="button" class="cls-btn" data-do="reset-field">들판 비우기</button></div>
+                <div class="cls-line"><span data-cls="seats"></span><button type="button" class="cls-btn" data-do="clear-seats">자리 초기화</button></div>
+              </section>
+              <section>
+                <h3>반 비밀번호</h3>
+                <form class="cls-line" data-form="classpass" novalidate>
+                  <input name="password" type="text" autocomplete="off" minlength="4" maxlength="100" placeholder="새 비밀번호 (4자 이상)" aria-label="새 반 비밀번호" />
+                  <button type="submit" class="cls-btn">바꾸기</button>
+                </form>
+                <p class="cls-note">계정 없이 이 반을 열 때 쓰는 비밀번호입니다. 로그인해서 열 때는 필요 없습니다.</p>
+              </section>
+              <details class="acct-leave cls-delete"><summary>반 삭제</summary>
+                <form class="cy-form" data-form="classdelete" novalidate>
+                  <p>들판, 학생 명단, 자리가 모두 지워지고 되돌릴 수 없습니다.</p>
+                  <label>계정 비밀번호<input name="password" type="password" autocomplete="current-password" required maxlength="200" /></label>
+                  <button class="button button-white" type="submit">이 반 삭제</button>
+                </form>
+              </details>
+            </div>
           </div>
 
           <p class="acct-wait" data-show="down">지금은 계정 서비스를 쓸 수 없습니다. 잠시 뒤에 다시 시도해 주세요.</p>

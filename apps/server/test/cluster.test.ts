@@ -18,7 +18,7 @@ const procs: ChildProcess[] = [];
 function boot(): ChildProcess {
   const child = spawn(process.execPath, ["--import", "tsx", "src/index.ts"], {
     cwd: join(__dirname, ".."),
-    env: { ...process.env, PORT: String(PORT), HOST: "127.0.0.1", SHARDS: "2", LOG_LEVEL: "warn", DB_PATH: join(dir, "records.db"), SERVE_STATIC: "0" },
+    env: { ...process.env, PORT: String(PORT), HOST: "127.0.0.1", SHARDS: "2", LOG_LEVEL: "warn", AUTH_PEPPER: "p".repeat(40), DATABASE_URL: "", DB_PATH: join(dir, "records.db"), SERVE_STATIC: "0" },
     stdio: "ignore",
   });
   procs.push(child);
@@ -130,6 +130,37 @@ describe("cluster (primary + 2 shards)", { retry: 2 }, () => {
     expect(stale).not.toMatch(/^error/);
     expect(stale).toBe(pub); // same public room, not a lonely one on another shard
   }, 20_000);
+
+  it("반 설정 reaches the shard that owns the class: shown while a lesson runs, changed once it is over", async () => {
+    const base = `http://127.0.0.1:${PORT}`, json = { "content-type": "application/json" };
+    const made = await fetch(`${base}/api/teacher/signup`, { method: "POST", headers: json, body: JSON.stringify({ email: "t@cluster.test", name: "김선생", school: "테스트초", password: "blocks-and-bricks" }) });
+    expect(made.status).toBe(201);
+    const auth = { ...json, cookie: made.headers.getSetCookie()[0]!.split(";")[0]! };
+    type Answer = { ok?: boolean; error?: string; deleted?: boolean; class?: { online: number; students: { name: string; online: boolean }[]; settings: { buildLocked: boolean } } };
+    const ask = async (room: string, op: string, extra: object = {}) => {
+      const r = await fetch(`${base}/api/teacher/class`, { method: "POST", headers: auth, body: JSON.stringify({ room, op, ...extra }) });
+      return { status: r.status, body: (await r.json()) as Answer };
+    };
+    // several classes, so both shards own some of them
+    for (const room of ["Golf", "Hotel", "India", "Juliet"]) {
+      const { ticket } = (await (await fetch(`${base}/api/teacher/ticket`, { method: "POST", headers: auth, body: "{}" })).json()) as { ticket: string };
+      const teacher = await enter(room, { t: "k-host", teacher: "김선생", ticket });
+      const student = await enter(room, { t: "k-join", student: "민지" });
+      const live = await ask(room, "get");
+      expect(live.body.class).toMatchObject({ online: 2, students: [{ name: "민지", online: true }] });
+      expect((await ask(room, "reset-field")).status).toBe(409);
+      teacher.ws.close(); student.ws.close();
+      await new Promise((r) => setTimeout(r, 300));
+      const added = await ask(room, "add-students", { names: ["준호"] });
+      expect(added.body.class?.students.map((s) => s.name)).toEqual(["민지", "준호"]);
+      expect((await ask(room, "settings", { buildLocked: true })).body.class?.settings.buildLocked).toBe(true);
+    }
+    expect((await ask("Nobody", "get")).status).toBe(404);
+    const list = async () => ((await (await fetch(`${base}/api/teacher/classes`, { headers: auth })).json()) as { classes: { name: string; students: number }[] }).classes.map((c) => `${c.name}:${c.students}`).sort();
+    expect(await list()).toEqual(["Golf:2", "Hotel:2", "India:2", "Juliet:2"]);
+    expect((await ask("Golf", "delete", { password: "blocks-and-bricks" })).body).toEqual({ ok: true, deleted: true });
+    expect(await list()).toEqual(["Hotel:2", "India:2", "Juliet:2"]);
+  }, 60_000);
 
   it.skipIf(process.platform === "win32")("a deploy (SIGTERM) saves every shard's classes and takes every shard down with it", async () => {
     const teacher = await enter("Echo", { t: "k-host", teacher: "TEcho", password: "pass1234" });

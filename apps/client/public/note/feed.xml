@@ -7,6 +7,51 @@
   <updated>2026-11-17T00:00:00+09:00</updated>
   <author><name>크래프트얍(CraftYap)</name></author>
   <entry xml:base="https://craftyap.com/">
+    <title>11월 16일 패치 노트 2 — 선생님의 수업 관리</title>
+    <link href="https://craftyap.com/note/patch-2026-11-16-2/" />
+    <id>https://craftyap.com/note/patch-2026-11-16-2/</id>
+    <published>2026-11-16T00:00:00+09:00</published>
+    <updated>2026-11-16T00:00:00+09:00</updated>
+    <summary>로그인한 선생님에게 수업 관리 화면이 생겼어요. 내 반을 한눈에 보고, 학생 명단과 잠금, 반 비밀번호를 수업 전에 미리 정할 수 있어요.</summary>
+    <content type="html">&lt;h2&gt;한눈에 보기&lt;/h2&gt;
+&lt;p&gt;선생님 계정으로 로그인하면 이제 &lt;strong&gt;수업 관리&lt;/strong&gt; 화면이 나와요. 내가 만든 반이 모여 있고, 반마다 &lt;strong&gt;설정&lt;/strong&gt;에서 학생 명단, 수업을 시작할 때의 잠금, 반 비밀번호를 수업 전에 미리 정할 수 있어요.&lt;/p&gt;
+&lt;h2&gt;BEFORE / AFTER&lt;/h2&gt;
+&lt;p&gt;&lt;img src=&quot;/note/assets/20261116-manage-ba.webp&quot; alt=&quot;선생님 계정 페이지 비교: 예전에는 이름과 우리 반 열러 가기 버튼만 있었고, 지금은 내 반 목록과 반마다 설정, 수업 열기 버튼이 있다&quot;&gt;&lt;/p&gt;
+&lt;h2&gt;새로 추가&lt;/h2&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;수업 관리&lt;/strong&gt; — 로그인하면 내 반이 목록으로 보여요. 반 이름, 지난 수업, 학생 수, 마지막으로 저장한 날짜가 나와요. &lt;strong&gt;수업 열기&lt;/strong&gt;를 누르면 그 반 이름이 채워진 채로 수업 고르기로 가요. &lt;strong&gt;새 반 만들기&lt;/strong&gt;도 여기에 있어요.&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;반 설정&lt;/strong&gt; — 목록에서 &lt;strong&gt;설정&lt;/strong&gt;을 누르면 그 반의 설정이 열려요.&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;학생 명단&lt;/strong&gt;: 이 반에 들어온 학생 이름이 모두 보여요. 이름을 빼거나, 수업 전에 미리 넣어 둘 수 있어요(쉼표나 줄바꿈으로 여러 명을 한 번에).&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;수업을 시작할 때의 잠금&lt;/strong&gt;: 건축, 채팅, 친구 톡, 발전소, 펫을 미리 잠가 둘 수 있어요. 수업 중에는 지금처럼 F2에서 바꿔요.&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;들판과 자리&lt;/strong&gt;: 블록·가구·발전소가 몇 개인지 보이고, 들판 비우기와 자리 초기화를 수업 밖에서도 할 수 있어요.&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;반 비밀번호&lt;/strong&gt;: 계정 없이 반을 열 때 쓰는 비밀번호를 바꿀 수 있어요.&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;반 삭제&lt;/strong&gt;: 계정 비밀번호를 한 번 더 넣어야 지워져요.&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;&lt;img src=&quot;/note/assets/20261116-manage-class.webp&quot; alt=&quot;반 설정 화면: 학생 명단에 이름이 알약 모양으로 놓여 있고, 그 아래 잠금 다섯 가지와 들판 비우기 버튼이 있다&quot;&gt;&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;수업 중인 반은 보기만&lt;/strong&gt; — 수업이 진행 중인 반은 설정에서 누가 접속해 있는지만 보여 주고, 바꾸는 것은 잠가요. 수업 중에 바꾼 것이 수업 내용과 엇갈리지 않게 하려는 거예요.&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2&gt;개선&lt;/h2&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;첫 페이지의 선생님 버튼&lt;/strong&gt; — 로그인한 선생님에게는 버튼이 &lt;strong&gt;수업 관리&lt;/strong&gt;로 바뀌어요. 누르면 바로 내 반 목록으로 가요.&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;&lt;img src=&quot;/note/assets/20261116-manage-home-ba.webp&quot; alt=&quot;첫 페이지 카드 비교: 선생님 로그인 버튼이 로그인한 뒤에는 수업 관리로 바뀌고 아래 안내 글도 바뀌었다&quot;&gt;&lt;/p&gt;
+&lt;h2&gt;수정&lt;/h2&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;발전소 잠금과 펫 끄기가 풀리던 문제&lt;/strong&gt; — 수업 중에 이 두 가지를 켜 두어도, 서버를 새로 올린 뒤에는 풀려 있었어요. 이제 다른 잠금처럼 그대로 남아요.&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2&gt;알려진 문제&lt;/h2&gt;
+&lt;ul&gt;
+&lt;li&gt;계정이 없던 때 만든 반은 목록에 바로 나오지 않아요. 로그인한 채로 그 반을 한 번 열면 들어와요.&lt;/li&gt;
+&lt;li&gt;반 이름 바꾸기는 아직 없어요.&lt;/li&gt;
+&lt;li&gt;수업 기록(언제 어떤 수업을 했는지, 화재 체험과 퀴즈 결과)은 아직 남지 않아요.&lt;/li&gt;
+&lt;li&gt;선생님 계정에는 아직 비밀번호 찾기가 없어요. 잊어버리면 도입 문의로 알려 주세요.&lt;/li&gt;
+&lt;/ul&gt;
+</content>
+  </entry>
+  <entry xml:base="https://craftyap.com/">
     <title>11월 16일 패치 노트 — 큰 모니터에서 알맞은 크기로, 어느 페이지나 같은 메뉴로</title>
     <link href="https://craftyap.com/note/patch-2026-11-16/" />
     <id>https://craftyap.com/note/patch-2026-11-16/</id>
@@ -876,31 +921,6 @@
 &lt;h2&gt;알려진 문제&lt;/h2&gt;
 &lt;ul&gt;
 &lt;li&gt;물을 퍼 담는 양동이는 모양 블록 &lt;strong&gt;안의 물&lt;/strong&gt;은 뜨지 못해요. 옆에 있는 물 칸에서 떠 주세요.&lt;/li&gt;
-&lt;/ul&gt;
-</content>
-  </entry>
-  <entry xml:base="https://craftyap.com/">
-    <title>11월 4일 패치 노트 (7) — 물이 삼각형·계단·반블록을 감싸요</title>
-    <link href="https://craftyap.com/note/patch-2026-11-04-7/" />
-    <id>https://craftyap.com/note/patch-2026-11-04-7/</id>
-    <published>2026-11-04T00:00:00+09:00</published>
-    <updated>2026-11-04T00:00:00+09:00</updated>
-    <summary>물속에 삼각형, 모서리형, 반블록, 계단 블록을 놓으면 그 칸만 물이 잘려 네모난 구멍이 보이고, 벽에 붙여 놓으면 옆 벽이 깨진 것처럼 어두운 틈이 생기던 문제를 고쳤어요. 이제 물이 모양 블록을 자연스럽게 감싸요.</summary>
-    <content type="html">&lt;h2&gt;한눈에 보기&lt;/h2&gt;
-&lt;p&gt;물속에 &lt;strong&gt;삼각형, 모서리형, 반블록, 계단&lt;/strong&gt; 블록을 놓으면 그 칸 위만 물이 &lt;strong&gt;네모나게 잘려&lt;/strong&gt; 구멍처럼 보였어요. 이제 물이 모양 블록의 빈 쪽까지 채워져서, 블록이 물에 &lt;strong&gt;자연스럽게 잠긴&lt;/strong&gt; 모습이 돼요.&lt;/p&gt;
-&lt;h2&gt;BEFORE / AFTER&lt;/h2&gt;
-&lt;p&gt;&lt;strong&gt;위: 물을 채운 웅덩이에 여러 모양 블록을 세운 모습&lt;/strong&gt; — 이전에는 블록마다 물 표면에 네모난 구멍이 있었어요. &lt;strong&gt;아래: 벽에 붙인 모서리형 옆&lt;/strong&gt; — 이전에는 물이 벽까지 닿지 못하고 어두운 틈이 생겨 벽이 깨진 것처럼 보였어요.&lt;/p&gt;
-&lt;p&gt;&lt;img src=&quot;/note/assets/20261104-water-shapes-ba.webp&quot; alt=&quot;물과 모양 블록 비교: 위 줄 왼쪽은 모양 블록마다 물 표면에 갈색 네모 구멍이 있는 이전 화면, 오른쪽은 물이 모양 블록을 감싼 새 화면. 아래 줄 왼쪽은 벽에 붙은 모서리형 옆에 물이 끊겨 어두운 틈이 있는 이전 화면, 오른쪽은 물이 벽까지 닿은 새 화면&quot;&gt;&lt;/p&gt;
-&lt;h2&gt;버그 수정&lt;/h2&gt;
-&lt;ul&gt;
-&lt;li&gt;&lt;strong&gt;모양 블록 둘레에서 잘리던 물&lt;/strong&gt; — 물은 블록이 있는 칸에 들어가지 않는데, 모양 블록은 칸의 일부만 차 있어서 빈 쪽이 물 밖으로 남았어요. 이제 물을 그릴 때 모양 블록 칸도 주변 물 높이만큼 채워서 보여 줘요. 웅덩이 가장자리처럼 바로 옆이 마른 땅이고 그쪽이 열려 있으면 물을 채우지 않아서, 마른 쪽에 물 벽이 생기지 않아요. 계단이나 경사처럼 높은 뒷면이 마른 땅을 막고 있으면 채워요(웅덩이로 내려가는 계단).&lt;/li&gt;
-&lt;li&gt;&lt;strong&gt;벽에 붙은 모서리·계단 옆의 어두운 틈&lt;/strong&gt; — 물이 모양 블록 칸 앞에서 끊기면서 물 표면 끝이 접혀 보이고, 그 사이로 벽 뒤가 비쳐 벽이 깨진 것처럼 보였어요. 같은 수정으로 물이 벽까지 닿아요.&lt;/li&gt;
-&lt;/ul&gt;
-&lt;h2&gt;알려진 문제&lt;/h2&gt;
-&lt;ul&gt;
-&lt;li&gt;물이 실제로 모양 블록 칸을 &lt;strong&gt;지나 흐르지는&lt;/strong&gt; 않아요. 예를 들어 계단을 물길로 쓰면 물이 그 칸을 통과하지 않아요.&lt;/li&gt;
-&lt;li&gt;물 높이와 딱 같은 높이에 반블록을 &lt;strong&gt;넓게&lt;/strong&gt; 깔면, 가운데 칸 위에는 물이 덜 채워질 수 있어요.&lt;/li&gt;
-&lt;li&gt;이미 열려 있던 탭은 &lt;strong&gt;새로고침&lt;/strong&gt;해야 바뀐 화면이 보여요.&lt;/li&gt;
 &lt;/ul&gt;
 </content>
   </entry>

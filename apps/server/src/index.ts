@@ -10,6 +10,8 @@ import { decideShards, readCapacity } from "./cluster/capacity.js";
 import { setHandoffFile } from "./net/handoff.js";
 import { createSiteStore, type SiteStore } from "./site/siteStore.js";
 import { createSiteApi } from "./site/siteApi.js";
+import { createClassIndex } from "./classroom/classStore.js";
+import type { ClassDesk } from "./cluster/ipc.js";
 
 const config = loadConfig();
 const entryDir = dirname(fileURLToPath(import.meta.url));
@@ -36,9 +38,17 @@ if (cluster.isWorker) {
   } catch (err) {
     log.error({ err: (err as Error).message }, "site database unreachable: accounts, inquiries and the admin are closed (503)");
   }
-  const api = createSiteApi(site, { adminPassword: config.ADMIN_PASSWORD, pepper: config.AUTH_PEPPER, processes: shards });
-  const stopGames = shards > 1 ? runPrimary(config, staticRoot, shards, api) : runSingle(config, entryDir, staticRoot, api);
+  // 수업 관리 lists an account's classes straight from the games' file (read-only): this process may hold no classes
+  const classIndex = createClassIndex(resolve(entryDir, config.DB_PATH));
+  // 반 설정 is asked of the process that owns the class (set by runSingle / runPrimary below)
+  const desk: ClassDesk = { run: null };
+  const api = createSiteApi(site, {
+    adminPassword: config.ADMIN_PASSWORD, pepper: config.AUTH_PEPPER, processes: shards, classes: (owner) => classIndex.owned(owner),
+    classAdmin: (room, account, op) => desk.run?.(room, account, op) ?? Promise.resolve({ ok: false, error: "unavailable" }),
+  });
+  const stopGames = shards > 1 ? runPrimary(config, staticRoot, shards, api, desk) : runSingle(config, entryDir, staticRoot, api, desk);
   const shutdown = (reason: string, code: number) => {
+    classIndex.close();
     site?.close().catch((err: unknown) => log.error({ err }, "site store close failed"));
     stopGames(reason, code);
   };

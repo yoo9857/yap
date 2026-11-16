@@ -10,7 +10,9 @@ import { createRequestHandler } from "../http/handler.js";
 import type { SiteApi } from "../site/siteApi.js";
 import { ConnectionGate, WS_OPTIONS, clientAddress } from "../net/wsServer.js";
 import { PartyManager } from "../party/partyManager.js";
-import { HUB_ROUTE, LiveDirectory, PUBLIC_TOWER, partyFieldRoute, routeOf } from "./directory.js";
+import { HUB_ROUTE, LiveDirectory, PUBLIC_TOWER, classRoute, partyFieldRoute, routeOf } from "./directory.js";
+import type { ClassAdminAnswer } from "../classroom/classAdmin.js";
+import type { ClassDesk } from "./ipc.js";
 import type { ShardCounts, ToPrimary, ToShard } from "./ipc.js";
 import { handoffPending } from "../net/handoff.js";
 
@@ -41,7 +43,7 @@ interface ShardSlot {
  * (directory.ts). It relays no game traffic: after the handoff a socket
  * belongs to its shard alone.
  */
-export function runPrimary(config: Config, staticRoot: string | null, shards: number, api?: SiteApi): (reason: string, code: number) => void {
+export function runPrimary(config: Config, staticRoot: string | null, shards: number, api?: SiteApi, desk?: ClassDesk): (reason: string, code: number) => void {
   const directory = new LiveDirectory(shards);
   // nothing is up until it says so: boot-time sockets wait instead of all piling onto shard 0
   for (let i = 0; i < shards; i++) directory.setUp(i, false);
@@ -108,6 +110,21 @@ export function runPrimary(config: Config, staticRoot: string | null, shards: nu
     queueMicrotask(() => { rosterQueued = false; broadcastRoster(); });
   };
 
+  // ---------------------------------------------------------------- 반 설정 (the site's API → the class's shard)
+
+  // The question goes to the shard the directory has (or now puts) the class on, as a hand-off:
+  // only that shard ever loads the class, so its answer cannot cross a load or a save.
+  const adminAsked = new Map<number, (answer: ClassAdminAnswer) => void>();
+  let adminId = 0;
+  if (desk) desk.run = (room, account, op) => new Promise<ClassAdminAnswer>((resolve) => {
+    const route = classRoute(room), slot = slots[directory.placeNow(route)]!, id = ++adminId;
+    const done = (answer: ClassAdminAnswer) => { if (adminAsked.delete(id)) { clearTimeout(timer); resolve(answer); } };
+    const timer = setTimeout(() => done({ ok: false, error: "unavailable" }), 5000);
+    adminAsked.set(id, done);
+    if (!slot.ready) { directory.cancelNow(route, slot.index); done({ ok: false, error: "unavailable" }); return; }
+    toShard(slot, { t: "class-admin", id, route, room, account, op }, undefined, () => { directory.cancelNow(route, slot.index); done({ ok: false, error: "unavailable" }); });
+  });
+
   // ---------------------------------------------------------------- shards
 
   function fork(slot: ShardSlot): void {
@@ -144,6 +161,9 @@ export function runPrimary(config: Config, staticRoot: string | null, shards: nu
         case "party-counts":
           slot.build = new Map(msg.build);
           slot.tower = new Map(msg.tower);
+          return;
+        case "class-admin-done":
+          adminAsked.get(msg.id)?.(msg.answer);
           return;
       }
     });

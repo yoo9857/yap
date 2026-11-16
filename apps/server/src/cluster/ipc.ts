@@ -1,5 +1,10 @@
 import type { IncomingHttpHeaders } from "node:http";
 import type { ProcessSample } from "../metrics.js";
+import type { ClassAdminAnswer, ClassAdminOp } from "../classroom/classAdmin.js";
+
+/** How the site's API reaches the process that owns a class (set by runSingle / runPrimary). */
+export type ClassAdminRun = (room: string, account: number, op: ClassAdminOp) => Promise<ClassAdminAnswer>;
+export interface ClassDesk { run: ClassAdminRun | null }
 
 /**
  * Messages between the cluster primary and its shards (Node IPC, JSON). The
@@ -16,6 +21,8 @@ export type ToShard =
   | { t: "party-open"; route: string; code: string }
   /** The directory dropped these routes (the shard offered them back at hand-off count `seen`). */
   | { t: "released"; routes: [string, number][] }
+  /** 반 설정: the owner's account asks about / changes its class; answered with "class-admin-done" (classAdmin.ts). */
+  | { t: "class-admin"; id: number; route: string; room: string; account: number; op: ClassAdminOp }
   | { t: "shutdown" };
 
 export type ShardCounts = { classes: number; partyFields: number; online: number; classSockets: number; towerRooms: number; towerPlayers: number };
@@ -28,4 +35,5 @@ export type ToPrimary =
   /** Routes with no socket and no game left here, each with its hand-off count (directory.ts). */
   | { t: "release"; routes: [string, number][] }
   /** Players in each party's game on this shard (build field / tower room), sent when it changes. */
-  | { t: "party-counts"; build: [string, number][]; tower: [string, number][] };
+  | { t: "party-counts"; build: [string, number][]; tower: [string, number][] }
+  | { t: "class-admin-done"; id: number; answer: ClassAdminAnswer };

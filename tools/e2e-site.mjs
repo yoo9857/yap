@@ -126,6 +126,47 @@ try {
   }), BASE, room).catch((e) => String(e));
   check("the class exists on the server", typeof ws === "string" && ws.length > 0, String(ws).slice(0, 60));
 
+  // ---- 수업 관리 / 반 설정: the account's classes, one of them looked at while its lesson runs, changed after
+  const m = await browser.newPage();
+  await m.setViewport({ width: 1366, height: 860 });
+  m.on("dialog", (d) => void d.accept());
+  await m.goto(`${BASE}/`, { waitUntil: "networkidle2" });
+  await m.waitForFunction(() => document.querySelector('[data-enter="teacher"]')?.textContent.includes("수업 관리"), { timeout: 10000 });
+  await Promise.all([m.waitForNavigation(), m.click('[data-enter="teacher"]')]);
+  check("the home's button of a signed-in teacher goes to 수업 관리", new URL(m.url()).pathname === "/teacher/");
+  const rowOf = (name) => m.evaluateHandle((name) => [...document.querySelectorAll('[data-id="classes"] li')].find((li) => li.querySelector("strong").textContent === name) ?? null, name);
+  await m.waitForFunction((name) => [...document.querySelectorAll('[data-id="classes"] li strong')].some((e) => e.textContent === name), { timeout: 10000 }, room);
+  check("the class list has the class just opened", true, room);
+  await shot(m, "manage-list");
+  await (await (await rowOf(room)).$(".cls-set")).click();
+  await until(m, ".acct-card", "class");
+  check("a running lesson is shown and locked", !(await m.$eval('[data-cls="live"]', (e) => e.hidden)) && (await m.$eval('[data-do="reset-field"]', (e) => e.disabled)));
+  await c.close(); // the teacher leaves the lesson
+  await wait(800);
+  await m.click('[data-do="back"]'); await until(m, ".acct-card", "in");
+  await m.waitForFunction((name) => [...document.querySelectorAll('[data-id="classes"] li strong')].some((e) => e.textContent === name), {}, room);
+  await (await (await rowOf(room)).$(".cls-set")).click();
+  await until(m, ".acct-card", "class");
+  check("between lessons it can be changed", (await m.$eval('[data-cls="live"]', (e) => e.hidden)) && !(await m.$eval('[data-do="reset-field"]', (e) => e.disabled)));
+  await m.type('[data-form="add"] textarea', "민지, 준호\n서연");
+  await m.click('[data-form="add"] button'); await wait(700);
+  check("names are put on the roster before the lesson", (await m.$$eval(".cls-roster li", (l) => l.map((e) => e.firstChild.textContent).join(","))) === "민지,준호,서연");
+  await m.click(".cls-roster li button"); await wait(700);
+  check("a student is taken off the roster", (await m.$$eval(".cls-roster li", (l) => l.length)) === 2);
+  await m.click('[data-lock="buildLocked"]'); await wait(700);
+  await m.click('[data-do="back"]'); await until(m, ".acct-card", "in"); await wait(500);
+  await (await (await rowOf(room)).$(".cls-set")).click(); await until(m, ".acct-card", "class");
+  check("a lock set here is kept", await m.$eval('[data-lock="buildLocked"]', (e) => e.checked));
+  await shot(m, "manage-class");
+  await m.$eval(".cls-delete", (e) => { e.open = true; });
+  await m.type('[data-form="classdelete"] [name="password"]', "wrong-password");
+  await m.click('[data-form="classdelete"] [type="submit"]'); await wait(900);
+  check("deleting a class refuses a wrong account password", (await viewOf(m, ".acct-card")) === "class" && !(await m.$eval('[data-cls="error"]', (e) => e.hidden)));
+  await m.$eval('[data-form="classdelete"] [name="password"]', (e) => { e.value = ""; });
+  await m.type('[data-form="classdelete"] [name="password"]', "blocks-and-bricks");
+  await m.click('[data-form="classdelete"] [type="submit"]'); await until(m, ".acct-card", "in"); await wait(600);
+  check("the deleted class is gone from the list", !(await m.$$eval('[data-id="classes"] li strong', (l) => l.map((e) => e.textContent))).includes(room));
+
   // ---- a signed-out visitor gets nothing from the admin's routes
   const anon = await (await browser.createBrowserContext()).newPage(); // its own cookies: none
   const r = await anon.goto(`${BASE}/api/admin/inquiries`);

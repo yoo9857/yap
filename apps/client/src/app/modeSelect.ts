@@ -69,13 +69,13 @@ export function selectMode(parent: HTMLElement): Promise<GameMode> {
     el.querySelectorAll<HTMLButtonElement>("[data-enter]").forEach((btn) => btn.addEventListener("click", () => {
       const to = btn.dataset.enter;
       if (to === "teacher") {
-        // 선생님 로그인: signed in → the lesson select; signed out → the account page, which comes
-        // back here (docs/ACCOUNTS.md). No account service, or a slow one: the lobby as it always was.
+        // 선생님 로그인 / 수업 관리: the account page — signed out it is the sign-in, signed in the
+        // teacher's own classes (docs/ACCOUNTS.md). No account service: the lobby as it always was.
         btn.disabled = true;
-        void teacherAccount().then((account) => {
+        void accountsOpen.then((open) => {
           btn.disabled = false;
-          if (account || !accountsOpen) { lobbyStart = "teacher"; choose("field"); }
-          else location.href = "/teacher/?next=class";
+          if (open) location.href = "/teacher/";
+          else { lobbyStart = "teacher"; choose("field"); }
         });
       }
       else if (to === "home") show("home");
@@ -230,5 +230,9 @@ function menuScale(fit: number): number {
 }
 
 /** Is there an account service to sign in to? (asked once; a server without one keeps 선생님 로그인 as it was) */
-let accountsOpen = false;
-void fetch("/api/teacher/me", { credentials: "same-origin" }).then((r) => { accountsOpen = r.ok; }).catch(() => {});
+const accountsOpen: Promise<boolean> = fetch("/api/teacher/me", { credentials: "same-origin" }).then((r) => r.ok).catch(() => false);
+// a signed-in teacher's button on the first page says where it goes
+void teacherAccount().then((account) => {
+  const label = document.querySelector<HTMLElement>('[data-enter="teacher"] [data-id="teacher-label"]');
+  if (account && label) label.textContent = "수업 관리";
+});

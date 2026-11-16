@@ -5,6 +5,7 @@ import { log } from "../log.js";
 import { clientAddress } from "../net/wsServer.js";
 import type { Inquiry, InquiryPatch, Session, SiteStore, Teacher } from "./siteStore.js";
 import { makeTicket, ticketKey } from "./ticket.js";
+import { classAdminOpSchema, type ClassAdminAnswer, type ClassAdminOp } from "../classroom/classAdmin.js";
 
 /**
  * The site's JSON API (`/api/…`), answered by the process that answers HTTP (the single server or
@@ -34,6 +35,10 @@ export interface SiteApiOptions {
   pepper?: string;
   /** How many game processes run (the cluster's shards): host tickets need AUTH_PEPPER when there are several. */
   processes?: number;
+  /** The classes an account owns (the games' store; classStore.ts), for 수업 관리. Unset: an empty list. */
+  classes?: (owner: number) => { name: string; teacher: string; theme: string; students: number; updatedAt: number }[];
+  /** 반 설정: the owner's account looks at or changes one of its classes (classroom/classAdmin.ts). Unset: 503. */
+  classAdmin?: (room: string, account: number, op: ClassAdminOp) => Promise<ClassAdminAnswer>;
   now?: () => number;
 }
 
@@ -46,6 +51,7 @@ const text = (min: number, max: number) => z.string().trim().min(min).max(max).r
 const Signup = z.object({ email: z.string().trim().toLowerCase().max(120).email(), name: text(1, 30), school: text(1, 60), password: z.string().min(8).max(200) });
 const Login = z.object({ email: z.string().trim().toLowerCase().max(120), password: z.string().min(1).max(200) });
 const Password = z.object({ password: z.string().min(1).max(200) });
+const ClassAsk = z.object({ room: z.string().trim().min(1).max(40) });
 const NewInquiry = z.object({ school: text(1, 60), name: text(1, 30), contact: text(3, 80), message: text(5, 2000), password: z.string().min(4).max(100), website: z.string().max(200).optional() });
 const ViewInquiry = z.object({ code: z.string().trim().toUpperCase().regex(/^[A-Z0-9]{8}$/), password: z.string().min(1).max(100) });
 const AdminInquiry = z.object({ id: z.number().int().positive(), status: z.enum(["new", "read", "answered", "closed"]).optional(), reply: z.string().trim().max(4000).optional(), note: z.string().trim().max(2000).optional() });
@@ -87,6 +93,9 @@ export function createSiteApi(store: SiteStore | null, options: SiteApiOptions =
   const limits = {
     login: new Limiter(10, 10 * 60_000), account: new Limiter(8, 15 * 60_000), signup: new Limiter(5, 60 * 60_000),
     inquiry: new Limiter(5, 60 * 60_000), view: new Limiter(20, 10 * 60_000), admin: new Limiter(5, 15 * 60_000),
+    // 반 설정: each change is work in a game process (a new class password is a hash there) — a signed-in
+    // account may not flood it. Far above what a teacher setting up classes does.
+    classes: new Limiter(150, 10 * 60_000),
   };
 
   const keyed = (password: string) => (pepper ? createHmac("sha256", pepper).update(password).digest("hex") : password);
@@ -164,6 +173,12 @@ export function createSiteApi(store: SiteStore | null, options: SiteApiOptions =
 
     const route = `${req.method} ${path}`;
     if (route === "GET /api/teacher/me") { const t = await teacherOf(); return send(res, 200, { teacher: t ? publicTeacher(t) : null }); }
+    if (route === "GET /api/teacher/classes") {
+      // 수업 관리: the signed-in teacher's own classes — names and a few words, never a field or a key
+      const t = await teacherOf();
+      if (!t) return fail(res, 401, "signed-out");
+      return send(res, 200, { classes: options.classes?.(t.id) ?? [] });
+    }
     if (route === "GET /api/admin/me") return send(res, 200, { admin: !!(await sessionOf("admin")), open: !!adminPassword });
     if (route === "GET /api/admin/inquiries" || route === "GET /api/admin/teachers" || route === "GET /api/admin/audit") {
       if (!(await sessionOf("admin"))) return fail(res, 401, "admin");
@@ -207,6 +222,26 @@ export function createSiteApi(store: SiteStore | null, options: SiteApiOptions =
         if (!t) return fail(res, 401, "signed-out");
         if (!tickets) return fail(res, 503, "unavailable");
         return send(res, 200, { ticket: makeTicket(tickets, t.id, at), teacher: publicTeacher(t) });
+      }
+      case "/api/teacher/class": {
+        // 반 설정: one of the teacher's OWN classes, looked at or changed. Whose it is, and whether a
+        // lesson is running in it, is judged by the process that owns the class.
+        const t = await teacherOf();
+        if (!t) return fail(res, 401, "signed-out");
+        const p = ClassAsk.safeParse(raw), op = classAdminOpSchema.safeParse(raw);
+        if (!p.success || !op.success) return fail(res, 400, "fields");
+        if (!options.classAdmin) return fail(res, 503, "unavailable");
+        if (!limits.classes.allow(String(t.id), at)) return fail(res, 429, "slow-down");
+        // deleting a class takes the account's password again, like deleting the account
+        if (op.data.op === "delete") {
+          if (!limits.account.allow(t.email, at)) return fail(res, 429, "slow-down");
+          const pw = Password.safeParse(raw);
+          if (!pw.success || !(await matches(pw.data.password, t))) return fail(res, 401, "wrong");
+        }
+        const answer = await options.classAdmin(p.data.room, t.id, op.data);
+        if (!answer.ok) return fail(res, answer.error === "not-found" ? 404 : answer.error === "busy" ? 409 : answer.error === "fields" ? 400 : 503, answer.error);
+        if (op.data.op !== "get") await note(`class-${op.data.op}`, t.id);
+        return send(res, 200, answer);
       }
       case "/api/teacher/logout": {
         const t = await teacherOf();

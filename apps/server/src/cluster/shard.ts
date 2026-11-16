@@ -97,6 +97,14 @@ export function runShard(config: Config, entryDir: string, index: number, shards
         case "released":
           for (const [route, seen] of msg.routes) ledger.released(route, seen);
           return;
+        case "class-admin": {
+          // counted like a hand-off (the primary placed the route for it): this shard owns the class
+          // from here on, and gives the route back at its next sweep if nothing of it is loaded
+          ledger.arrive(msg.route, false);
+          let answer: Extract<ToPrimary, { t: "class-admin-done" }>["answer"] = { ok: false, error: "unavailable" };
+          try { answer = classes.admin(msg.room, msg.account, msg.op); } finally { send({ t: "class-admin-done", id: msg.id, answer }); }
+          return;
+        }
         case "shutdown":
           shutdown("primary", 0);
           return;

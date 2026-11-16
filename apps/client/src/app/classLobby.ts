@@ -292,8 +292,10 @@ export function chooseClass(parent: HTMLElement, start: "pick" | "teacher" = "pi
       screen.querySelector<HTMLElement>(`[data-step="${step}"] input, [data-step="${step}"] [data-id="confirm-yes"]`)?.focus();
     };
     const input = (id: string) => screen.querySelector<HTMLInputElement>(`#${id}`)!;
-    input("cl-host-room").value = last.room ?? "";
-    input("cl-host").value = last.teacher ?? "";
+    // from 수업 관리 (/teacher/ → 수업 열기): that class is the one being opened, under the name it was made with
+    const asked = new URLSearchParams(location.search);
+    input("cl-host-room").value = (asked.get("class") ?? last.room ?? "").slice(0, 20);
+    input("cl-host").value = ((asked.get("class") ? asked.get("name") : null) ?? last.teacher ?? "").slice(0, 16);
     // a signed-in teacher (docs/ACCOUNTS.md): the class is their account's and needs no password;
     // signed out, the way to sign in is offered — and everything works without it, as before
     void teacherAccount().then((account) => {

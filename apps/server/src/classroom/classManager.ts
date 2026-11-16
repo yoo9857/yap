@@ -40,6 +40,7 @@ function withWater(room: ClassRoom): ClassRoom {
   return room;
 }
 import { checkPassword, hashPassword, sameKey, type ClassStore } from "./classStore.js";
+import { applyClassAdmin, classView, type ClassAdminAnswer, type ClassAdminOp } from "./classAdmin.js";
 
 const SNAPSHOT_MS = 100; // 10 Hz is plenty for walking robots
 const SNAPSHOT_SLICE_MS = 4;
@@ -494,6 +495,42 @@ export class ClassManager {
   partyOnline(code: string): number {
     const room = this.classes.get(classKey(`${PARTY_PREFIX}${code}`));
     return room && !room.closed ? room.onlineCount : 0;
+  }
+
+  /**
+   * 반 설정: the owner's account looks at or changes one of its classes (classAdmin.ts). It runs HERE,
+   * in the process that owns the class, so a change can never cross a load or a save of it:
+   *  - people in the class: it can be looked at (who is here), nothing more — "busy". The same
+   *    things are done from F2 in the lesson, and a change to the save would be written over.
+   *  - loaded with nobody in it (a lesson just left): put away first, then changed like a saved one.
+   *  - a class of another account, a party field or no class at all: one answer, "not-found".
+   */
+  admin(roomName: string, account: number, op: ClassAdminOp): ClassAdminAnswer {
+    const key = classKey(roomName);
+    if (account <= 0 || key.startsWith(PARTY_PREFIX)) return { ok: false, error: "not-found" };
+    let room = this.loaded(key);
+    if (!room && this.classes.has(key)) return { ok: false, error: "busy" }; // closed, its save still failing
+    if (room && room.ownerId !== account) return { ok: false, error: "not-found" };
+    if (room && room.onlineCount === 0) {
+      if (!this.persist(room)) return { ok: false, error: "busy" };
+      this.unload(room);
+      room = undefined;
+    }
+    const saved = this.store.load(key);
+    if (!saved || saved.owner !== account) return { ok: false, error: "not-found" };
+    if (room) return op.op === "get" ? { ok: true, class: classView(key, saved, room.liveView()) } : { ok: false, error: "busy" };
+    if (op.op === "get") return { ok: true, class: classView(key, saved) };
+    if (op.op === "delete") {
+      this.store.remove(key);
+      this.passwordFails.delete(key);
+      log.info({ room: saved.roomName ?? saved.teacherName, account }, "class deleted by its owner");
+      return { ok: true, deleted: true };
+    }
+    const next = applyClassAdmin(saved, op);
+    if (!next) return { ok: false, error: "fields" };
+    this.store.save(key, next);
+    log.info({ room: saved.roomName ?? saved.teacherName, account, op: op.op }, "class changed by its owner");
+    return { ok: true, class: classView(key, next) };
   }
 
   /** Is anything of the class under `key` in memory here — the class in any state (a closed one

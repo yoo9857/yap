@@ -141,6 +141,9 @@ try {
   const me = await fetch(base + "/api/teacher/me");
   const meJson = await me.json().catch(() => ({}));
   check("accounts API answers (503 = the site database is down)", me.status === 200 && "teacher" in meJson, String(me.status));
+  const classes = await fetch(base + "/api/teacher/classes");
+  check("a teacher's class list is closed to visitors", classes.status === 401, String(classes.status));
+  await classes.body?.cancel();
   const adminMe = await fetch(base + "/api/admin/inquiries");
   check("the admin's data is closed to visitors", adminMe.status === 401, String(adminMe.status));
   await adminMe.body?.cancel();

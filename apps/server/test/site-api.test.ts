@@ -19,7 +19,8 @@ type Json = Record<string, any>; // eslint-disable-line @typescript-eslint/no-ex
 
 async function start(adminPassword = "operator-secret", store: MemorySiteStore | null = new MemorySiteStore()) {
   let clock = 1_700_000_000_000;
-  const api = createSiteApi(store, { adminPassword, pepper: "p".repeat(40), now: () => clock });
+  const api = createSiteApi(store, { adminPassword, pepper: "p".repeat(40), now: () => clock, classes: (owner) => classesOf.get(owner) ?? [],
+    classAdmin: (room, account, op) => { asked.push([room, account, op.op]); return Promise.resolve(room === "수업 중" ? { ok: false, error: "busy" } : room === "남의 반" ? { ok: false, error: "not-found" } : { ok: true, deleted: true }); } });
   server = createServer((req, res) => api(req, res));
   await new Promise<void>((done) => server!.listen(0, "127.0.0.1", done));
   const base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
@@ -39,6 +40,10 @@ async function start(adminPassword = "operator-secret", store: MemorySiteStore |
   };
   return { store: store!, call, jar, tick: (ms: number) => { clock += ms; } };
 }
+/** The games' store, as the API is given it: the classes of each account. */
+const classesOf = new Map<number, { name: string; teacher: string; theme: string; students: number; updatedAt: number }[]>();
+/** What the API asked of the class's process (반 설정): [room, account, op]. */
+const asked: [string, number, string][] = [];
 const teacher = { email: "Kim@School.kr", name: "김선생", school: "호원초등학교", password: "blocks-and-bricks" };
 const inquiry = { school: "한빛초등학교", name: "박선생", contact: "010-0000-0000", message: "3학년 두 반에서 써 보고 싶습니다.", password: "1234" };
 
@@ -52,6 +57,37 @@ describe("teachers' accounts", () => {
     expect((await s.call("GET", "/api/teacher/me")).json.teacher.name).toBe("김선생");
     await s.call("POST", "/api/teacher/logout", {});
     expect((await s.call("GET", "/api/teacher/me")).json.teacher).toBeNull();
+  });
+
+  it("lists a teacher's own classes, and nobody's to a visitor", async () => {
+    const s = await start();
+    expect((await s.call("GET", "/api/teacher/classes")).status).toBe(401);
+    const me = (await s.call("POST", "/api/teacher/signup", teacher)).json.teacher.id as number;
+    classesOf.set(me, [{ name: "햇살반", teacher: "김선생", theme: "fire", students: 24, updatedAt: 5 }]);
+    classesOf.set(me + 1, [{ name: "남의 반", teacher: "박선생", theme: "craft", students: 3, updatedAt: 9 }]);
+    const mine = await s.call("GET", "/api/teacher/classes");
+    expect(mine.json.classes).toEqual([{ name: "햇살반", teacher: "김선생", theme: "fire", students: 24, updatedAt: 5 }]);
+    await s.call("POST", "/api/teacher/logout", {});
+    expect((await s.call("GET", "/api/teacher/classes")).status).toBe(401);
+    classesOf.clear();
+  });
+
+  it("반 설정 is asked as the signed-in account, never for a visitor; deleting takes the account's password", async () => {
+    const s = await start();
+    asked.length = 0;
+    expect((await s.call("POST", "/api/teacher/class", { room: "햇살반", op: "get" })).status).toBe(401);
+    const me = (await s.call("POST", "/api/teacher/signup", teacher)).json.teacher.id as number;
+    expect((await s.call("POST", "/api/teacher/class", { room: "햇살반", op: "reset-field" })).status).toBe(200);
+    expect((await s.call("POST", "/api/teacher/class", { room: "수업 중", op: "reset-field" })).status).toBe(409);
+    expect((await s.call("POST", "/api/teacher/class", { room: "남의 반", op: "get" })).status).toBe(404);
+    for (const bad of [{ room: "햇살반", op: "steal" }, { op: "get" }, { room: "햇살반", op: "password", password: "abc" }, { room: "햇살반", op: "add-students", names: [] }])
+      expect((await s.call("POST", "/api/teacher/class", bad)).status).toBe(400);
+    expect((await s.call("POST", "/api/teacher/class", { room: "햇살반", op: "delete" })).status).toBe(401);
+    expect((await s.call("POST", "/api/teacher/class", { room: "햇살반", op: "delete", password: "not-mine" })).status).toBe(401);
+    expect((await s.call("POST", "/api/teacher/class", { room: "햇살반", op: "delete", password: teacher.password })).json).toEqual({ ok: true, deleted: true });
+    expect((await s.call("POST", "/api/teacher/class", { room: "햇살반", op: "get" }, { origin: "https://evil.example" })).status).toBe(403);
+    expect(asked).toEqual([["햇살반", me, "reset-field"], ["수업 중", me, "reset-field"], ["남의 반", me, "get"], ["햇살반", me, "delete"]]);
+    expect((await s.store.listAudit(20)).map((e) => e.what)).toEqual(expect.arrayContaining(["class-reset-field", "class-delete"]));
   });
 
   it("stores no password and no cookie token", async () => {

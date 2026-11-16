@@ -593,6 +593,12 @@ export class ClassRoom {
     return this.byPeer.size;
   }
 
+  /** The class as its owner's page shows it while a lesson runs: who is seated and who is here (classAdmin.ts). */
+  liveView(): { students: { name: string; online: boolean }[]; settings: ClassSettings; online: number } {
+    const students = [...this.members.values()].filter((m) => m.role === "student").map((m) => ({ name: m.name, online: m.peer !== null }));
+    return { students, settings: this.settings, online: this.byPeer.size };
+  }
+
   /** Students connected right now — what the CLASS_MAX_STUDENTS cap is about (load), not the saved roster. */
   get studentCount(): number {
     let n = 0;

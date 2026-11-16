@@ -115,11 +115,40 @@ function readSeating(raw: unknown): SavedSeating | undefined {
   return { seats, origin: { pos: [origin.pos[0], origin.pos[1], origin.pos[2]], yaw: origin.yaw }, roam: d.roam === true };
 }
 
+/** One line of a teacher's class list (/teacher/ → 수업 관리): what the row says, never the field. */
+export interface OwnedClass {
+  name: string;
+  teacher: string;
+  theme: ClassTheme;
+  students: number;
+  updatedAt: number;
+}
+
+/** The small part of a save the class list shows — written beside the row so listing never parses a field. */
+const summaryOf = (key: string, d: SavedClass) => JSON.stringify({ name: d.roomName ?? d.teacherName ?? key, teacher: d.teacherName, theme: d.theme ?? "craft", students: d.students.length });
+
+function readOwned(summary: unknown, updatedAt: unknown): OwnedClass | null {
+  try {
+    const d = JSON.parse(String(summary)) as Record<string, unknown>;
+    if (typeof d.name !== "string" || typeof d.teacher !== "string") return null;
+    return { name: d.name, teacher: d.teacher, theme: d.theme === "fire" ? "fire" : "craft", students: typeof d.students === "number" ? d.students : 0, updatedAt: typeof updatedAt === "number" ? updatedAt : 0 };
+  } catch {
+    return null;
+  }
+}
+
+/** At most this many classes are listed for one account (newest first). */
+const OWNED_MAX = 60;
+
 export interface ClassStore {
+  /** The classes an account owns, newest first (docs/ACCOUNTS.md). */
+  owned(owner: number): OwnedClass[];
   load(key: string): SavedClass | null;
   /** Whose class this is, without reading its whole field (the lobby's confirm card asks this). */
   meta(key: string): { teacherName: string; roomName?: string } | null;
   save(key: string, data: SavedClass): void;
+  /** The class is gone for good (its owner deleted it: classAdmin.ts). */
+  remove(key: string): void;
   close(): void;
 }
 
@@ -144,7 +173,8 @@ export function readSaved(raw: unknown): SavedClass | null {
     ...(d as unknown as SavedClass),
     edits,
     students,
-    settings: { chatLocked: settings.chatLocked === true, buildLocked: settings.buildLocked === true, ...(settings.tapsLocked === undefined ? {} : { tapsLocked: settings.tapsLocked === true }) },
+    settings: { chatLocked: settings.chatLocked === true, buildLocked: settings.buildLocked === true, ...(settings.tapsLocked === undefined ? {} : { tapsLocked: settings.tapsLocked === true }),
+      ...(settings.plantsLocked === true ? { plantsLocked: true } : {}), ...(settings.petsOff === true ? { petsOff: true } : {}) },
     furniture: Array.isArray(d.furniture) ? (d.furniture as ClassFurniture[]) : undefined,
     seating: readSeating(d.seating),
     lesson: readLesson(d.lesson),
@@ -201,6 +231,22 @@ class SqliteClassStore implements ClassStore {
         updated_at INTEGER NOT NULL
       );
     `);
+    // The class list of an account (owned()): the owner and a few words about the class beside the
+    // row, so the list is an index lookup and never parses a several-MB field. ADDED columns only:
+    // the previous server (rollback, the other deploy colour) names its columns and ignores these.
+    // Several shards boot together: the one that loses the race finds the column already there.
+    const has = new Set((this.db.pragma("table_info(classes)") as { name: string }[]).map((c) => c.name));
+    try {
+      if (!has.has("owner")) {
+        this.db.exec(`ALTER TABLE classes ADD COLUMN owner INTEGER`);
+        // classes claimed before this column existed (done once, by whoever adds the column)
+        this.db.exec(`UPDATE classes SET owner = json_extract(data, '$.owner') WHERE data LIKE '%"owner":%'`);
+      }
+      if (!has.has("summary")) this.db.exec(`ALTER TABLE classes ADD COLUMN summary TEXT`);
+    } catch (err) {
+      if (!/duplicate column/i.test(String((err as Error).message))) throw err;
+    }
+    this.db.exec(`CREATE INDEX IF NOT EXISTS classes_owner ON classes (owner) WHERE owner IS NOT NULL`);
     const purged = this.db.prepare(`DELETE FROM classes WHERE updated_at < ?`).run(Date.now() - RETENTION_MS);
     if (purged.changes > 0) log.info({ purged: purged.changes }, "old classes purged");
   }
@@ -210,8 +256,8 @@ class SqliteClassStore implements ClassStore {
   private readonly selectMeta = () => (this.selectMetaStmt ??= this.db.prepare(
     `SELECT json_extract(data, '$.teacherName') AS teacherName, json_extract(data, '$.roomName') AS roomName FROM classes WHERE class_key = ?`));
   private readonly upsert = () => (this.upsertStmt ??= this.db.prepare(
-    `INSERT INTO classes (class_key, data, updated_at) VALUES (?, ?, ?)
-     ON CONFLICT (class_key) DO UPDATE SET data = excluded.data, updated_at = excluded.updated_at`));
+    `INSERT INTO classes (class_key, data, updated_at, owner, summary) VALUES (?, ?, ?, ?, ?)
+     ON CONFLICT (class_key) DO UPDATE SET data = excluded.data, updated_at = excluded.updated_at, owner = excluded.owner, summary = excluded.summary`));
   private selectDataStmt: import("better-sqlite3").Statement | null = null;
   private selectMetaStmt: import("better-sqlite3").Statement | null = null;
   private upsertStmt: import("better-sqlite3").Statement | null = null;
@@ -234,7 +280,15 @@ class SqliteClassStore implements ClassStore {
   }
 
   save(key: string, data: SavedClass): void {
-    this.upsert().run(key, JSON.stringify(data), Date.now());
+    this.upsert().run(key, JSON.stringify(data), Date.now(), data.owner ?? null, summaryOf(key, data));
+  }
+
+  owned(owner: number): OwnedClass[] {
+    return ownedRows(this.db, owner);
+  }
+
+  remove(key: string): void {
+    this.db.prepare(`DELETE FROM classes WHERE class_key = ?`).run(key);
   }
 
   close(): void {
@@ -242,9 +296,53 @@ class SqliteClassStore implements ClassStore {
   }
 }
 
+/** A row saved by a server from before the summary column has none: its few words are read out of the save (rare, and only then). */
+function ownedRows(db: import("better-sqlite3").Database, owner: number): OwnedClass[] {
+  const rows = db.prepare(
+    `SELECT updated_at AS updatedAt, summary,
+            CASE WHEN summary IS NULL THEN json_object('name', coalesce(json_extract(data, '$.roomName'), json_extract(data, '$.teacherName')),
+              'teacher', json_extract(data, '$.teacherName'), 'theme', coalesce(json_extract(data, '$.theme'), 'craft'),
+              'students', json_array_length(data, '$.students')) END AS made
+     FROM classes WHERE owner = ? ORDER BY updated_at DESC LIMIT ${OWNED_MAX}`).all(owner) as { updatedAt: number; summary: string | null; made: string | null }[];
+  return rows.map((r) => readOwned(r.summary ?? r.made, r.updatedAt)).filter((c): c is OwnedClass => c !== null);
+}
+
+/**
+ * The class list for the process that answers the site's API. In a cluster that is the primary,
+ * which holds no classes: it reads the shards' file (read-only; WAL readers never block a writer).
+ * Opened at the first question and again after any failure — the file or its columns may not be
+ * there yet while the shards boot — and a failure is an empty list, never a failed page.
+ */
+export function createClassIndex(dbPath: string): { owned(owner: number): OwnedClass[]; close(): void } {
+  let db: import("better-sqlite3").Database | null = null;
+  const drop = () => { try { db?.close(); } catch { /* already closed */ } db = null; };
+  return {
+    owned(owner) {
+      try {
+        db ??= new (nativeRequire("better-sqlite3") as typeof import("better-sqlite3"))(dbPath, { readonly: true, fileMustExist: true, timeout: 2000 });
+        return ownedRows(db, owner);
+      } catch (err) {
+        log.warn({ err: (err as Error).message }, "class list unavailable");
+        drop();
+        return [];
+      }
+    },
+    close: drop,
+  };
+}
+
 /** In-memory fallback (and the unit tests' store). */
 export class MemoryClassStore implements ClassStore {
   private readonly classes = new Map<string, string>();
+  private readonly saved = new Map<string, number>();
+  owned(owner: number): OwnedClass[] {
+    const out: OwnedClass[] = [];
+    for (const [key, raw] of this.classes) {
+      const d = parseSaved(key, raw);
+      if (d?.owner === owner) { const c = readOwned(summaryOf(key, d), this.saved.get(key) ?? 0); if (c) out.push(c); }
+    }
+    return out.sort((a, b) => b.updatedAt - a.updatedAt).slice(0, OWNED_MAX);
+  }
   load(key: string): SavedClass | null {
     const raw = this.classes.get(key);
     return raw ? parseSaved(key, raw) : null;
@@ -255,6 +353,11 @@ export class MemoryClassStore implements ClassStore {
   }
   save(key: string, data: SavedClass): void {
     this.classes.set(key, JSON.stringify(data));
+    this.saved.set(key, Date.now());
+  }
+  remove(key: string): void {
+    this.classes.delete(key);
+    this.saved.delete(key);
   }
   close(): void {
     this.classes.clear();

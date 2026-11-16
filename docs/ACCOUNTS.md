@@ -101,6 +101,25 @@ Errors are `{error}` with a short code (`wrong`, `taken`, `password`, `email`, `
   for after the database runs in production and teachers have accounts — a lesson in progress
   must never be locked out by a deploy.
 
+## 수업 관리 and 반 설정 (built 2026-11-16)
+
+A signed-in teacher's `/teacher/` is their class list, and each class has a settings view.
+
+- `GET /api/teacher/classes` → the account's classes (name, teacher name, last lesson, students, last
+  saved). Read from the games' SQLite by the process that answers the API (`createClassIndex`,
+  read-only): `classes` has the added columns `owner` (indexed) and `summary` (written at every save).
+- `POST /api/teacher/class {room, op, …}` → `ClassManager.admin` in the process that OWNS the class
+  (cluster: the primary places the class's route and sends `class-admin` to that shard). Ops (pure in
+  `classroom/classAdmin.ts`): `get`, `add-students {names}`, `remove-student {name}`, `password`,
+  `settings` (the five locks), `reset-field`, `clear-seats`, `delete` (takes the account's password).
+- Rules: only the owner's account (anything else is 404, the same as no class); with people in the
+  class it is only shown and every change is 409 `busy`; loaded with nobody in it, it is put away
+  first; 150 requests per 10 minutes per account; every change is in the audit record (`class-<op>`).
+- What the page is given: names and counts. Never a seat key, a host key, a hash or the field.
+- Deleting an ACCOUNT does not delete its classes (they stay openable by host key or class password
+  and are purged after 180 days unopened); the page says so.
+- Not built: renaming a class, lesson history, "in lesson now" in the list.
+
 ## Runbook
 
 **Nothing is done by hand for the database.** `scripts/zero-downtime-deploy.sh` runs
