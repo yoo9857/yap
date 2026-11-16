@@ -453,7 +453,7 @@ impl Menu {
         let url = format!("{}/ws?mode=class&room={}", self.server, profile::url_encode(&room));
         let key = self.profile.class_seat(&room, teacher);
         let first = if teacher {
-            ClassClient::Host { v: CLASS_PROTOCOL_VERSION, room: room.clone(), teacher: name.to_owned(), password, host_key: key, theme: (self.class_theme=="fire").then(||"fire".into()) }
+            ClassClient::Host { v: CLASS_PROTOCOL_VERSION, room: room.clone(), teacher: name.to_owned(), password, host_key: key, theme: (self.class_theme=="fire").then(||"fire".into()), ticket: None /* the app has no teacher accounts (docs/ACCOUNTS.md) */ }
         } else {
             ClassClient::Join { v: CLASS_PROTOCOL_VERSION, room: room.clone(), student: name.to_owned(), seat_key: key }
         };
