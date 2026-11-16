@@ -541,23 +541,68 @@ html{scroll-padding-top:calc(68*var(--menu-u) + 28px)!important}
 .acct-tabs button[aria-selected="true"]{background:#fff;color:var(--ink);box-shadow:0 3px 0 #c9d6ee}
 .acct-tabs b:not(:empty){margin-left:6px;padding:1px 8px 2px;border-radius:999px;background:var(--orange);color:#fff;font-size:14px}
 .acct-wait{margin:0;padding:30px 0;color:#55618c;font-size:17px;text-align:center}
-.acct{background:linear-gradient(180deg,#dfe9fb,#eef4ff 420px)}
-.acct-wrap{display:grid;grid-template-columns:minmax(0,.9fr) minmax(0,1.1fr);gap:60px;align-items:start;padding:84px 0 110px}
-.acct-side h1{margin:0 0 16px;font-size:52px;line-height:1.15}
-.acct-side p{margin:0;font-size:18px;line-height:1.75;color:#33406e}
-.acct-points{display:grid;gap:10px;margin:26px 0 0;padding:0;list-style:none}
-.acct-points li{color:var(--ink);font:19px/1.3 var(--display)}
-.acct-points li::before{content:"✓";margin-right:9px;color:var(--green)}
-.acct-card{padding:34px 34px 36px;border-radius:28px;background:#fff;box-shadow:0 9px 0 #c9d6ee,0 26px 44px rgba(10,30,80,.14)}
+/* /teacher/: ONE screen on any landscape window (owner 2026-11-17: the form ran off the bottom and
+   had to be scrolled) and sized by the menu's unit like the home — every length is a multiple of
+   --u, so the page grows and shrinks with the window. Left: the education world's picture and
+   what an account is for. Right: the one card; sign-up sets its fields two to a row so it is no
+   taller than sign-in plus a row. Narrow or upright windows stack and scroll; there the unit
+   follows the width and a field never goes under 16 px (smaller and iOS zooms the page). */
+main.acct{--u:var(--menu-u);--pad:max(calc(66*var(--u)),calc((100vw - calc(1560*var(--u)))/2));zoom:1!important;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.06fr);min-height:calc(100vh - 68*var(--menu-u));min-height:calc(100dvh - 68*var(--menu-u));background:#eef4ff}
+.acct-world{position:relative;display:flex;flex-direction:column;justify-content:flex-start;padding:calc(84*var(--u)) calc(56*var(--u)) calc(40*var(--u)) var(--pad);background:#2f9a3b url("/home/world-education.webp") center bottom/cover;color:#fff} /* the words stand in the picture's sky, its figures below them */
+.acct-world::before{content:"";position:absolute;inset:0;background:linear-gradient(90deg,rgba(13,74,30,.9),rgba(13,74,30,.72) 55%,rgba(13,74,30,.4))}
+.acct-world>*{position:relative}
+.acct-tag{align-self:flex-start;margin:0 0 calc(16*var(--u));padding:calc(7*var(--u)) calc(14*var(--u)) calc(8*var(--u));border-radius:999px;background:rgba(255,255,255,.18);color:#fff!important;font:700 calc(14*var(--u))/1 "Noto Sans KR",sans-serif;letter-spacing:.12em}
+.acct-world h1{margin:0 0 calc(16*var(--u));font:400 calc(72*var(--u))/1.1 var(--display);color:#fff;text-shadow:0 calc(5*var(--u)) 0 rgba(9,60,22,.6)}
+.acct-lead{max-width:calc(460*var(--u));margin:0;font-size:calc(21*var(--u));line-height:1.7;color:#f2fff0!important;word-break:keep-all}
+.acct-points{display:grid;gap:calc(11*var(--u));margin:calc(30*var(--u)) 0 0;padding:0;list-style:none}
+.acct-points li{color:#fff;font:calc(22*var(--u))/1.3 var(--display)}
+.acct-points li::before{content:"✓";margin-right:calc(10*var(--u));color:var(--yellow)}
+.acct-panel{display:grid;place-items:center;padding:calc(26*var(--u)) var(--pad) calc(26*var(--u)) calc(48*var(--u));background:#eef4ff radial-gradient(circle,rgba(61,139,240,.11) 0 calc(3*var(--u)),transparent calc(3.6*var(--u))) 0 0/calc(26*var(--u)) calc(26*var(--u))}
+/* the card is the page's work: its own unit is a fifth larger than the page's (a small laptop showed 13 px fields in a card half the height of its column) */
+.acct-card{--u:calc(var(--menu-u)*1.22);box-sizing:border-box;width:min(100%,calc(600*var(--u)));padding:calc(30*var(--u)) calc(36*var(--u)) calc(32*var(--u));border-radius:calc(30*var(--u));background:#fff;box-shadow:0 calc(9*var(--u)) 0 #c9d6ee,0 calc(26*var(--u)) calc(44*var(--u)) rgba(10,30,80,.14)}
+.acct .acct-tabs{display:grid;grid-template-columns:1fr 1fr;gap:calc(6*var(--u));margin-bottom:calc(20*var(--u));padding:calc(6*var(--u));border-radius:calc(18*var(--u))}
+.acct .acct-tabs button{padding:calc(11*var(--u)) calc(18*var(--u)) calc(13*var(--u));border-radius:calc(13*var(--u));font-size:calc(21*var(--u))}
+.acct .acct-tabs button[aria-selected="true"]{box-shadow:0 calc(3*var(--u)) 0 #c9d6ee}
+.acct-next{margin:0 0 calc(14*var(--u));padding:calc(9*var(--u)) calc(14*var(--u)) calc(11*var(--u));border-radius:calc(12*var(--u));background:#e3f6e1;color:#1f6b29!important;font-size:calc(16*var(--u))}
+.acct-next[hidden]{display:none}
+.acct .cy-form{gap:calc(14*var(--u))}
+.acct .cy-form label{gap:calc(6*var(--u));font-size:calc(18*var(--u))}
+.acct .cy-form :is(input,select){padding:calc(12*var(--u)) calc(15*var(--u));border-radius:calc(14*var(--u));font-size:calc(18*var(--u));box-shadow:inset 0 0 0 calc(2*var(--u)) #cdd9f0}
+.acct .cy-form input:focus{box-shadow:inset 0 0 0 calc(3*var(--u)) var(--blue)}
+.acct .cy-form input::placeholder{color:#8d98bd;font-size:calc(15*var(--u))}
+.acct .cy-row{gap:calc(14*var(--u))}
+.acct .cy-form .button{justify-self:stretch;min-width:0;margin-top:calc(4*var(--u));padding:calc(15*var(--u)) calc(24*var(--u)) calc(18*var(--u));border-radius:calc(16*var(--u));font-size:calc(23*var(--u))!important}
+.acct .cy-error{padding:calc(10*var(--u)) calc(14*var(--u));border-radius:calc(12*var(--u));font-size:calc(16*var(--u))}
+.acct .cy-notice{font-size:calc(14*var(--u));text-align:center}
+.acct-switch{margin:0;color:#55618c!important;font-size:calc(16*var(--u));text-align:center}
+.acct-switch button{padding:0;border:0;background:none;color:var(--blue-edge);font:inherit;text-decoration:underline;text-underline-offset:calc(3*var(--u));cursor:pointer}
+/* a password and the eye that shows it */
+.cy-pass{position:relative;display:block}
+.cy-pass input{padding-right:calc(50*var(--u, 1px))!important}
+.cy-eye{position:absolute;right:calc(8*var(--u, 1px));top:50%;translate:0 -50%;width:calc(34*var(--u, 1px));height:calc(34*var(--u, 1px));padding:0;border:0;border-radius:calc(10*var(--u, 1px));background:none;cursor:pointer;opacity:.55}
+.cy-eye::before{content:"";position:absolute;left:50%;top:50%;width:54%;height:34%;translate:-50% -50%;border:calc(2.5*var(--u, 1px)) solid var(--ink);border-radius:70% 70% 70% 70% / 100% 100% 100% 100%;box-sizing:border-box}
+.cy-eye::after{content:"";position:absolute;left:50%;top:50%;width:18%;height:18%;translate:-50% -50%;border-radius:50%;background:var(--ink)}
+.cy-eye:hover,.cy-eye:focus-visible,.cy-eye[aria-pressed="true"]{opacity:1;background:#e6edfb}
+.acct-wait{padding:calc(30*var(--u, 1px)) 0}
 .acct-me{text-align:center}
-.acct-me img{width:110px;height:auto}
-.acct-me h2{margin:8px 0 6px;font-size:32px}
-.acct-me>p{margin:0 0 24px;color:#55618c;font-size:16px}
-.acct-me .button{display:flex;justify-content:center;width:100%;margin-top:12px;border:0;cursor:pointer;font-family:var(--display)}
-.acct-leave{margin-top:26px;padding-top:18px;border-top:2px solid #e3eaf8;text-align:left}
-.acct-leave summary{color:#6a76a0;font-size:15px;cursor:pointer}
-.acct-leave form{margin-top:14px}
-.acct-leave p{margin:0;font-size:15.5px;color:#55618c}
+.acct-me img{display:block;width:calc(120*var(--u));height:auto;margin:0 auto}
+.acct-me h2{margin:calc(8*var(--u)) 0 calc(6*var(--u));font-size:calc(36*var(--u))}
+.acct-me>p{margin:0 0 calc(22*var(--u));color:#55618c;font-size:calc(17*var(--u))}
+.acct-me .button{display:flex;justify-content:center;box-sizing:border-box;width:100%;margin-top:calc(12*var(--u));padding:calc(14*var(--u)) calc(24*var(--u)) calc(17*var(--u));border:0;border-radius:calc(16*var(--u));cursor:pointer;font-family:var(--display);font-size:calc(22*var(--u))!important}
+.acct-leave{margin-top:calc(22*var(--u));padding-top:calc(16*var(--u));border-top:calc(2*var(--u)) solid #e3eaf8;text-align:left}
+.acct-leave summary{color:#6a76a0;font-size:calc(15*var(--u));cursor:pointer}
+.acct-leave form{margin-top:calc(12*var(--u))}
+.acct-leave p{margin:0;font-size:calc(15.5*var(--u));color:#55618c}
+@media (max-width:820px),(max-aspect-ratio:1/1){
+  main.acct{--u:clamp(0.72px,calc(100vw/520),1.3px);--pad:calc(22*var(--u));grid-template-columns:1fr;min-height:0}
+  .acct-world{padding:calc(34*var(--u)) var(--pad) calc(36*var(--u))}
+  .acct-world h1{font-size:calc(52*var(--u))}.acct-lead{font-size:calc(19*var(--u))}
+  .acct-points{display:none}
+  .acct-panel{place-items:start center;padding:calc(24*var(--u)) var(--pad) calc(48*var(--u))}
+  .acct-card{--u:clamp(0.72px,calc(100vw/520),1.3px);padding:calc(26*var(--u)) calc(24*var(--u)) calc(28*var(--u))}
+  .acct .cy-form :is(input,select){font-size:max(16px,calc(18*var(--u)))}
+}
+@media (max-width:520px){.acct .cy-row{grid-template-columns:1fr}}
 /* the inquiry on /cases/ */
 .inq{padding:30px 30px 32px;border-radius:26px;background:#fff;box-shadow:var(--tile-edge)}
 .inq-done h3,.inq-answer h3{margin:0 0 8px;font-size:24px}
@@ -601,5 +646,5 @@ li[data-status="answered"] .adm-status{background:var(--green);color:#fff}
 .adm-table td:first-child{border-radius:12px 0 0 12px}.adm-table td:last-child{border-radius:0 12px 12px 0}
 .adm-table tr.is-off td{color:#9aa3c0}
 .adm-mini{padding:6px 12px 7px;border:0;border-radius:9px;background:#eef4ff;box-shadow:0 3px 0 #c9d6ee;color:var(--ink);font:14.5px/1.2 var(--display);cursor:pointer}
-@media (max-width:1000px){.acct-wrap{grid-template-columns:1fr;gap:34px;padding:50px 0 70px}.acct-side h1{font-size:38px}.adm-pane[data-pane="inquiries"]{grid-template-columns:1fr}.adm-detail{position:static}.adm-top{flex-wrap:wrap}.adm-table{display:block;overflow-x:auto}}
-@media (max-width:620px){.cy-row{grid-template-columns:1fr}.acct-card,.inq{padding:24px 20px 26px}.cy-form .button{width:100%}}
+@media (max-width:1000px){.adm-pane[data-pane="inquiries"]{grid-template-columns:1fr}.adm-detail{position:static}.adm-top{flex-wrap:wrap}.adm-table{display:block;overflow-x:auto}}
+@media (max-width:620px){.cy-row{grid-template-columns:1fr}.inq{padding:24px 20px 26px}.cy-form .button{width:100%}}

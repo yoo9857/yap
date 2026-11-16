@@ -11,13 +11,22 @@ const show = (teacher, fresh = false) => {
   view("in");
 };
 
-for (const tab of card.querySelectorAll("[data-tab]")) {
-  tab.addEventListener("click", () => {
-    for (const t of card.querySelectorAll("[data-tab]")) t.setAttribute("aria-selected", String(t === tab));
-    card.querySelector('[data-form="login"]').hidden = tab.dataset.tab !== "login";
-    card.querySelector('[data-form="signup"]').hidden = tab.dataset.tab !== "signup";
+const pick = (name) => {
+  for (const t of card.querySelectorAll('.acct-tabs [data-tab]')) t.setAttribute("aria-selected", String(t.dataset.tab === name));
+  for (const f of ["login", "signup"]) card.querySelector(`[data-form="${f}"]`).hidden = f !== name;
+  card.querySelector(`[data-form="${name}"] input`)?.focus({ preventScroll: true });
+};
+for (const tab of card.querySelectorAll("[data-tab]")) tab.addEventListener("click", () => pick(tab.dataset.tab));
+// the eye beside a password shows what was typed (typing blind twice is where sign-ups fail)
+for (const eye of card.querySelectorAll(".cy-eye")) {
+  eye.addEventListener("click", () => {
+    const input = eye.previousElementSibling, show = input.type === "password";
+    input.type = show ? "text" : "password";
+    eye.setAttribute("aria-pressed", String(show));
+    eye.setAttribute("aria-label", show ? "비밀번호 숨기기" : "비밀번호 보기");
   });
 }
+if (new URLSearchParams(location.search).get("next") === "class") card.querySelector(".acct-next").hidden = false;
 const on = (name, send) => {
   const form = card.querySelector(`[data-form="${name}"]`);
   form.addEventListener("submit", (e) => { e.preventDefault(); showError(form); void busy(form, () => send(form, fields(form))); });
